@@ -12,7 +12,68 @@ import {
 import { formatNotificationDisplay } from '@/lib/notifications.js'
 import { CosmicSpaceBackground } from '@/components/CosmicSpaceBackground.jsx'
 import { PortalCloudsBackground } from '@/components/PortalCloudsBackground.jsx'
+import { LanguageSwitcher } from '@/i18n/LanguageSwitcher.jsx'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
 import logoSrc from '@/assets/eventhub-logo.png'
+
+const NAV_LABEL_MAP = {
+  'Tổng quan': { vi: 'Tổng quan', en: 'Overview' },
+  'Bảng điều khiển': { vi: 'Bảng điều khiển', en: 'Dashboard' },
+  'Quản lý người dùng': { vi: 'Quản lý người dùng', en: 'User Management' },
+  'Người dùng': { vi: 'Người dùng', en: 'Users' },
+  'Organizer': { vi: 'Organizer', en: 'Organizers' },
+  'Yêu cầu Organizer': { vi: 'Yêu cầu Organizer', en: 'Organizer Requests' },
+  'Sự kiện & Nội dung': { vi: 'Sự kiện & Nội dung', en: 'Events & Content' },
+  'Loại sự kiện': { vi: 'Loại sự kiện', en: 'Categories' },
+  'Duyệt sự kiện': { vi: 'Duyệt sự kiện', en: 'Event Approvals' },
+  'Tài chính & Gói dịch vụ': { vi: 'Tài chính & Gói dịch vụ', en: 'Finance & Plans' },
+  'Tài chính': { vi: 'Tài chính', en: 'Finance' },
+  'Gói dịch vụ': { vi: 'Gói dịch vụ', en: 'Service Plans' },
+  'Hồ sơ': { vi: 'Hồ sơ', en: 'Profile' },
+  'Sự kiện': { vi: 'Sự kiện', en: 'Events' },
+  'Tất cả sự kiện': { vi: 'Tất cả sự kiện', en: 'All Events' },
+  'Bán hàng': { vi: 'Bán hàng', en: 'Sales' },
+  'Đơn hàng': { vi: 'Đơn hàng', en: 'Orders' },
+  'Yêu cầu hoàn vé': { vi: 'Yêu cầu hoàn vé', en: 'Refund Requests' },
+  'Phân tích vé': { vi: 'Phân tích vé', en: 'Ticket Analytics' },
+  'Mã khuyến mãi': { vi: 'Mã khuyến mãi', en: 'Promo Codes' },
+  'Khán giả': { vi: 'Khán giả', en: 'Audience' },
+  'Người tham dự': { vi: 'Người tham dự', en: 'Attendees' },
+  'Check-in': { vi: 'Check-in', en: 'Check-in' },
+  'Phản hồi': { vi: 'Phản hồi', en: 'Feedback' },
+  'Vận hành': { vi: 'Vận hành', en: 'Operations' },
+  'Địa điểm': { vi: 'Địa điểm', en: 'Venues' },
+  'Quản lý nhân sự': { vi: 'Quản lý nhân sự', en: 'Staff Management' },
+  'Cài đặt': { vi: 'Cài đặt', en: 'Settings' },
+  'Thanh toán': { vi: 'Thanh toán', en: 'Payment' },
+  'Thông báo': { vi: 'Thông báo', en: 'Announcements' },
+  'Chính sách': { vi: 'Chính sách', en: 'Policies' },
+  'Trang chủ': { vi: 'Trang chủ', en: 'Home' },
+  'Sự kiện được giao': { vi: 'Sự kiện được giao', en: 'Assigned Events' },
+  'Soát vé': { vi: 'Soát vé', en: 'Ticket Check-in' },
+  'Đặt vé trực tiếp': { vi: 'Đặt vé trực tiếp', en: 'Direct Booking' },
+  'Quét vé bằng mã QR': { vi: 'Quét vé bằng mã QR', en: 'QR Check-in' },
+  'Soát vé thủ công': { vi: 'Soát vé thủ công', en: 'Manual Check-in' },
+  'Thống kê soát vé': { vi: 'Thống kê soát vé', en: 'Check-in Statistics' },
+  'Đăng xuất': { vi: 'Đăng xuất', en: 'Log out' },
+}
+
+function getNavLabel(rawLabel, isVietnamese) {
+  if (!rawLabel) return ''
+  if (isVietnamese) return rawLabel
+  return NAV_LABEL_MAP[rawLabel]?.en || rawLabel
+}
+
+function getTranslatedRole(rawRole, isVietnamese) {
+  if (!rawRole) return ''
+  if (isVietnamese) return rawRole
+  const lower = rawRole.toLowerCase()
+  if (lower.includes('quản trị') || lower.includes('admin')) return 'ADMINISTRATOR'
+  if (lower.includes('tổ chức') || lower.includes('organizer')) return 'ORGANIZER'
+  if (lower.includes('nhân') || lower.includes('staff')) return 'STAFF'
+  if (lower.includes('khách') || lower.includes('customer')) return 'CUSTOMER'
+  return rawRole.toUpperCase()
+}
 
 const collapsedWidth = 76
 const expandedWidth = 232
@@ -41,6 +102,7 @@ export function RolePortalLayout({
   bottomItems = [],
   avatar,
 }) {
+  const { isVietnamese, t } = useLanguage()
   const location = useLocation()
   const navigate = useNavigate()
   const [sidebarExpanded, setSidebarExpanded] = useState(false)
@@ -193,7 +255,7 @@ export function RolePortalLayout({
               <button
                 type="button"
                 onClick={logout}
-                title={'Đăng xuất'}
+                title={isVietnamese ? 'Đăng xuất' : 'Log out'}
                 className={`group flex h-10 w-full items-center justify-start gap-3 overflow-hidden rounded-xl px-3 text-[13px] font-semibold transition-all duration-200 hover:text-error ${theme === 'light'
                   ? 'text-[#1B365D] hover:bg-[#C99A47]/15'
                   : 'text-white/90 hover:bg-white/10'
@@ -201,13 +263,13 @@ export function RolePortalLayout({
               >
                 <LogOut className={`size-[18px] shrink-0 group-hover:text-error ${theme === 'light' ? 'text-[#1B365D]' : 'text-white/80'
                   }`} />
-                <span className="portal-sidebar-label min-w-0 group-hover:text-error">{'Đăng xuất'}</span>
+                <span className="portal-sidebar-label min-w-0 group-hover:text-error">{isVietnamese ? 'Đăng xuất' : 'Log out'}</span>
               </button>
             ) : (
               <button
                 type="button"
                 onClick={logout}
-                title={'Đăng xuất'}
+                title={isVietnamese ? 'Đăng xuất' : 'Log out'}
                 className={`grid size-10 place-items-center rounded-xl transition-all duration-200 hover:text-error ${theme === 'light'
                   ? 'text-[#1B365D] hover:bg-[#C99A47]/15'
                   : 'text-white/80 hover:bg-white/10'
@@ -253,7 +315,7 @@ export function RolePortalLayout({
             <span className={`text-[11px] font-extrabold uppercase tracking-wider rounded-md px-2 py-0.5 ${
               theme === 'light' ? 'bg-[#C99A47]/20 text-[#1B365D]' : 'bg-primary/20 text-primary'
             }`}>
-              {roleLabel}
+              {getTranslatedRole(roleLabel, isVietnamese)}
             </span>
           </div>
           <button
@@ -262,7 +324,7 @@ export function RolePortalLayout({
             className={`grid size-9 place-items-center rounded-xl transition ${
               theme === 'light' ? 'hover:bg-[#C99A47]/20 text-[#1B365D]' : 'hover:bg-white/10 text-white'
             }`}
-            aria-label="Đóng menu"
+            aria-label={isVietnamese ? 'Đóng menu' : 'Close menu'}
           >
             <X className="size-5" />
           </button>
@@ -303,7 +365,7 @@ export function RolePortalLayout({
             className={`group flex h-11 w-full items-center gap-3 rounded-[18px] px-4 text-sm font-semibold text-error transition-all hover:bg-error/10`}
           >
             <LogOut className="size-5 shrink-0" />
-            <span>Đăng xuất</span>
+            <span>{isVietnamese ? 'Đăng xuất' : 'Log out'}</span>
           </button>
         </div>
       </aside>
@@ -374,8 +436,10 @@ export function RolePortalLayout({
 }
 
 function SidebarSection({ section, expanded, showDivider, pathname, theme, onItemClick }) {
+  const { isVietnamese } = useLanguage()
   const Icon = getSectionIcon(section)
   const items = section.group ? section.children : section.items
+  const sectionTitle = getNavLabel(section.label, isVietnamese)
 
   if (!expanded) {
     return (
@@ -407,7 +471,7 @@ function SidebarSection({ section, expanded, showDivider, pathname, theme, onIte
       )}
       <p className={`portal-sidebar-label px-3 pb-1 pt-1.5 text-[11px] font-black uppercase tracking-widest ${theme === 'light' ? 'text-[#1B365D]' : 'text-white'
         }`}>
-        {section.label}
+        {sectionTitle}
       </p>
       <div className="space-y-0.5">
         {items.map((item) => (
@@ -426,15 +490,17 @@ function SidebarSection({ section, expanded, showDivider, pathname, theme, onIte
 }
 
 function SidebarItem({ item, expanded, active, fallbackIcon, theme, onClick }) {
+  const { isVietnamese } = useLanguage()
   const Icon = item.icon || fallbackIcon
   const isLight = theme === 'light'
+  const displayLabel = getNavLabel(item.label, isVietnamese)
 
   if (!expanded) {
     return (
       <NavLink
         to={item.to}
         end={item.end}
-        title={item.label}
+        title={displayLabel}
         onClick={onClick}
         className={({ isActive }) => {
           const current = active ?? isActive
@@ -471,7 +537,7 @@ function SidebarItem({ item, expanded, active, fallbackIcon, theme, onClick }) {
     <NavLink
       to={item.to}
       end={item.end}
-      title={item.label}
+      title={displayLabel}
       onClick={onClick}
       className={({ isActive }) => {
         const current = active ?? isActive
@@ -499,7 +565,7 @@ function SidebarItem({ item, expanded, active, fallbackIcon, theme, onClick }) {
                   }`} />
               )}
               <span className={`portal-sidebar-label min-w-0 flex-1 ${current ? 'font-black text-[#0D1B2A]' : 'text-[#1B365D] group-hover:text-[#0D1B2A]'
-                }`}>{item.label}</span>
+                }`}>{displayLabel}</span>
               {current && <ChevronRight className="size-4 shrink-0 text-[#C99A47]" />}
             </>
           )
@@ -511,7 +577,7 @@ function SidebarItem({ item, expanded, active, fallbackIcon, theme, onClick }) {
                 }`} />
             )}
             <span className={`portal-sidebar-label min-w-0 flex-1 ${current ? 'text-primary' : 'text-white'}`}>
-              {item.label}
+              {displayLabel}
             </span>
             {current && <ChevronRight className="size-4 shrink-0 text-primary" />}
           </>
@@ -522,8 +588,10 @@ function SidebarItem({ item, expanded, active, fallbackIcon, theme, onClick }) {
 }
 
 function PortalTopBar({ user, avatar, roleLabel, profileTo, theme, onToggleTheme, onOpenMobileMenu }) {
+  const { isVietnamese, t } = useLanguage()
   const isLight = theme === 'light'
-  const isAdmin = isAdminUser(user) || roleLabel === 'Quản trị viên'
+  const isAdmin = isAdminUser(user) || roleLabel === 'Quản trị viên' || roleLabel === 'ADMINISTRATOR'
+  const displayRole = getTranslatedRole(roleLabel, isVietnamese)
 
   return (
     <header className={`fixed inset-x-0 top-0 z-40 flex h-16 sm:h-[68px] items-center justify-between gap-2 sm:gap-4 border-b px-3 sm:px-6 lg:px-8 backdrop-blur-xl transition-colors duration-500 ${isLight
@@ -538,7 +606,7 @@ function PortalTopBar({ user, avatar, roleLabel, profileTo, theme, onToggleTheme
           className={`grid size-9 sm:size-10 shrink-0 place-items-center rounded-xl lg:hidden transition ${
             isLight ? 'text-[#1B365D] hover:bg-[#C99A47]/15' : 'text-white hover:bg-white/10'
           }`}
-          aria-label="Mở menu điều hướng"
+          aria-label={isVietnamese ? 'Mở menu điều hướng' : 'Open navigation menu'}
         >
           <Menu className="size-5" />
         </button>
@@ -546,7 +614,7 @@ function PortalTopBar({ user, avatar, roleLabel, profileTo, theme, onToggleTheme
         <NavLink
           to={isAdmin ? '/admin' : '/'}
           reloadDocument={!isAdmin}
-          title={isAdmin ? 'Về trang quản trị' : 'Về trang chủ'}
+          title={isAdmin ? (isVietnamese ? 'Về trang quản trị' : 'Back to Admin Portal') : (isVietnamese ? 'Về trang chủ' : 'Back to Home')}
           className="shrink-0 transition opacity-90 hover:opacity-100 flex items-center"
         >
           <img
@@ -566,16 +634,17 @@ function PortalTopBar({ user, avatar, roleLabel, profileTo, theme, onToggleTheme
             ? 'border-[#C99A47]/45 bg-[#C99A47]/15 text-[#1B365D] hover:bg-[#C99A47] hover:text-[#0D1B2A] shadow-sm'
             : 'border-[#C99A47]/50 bg-[#C99A47]/10 text-[#E6C17A] hover:border-[#E6C17A] hover:bg-[#C99A47] hover:text-[#081126] hover:shadow-[0_0_16px_rgba(201,154,71,0.35)]'
             }`}
-          title="Chuyển sang trang khách hàng"
+          title={isVietnamese ? 'Chuyển sang trang khách hàng' : 'Switch to Customer Site'}
         >
           <Home className="size-4" />
-          <span>Trang khách hàng</span>
+          <span>{isVietnamese ? 'Trang khách hàng' : 'Customer Site'}</span>
         </NavLink>
-        <div className={`glass-panel flex h-10 sm:h-10.5 items-center gap-1 rounded-full px-1.5 sm:px-2 shadow-inner ${isLight ? 'border-[#C99A47]/30 bg-white/70 text-[#1B365D]' : 'border-white/10'
+        <LanguageSwitcher theme={theme} className="h-10 sm:h-10.5" />
+        <div className={`glass-panel flex h-10 sm:h-10.5 items-center gap-1.5 rounded-full px-1.5 sm:px-2 shadow-inner ${isLight ? 'border-[#C99A47]/30 bg-white/70 text-[#1B365D]' : 'border-white/10'
           }`}>
           <TopBarIconButton
             icon={theme === 'light' ? Sun : Moon}
-            label={theme === 'light' ? 'Chế độ sáng' : 'Chế độ tối'}
+            label={theme === 'light' ? (isVietnamese ? 'Chế độ sáng' : 'Light mode') : (isVietnamese ? 'Chế độ tối' : 'Dark mode')}
             onClick={onToggleTheme}
             theme={theme}
           />
@@ -587,15 +656,15 @@ function PortalTopBar({ user, avatar, roleLabel, profileTo, theme, onToggleTheme
             ? 'border-[#C99A47]/30 bg-white/70 hover:border-[#C99A47] hover:bg-white/95'
             : 'border-white/10 hover:border-primary/50 hover:bg-white/5'
             }`}
-          title={'Hồ sơ'}
+          title={isVietnamese ? 'Hồ sơ' : 'Profile'}
         >
           {avatar}
           <div className="hidden text-left sm:block">
             <p className={`text-xs sm:text-sm font-extrabold leading-tight ${isLight ? 'text-[#0D1B2A]' : 'text-white'}`}>
-              {user?.full_name?.split(' ').slice(-1)[0] || roleLabel}
+              {user?.full_name?.split(' ').slice(-1)[0] || displayRole}
             </p>
             <p className={`text-[10px] sm:text-[11px] font-bold uppercase tracking-wider ${isLight ? 'text-[#C99A47]' : 'text-primary'}`}>
-              {roleLabel}
+              {displayRole}
             </p>
           </div>
           <ChevronRight className={`size-4 ${isLight ? 'text-[#1B365D]/60' : 'text-slate-400'}`} />
@@ -606,6 +675,7 @@ function PortalTopBar({ user, avatar, roleLabel, profileTo, theme, onToggleTheme
 }
 
 function PortalNotificationBell({ theme }) {
+  const { isVietnamese, t } = useLanguage()
   const isLight = theme === 'light'
   const queryClient = useQueryClient()
   const navigate = useNavigate()
@@ -743,10 +813,10 @@ function PortalNotificationBell({ theme }) {
     <div ref={containerRef} className="relative">
       <button
         type="button"
-        title="Thông báo"
+        title={t('nav.notifications')}
         onClick={() => setNotificationOpen((prev) => !prev)}
         className="relative grid size-8 sm:size-8.5 place-items-center rounded-full text-subtle transition hover:bg-panel-soft hover:text-content"
-        aria-label="Thông báo"
+        aria-label={t('nav.notifications')}
         aria-expanded={notificationOpen}
       >
         <Bell className="size-[17px] sm:size-[18px]" />
@@ -780,10 +850,10 @@ function PortalNotificationBell({ theme }) {
               </div>
               <div>
                 <h4 className={`text-sm sm:text-base font-black tracking-tight ${isLight ? 'text-[#0D1B2A]' : 'text-white'}`}>
-                  Thông báo
+                  {t('nav.notifications')}
                 </h4>
                 <p className={`text-xs font-medium ${isLight ? 'text-[#536b88]' : 'text-slate-400'}`}>
-                  {unreadCount > 0 ? `${unreadCount} chưa đọc` : 'Đã đọc tất cả thông báo'}
+                  {unreadCount > 0 ? t('nav.unreadCount', { count: unreadCount }) : (isVietnamese ? 'Đã đọc tất cả thông báo' : 'All notifications read')}
                 </p>
               </div>
             </div>
@@ -793,7 +863,7 @@ function PortalNotificationBell({ theme }) {
                 onClick={() => markAllMutation.mutate()}
                 className={`grid size-8 place-items-center rounded-full transition ${isLight ? 'text-[#1B365D] hover:bg-[#C99A47]/20' : 'text-subtle hover:bg-white/10 hover:text-[#E6C17A]'
                   }`}
-                title="Đánh dấu tất cả đã đọc"
+                title={isVietnamese ? 'Đánh dấu tất cả đã đọc' : 'Mark all as read'}
               >
                 <CheckCheck className="size-4" />
               </button>
@@ -802,10 +872,14 @@ function PortalNotificationBell({ theme }) {
 
           <div className="max-h-80 overflow-y-auto">
             {notificationsQuery.isLoading && (
-              <p className={`px-4 py-5 text-center text-xs ${isLight ? 'text-[#1B365D]' : 'text-subtle'}`}>Đang tải thông báo...</p>
+              <p className={`px-4 py-5 text-center text-xs ${isLight ? 'text-[#1B365D]' : 'text-subtle'}`}>
+                {isVietnamese ? 'Đang tải thông báo...' : 'Loading notifications...'}
+              </p>
             )}
             {!notificationsQuery.isLoading && notifications.length === 0 && (
-              <p className={`px-4 py-5 text-center text-xs ${isLight ? 'text-[#1B365D]' : 'text-subtle'}`}>Bạn chưa có thông báo nào.</p>
+              <p className={`px-4 py-5 text-center text-xs ${isLight ? 'text-[#1B365D]' : 'text-subtle'}`}>
+                {t('nav.noNotifications')}
+              </p>
             )}
             {notifications.map((notification) => {
               const display = formatNotificationDisplay(notification)
@@ -831,7 +905,7 @@ function PortalNotificationBell({ theme }) {
                       <p className={`line-clamp-1 text-xs font-extrabold ${isLight ? 'text-[#0D1B2A]' : 'text-content'}`}>{display.title}</p>
                       <p className={`mt-1 line-clamp-2 text-xs leading-4 ${isLight ? 'text-[#1B365D]/80' : 'text-subtle'}`}>{display.content}</p>
                       <p className={`mt-1 text-[10px] ${isLight ? 'text-[#506680]' : 'text-muted'}`}>
-                        {formatTimeAgo(notification.created_at)}
+                        {formatTimeAgo(notification.created_at, isVietnamese)}
                       </p>
                     </div>
                   </div>
@@ -846,7 +920,7 @@ function PortalNotificationBell({ theme }) {
             className={`block border-t px-4 py-2.5 text-center text-xs font-extrabold text-[#C99A47] hover:text-[#E6C17A] transition-colors ${isLight ? 'border-[#C99A47]/20 bg-[#F5EBDD]/50 hover:bg-[#F5EBDD]' : 'border-border-soft/30 hover:bg-white/[0.04]'
               }`}
           >
-            Xem tất cả thông báo
+            {t('nav.viewAllNotifications')}
           </Link>
         </div>
       )}
@@ -854,16 +928,16 @@ function PortalNotificationBell({ theme }) {
   )
 }
 
-function formatTimeAgo(isoDate) {
+function formatTimeAgo(isoDate, isVietnamese = true) {
   if (!isoDate) return ''
   const date = new Date(isoDate)
   const now = new Date()
   const diffSec = Math.floor((now - date) / 1000)
 
-  if (diffSec < 60) return 'Vừa xong'
-  if (diffSec < 3600) return `${Math.floor(diffSec / 60)} phút trước`
-  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)} giờ trước`
-  return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  if (diffSec < 60) return isVietnamese ? 'Vừa xong' : 'Just now'
+  if (diffSec < 3600) return isVietnamese ? `${Math.floor(diffSec / 60)} phút trước` : `${Math.floor(diffSec / 60)}m ago`
+  if (diffSec < 86400) return isVietnamese ? `${Math.floor(diffSec / 3600)} giờ trước` : `${Math.floor(diffSec / 3600)}h ago`
+  return date.toLocaleDateString(isVietnamese ? 'vi-VN' : 'en-US', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
 function TopBarIconButton({ icon: Icon, label, onClick, theme }) {

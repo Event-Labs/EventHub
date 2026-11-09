@@ -24,6 +24,8 @@ import {
   Zap,
 } from 'lucide-react'
 import { DateRangeFilter, getDateRange, getDateRangeLabel } from '@/components/DateRangeFilter.jsx'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
+import { VI_TO_EN } from '@/i18n/phraseDictionary.js'
 import {
   fetchAdminAnalyticsOverview,
   fetchAdminRevenueTrend,
@@ -35,8 +37,14 @@ import { Page, Panel } from './AdminComponents.jsx'
 
 // ─── Formatters & Helpers ────────────────────────────────────────────────────
 
+const getAutoLocale = () =>
+  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
+   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
+    ? 'en-US'
+    : 'vi-VN'
+
 function fmtCurrency(n) {
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(n) || 0)
+  return new Intl.NumberFormat(getAutoLocale(), { style: 'currency', currency: 'VND' }).format(Number(n) || 0)
 }
 
 function fmtShort(n) {
@@ -44,7 +52,7 @@ function fmtShort(n) {
   if (v >= 1_000_000_000) return `${(v / 1_000_000_000).toFixed(1)}B`
   if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`
   if (v >= 1_000) return `${(v / 1_000).toFixed(0)}K`
-  return v.toLocaleString('vi-VN')
+  return v.toLocaleString(getAutoLocale())
 }
 
 function fmtChartDay(value) {
@@ -69,7 +77,7 @@ function fmtFullDate(value) {
   try {
     const d = new Date(value)
     if (Number.isNaN(d.getTime())) return String(value)
-    return d.toLocaleDateString('vi-VN', {
+    return d.toLocaleDateString(getAutoLocale(), {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
@@ -858,6 +866,7 @@ function CategoryDistributionChart({ items = [] }) {
 // ─── Main Admin Analytics Page ────────────────────────────────────────────────
 
 export function AdminAnalyticsPage() {
+  const { isEnglish, t } = useLanguage()
   const navigate = useNavigate()
   const [datePreset, setDatePreset] = useState('last30')
   const defaultRange = getDateRange('last30')
@@ -933,8 +942,7 @@ export function AdminAnalyticsPage() {
 
   return (
     <Page
-      title="Tổng quan Nền tảng"
-      description="Thống kê toàn hệ thống: người dùng, sự kiện, giao dịch vé và doanh thu gói dịch vụ."
+      title={isEnglish ? 'Platform Overview' : 'Tổng quan Nền tảng'}
     >
       {/* ── 1. Attention Required Banner ("HÀNG ĐỢI XỬ LÝ") ── */}
       {overview && (
@@ -952,20 +960,20 @@ export function AdminAnalyticsPage() {
               </div>
               <div>
                 <p className="text-xs font-black uppercase tracking-wider text-amber-400 [html.light_&]:text-amber-800">
-                  Hàng đợi phê duyệt
+                  {isEnglish ? 'Approval Queue' : 'Hàng đợi phê duyệt'}
                 </p>
                 <p className="text-xs text-slate-400 [html.light_&]:text-[#536b88]">
-                  Yêu cầu từ các đối tác cần Admin kiểm duyệt trước khi đưa lên sàn
+                  {isEnglish ? 'Partner requests requiring admin review before going live' : 'Yêu cầu từ các đối tác cần Admin kiểm duyệt trước khi đưa lên sàn'}
                 </p>
               </div>
             </div>
             {Number(events?.pending_events || 0) + Number(orgReqs?.pending_requests || 0) > 0 ? (
               <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-extrabold text-amber-300 [html.light_&]:bg-amber-100 [html.light_&]:border-amber-300 [html.light_&]:text-amber-800">
-                {Number(events?.pending_events || 0) + Number(orgReqs?.pending_requests || 0)} mục đang chờ duyệt
+                {Number(events?.pending_events || 0) + Number(orgReqs?.pending_requests || 0)} {isEnglish ? 'items pending review' : 'mục đang chờ duyệt'}
               </span>
             ) : (
               <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-extrabold text-emerald-400 [html.light_&]:bg-emerald-50 [html.light_&]:border-emerald-300 [html.light_&]:text-emerald-700">
-                <CheckCircle2 className="size-3.5" /> Tất cả đã được xử lý
+                <CheckCircle2 className="size-3.5" /> {isEnglish ? 'All caught up' : 'Tất cả đã được xử lý'}
               </span>
             )}
           </div>
@@ -982,10 +990,10 @@ export function AdminAnalyticsPage() {
             >
               <div>
                 <p className="text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">
-                  Sự kiện chờ phê duyệt
+                  {isEnglish ? 'Events Pending Approval' : 'Sự kiện chờ phê duyệt'}
                 </p>
                 <p className="mt-0.5 text-xs text-subtle [html.light_&]:text-[#536b88]">
-                  Sự kiện ban tổ chức đăng ký mở bán trên sàn
+                  {isEnglish ? 'Events registered by organizers for sale' : 'Sự kiện ban tổ chức đăng ký mở bán trên sàn'}
                 </p>
               </div>
               <div className="flex items-center gap-3">
@@ -1007,10 +1015,10 @@ export function AdminAnalyticsPage() {
             >
               <div>
                 <p className="text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">
-                  Hồ sơ Organizer chờ duyệt
+                  {isEnglish ? 'Organizer Requests Pending' : 'Hồ sơ Organizer chờ duyệt'}
                 </p>
                 <p className="mt-0.5 text-xs text-subtle [html.light_&]:text-[#536b88]">
-                  Đơn xin nâng quyền làm Nhà tổ chức sự kiện
+                  {isEnglish ? 'Applications to become event organizer' : 'Đơn xin nâng quyền làm Nhà tổ chức sự kiện'}
                 </p>
               </div>
               <div className="flex items-center gap-3">
@@ -1034,48 +1042,72 @@ export function AdminAnalyticsPage() {
           <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <AdminMetricCard
               icon={Users}
-              label="Tổng người dùng"
+              label={isEnglish ? 'Total Users' : 'Tổng người dùng'}
               value={Number(users.total_users).toLocaleString('vi-VN')}
-              sub={`${Number(users.active_users).toLocaleString('vi-VN')} đang hoạt động · ${Number(users.new_users_30d || 0).toLocaleString('vi-VN')} mới trong tháng`}
+              sub={
+                isEnglish
+                  ? `${Number(users.active_users).toLocaleString('vi-VN')} active · ${Number(users.new_users_30d || 0).toLocaleString('vi-VN')} new this month`
+                  : `${Number(users.active_users).toLocaleString('vi-VN')} đang hoạt động · ${Number(users.new_users_30d || 0).toLocaleString('vi-VN')} mới trong tháng`
+              }
               theme="cyan"
               onClick={() => navigate('/admin/accounts')}
             />
             <AdminMetricCard
               icon={Building2}
-              label="Nhà tổ chức"
+              label={isEnglish ? 'Organizers' : 'Nhà tổ chức'}
               value={Number(users.total_organizers).toLocaleString('vi-VN')}
-              sub={`${Number(users.total_staff).toLocaleString('vi-VN')} nhân sự vận hành sự kiện`}
+              sub={
+                isEnglish
+                  ? `${Number(users.total_staff).toLocaleString('vi-VN')} event operations staff`
+                  : `${Number(users.total_staff).toLocaleString('vi-VN')} nhân sự vận hành sự kiện`
+              }
               theme="purple"
               onClick={() => navigate('/admin/organizers')}
             />
             <AdminMetricCard
               icon={Calendar}
-              label="Sự kiện trên hệ thống"
+              label={isEnglish ? 'Events on System' : 'Sự kiện trên hệ thống'}
               value={Number(events.total_events).toLocaleString('vi-VN')}
-              sub={`${Number(events.published_events).toLocaleString('vi-VN')} đang mở bán · ${Number(events.completed_events).toLocaleString('vi-VN')} kết thúc`}
+              sub={
+                isEnglish
+                  ? `${Number(events.published_events).toLocaleString('vi-VN')} on sale · ${Number(events.completed_events).toLocaleString('vi-VN')} ended`
+                  : `${Number(events.published_events).toLocaleString('vi-VN')} đang mở bán · ${Number(events.completed_events).toLocaleString('vi-VN')} kết thúc`
+              }
               theme="emerald"
               onClick={() => navigate('/admin/events/review')}
             />
             <AdminMetricCard
               icon={CircleDollarSign}
-              label="Tổng giao dịch vé (GMV)"
+              label={isEnglish ? 'Total Ticket GMV' : 'Tổng giao dịch vé (GMV)'}
               value={fmtShort(orders.gross_revenue)}
-              sub={`Dòng tiền vé bán qua sàn: ${fmtCurrency(orders.gross_revenue)}`}
+              sub={
+                isEnglish
+                  ? `Gross ticket sales: ${fmtCurrency(orders.gross_revenue)}`
+                  : `Dòng tiền vé bán qua sàn: ${fmtCurrency(orders.gross_revenue)}`
+              }
               theme="emerald"
             />
             <AdminMetricCard
               icon={TrendingUp}
-              label="Doanh thu gói dịch vụ"
+              label={isEnglish ? 'Subscription Revenue' : 'Doanh thu gói dịch vụ'}
               value={fmtShort(subscriptionRevenue?.total_revenue)}
-              sub={`Doanh thu thực nhận EventHub: ${fmtCurrency(subscriptionRevenue?.total_revenue)}`}
+              sub={
+                isEnglish
+                  ? `EventHub net revenue: ${fmtCurrency(subscriptionRevenue?.total_revenue)}`
+                  : `Doanh thu thực nhận EventHub: ${fmtCurrency(subscriptionRevenue?.total_revenue)}`
+              }
               theme="amber"
               onClick={() => navigate('/admin/plans')}
             />
             <AdminMetricCard
               icon={Ticket}
-              label="Đơn vé đã thanh toán"
+              label={isEnglish ? 'Paid Ticket Orders' : 'Đơn vé đã thanh toán'}
               value={Number(orders.paid_orders).toLocaleString('vi-VN')}
-              sub={`Tỷ lệ thanh toán ${Math.round((Number(orders.paid_orders) / (Number(orders.total_orders) || 1)) * 100)}% (${Number(orders.total_orders).toLocaleString('vi-VN')} tổng đơn)`}
+              sub={
+                isEnglish
+                  ? `Payment rate ${Math.round((Number(orders.paid_orders) / (Number(orders.total_orders) || 1)) * 100)}% (${Number(orders.total_orders).toLocaleString('vi-VN')} total orders)`
+                  : `Tỷ lệ thanh toán ${Math.round((Number(orders.paid_orders) / (Number(orders.total_orders) || 1)) * 100)}% (${Number(orders.total_orders).toLocaleString('vi-VN')} tổng đơn)`
+              }
               theme="blue"
             />
           </div>
@@ -1100,10 +1132,14 @@ export function AdminAnalyticsPage() {
             <div className="flex flex-wrap items-end gap-3">
               <div>
                 <span className="block text-base font-bold text-white mb-1.5 [html.light_&]:text-[#0D1B2A]">
-                  Nhóm theo
+                  {isEnglish ? 'Group by' : 'Nhóm theo'}
                 </span>
                 <div className="mt-1 flex gap-2">
-                  {[['day', 'Ngày'], ['week', 'Tuần'], ['month', 'Tháng']].map(([val, lbl]) => (
+                  {[
+                    ['day', isEnglish ? 'Day' : 'Ngày'],
+                    ['week', isEnglish ? 'Week' : 'Tuần'],
+                    ['month', isEnglish ? 'Month' : 'Tháng'],
+                  ].map(([val, lbl]) => (
                     <button
                       key={val}
                       type="button"
@@ -1127,16 +1163,24 @@ export function AdminAnalyticsPage() {
             <div className="pointer-events-none absolute -right-12 -top-12 size-48 rounded-full bg-cyan-500/5 blur-3xl" />
             <AdminRevenueTrendChart
               data={revenueTrend}
-              title="Xu hướng giao dịch vé"
-              subtitle="Cột gradient xanh đại diện tổng giá trị giao dịch (trục trái) · Đường uốn lượn vàng thể hiện biến động xu hướng"
+              title={isEnglish ? 'Ticket Sales Trends' : 'Xu hướng giao dịch vé'}
+              subtitle={
+                isEnglish
+                  ? 'Blue gradient bars represent total transaction value (left axis) · Golden curved line shows trend variations'
+                  : 'Cột gradient xanh đại diện tổng giá trị giao dịch (trục trái) · Đường uốn lượn vàng thể hiện biến động xu hướng'
+              }
             />
 
             {comparison.enabled && comparisonRevenueTrend.length > 0 && (
               <div className="mt-6 border-t border-white/10 pt-6">
                 <AdminRevenueTrendChart
                   data={comparisonRevenueTrend}
-                  title={`So sánh: ${comparison.label || 'Kỳ so sánh'}`}
-                  subtitle="Dữ liệu giai đoạn đối chiếu để so khớp hiệu suất nền tảng"
+                  title={`${isEnglish ? 'Comparison: ' : 'So sánh: '}${comparison.label || (isEnglish ? 'Comparison Period' : 'Kỳ so sánh')}`}
+                  subtitle={
+                    isEnglish
+                      ? 'Benchmark period data to compare platform performance'
+                      : 'Dữ liệu giai đoạn đối chiếu để so khớp hiệu suất nền tảng'
+                  }
                 />
               </div>
             )}
@@ -1147,7 +1191,9 @@ export function AdminAnalyticsPage() {
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <PieChart className="size-5 text-[#E6C17A]" />
-                <h2 className="font-bold text-white [html.light_&]:text-[#0D1B2A]">Tình trạng vận hành</h2>
+                <h2 className="font-bold text-white [html.light_&]:text-[#0D1B2A]">
+                  {isEnglish ? 'Operational Status' : 'Tình trạng vận hành'}
+                </h2>
               </div>
               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-bold text-slate-300">
                 Tổng quan hệ thống
@@ -1156,29 +1202,29 @@ export function AdminAnalyticsPage() {
             <div className="grid gap-5 xl:grid-cols-2">
               <div className="rounded-2xl border border-white/5 bg-[#091124]/40 p-4 shadow-sm [html.light_&]:bg-white [html.light_&]:border-slate-200">
                 <DonutChart
-                  title="Trạng thái sự kiện"
-                  totalLabel="sự kiện"
+                  title={isEnglish ? 'Event Status' : 'Trạng thái sự kiện'}
+                  totalLabel={isEnglish ? 'events' : 'sự kiện'}
                   bare
                   compact
                   data={[
-                    { label: 'Đã đăng', value: events.published_events, color: '#10b981' },
-                    { label: 'Chờ duyệt', value: events.pending_events, color: '#f59e0b' },
-                    { label: 'Bản nháp', value: events.draft_events, color: '#64748b' },
-                    { label: 'Đã kết thúc', value: events.completed_events, color: '#a855f7' },
-                    { label: 'Đã hủy / Ẩn', value: Number(events.cancelled_events || 0) + Number(events.hidden_events || 0), color: '#f43f5e' },
+                    { label: isEnglish ? 'Published' : 'Đã đăng', value: events.published_events, color: '#10b981' },
+                    { label: isEnglish ? 'Pending Review' : 'Chờ duyệt', value: events.pending_events, color: '#f59e0b' },
+                    { label: isEnglish ? 'Draft' : 'Bản nháp', value: events.draft_events, color: '#64748b' },
+                    { label: isEnglish ? 'Ended' : 'Đã kết thúc', value: events.completed_events, color: '#a855f7' },
+                    { label: isEnglish ? 'Cancelled / Hidden' : 'Đã hủy / Ẩn', value: Number(events.cancelled_events || 0) + Number(events.hidden_events || 0), color: '#f43f5e' },
                   ]}
                 />
               </div>
               <div className="rounded-2xl border border-white/5 bg-[#091124]/40 p-4 shadow-sm [html.light_&]:bg-white [html.light_&]:border-slate-200">
                 <DonutChart
-                  title="Yêu cầu Organizer"
-                  totalLabel="yêu cầu"
+                  title={isEnglish ? 'Organizer Requests' : 'Yêu cầu Organizer'}
+                  totalLabel={isEnglish ? 'requests' : 'yêu cầu'}
                   bare
                   compact
                   data={[
-                    { label: 'Chờ duyệt', value: orgReqs.pending_requests, color: '#f59e0b' },
-                    { label: 'Đã duyệt', value: orgReqs.approved_requests, color: '#10b981' },
-                    { label: 'Từ chối', value: orgReqs.rejected_requests, color: '#f43f5e' },
+                    { label: isEnglish ? 'Pending' : 'Chờ duyệt', value: orgReqs.pending_requests, color: '#f59e0b' },
+                    { label: isEnglish ? 'Approved' : 'Đã duyệt', value: orgReqs.approved_requests, color: '#10b981' },
+                    { label: isEnglish ? 'Rejected' : 'Từ chối', value: orgReqs.rejected_requests, color: '#f43f5e' },
                   ]}
                 />
               </div>
@@ -1198,21 +1244,33 @@ export function AdminAnalyticsPage() {
                 <div>
                   <div className="flex items-center gap-2">
                     <Sparkles className="size-5 text-[#E6C17A]" />
-                    <h2 className="font-bold text-white [html.light_&]:text-[#0D1B2A]">Doanh thu từ gói dịch vụ</h2>
+                    <h2 className="font-bold text-white [html.light_&]:text-[#0D1B2A]">
+                      {isEnglish ? 'Service Plan Revenue' : 'Doanh thu từ gói dịch vụ'}
+                    </h2>
                   </div>
-                  <p className="mt-0.5 text-xs text-subtle font-medium">Chi tiết doanh thu và cơ cấu gói dịch vụ của Nhà tổ chức</p>
+                  <p className="mt-0.5 text-xs text-subtle font-medium">
+                    {isEnglish
+                      ? 'Revenue breakdown and plan compositions from organizers'
+                      : 'Chi tiết doanh thu và cơ cấu gói dịch vụ của Nhà tổ chức'}
+                  </p>
                 </div>
                 <div className="grid gap-2 sm:grid-cols-3 lg:min-w-[460px]">
                   <div className="rounded-xl border border-cyan-500/20 bg-gradient-to-br from-[#0e172e] via-[#0b1329] to-[#0c1c38] p-3 shadow-sm [html.light_&]:bg-none [html.light_&]:bg-white [html.light_&]:border-slate-200">
-                    <p className="text-[11px] font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">Tổng lượt mua</p>
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">
+                      {isEnglish ? 'Total Purchases' : 'Tổng lượt mua'}
+                    </p>
                     <p className="mt-1 text-lg font-black text-white [html.light_&]:text-[#0D1B2A]">{Number(subscriptionRevenue.total_subscriptions).toLocaleString('vi-VN')}</p>
                   </div>
                   <div className="rounded-xl border border-emerald-500/20 bg-gradient-to-br from-[#0e172e] via-[#0b1329] to-[#0c2e22] p-3 shadow-sm [html.light_&]:bg-none [html.light_&]:bg-white [html.light_&]:border-slate-200">
-                    <p className="text-[11px] font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">Đang hoạt động</p>
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">
+                      {isEnglish ? 'Active' : 'Đang hoạt động'}
+                    </p>
                     <p className="mt-1 text-lg font-black text-emerald-400 [html.light_&]:text-[#065f46]">{Number(subscriptionRevenue.active_subscriptions).toLocaleString('vi-VN')}</p>
                   </div>
                   <div className="rounded-xl border border-amber-500/20 bg-gradient-to-br from-[#0e172e] via-[#0b1329] to-[#251a08] p-3 shadow-sm [html.light_&]:bg-none [html.light_&]:bg-white [html.light_&]:border-slate-200">
-                    <p className="text-[11px] font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">Tổng doanh thu</p>
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">
+                      {isEnglish ? 'Total Revenue' : 'Tổng doanh thu'}
+                    </p>
                     <p className="mt-1 text-lg font-black text-[#E6C17A] [html.light_&]:text-[#854d0e]">{fmtCurrency(subscriptionRevenue.total_revenue)}</p>
                   </div>
                 </div>
@@ -1222,13 +1280,13 @@ export function AdminAnalyticsPage() {
                 <div className="grid gap-5 xl:grid-cols-2">
                   <div className="rounded-2xl border border-white/5 bg-[#091124]/40 p-4 shadow-sm [html.light_&]:bg-white [html.light_&]:border-slate-200">
                     <DonutChart
-                      title="Doanh thu theo từng gói"
-                      totalLabel="doanh thu"
+                      title={isEnglish ? 'Revenue by Plan' : 'Doanh thu theo từng gói'}
+                      totalLabel={isEnglish ? 'revenue' : 'doanh thu'}
                       valueFormatter={fmtCurrency}
                       bare
                       compact
                       data={subscriptionRevenue.by_plan.map((plan, index) => ({
-                        label: `${plan.plan_name} (${Number(plan.total).toLocaleString('vi-VN')} lượt)`,
+                        label: `${plan.plan_name} (${Number(plan.total).toLocaleString('vi-VN')} ${isEnglish ? 'times' : 'lượt'})`,
                         value: plan.revenue,
                         color: ['#38bdf8', '#10b981', '#f59e0b', '#a855f7', '#6366f1'][index % 5],
                       }))}
@@ -1236,8 +1294,8 @@ export function AdminAnalyticsPage() {
                   </div>
                   <div className="rounded-2xl border border-white/5 bg-[#091124]/40 p-4 shadow-sm [html.light_&]:bg-white [html.light_&]:border-slate-200">
                     <DonutChart
-                      title="Số lượt theo từng gói"
-                      totalLabel="lượt"
+                      title={isEnglish ? 'Volume by Plan' : 'Số lượt theo từng gói'}
+                      totalLabel={isEnglish ? 'times' : 'lượt'}
                       bare
                       compact
                       data={subscriptionRevenue.by_plan.map((plan, index) => ({
@@ -1256,12 +1314,12 @@ export function AdminAnalyticsPage() {
           <div className={`grid gap-6 ${topOrganizers?.length ? 'xl:grid-cols-[minmax(0,1fr)_400px]' : ''}`}>
             {topOrganizers?.length > 0 && (
               <HorizontalValueChart
-                title="Top 5 nhà tổ chức theo giao dịch vé"
+                title={isEnglish ? 'Top 5 Organizers by Ticket GMV' : 'Top 5 nhà tổ chức theo giao dịch vé'}
                 items={topOrganizers}
                 valueKey="gross_revenue"
                 labelKey="organizer_name"
                 valueFormatter={fmtCurrency}
-                subLabel={(org) => `${org.total_events} sự kiện · ${org.subscription_name || 'Chưa có gói active'}`}
+                subLabel={(org) => `${org.total_events} ${isEnglish ? 'events' : 'sự kiện'} · ${org.subscription_name || (isEnglish ? 'No active plan' : 'Chưa có gói active')}`}
               />
             )}
 
@@ -1269,18 +1327,44 @@ export function AdminAnalyticsPage() {
               <div className="mb-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <ShoppingCart className="size-5 text-[#E6C17A]" />
-                  <h2 className="font-bold text-white [html.light_&]:text-[#0D1B2A]">Tóm tắt đơn hàng</h2>
+                  <h2 className="font-bold text-white [html.light_&]:text-[#0D1B2A]">
+                    {isEnglish ? 'Order Summary' : 'Tóm tắt đơn hàng'}
+                  </h2>
                 </div>
                 <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 text-[11px] font-bold text-slate-300">
-                  Toàn hệ thống
+                  {isEnglish ? 'System-wide' : 'Toàn hệ thống'}
                 </span>
               </div>
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
                 {[
-                  { label: 'Tổng đơn khởi tạo', val: Number(orders.total_orders).toLocaleString('vi-VN'), color: 'text-white', border: 'border-sky-500/20', bg: 'from-[#0e172e] via-[#0b1329] to-[#0e2142]' },
-                  { label: 'Đã thanh toán', val: Number(orders.paid_orders).toLocaleString('vi-VN'), color: 'text-emerald-400', border: 'border-emerald-500/20', bg: 'from-[#0e172e] via-[#0b1329] to-[#0c2e22]' },
-                  { label: 'Chờ thanh toán', val: Number(orders.pending_orders).toLocaleString('vi-VN'), color: 'text-amber-300', border: 'border-amber-500/20', bg: 'from-[#0e172e] via-[#0b1329] to-[#251a08]' },
-                  { label: 'Đã hủy / Quá hạn', val: Number(orders.cancelled_orders).toLocaleString('vi-VN'), color: 'text-rose-400', border: 'border-rose-500/20', bg: 'from-[#0e172e] via-[#0b1329] to-[#2b0e1a]' },
+                  {
+                    label: isEnglish ? 'Total Orders Initiated' : 'Tổng đơn khởi tạo',
+                    val: Number(orders.total_orders).toLocaleString('vi-VN'),
+                    color: 'text-white',
+                    border: 'border-sky-500/20',
+                    bg: 'from-[#0e172e] via-[#0b1329] to-[#0e2142]'
+                  },
+                  {
+                    label: isEnglish ? 'Paid' : 'Đã thanh toán',
+                    val: Number(orders.paid_orders).toLocaleString('vi-VN'),
+                    color: 'text-emerald-400',
+                    border: 'border-emerald-500/20',
+                    bg: 'from-[#0e172e] via-[#0b1329] to-[#0c2e22]'
+                  },
+                  {
+                    label: isEnglish ? 'Pending Payment' : 'Chờ thanh toán',
+                    val: Number(orders.pending_orders).toLocaleString('vi-VN'),
+                    color: 'text-amber-300',
+                    border: 'border-amber-500/20',
+                    bg: 'from-[#0e172e] via-[#0b1329] to-[#251a08]'
+                  },
+                  {
+                    label: isEnglish ? 'Cancelled / Expired' : 'Đã hủy / Quá hạn',
+                    val: Number(orders.cancelled_orders).toLocaleString('vi-VN'),
+                    color: 'text-rose-400',
+                    border: 'border-rose-500/20',
+                    bg: 'from-[#0e172e] via-[#0b1329] to-[#2b0e1a]'
+                  },
                 ].map(({ label, val, color, border, bg }) => (
                   <div
                     key={label}

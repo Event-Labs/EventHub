@@ -66,9 +66,15 @@ function formatCurrency(amount) {
   )
 }
 
+const getAutoLocale = () =>
+  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
+   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
+    ? 'en-US'
+    : 'vi-VN'
+
 function formatDateOnly(dateStr) {
   if (!dateStr) return '—'
-  return new Date(dateStr).toLocaleDateString('vi-VN', {
+  return new Date(dateStr).toLocaleDateString(getAutoLocale(), {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -77,7 +83,7 @@ function formatDateOnly(dateStr) {
 
 function formatTimeOnly(dateStr) {
   if (!dateStr) return ''
-  return new Date(dateStr).toLocaleTimeString('vi-VN', {
+  return new Date(dateStr).toLocaleTimeString(getAutoLocale(), {
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
@@ -86,7 +92,7 @@ function formatTimeOnly(dateStr) {
 
 function formatDateTime(dateStr) {
   if (!dateStr) return '—'
-  return new Date(dateStr).toLocaleString('vi-VN', {
+  return new Date(dateStr).toLocaleString(getAutoLocale(), {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -173,7 +179,6 @@ export function OrganizerOrdersPage() {
   return (
     <OrganizerPage
       title="Quản lý Đơn hàng"
-      description="Xem tất cả đơn hàng từ các sự kiện bạn quản lý."
     >
       {/* ── Filter bar ── */}
       <div className="mb-5">

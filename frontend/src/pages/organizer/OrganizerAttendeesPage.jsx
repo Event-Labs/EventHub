@@ -52,9 +52,15 @@ function getExportFilename(contentDisposition, eventTitle) {
   return quotedMatch?.[1] || fallback
 }
 
+const getAutoLocale = () =>
+  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
+   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
+    ? 'en-US'
+    : 'vi-VN'
+
 function formatDateTime(dateStr) {
   if (!dateStr) return '—'
-  return new Date(dateStr).toLocaleString('vi-VN', {
+  return new Date(dateStr).toLocaleString(getAutoLocale(), {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -209,7 +215,6 @@ export function OrganizerAttendeesPage() {
   return (
     <OrganizerPage
       title="Người tham dự"
-      description="Xem danh sách người tham dự từ vé đã bán cho sự kiện của bạn."
     >
       {/* ── Event selector with Smart Event Picker ── */}
       <div className="mb-6 max-w-xl">
@@ -284,7 +289,7 @@ export function OrganizerAttendeesPage() {
                     { value: '', label: 'Tất cả phiên' },
                     ...sessions.map((s) => ({
                       value: s.id,
-                      label: s.session_name || new Date(s.start_time).toLocaleDateString('vi-VN'),
+                      label: s.session_name || new Date(s.start_time).toLocaleDateString(getAutoLocale()),
                     })),
                   ]}
                   minWidth="min-w-[170px]"

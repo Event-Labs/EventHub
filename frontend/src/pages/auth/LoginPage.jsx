@@ -18,9 +18,11 @@ import { GoogleLogin } from '@react-oauth/google'
 import { LockedAccountModal } from '@/components/LockedAccountModal'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
 import logoSrc from '@/assets/eventhub-logo.png'
 
 export function LoginPage() {
+  const { isEnglish, language } = useLanguage()
   const toast = useToast()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -194,17 +196,19 @@ export function LoginPage() {
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_-20%,_var(--color-primary)_0%,_transparent_50%)] opacity-20" />
         <div className="text-center">
           <h1 className="font-display text-3xl font-extrabold text-white">
-            Đăng nhập
+            {isEnglish ? 'Sign In' : 'Đăng nhập'}
           </h1>
           <p className="mt-3 text-sm font-medium text-slate-300">
-            Đăng nhập để tiếp tục đặt vé và quản lý sự kiện
+            {isEnglish
+              ? 'Sign in to continue booking tickets and managing events'
+              : 'Đăng nhập để tiếp tục đặt vé và quản lý sự kiện'}
           </p>
         </div>
         <div className="mt-6 flex w-full justify-center overflow-hidden rounded-sm">
           <GoogleLogin
             onSuccess={handleGoogleSuccess}
             onError={() => {
-              const message = 'Đăng nhập Google thất bại. Vui lòng thử lại.'
+              const message = isEnglish ? 'Google sign-in failed. Please try again.' : 'Đăng nhập Google thất bại. Vui lòng thử lại.'
               setError(message)
               toast.error(message)
             }}
@@ -212,12 +216,12 @@ export function LoginPage() {
             size="large"
             text="continue_with"
             shape="rectangular"
-            locale="vi"
+            locale={language === 'en' ? 'en' : 'vi'}
           />
         </div>
         <div className="my-5 flex items-center gap-3 text-xs uppercase tracking-widest text-muted">
           <span className="h-px flex-1 bg-border-soft" />
-          hoặc email
+          {isEnglish ? 'or email' : 'hoặc email'}
           <span className="h-px flex-1 bg-border-soft" />
         </div>
         <form
@@ -237,14 +241,18 @@ export function LoginPage() {
                 <div className="flex items-start gap-3">
                   <ShieldCheck className="mt-0.5 size-5 shrink-0 text-primary" />
                   <div>
-                    <p className="font-bold">Xác thực 2 lớp</p>
-                    <p className="mt-1 text-muted">Nhập mã OTP 6 số đã gửi đến {otpStep.email || 'email tài khoản'}.</p>
+                    <p className="font-bold">{isEnglish ? 'Two-Factor Authentication' : 'Xác thực 2 lớp'}</p>
+                    <p className="mt-1 text-muted">
+                      {isEnglish
+                        ? `Enter the 6-digit OTP code sent to ${otpStep.email || 'your account email'}.`
+                        : `Nhập mã OTP 6 số đã gửi đến ${otpStep.email || 'email tài khoản'}.`}
+                    </p>
                   </div>
                 </div>
               </div>
               <Field
                 icon={ShieldCheck}
-                label="Mã OTP"
+                label={isEnglish ? 'OTP Code' : 'Mã OTP'}
                 placeholder="123456"
                 type="text"
                 inputMode="numeric"
@@ -260,7 +268,7 @@ export function LoginPage() {
                 className="btn-gold-primary w-full py-3.5 text-[15px] font-bold shadow-md transition-all hover:brightness-110 active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
               >
-                {loading ? 'Đang xử lý...' : 'Xác thực OTP'}
+                {loading ? (isEnglish ? 'Processing...' : 'Đang xử lý...') : (isEnglish ? 'Verify OTP' : 'Xác thực OTP')}
               </button>
               <button
                 type="button"
@@ -271,7 +279,7 @@ export function LoginPage() {
                 }}
                 className="text-sm font-bold text-primary hover:underline"
               >
-                Đăng nhập bằng tài khoản khác
+                {isEnglish ? 'Sign in with a different account' : 'Đăng nhập bằng tài khoản khác'}
               </button>
             </>
           ) : (
@@ -288,7 +296,7 @@ export function LoginPage() {
               />
               <Field
                 icon={Lock}
-                label="Mật khẩu"
+                label={isEnglish ? 'Password' : 'Mật khẩu'}
                 placeholder="••••••••"
                 type="password"
                 trailing={Eye}
@@ -309,13 +317,13 @@ export function LoginPage() {
                     onChange={(event) => handleRememberChange(event.target.checked)}
                     className="size-4.5 rounded border border-white/20 bg-slate-900/60 accent-[#C99A47] cursor-pointer transition-all focus:ring-2 focus:ring-[#C99A47]/40"
                   />
-                  <span>Ghi nhớ đăng nhập</span>
+                  <span>{isEnglish ? 'Remember me' : 'Ghi nhớ đăng nhập'}</span>
                 </label>
                 <Link
                   to="/forgot-password"
                   className="text-sm font-bold text-white hover:text-slate-300 transition-colors"
                 >
-                  Quên mật khẩu?
+                  {isEnglish ? 'Forgot Password?' : 'Quên mật khẩu?'}
                 </Link>
               </div>
               <button
@@ -324,18 +332,22 @@ export function LoginPage() {
                 className="btn-gold-primary w-full py-3.5 text-[15px] font-bold shadow-md transition-all hover:brightness-110 active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
               >
-                {loading ? 'Đang đăng nhập...' : (otpStep ? 'Xác thực OTP' : 'Đăng nhập')}
+                {loading
+                  ? (isEnglish ? 'Signing in...' : 'Đang đăng nhập...')
+                  : (otpStep
+                      ? (isEnglish ? 'Verify OTP' : 'Xác thực OTP')
+                      : (isEnglish ? 'Sign In' : 'Đăng nhập'))}
               </button>
             </>
           )}
         </form>
         <p className="mt-6 text-center text-muted">
-          Chưa có tài khoản?
+          {isEnglish ? "Don't have an account?" : 'Chưa có tài khoản?'}
           <Link
             to="/register"
             className="ml-2 font-bold text-primary hover:text-white transition-colors"
           >
-            Tạo tài khoản ngay
+            {isEnglish ? 'Create an account now' : 'Tạo tài khoản ngay'}
           </Link>
         </p>
       </div>

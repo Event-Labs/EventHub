@@ -24,6 +24,7 @@ import {
 import { fetchAssignedStaffEvents } from '@/services/operations.js'
 import { Modal } from '@/components/Modal.jsx'
 import { StaffPage, StaffPanel } from './StaffComponents.jsx'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
 
 const emptyManualForm = {
   eventId: '',
@@ -37,9 +38,16 @@ function getApiMessage(error, fallback) {
   return error?.response?.data?.message || error?.message || fallback
 }
 
+const getAutoLocale = () =>
+  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
+   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
+    ? 'en-US'
+    : 'vi-VN'
+
 function formatDateTime(value) {
-  if (!value) return 'Chưa có'
-  return new Intl.DateTimeFormat('vi-VN', {
+  const isEn = getAutoLocale() === 'en-US'
+  if (!value) return isEn ? 'N/A' : 'Chưa có'
+  return new Intl.DateTimeFormat(getAutoLocale(), {
     dateStyle: 'short',
     timeStyle: 'medium',
   }).format(new Date(value))
@@ -159,6 +167,7 @@ function CameraDeniedContent({ onRetry }) {
 }
 
 export function StaffQrCheckInPage() {
+  const { isEnglish, t } = useLanguage()
   const videoRef = useRef(null)
   const controlsRef = useRef(null)
   const readerRef = useRef(null)
@@ -373,8 +382,7 @@ export function StaffQrCheckInPage() {
 
   return (
     <StaffPage
-      title="QR Check-in"
-      description="Bật camera máy tính để quét mã QR trên vé và tự động ghi nhận vào cổng."
+      title={isEnglish ? 'QR Check-in' : 'Soát vé QR'}
     >
       <Modal
         open={Boolean(ticketPanelMessage)}
@@ -715,7 +723,6 @@ export function ManualCheckInPage() {
   return (
     <StaffPage
       title="Check-in Thủ công"
-      description="Chọn sự kiện để tải danh sách vé, sau đó có thể lọc theo mã vé, tên người mua hoặc người tham dự trên vé."
     >
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
         <ManualSearchPanel

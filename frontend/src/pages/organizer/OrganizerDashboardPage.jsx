@@ -42,11 +42,18 @@ import { exportOrganizerRevenueToExcel } from '@/utils/exportRevenueExcel.js'
 import { DailyRevenueBarChart } from './overview/DailyRevenueBarChart.jsx'
 import { EventRevenueBarChart } from './overview/EventRevenueBarChart.jsx'
 import { TicketStatusOverviewPanel } from './overview/TicketStatusOverviewPanel.jsx'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
 
 // ─── Formatters & Utilities ──────────────────────────────────────────────────
 
+const getAutoLocale = () =>
+  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
+   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
+    ? 'en-US'
+    : 'vi-VN'
+
 function fmtCurrency(n) {
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(n) || 0)
+  return new Intl.NumberFormat(getAutoLocale(), { style: 'currency', currency: 'VND' }).format(Number(n) || 0)
 }
 
 function fmtShort(n) {
@@ -54,11 +61,11 @@ function fmtShort(n) {
   if (v >= 1_000_000_000) return `${(v / 1_000_000_000).toFixed(1)}B`
   if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`
   if (v >= 1_000) return `${(v / 1_000).toFixed(0)}K`
-  return v.toLocaleString('vi-VN')
+  return v.toLocaleString(getAutoLocale())
 }
 
 function fmtNumber(n, digits = 0) {
-  return Number(n || 0).toLocaleString('vi-VN', {
+  return Number(n || 0).toLocaleString(getAutoLocale(), {
     maximumFractionDigits: digits,
   })
 }
@@ -78,7 +85,7 @@ function fmtDate(iso) {
   try {
     const d = new Date(iso)
     if (Number.isNaN(d.getTime())) return '—'
-    return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    return d.toLocaleDateString(getAutoLocale(), { day: '2-digit', month: getAutoLocale() === 'en-US' ? 'short' : '2-digit', year: 'numeric' })
   } catch {
     return '—'
   }
@@ -89,9 +96,9 @@ function fmtDateTime(iso) {
   try {
     const d = new Date(iso)
     if (Number.isNaN(d.getTime())) return '—'
-    return d.toLocaleDateString('vi-VN', {
+    return d.toLocaleDateString(getAutoLocale(), {
       day: '2-digit',
-      month: '2-digit',
+      month: getAutoLocale() === 'en-US' ? 'short' : '2-digit',
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
@@ -126,6 +133,10 @@ function riskClass(level) {
 // ─── Sub-components: KPIs & Metrics ──────────────────────────────────────────
 
 function HeroKpiCard({ label, value, sub, icon: Icon, trend, trendValue, tone = 'cyan', progressBar }) {
+  const { isEnglish, t } = useLanguage()
+  const displayLabel = typeof label === 'string' ? t(label) : label
+  const displaySub = typeof sub === 'string' ? t(sub) : sub
+  const displayValue = typeof value === 'string' ? t(value) : value
   const toneStyles = {
     cyan: {
       border: 'hover:border-cyan-500/40',
@@ -159,7 +170,7 @@ function HeroKpiCard({ label, value, sub, icon: Icon, trend, trendValue, tone = 
     >
       <div>
         <div className="flex items-center justify-between">
-          <p className="text-xs font-bold uppercase tracking-wider text-slate-400 [html.light_&]:text-[#536b88]">{label}</p>
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-400 [html.light_&]:text-[#536b88]">{displayLabel}</p>
           {Icon && (
             <div className={`grid size-8 place-items-center rounded-xl border ${toneStyles.iconBg}`}>
               <Icon className="size-4" />
@@ -167,7 +178,7 @@ function HeroKpiCard({ label, value, sub, icon: Icon, trend, trendValue, tone = 
           )}
         </div>
         <p className="mt-2.5 truncate font-display text-2xl font-black text-white [html.light_&]:text-[#0D1B2A] drop-shadow-sm sm:text-3xl">
-          {value}
+          {displayValue}
         </p>
       </div>
 
@@ -197,7 +208,7 @@ function HeroKpiCard({ label, value, sub, icon: Icon, trend, trendValue, tone = 
                 {trendValue}
               </span>
             )}
-            <span className="truncate text-slate-400 [html.light_&]:text-[#536b88]">{sub}</span>
+            <span className="truncate text-slate-400 [html.light_&]:text-[#536b88]">{displaySub}</span>
           </div>
         )}
       </div>
@@ -454,10 +465,11 @@ function _OldInteractiveRevenueChart({ data = [], comparisonData = [], compariso
 // ─── Sub-components: Events Performance Table (Portfolio Mode) ────────────────
 
 function EventsPerformanceTable({ eventsRevenue = [], onDrillDownEvent }) {
+  const { isEnglish, t } = useLanguage()
   if (!eventsRevenue.length) {
     return (
       <div className="py-8 text-center text-sm text-slate-400">
-        Chưa có số liệu doanh thu của từng sự kiện trong khoảng thời gian này.
+        {isEnglish ? 'No event revenue data available for this period.' : 'Chưa có số liệu doanh thu của từng sự kiện trong khoảng thời gian này.'}
       </div>
     )
   }
@@ -469,12 +481,12 @@ function EventsPerformanceTable({ eventsRevenue = [], onDrillDownEvent }) {
       <table className="w-full min-w-[560px] text-left text-sm table-fixed">
         <thead>
           <tr className="border-b border-white/10 bg-[#121c38] text-[11px] font-bold uppercase tracking-wider text-slate-300">
-            <th className="px-3.5 py-3 w-[40%]">Sự kiện</th>
-            <th className="px-3 py-3 text-right w-[24%]">Doanh thu</th>
-            <th className="px-2 py-3 text-center w-[12%]">Đơn</th>
-            <th className="px-2 py-3 text-center w-[13%]">Đóng góp</th>
+            <th className="px-3.5 py-3 w-[40%]">{isEnglish ? 'Event' : 'Sự kiện'}</th>
+            <th className="px-3 py-3 text-right w-[24%]">{isEnglish ? 'Revenue' : 'Doanh thu'}</th>
+            <th className="px-2 py-3 text-center w-[12%]">{isEnglish ? 'Orders' : 'Đơn'}</th>
+            <th className="px-2 py-3 text-center w-[13%]">{isEnglish ? 'Share' : 'Đóng góp'}</th>
             <th className="px-3 py-3 text-right w-[11%]">
-              <span className="sr-only">Thao tác</span>
+              <span className="sr-only">{isEnglish ? 'Actions' : 'Thao tác'}</span>
             </th>
           </tr>
         </thead>
@@ -504,11 +516,11 @@ function EventsPerformanceTable({ eventsRevenue = [], onDrillDownEvent }) {
                   </p>
                   {discount > 0 ? (
                     <p className="text-[11px] font-semibold text-amber-400 whitespace-nowrap">
-                      Chiết khấu: -{fmtCurrency(discount)}
+                      {isEnglish ? 'Discount:' : 'Chiết khấu:'} -{fmtCurrency(discount)}
                     </p>
                   ) : (
                     <p className="text-[10px] text-slate-400 whitespace-nowrap">
-                      Doanh thu vé
+                      {isEnglish ? 'Ticket revenue' : 'Doanh thu vé'}
                     </p>
                   )}
                 </td>
@@ -553,6 +565,7 @@ function EventsPerformanceTable({ eventsRevenue = [], onDrillDownEvent }) {
 // ─── Sub-components: Single Event Header Banner ──────────────────────────────
 
 function SingleEventBanner({ event, onBackToAll }) {
+  const { isEnglish } = useLanguage()
   if (!event) return null
   const op = getEventOperationalStatus(event)
 
@@ -608,14 +621,14 @@ function SingleEventBanner({ event, onBackToAll }) {
             className="flex items-center gap-1.5 rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs font-bold text-slate-200 transition hover:bg-white/10 hover:text-white"
           >
             <Layers className="size-3.5 text-cyan-400" />
-            <span>Xem tất cả sự kiện</span>
+            <span>{isEnglish ? 'View All Events' : 'Xem tất cả sự kiện'}</span>
           </button>
 
           <Link
             to={`/organizer/events/${event.id}`}
             className="flex items-center gap-1.5 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-xs font-bold text-cyan-300 transition hover:bg-cyan-500/20"
           >
-            <span>Chi tiết sự kiện</span>
+            <span>{isEnglish ? 'Event Details' : 'Chi tiết sự kiện'}</span>
             <ExternalLink className="size-3.5" />
           </Link>
         </div>
@@ -740,6 +753,7 @@ function _OldTicketOperationsPanel({ dashboard = {}, isSingleEvent = false, chec
 // ─── Sub-components: Portfolio Overview / Upcoming Card ───────────────────────
 
 function PortfolioOverviewCard({ dashboard = {}, subscription = {} }) {
+  const { isEnglish } = useLanguage()
   const plan = subscription?.current_plan
   const nextEvent = dashboard?.next_event
 
@@ -747,11 +761,15 @@ function PortfolioOverviewCard({ dashboard = {}, subscription = {} }) {
     <div className="space-y-4">
       {/* Portfolio Health Pills */}
       <div className="rounded-2xl border border-white/5 bg-[#0e172e]/80 p-5 shadow-[0_8px_32px_rgba(0,0,0,0.2)] [html.light_&]:bg-none [html.light_&]:bg-white/95 [html.light_&]:border-[#C99A47]/30 [html.light_&]:shadow-md">
-        <h3 className="mb-3 font-bold text-white [html.light_&]:text-[#0D1B2A]">Trạng thái sự kiện</h3>
+        <h3 className="mb-3 font-bold text-white [html.light_&]:text-[#0D1B2A]">
+          {isEnglish ? 'Event Status' : 'Trạng thái sự kiện'}
+        </h3>
         <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
           <div className="flex flex-col justify-between rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-2.5 sm:p-3 text-center [html.light_&]:bg-cyan-50/70 [html.light_&]:border-cyan-200">
             <div className="flex h-8 items-center justify-center">
-              <p className="text-[10px] font-bold uppercase leading-tight text-slate-400 [html.light_&]:text-[#536b88]">Đang mở bán</p>
+              <p className="text-[10px] font-bold uppercase leading-tight text-slate-400 [html.light_&]:text-[#536b88]">
+                {isEnglish ? 'On Sale' : 'Đang mở bán'}
+              </p>
             </div>
             <p className="mt-1 font-display text-xl font-black text-cyan-400 [html.light_&]:text-cyan-700">
               {fmtNumber(dashboard.published_events)}
@@ -759,7 +777,9 @@ function PortfolioOverviewCard({ dashboard = {}, subscription = {} }) {
           </div>
           <div className="flex flex-col justify-between rounded-xl border border-amber-500/20 bg-amber-500/5 p-2.5 sm:p-3 text-center [html.light_&]:bg-amber-50/70 [html.light_&]:border-amber-200">
             <div className="flex h-8 items-center justify-center">
-              <p className="text-[10px] font-bold uppercase leading-tight text-slate-400 [html.light_&]:text-[#536b88]">Chờ duyệt</p>
+              <p className="text-[10px] font-bold uppercase leading-tight text-slate-400 [html.light_&]:text-[#536b88]">
+                {isEnglish ? 'Pending' : 'Chờ duyệt'}
+              </p>
             </div>
             <p className="mt-1 font-display text-xl font-black text-amber-400 [html.light_&]:text-amber-700">
               {fmtNumber(dashboard.pending_review_events)}
@@ -767,7 +787,9 @@ function PortfolioOverviewCard({ dashboard = {}, subscription = {} }) {
           </div>
           <div className="flex flex-col justify-between rounded-xl border border-slate-700 bg-slate-800/40 p-2.5 sm:p-3 text-center [html.light_&]:bg-slate-100/70 [html.light_&]:border-slate-300">
             <div className="flex h-8 items-center justify-center">
-              <p className="text-[10px] font-bold uppercase leading-tight text-slate-400 [html.light_&]:text-[#536b88]">Bản nháp</p>
+              <p className="text-[10px] font-bold uppercase leading-tight text-slate-400 [html.light_&]:text-[#536b88]">
+                {isEnglish ? 'Draft' : 'Bản nháp'}
+              </p>
             </div>
             <p className="mt-1 font-display text-xl font-black text-slate-300 [html.light_&]:text-slate-800">
               {fmtNumber(dashboard.draft_events)}
@@ -775,7 +797,9 @@ function PortfolioOverviewCard({ dashboard = {}, subscription = {} }) {
           </div>
           <div className="flex flex-col justify-between rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-2.5 sm:p-3 text-center [html.light_&]:bg-emerald-50/70 [html.light_&]:border-emerald-200">
             <div className="flex h-8 items-center justify-center">
-              <p className="text-[10px] font-bold uppercase leading-tight text-slate-400 [html.light_&]:text-[#536b88]">Đã kết thúc</p>
+              <p className="text-[10px] font-bold uppercase leading-tight text-slate-400 [html.light_&]:text-[#536b88]">
+                {isEnglish ? 'Ended' : 'Đã kết thúc'}
+              </p>
             </div>
             <p className="mt-1 font-display text-xl font-black text-emerald-400 [html.light_&]:text-emerald-700">
               {fmtNumber(dashboard.completed_events)}
@@ -786,7 +810,9 @@ function PortfolioOverviewCard({ dashboard = {}, subscription = {} }) {
 
       {/* Next Upcoming Event */}
       <div className="rounded-2xl border border-white/5 bg-[#0e172e]/80 p-5 shadow-[0_8px_32px_rgba(0,0,0,0.2)] [html.light_&]:bg-none [html.light_&]:bg-white/95 [html.light_&]:border-[#C99A47]/30 [html.light_&]:shadow-md">
-        <h3 className="mb-3 font-bold text-white [html.light_&]:text-[#0D1B2A]">Sự kiện sắp diễn ra gần nhất</h3>
+        <h3 className="mb-3 font-bold text-white [html.light_&]:text-[#0D1B2A]">
+          {isEnglish ? 'Next Upcoming Event' : 'Sự kiện sắp diễn ra gần nhất'}
+        </h3>
 
         {nextEvent ? (
           <div className="rounded-xl border border-white/10 bg-slate-900/60 p-3.5 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
@@ -794,7 +820,7 @@ function PortfolioOverviewCard({ dashboard = {}, subscription = {} }) {
             <div className="mt-1 flex items-center justify-between text-xs text-slate-400 [html.light_&]:text-[#536b88]">
               <span>{fmtDate(nextEvent.start_time)}</span>
               <span className="font-semibold text-cyan-400 [html.light_&]:text-cyan-700">
-                {fmtNumber(nextEvent.tickets_sold)} / {fmtNumber(nextEvent.capacity)} vé
+                {fmtNumber(nextEvent.tickets_sold)} / {fmtNumber(nextEvent.capacity)} {isEnglish ? 'tickets' : 'vé'}
               </span>
             </div>
             {Number(nextEvent.capacity) > 0 && (
@@ -810,16 +836,18 @@ function PortfolioOverviewCard({ dashboard = {}, subscription = {} }) {
           </div>
         ) : (
           <p className="py-2.5 text-center text-xs italic text-slate-400 [html.light_&]:text-slate-500">
-            Chưa có sự kiện nào sắp diễn ra
+            {isEnglish ? 'No upcoming events yet' : 'Chưa có sự kiện nào sắp diễn ra'}
           </p>
         )}
 
         {/* Current Plan Card */}
         <div className="mt-3 rounded-xl border border-white/10 bg-slate-900/40 p-3.5 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">Gói dịch vụ</p>
+            <p className="text-xs font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">
+              {isEnglish ? 'Service Plan' : 'Gói dịch vụ'}
+            </p>
             <span className="rounded-full border border-purple-500/30 bg-purple-500/10 px-2 py-0.5 text-[10px] font-bold text-purple-300 [html.light_&]:bg-purple-100 [html.light_&]:border-purple-300 [html.light_&]:text-purple-700">
-              {plan?.name || 'Gói cơ bản'}
+              {plan?.name || (isEnglish ? 'Basic Plan' : 'Gói cơ bản')}
             </span>
           </div>
           <p className="mt-1 text-xs text-slate-300 [html.light_&]:text-[#536b88]">
@@ -834,26 +862,29 @@ function PortfolioOverviewCard({ dashboard = {}, subscription = {} }) {
 // ─── Sub-components: Single Event Ticket Tiers (Pareto) ───────────────────────
 
 function SingleEventTicketTiersTable({ tiers = [] }) {
+  const { isEnglish } = useLanguage()
   if (!tiers.length) {
     return (
       <div className="rounded-2xl border border-white/5 bg-[#0e172e]/80 p-5 text-center text-sm text-slate-400 [html.light_&]:bg-white/95 [html.light_&]:border-[#C99A47]/30 [html.light_&]:text-slate-500">
-        Chưa có cấu hình hạng vé cho sự kiện này.
+        {isEnglish ? 'No ticket tiers configured for this event.' : 'Chưa có cấu hình hạng vé cho sự kiện này.'}
       </div>
     )
   }
 
   return (
     <div className="w-full overflow-hidden rounded-2xl border border-white/5 bg-[#0e172e]/80 p-5 shadow-[0_8px_32px_rgba(0,0,0,0.2)] [html.light_&]:bg-none [html.light_&]:bg-white/95 [html.light_&]:border-[#C99A47]/30 [html.light_&]:shadow-md">
-      <h3 className="mb-3 font-bold text-white [html.light_&]:text-[#0D1B2A]">Hiệu suất phân bổ theo hạng vé (Tier Mix)</h3>
+      <h3 className="mb-3 font-bold text-white [html.light_&]:text-[#0D1B2A]">
+        {isEnglish ? 'Tier Mix Performance' : 'Hiệu suất phân bổ theo hạng vé (Tier Mix)'}
+      </h3>
       <div className="w-full overflow-x-auto">
         <table className="w-full min-w-[500px] text-left text-sm table-fixed">
           <thead>
             <tr className="border-b border-white/10 bg-slate-900/60 text-[11px] font-bold uppercase tracking-wider text-slate-400 [html.light_&]:bg-[#FAF5ED] [html.light_&]:border-[#C99A47]/20 [html.light_&]:text-[#536b88]">
-              <th className="px-3 py-2.5 w-[30%]">Hạng vé</th>
-              <th className="px-3 py-2.5 text-right w-[22%]">Giá vé</th>
-              <th className="px-2 py-2.5 text-center w-[20%]">Đã bán</th>
-              <th className="px-2 py-2.5 text-center w-[13%]">Lấp đầy</th>
-              <th className="px-3 py-2.5 text-right w-[15%]">Doanh thu</th>
+              <th className="px-3 py-2.5 w-[30%]">{isEnglish ? 'Tier' : 'Hạng vé'}</th>
+              <th className="px-3 py-2.5 text-right w-[22%]">{isEnglish ? 'Price' : 'Giá vé'}</th>
+              <th className="px-2 py-2.5 text-center w-[20%]">{isEnglish ? 'Sold' : 'Đã bán'}</th>
+              <th className="px-2 py-2.5 text-center w-[13%]">{isEnglish ? 'Occupancy' : 'Lấp đầy'}</th>
+              <th className="px-3 py-2.5 text-right w-[15%]">{isEnglish ? 'Revenue' : 'Doanh thu'}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-white/5 text-slate-300 [html.light_&]:divide-[#C99A47]/15 [html.light_&]:text-[#0D1B2A]">
@@ -1140,6 +1171,7 @@ function printExecutiveYieldReport({ financialSummary, eventTitle, dateRangeLabe
 // ─── Main Organizer Dashboard Component ──────────────────────────────────────
 
 export function OrganizerDashboardPage() {
+  const { isEnglish, t } = useLanguage()
   const [events, setEvents] = useState([])
   const [eventsLoading, setEventsLoading] = useState(true)
   const [selectedEventId, setSelectedEventId] = useState('')
@@ -1329,8 +1361,7 @@ export function OrganizerDashboardPage() {
 
   return (
     <OrganizerPage
-      title="Tổng quan"
-      description="Trung tâm điều hành doanh thu, tốc độ bán vé, tình trạng check-in và cố vấn chiến lược AI."
+      title={isEnglish ? 'Overview' : 'Tổng quan'}
     >
       {/* ── Master Filter & Context Controls ── */}
       <div className="relative z-20 mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -1366,7 +1397,7 @@ export function OrganizerDashboardPage() {
             type="button"
             onClick={handleExportExcel}
             disabled={isExportingExcel || !stats}
-            title="Xuất bảng số liệu và biểu đồ doanh thu ra file Excel (.xlsx)"
+            title={isEnglish ? 'Export metrics and revenue chart to Excel file (.xlsx)' : 'Xuất bảng số liệu và biểu đồ doanh thu ra file Excel (.xlsx)'}
             className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#C99A47]/50 bg-[#C99A47]/10 px-3.5 sm:px-4 text-xs sm:text-sm font-bold text-[#E6C17A] shadow-sm backdrop-blur-md transition-all hover:border-[#E6C17A] hover:bg-[#C99A47]/20 hover:shadow-[0_0_15px_rgba(201,154,71,0.25)] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed [html.light_&]:border-[#C99A47]/50 [html.light_&]:bg-[#FAF4EB]/80 [html.light_&]:text-[#8B5E0F] [html.light_&]:hover:border-[#C99A47] [html.light_&]:hover:bg-[#F5EBDD]"
           >
             {isExportingExcel ? (
@@ -1374,7 +1405,7 @@ export function OrganizerDashboardPage() {
             ) : (
               <FileSpreadsheet className="size-4 text-[#E6C17A] [html.light_&]:text-[#8B5E0F]" />
             )}
-            <span>{isExportingExcel ? 'Đang xuất Excel...' : 'Xuất báo cáo'}</span>
+            <span>{isExportingExcel ? (isEnglish ? 'Exporting Excel...' : 'Đang xuất Excel...') : (isEnglish ? 'Export Report' : 'Xuất báo cáo')}</span>
           </button>
 
           <button
@@ -1382,7 +1413,7 @@ export function OrganizerDashboardPage() {
             onClick={loadFinancialSummary}
             disabled={summaryLoading}
             className="btn-led-gold-sm h-10 shrink-0 active:scale-95"
-            title="Đánh giá doanh thu"
+            title={isEnglish ? 'Revenue Assessment' : 'Đánh giá doanh thu'}
           >
             <span className="btn-led-gold-sm-inner px-4 !text-sm font-black">
               {summaryLoading ? (
@@ -1390,7 +1421,7 @@ export function OrganizerDashboardPage() {
               ) : (
                 <Sparkles className="size-4 text-[#0D1B2A]" />
               )}
-              <span>{summaryLoading ? 'Đang phân tích...' : 'Đánh giá doanh thu'}</span>
+              <span>{summaryLoading ? (isEnglish ? 'Analyzing...' : 'Đang phân tích...') : (isEnglish ? 'Revenue Assessment' : 'Đánh giá doanh thu')}</span>
             </span>
           </button>
         </div>
@@ -1420,7 +1451,9 @@ export function OrganizerDashboardPage() {
         <OrganizerPanel className="flex items-center justify-center py-24">
           <div className="flex flex-col items-center gap-3">
             <Loader2 className="size-8 animate-spin text-cyan-400" />
-            <p className="text-sm font-semibold text-slate-300">Đang tổng hợp số liệu vận hành...</p>
+            <p className="text-sm font-semibold text-slate-300">
+              {isEnglish ? 'Synthesizing operational metrics...' : 'Đang tổng hợp số liệu vận hành...'}
+            </p>
           </div>
         </OrganizerPanel>
       ) : stats ? (
@@ -1428,12 +1461,12 @@ export function OrganizerDashboardPage() {
           {/* ── SECTION 1: HERO FINANCIAL & OPERATIONS KPIS ── */}
           <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <HeroKpiCard
-              label="Tổng doanh thu"
+              label={isEnglish ? 'Total Revenue' : 'Tổng doanh thu'}
               value={fmtShort(overall.gross_revenue || overall.net_revenue)}
               sub={
                 Number(overall.total_discount || 0) > 0
-                  ? `Đã gồm chiết khấu ${fmtShort(overall.total_discount)}`
-                  : 'Doanh thu bán vé trực tiếp'
+                  ? (isEnglish ? `Includes discount ${fmtShort(overall.total_discount)}` : `Đã gồm chiết khấu ${fmtShort(overall.total_discount)}`)
+                  : (isEnglish ? 'Direct ticket sales revenue' : 'Doanh thu bán vé trực tiếp')
               }
               trend={grossTrend}
               trendValue={grossTrendVal}
@@ -1442,20 +1475,20 @@ export function OrganizerDashboardPage() {
             />
 
             <HeroKpiCard
-              label="Vé đã bán"
-              value={`${fmtNumber(dashboard.issued_tickets)} vé`}
-              sub={`Trên tổng ${fmtNumber(dashboard.total_capacity)} vé khả dụng`}
+              label={isEnglish ? 'Tickets Sold' : 'Vé đã bán'}
+              value={`${fmtNumber(dashboard.issued_tickets)} ${isEnglish ? 'tickets' : 'vé'}`}
+              sub={isEnglish ? `Out of ${fmtNumber(dashboard.total_capacity)} available tickets` : `Trên tổng ${fmtNumber(dashboard.total_capacity)} vé khả dụng`}
               icon={TicketCheck}
               tone="emerald"
             />
 
             <HeroKpiCard
-              label="Tỷ lệ lấp đầy"
+              label={isEnglish ? 'Occupancy Rate' : 'Tỷ lệ lấp đầy'}
               value={fmtRatePercent(dashboard.occupancy_rate)}
               sub={
                 Number(dashboard.total_capacity) > 0
-                  ? `Hiệu suất tiêu thụ chỗ ngồi (${fmtNumber(dashboard.issued_tickets)} / ${fmtNumber(dashboard.total_capacity)})`
-                  : 'Hiệu suất tiêu thụ chỗ ngồi'
+                  ? (isEnglish ? `Seat occupancy performance (${fmtNumber(dashboard.issued_tickets)} / ${fmtNumber(dashboard.total_capacity)})` : `Hiệu suất tiêu thụ chỗ ngồi (${fmtNumber(dashboard.issued_tickets)} / ${fmtNumber(dashboard.total_capacity)})`)
+                  : (isEnglish ? 'Seat occupancy performance' : 'Hiệu suất tiêu thụ chỗ ngồi')
               }
               progressBar={dashboard.occupancy_rate}
               icon={TrendingUp}
@@ -1463,9 +1496,9 @@ export function OrganizerDashboardPage() {
             />
 
             <HeroKpiCard
-              label="Tổng đơn hàng"
-              value={`${Number(overall.total_orders || 0).toLocaleString('vi-VN')} đơn`}
-              sub={`Giá trị TB: ${fmtCurrency(avgOrderValue)} / đơn`}
+              label={isEnglish ? 'Total Orders' : 'Tổng đơn hàng'}
+              value={`${Number(overall.total_orders || 0).toLocaleString('vi-VN')} ${isEnglish ? 'orders' : 'đơn'}`}
+              sub={isEnglish ? `Avg order value: ${fmtCurrency(avgOrderValue)} / order` : `Giá trị TB: ${fmtCurrency(avgOrderValue)} / đơn`}
               icon={ReceiptText}
               tone="purple"
             />
@@ -1480,10 +1513,10 @@ export function OrganizerDashboardPage() {
                 </div>
                 <div>
                   <h4 className="font-display text-sm font-black text-white">
-                    Đang khởi tạo Cố vấn Doanh thu AI...
+                    {isEnglish ? 'Initializing AI Revenue Advisor...' : 'Đang khởi tạo Cố vấn Doanh thu AI...'}
                   </h4>
                   <p className="mt-1 text-xs text-slate-300">
-                    Phân tích toàn diện chỉ số RevPAS, gia tốc bán vé, rủi ro tồn kho và xây dựng kịch bản định giá What-If tối ưu...
+                    {isEnglish ? 'Comprehensive analysis of RevPAS, sales velocity, inventory risk, and optimal What-If pricing scenarios...' : 'Phân tích toàn diện chỉ số RevPAS, gia tốc bán vé, rủi ro tồn kho và xây dựng kịch bản định giá What-If tối ưu...'}
                   </p>
                 </div>
               </div>
@@ -1500,7 +1533,7 @@ export function OrganizerDashboardPage() {
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="font-display text-lg font-black text-white">
-                        Báo cáo Cố vấn Doanh thu AI
+                        {isEnglish ? 'AI Revenue Advisor Report' : 'Báo cáo Cố vấn Doanh thu AI'}
                       </h3>
                       {financialSummary.source !== 'RULE_BASED_FALLBACK' && financialSummary.model !== 'financial-rule-fallback' && (
                         <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
@@ -1523,7 +1556,7 @@ export function OrganizerDashboardPage() {
                     className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-slate-800/80 px-3 py-1.5 text-xs font-bold text-slate-200 transition hover:bg-slate-700 hover:text-white"
                   >
                     <Printer className="size-3.5" />
-                    <span>In / Xuất PDF</span>
+                    <span>{isEnglish ? 'Print / Export PDF' : 'In / Xuất PDF'}</span>
                   </button>
                   <button
                     type="button"
@@ -1531,14 +1564,14 @@ export function OrganizerDashboardPage() {
                     className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-slate-800/80 px-3 py-1.5 text-xs font-bold text-slate-200 transition hover:bg-slate-700 hover:text-white"
                   >
                     {copied ? <Check className="size-3.5 text-emerald-400" /> : <Copy className="size-3.5" />}
-                    <span>{copied ? 'Đã sao chép' : 'Sao chép'}</span>
+                    <span>{copied ? (isEnglish ? 'Copied' : 'Đã sao chép') : (isEnglish ? 'Copy' : 'Sao chép')}</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setIsAiReportExpanded((prev) => !prev)}
                     className="p-1.5 text-slate-400 transition hover:text-white active:scale-95"
-                    title={isAiReportExpanded ? 'Thu gọn' : 'Mở rộng'}
-                    aria-label={isAiReportExpanded ? 'Thu gọn' : 'Mở rộng'}
+                    title={isAiReportExpanded ? (isEnglish ? 'Collapse' : 'Thu gọn') : (isEnglish ? 'Expand' : 'Mở rộng')}
+                    aria-label={isAiReportExpanded ? (isEnglish ? 'Collapse' : 'Thu gọn') : (isEnglish ? 'Expand' : 'Mở rộng')}
                   >
                     {isAiReportExpanded ? <ChevronUp className="size-5" /> : <ChevronDown className="size-5" />}
                   </button>
@@ -1691,7 +1724,9 @@ export function OrganizerDashboardPage() {
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <h3 className="font-bold text-white">
-                      {selectedEventId ? 'Doanh thu sự kiện theo ngày' : 'Doanh thu bán vé theo ngày'}
+                      {selectedEventId
+                        ? (isEnglish ? 'Daily Event Revenue' : 'Doanh thu sự kiện theo ngày')
+                        : (isEnglish ? 'Daily Ticket Sales Revenue' : 'Doanh thu bán vé theo ngày')}
                     </h3>
                     <p className="text-xs text-slate-400">{activeRangeLabel}</p>
                   </div>
@@ -1712,10 +1747,12 @@ export function OrganizerDashboardPage() {
                 <OrganizerPanel>
                   <div className="mb-4 flex items-center justify-between">
                     <div>
-                      <h3 className="font-bold text-white">Hiệu suất doanh thu theo sự kiện</h3>
+                      <h3 className="font-bold text-white">
+                        {isEnglish ? 'Revenue Performance by Event' : 'Hiệu suất doanh thu theo sự kiện'}
+                      </h3>
                     </div>
                     <span className="rounded-full border border-white/10 bg-slate-800/80 px-2.5 py-0.5 text-xs font-bold text-slate-300">
-                      {byEvent.length} sự kiện
+                      {byEvent.length} {isEnglish ? 'events' : 'sự kiện'}
                     </span>
                   </div>
 
@@ -1754,7 +1791,9 @@ export function OrganizerDashboardPage() {
               {/* In Single Event Mode: Show Quick Operations Actions */}
               {selectedEventId && (
                 <div className="rounded-2xl border border-white/5 bg-[#0e172e]/80 p-5 shadow-[0_8px_32px_rgba(0,0,0,0.2)] [html.light_&]:bg-none [html.light_&]:bg-white/95 [html.light_&]:border-[#C99A47]/30 [html.light_&]:shadow-md">
-                  <h3 className="mb-3 font-bold text-white [html.light_&]:text-[#0D1B2A]">Quản trị sự kiện nhanh</h3>
+                  <h3 className="mb-3 font-bold text-white [html.light_&]:text-[#0D1B2A]">
+                    {isEnglish ? 'Quick Event Operations' : 'Quản trị sự kiện nhanh'}
+                  </h3>
                   <div className="space-y-2 text-xs font-semibold">
                     <Link
                       to={`/organizer/checkin-dashboard?eventId=${selectedEventId}`}
@@ -1762,7 +1801,7 @@ export function OrganizerDashboardPage() {
                     >
                       <span className="flex items-center gap-2">
                         <TicketCheck className="size-4 text-cyan-400 [html.light_&]:text-cyan-600" />
-                        <span>Mở màn hình Check-in soát vé</span>
+                        <span>{isEnglish ? 'Open Check-in Operations' : 'Mở màn hình Check-in soát vé'}</span>
                       </span>
                       <ArrowRight className="size-3.5" />
                     </Link>
@@ -1773,7 +1812,7 @@ export function OrganizerDashboardPage() {
                     >
                       <span className="flex items-center gap-2">
                         <Users className="size-4 text-purple-400 [html.light_&]:text-purple-600" />
-                        <span>Danh sách người tham dự & Xuất CSV</span>
+                        <span>{isEnglish ? 'Attendee List & Export CSV' : 'Danh sách người tham dự & Xuất CSV'}</span>
                       </span>
                       <ArrowRight className="size-3.5" />
                     </Link>
@@ -1784,7 +1823,7 @@ export function OrganizerDashboardPage() {
                     >
                       <span className="flex items-center gap-2">
                         <ExternalLink className="size-4 text-emerald-400 [html.light_&]:text-emerald-600" />
-                        <span>Cài đặt thông tin sự kiện & Vé</span>
+                        <span>{isEnglish ? 'Event Settings & Tickets' : 'Cài đặt thông tin sự kiện & Vé'}</span>
                       </span>
                       <ArrowRight className="size-3.5" />
                     </Link>

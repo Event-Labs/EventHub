@@ -1,8 +1,15 @@
 import { useState } from 'react'
 import { AlertCircle, CheckCircle2, Clock3, XCircle } from 'lucide-react'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
+
+const getAutoLocale = () =>
+  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
+   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
+    ? 'en-US'
+    : 'vi-VN'
 
 function fmtNumber(n) {
-  return Number(n || 0).toLocaleString('vi-VN')
+  return Number(n || 0).toLocaleString(getAutoLocale())
 }
 
 function fmtRatePercent(rate) {
@@ -42,10 +49,12 @@ export function TicketStatusOverviewPanel({
   const pctValid = totalIssued > 0 ? (valid / totalIssued) * 100 : 0
   const pctCancelled = totalIssued > 0 ? (cancelled / totalIssued) * 100 : 0
 
+  const { isEnglish, t } = useLanguage()
+
   const cards = [
     {
       id: 'checked_in',
-      label: 'Đã check-in',
+      label: isEnglish ? 'Checked In' : 'Đã check-in',
       value: used,
       pctTotal: pctUsed,
       pctValid: checkinRateOfValid,
@@ -53,13 +62,13 @@ export function TicketStatusOverviewPanel({
       dotClass: 'bg-[#10B981]',
       textClass: 'text-[#10B981]',
       labelClass: 'text-emerald-300 [html.light_&]:text-emerald-700',
-      subText: `${fmtRatePercent(checkinRateOfValid)} vé hợp lệ`,
+      subText: `${fmtRatePercent(checkinRateOfValid)} ${isEnglish ? 'valid tickets' : 'vé hợp lệ'}`,
       boxClass:
         'border-emerald-500/30 bg-emerald-500/10 [html.light_&]:bg-emerald-50/80 [html.light_&]:border-emerald-300',
     },
     {
       id: 'not_checked_in',
-      label: 'Chưa check-in',
+      label: isEnglish ? 'Not Checked In' : 'Chưa check-in',
       value: valid,
       pctTotal: pctValid,
       pctValid: validTickets > 0 ? (valid / validTickets) * 100 : 0,
@@ -67,13 +76,13 @@ export function TicketStatusOverviewPanel({
       dotClass: 'bg-[#3B82F6]',
       textClass: 'text-[#3B82F6]',
       labelClass: 'text-blue-300 [html.light_&]:text-blue-700',
-      subText: `${fmtRatePercent(validTickets > 0 ? (valid / validTickets) * 100 : 0)} vé hợp lệ`,
+      subText: `${fmtRatePercent(validTickets > 0 ? (valid / validTickets) * 100 : 0)} ${isEnglish ? 'valid tickets' : 'vé hợp lệ'}`,
       boxClass:
         'border-blue-500/30 bg-blue-500/10 [html.light_&]:bg-blue-50/80 [html.light_&]:border-blue-300',
     },
     {
       id: 'cancelled',
-      label: 'Đã hủy',
+      label: isEnglish ? 'Cancelled' : 'Đã hủy',
       value: cancelled,
       pctTotal: pctCancelled,
       pctValid: null,
@@ -81,7 +90,7 @@ export function TicketStatusOverviewPanel({
       dotClass: 'bg-[#F43F5E]',
       textClass: 'text-[#F43F5E]',
       labelClass: 'text-rose-300 [html.light_&]:text-rose-700',
-      subText: `${fmtRatePercent(pctCancelled)} tổng phát hành`,
+      subText: `${fmtRatePercent(pctCancelled)} ${isEnglish ? 'of total issued' : 'tổng phát hành'}`,
       boxClass:
         'border-rose-500/30 bg-rose-500/10 [html.light_&]:bg-rose-50/80 [html.light_&]:border-rose-300',
     },
@@ -92,11 +101,11 @@ export function TicketStatusOverviewPanel({
       {/* ── Header ── */}
       <div className="mb-4 flex items-center justify-between">
         <h3 className="font-bold text-white [html.light_&]:text-[#0D1B2A]">
-          Tình trạng vé & Check-in
+          {isEnglish ? 'Ticket Status & Check-in' : 'Tình trạng vé & Check-in'}
         </h3>
         <span
           className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/15 px-3 py-1 text-xs font-black text-emerald-300 [html.light_&]:bg-emerald-50 [html.light_&]:border-emerald-300 [html.light_&]:text-emerald-700"
-          title="Tỷ lệ check-in tính trên tổng số vé hợp lệ (loại trừ vé đã hủy)"
+          title={isEnglish ? 'Check-in rate calculated on valid tickets (excluding cancelled)' : 'Tỷ lệ check-in tính trên tổng số vé hợp lệ (loại trừ vé đã hủy)'}
         >
           <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
           {fmtRatePercent(checkinRateOfValid)} check-in
@@ -187,15 +196,19 @@ export function TicketStatusOverviewPanel({
       {/* ── Footer Breakdown ── */}
       <div className="mt-4 space-y-1.5 border-t border-white/5 pt-3 text-xs [html.light_&]:border-slate-200">
         <div className="flex items-center justify-between">
-          <span className="text-white [html.light_&]:text-[#0D1B2A]">Tổng vé đã phát hành:</span>
+          <span className="text-white [html.light_&]:text-[#0D1B2A]">
+            {isEnglish ? 'Total issued tickets:' : 'Tổng vé đã phát hành:'}
+          </span>
           <strong className="text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">
-            {fmtNumber(totalIssued)} vé
+            {fmtNumber(totalIssued)} {isEnglish ? 'tickets' : 'vé'}
           </strong>
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-white [html.light_&]:text-[#0D1B2A]">Vé hợp lệ (loại trừ đã hủy):</span>
+          <span className="text-white [html.light_&]:text-[#0D1B2A]">
+            {isEnglish ? 'Valid tickets (excluding cancelled):' : 'Vé hợp lệ (loại trừ đã hủy):'}
+          </span>
           <strong className="text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">
-            {fmtNumber(validTickets)} vé
+            {fmtNumber(validTickets)} {isEnglish ? 'tickets' : 'vé'}
           </strong>
         </div>
       </div>

@@ -1,4 +1,5 @@
 import { memo } from 'react'
+import { translatePhrase } from '@/i18n/phraseDictionary.js'
 
 /**
  * Standardized status tone definitions across Organizer, Admin, Staff portals.
@@ -206,13 +207,18 @@ export const Badge = memo(function Badge({
   dot = false,
 }) {
   const toneClasses = BADGE_TONES[tone] || BADGE_TONES.gray
+  const activeLocale =
+    (typeof document !== 'undefined' && document.documentElement?.lang) ||
+    (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale')) ||
+    'vi'
+  const displayChildren = typeof children === 'string' ? translatePhrase(children, activeLocale) : children
 
   return (
     <span
       className={`inline-flex items-center justify-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-black tracking-wider uppercase whitespace-nowrap shadow-sm backdrop-blur-sm ${toneClasses} ${className}`}
     >
       {dot && <span className="size-1.5 rounded-full bg-current opacity-90" />}
-      {children}
+      {displayChildren}
     </span>
   )
 })
@@ -231,10 +237,15 @@ export const StatusBadge = memo(function StatusBadge({
   const config = resolveStatusConfig(status, label)
   const finalTone = tone || config.tone
   const finalLabel = label || config.label
+  const activeLocale =
+    (typeof document !== 'undefined' && document.documentElement?.lang) ||
+    (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale')) ||
+    'vi'
+  const displayLabel = typeof finalLabel === 'string' ? translatePhrase(finalLabel, activeLocale) : finalLabel
 
   return (
     <Badge tone={finalTone} className={className} dot={dot}>
-      {finalLabel}
+      {displayLabel}
     </Badge>
   )
 })

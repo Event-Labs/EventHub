@@ -29,6 +29,7 @@ import { QRCodeImage } from '@/components/QRCodeImage.jsx'
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { cn } from '@/lib/utils.js'
 import { generateRefundPolicyLines } from '@/utils/refundPolicy.js'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
 import {
   clearBookingDraft,
   formatCountdown,
@@ -39,10 +40,10 @@ import {
   secondsLeft,
 } from '@/utils/bookingDraft.js'
 
-function formatPrice(value) {
+function formatPrice(value, isEnglish = (typeof document !== 'undefined' && document.documentElement.lang === 'en')) {
   const number = Number(value)
-  if (!Number.isFinite(number) || number === 0) return 'Miễn phí'
-  return `${number.toLocaleString('vi-VN')} \u0111`
+  if (!Number.isFinite(number) || number === 0) return isEnglish ? 'Free' : 'Miễn phí'
+  return `${number.toLocaleString(isEnglish ? 'en-US' : 'vi-VN')} ${isEnglish ? 'VND' : '₫'}`
 }
 
 function formatFileSize(bytes) {
@@ -62,25 +63,25 @@ function ticketAvailability(ticketType) {
   return { available, total }
 }
 
-function formatPauseReasonSuffix(reason) {
+function formatPauseReasonSuffix(reason, isEnglish = (typeof document !== 'undefined' && document.documentElement.lang === 'en')) {
   if (!reason) return ''
   const str = String(reason).trim()
   const SYSTEM_CODES = ['ORGANIZER_PAUSE', 'HIDE', 'SUSPENDED', 'ADMIN_PAUSE', 'REFUND_OVERDUE', 'CANCELLATION_REQUESTED', 'CANCELLING']
   if (!str || SYSTEM_CODES.includes(str)) return ''
-  return ` (Lý do: ${str})`
+  return isEnglish ? ` (Reason: ${str})` : ` (Lý do: ${str})`
 }
 
-function formatDateTime(value) {
-  if (!value) return 'Chưa cập nhật'
+function formatDateTime(value, isEnglish = (typeof document !== 'undefined' && document.documentElement.lang === 'en')) {
+  if (!value) return isEnglish ? 'Updating' : 'Chưa cập nhật'
   try {
     const d = new Date(value)
-    if (isNaN(d.getTime())) return 'Chưa cập nhật'
-    return new Intl.DateTimeFormat('vi-VN', {
+    if (isNaN(d.getTime())) return isEnglish ? 'Updating' : 'Chưa cập nhật'
+    return new Intl.DateTimeFormat(isEnglish ? 'en-US' : 'vi-VN', {
       dateStyle: 'medium',
       timeStyle: 'short',
     }).format(d)
   } catch {
-    return 'Chưa cập nhật'
+    return isEnglish ? 'Updating' : 'Chưa cập nhật'
   }
 }
 
@@ -209,7 +210,7 @@ function buildSeatLayout(seats, seatMap) {
   const stagePosition = config.stagePosition || seatMap?.stage_position
   const stage = stagePosition && stagePosition !== 'HIDDEN' ? {
     position: stagePosition,
-    label: config.stageLabel || 'SÂN KHẤU',
+    label: config.stageLabel || (typeof document !== 'undefined' && document.documentElement.lang === 'en' ? 'STAGE' : 'SÂN KHẤU'),
     x: Number(config.stageX ?? seatMap?.custom_stage_x ?? 0),
     y: Number(config.stageY ?? seatMap?.custom_stage_y ?? 0),
     w: Number(config.stageWidth ?? seatMap?.custom_stage_width ?? 900),
@@ -456,6 +457,7 @@ export function BookingTicketsPage() {
 }
 
 export function BookingSeatsPage() {
+  const { isEnglish, t } = useLanguage()
   const location = useLocation()
   const navigate = useNavigate()
   const toast = useToast()
@@ -1086,6 +1088,7 @@ export function BookingSeatsPage() {
 }
 
 export function BookingAttendeesPage() {
+  const { isEnglish, t } = useLanguage()
   const location = useLocation()
   const navigate = useNavigate()
   const toast = useToast()
@@ -1399,6 +1402,7 @@ export function BookingAttendeesPage() {
 }
 
 export function BookingReviewPage() {
+  const { isEnglish, t } = useLanguage()
   const location = useLocation()
   const navigate = useNavigate()
   const toast = useToast()
@@ -1886,6 +1890,7 @@ export function BookingReviewPage() {
 }
 
 export function BookingPaymentPage() {
+  const { isEnglish, t } = useLanguage()
   const toast = useToast()
   const location = useLocation()
   const navigate = useNavigate()
@@ -2121,8 +2126,11 @@ export function BookingPaymentPage() {
 }
 
 function BookingShell({ step, cart, children }) {
+  const { isEnglish, t } = useLanguage()
   const isUnseated = cart?.hasSeatMap === false
-  const labels = [isUnseated ? 'Chọn vé' : 'Ghế', 'Thông tin', 'Kiểm tra', 'Thanh toán']
+  const labels = isEnglish
+    ? [isUnseated ? 'Select Tickets' : 'Seats', 'Info', 'Review', 'Payment']
+    : [isUnseated ? 'Chọn vé' : 'Ghế', 'Thông tin', 'Kiểm tra', 'Thanh toán']
   const stepPaths = {
     1: '/booking/seats',
     2: '/booking/attendees',
@@ -2180,7 +2188,7 @@ function BookingShell({ step, cart, children }) {
     expiredHandledRef.current = true
 
     clearBookingDraft(cart?.eventId)
-    toast.warning('Thời gian giữ vé (15 phút) đã hết. Bạn vui lòng chọn lại ghế/vé.')
+    toast.warning(isEnglish ? 'Ticket reservation timer (15 minutes) has expired. Please reselect your seats/tickets.' : 'Thời gian giữ vé (15 phút) đã hết. Bạn vui lòng chọn lại ghế/vé.')
     navigate('/booking/seats', {
       replace: true,
       state: {
@@ -2221,12 +2229,19 @@ function BookingShell({ step, cart, children }) {
     window.history.back()
   }
 
-  const stepBackLabel = {
-    1: 'Quay lại chi tiết sự kiện',
-    2: isUnseated ? 'Quay về bước 1: Chọn vé' : 'Quay về bước 1: Chọn ghế',
-    3: 'Quay về bước 2: Thông tin',
-    4: 'Quay về bước 3: Kiểm tra đơn',
-  }[step] || 'Quay về bước trước'
+  const stepBackLabel = isEnglish
+    ? {
+        1: 'Back to Event Details',
+        2: isUnseated ? 'Back to Step 1: Select Tickets' : 'Back to Step 1: Select Seats',
+        3: 'Back to Step 2: Information',
+        4: 'Back to Step 3: Order Review',
+      }[step] || 'Back to Previous Step'
+    : {
+        1: 'Quay lại chi tiết sự kiện',
+        2: isUnseated ? 'Quay về bước 1: Chọn vé' : 'Quay về bước 1: Chọn ghế',
+        3: 'Quay về bước 2: Thông tin',
+        4: 'Quay về bước 3: Kiểm tra đơn',
+      }[step] || 'Quay về bước trước'
 
   return (
     <div className="min-h-0 bg-transparent text-content pt-4 sm:pt-8 pb-20 sm:pb-12 w-full max-w-full overflow-x-hidden">
@@ -2298,7 +2313,7 @@ function BookingShell({ step, cart, children }) {
           <div className="mb-3.5 sm:mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 rounded-xl sm:rounded-2xl border border-primary/25 bg-slate-900/70 p-3 sm:p-5 shadow-xl backdrop-blur-md">
             <div className="min-w-0 flex-1">
               <span className="text-[10px] font-black uppercase tracking-widest text-primary">
-                Sự kiện đang đặt vé
+                {isEnglish ? 'Booking for Event' : 'Sự kiện đang đặt vé'}
               </span>
               <h2 className="mt-1 font-display text-lg sm:text-2xl font-black text-white drop-shadow-sm line-clamp-2">
                 {cart.eventTitle}
@@ -2331,6 +2346,7 @@ function OrderCard({
   promoProps,
   isPaused = false,
 }) {
+  const { isEnglish, t } = useLanguage()
   const [cancelOpen, setCancelOpen] = useState(false)
   const [resetOpen, setResetOpen] = useState(false)
 
@@ -2369,14 +2385,14 @@ function OrderCard({
     <aside className="glass-panel relative overflow-hidden h-fit rounded-2xl sm:rounded-[24px] border-primary/20 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)] p-4 sm:p-7 lg:sticky lg:top-32">
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_var(--color-primary)_0%,_transparent_60%)] opacity-10" />
       <div className="mb-5 flex items-center justify-between gap-2 flex-nowrap">
-        <h2 className="font-display text-lg sm:text-xl font-black text-white whitespace-nowrap">{'Thông tin đặt vé'}</h2>
+        <h2 className="font-display text-lg sm:text-xl font-black text-white whitespace-nowrap">{isEnglish ? 'Booking Information' : 'Thông tin đặt vé'}</h2>
         <button
           type="button"
           onClick={() => onReset ? setResetOpen(true) : setCancelOpen(true)}
           disabled={Boolean(onReset) && resetDisabled}
           className="text-xs sm:text-sm font-bold text-[#E6C17A] hover:text-[#F3D8A5] transition whitespace-nowrap shrink-0 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
         >
-          {'Chọn lại vé'}
+          {isEnglish ? 'Reselect Tickets' : 'Chọn lại vé'}
         </button>
       </div>
       <div className="space-y-3 border-y border-border-soft py-4">
@@ -2394,26 +2410,26 @@ function OrderCard({
                   <p className={qty > 0 ? 'font-semibold text-white' : 'font-semibold text-slate-400'}>{ticket.name}</p>
                   {qty > 0 ? (
                     <p className="text-white font-medium text-xs sm:text-sm">
-                      {formatPrice(ticket.price)} {'\u00d7'} {String(qty).padStart(2, '0')}
+                      {formatPrice(ticket.price, isEnglish)} {'\u00d7'} {String(qty).padStart(2, '0')}
                     </p>
                   ) : (
-                    <p className="text-slate-500">{formatPrice(ticket.price)} / {'vé'}</p>
+                    <p className="text-slate-500">{formatPrice(ticket.price, isEnglish)} {isEnglish ? '/ ticket' : '/ vé'}</p>
                   )}
                   {ticket.seatLabels?.length > 0 && (
                     <p className="mt-2 inline-flex max-w-full rounded-md border border-primary/30 bg-primary/10 px-2 py-1 text-xs font-bold text-primary">
-                      {'Ghế'}: <span className="ml-1 truncate">{ticket.seatLabels.join(', ')}</span>
+                      {isEnglish ? 'Seat' : 'Ghế'}: <span className="ml-1 truncate">{ticket.seatLabels.join(', ')}</span>
                     </p>
                   )}
                 </div>
               </div>
               <p className={qty > 0 ? 'font-bold text-white' : 'font-bold text-slate-500'}>
-                {qty > 0 ? formatPrice(ticket.price * qty) : '-'}
+                {qty > 0 ? formatPrice(ticket.price * qty, isEnglish) : '-'}
               </p>
             </div>
           )
         })}
         {itemsToRender.length === 0 && (
-          <p className="py-2 text-center text-xs text-muted">{'Chưa có vé nào được chọn'}</p>
+          <p className="py-2 text-center text-xs text-muted">{isEnglish ? 'No tickets selected yet' : 'Chưa có vé nào được chọn'}</p>
         )}
       </div>
 
@@ -2421,7 +2437,7 @@ function OrderCard({
         <div className="mt-4 space-y-2.5">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm sm:text-base font-bold text-white flex items-center gap-1.5">
-              <Tag className="size-4 text-primary" /> Mã ưu đãi
+              <Tag className="size-4 text-primary" /> {isEnglish ? 'Promo Code' : 'Mã ưu đãi'}
             </span>
             {promoProps.onOpenVoucher && (
               <button
@@ -2429,7 +2445,7 @@ function OrderCard({
                 onClick={promoProps.onOpenVoucher}
                 className="text-xs sm:text-sm font-bold text-white hover:text-slate-200 transition cursor-pointer"
               >
-                Chọn voucher
+                {isEnglish ? 'Select Voucher' : 'Chọn voucher'}
               </button>
             )}
           </div>
@@ -2443,7 +2459,7 @@ function OrderCard({
                 onClick={promoProps.onRemove}
                 className="text-xs font-semibold text-rose-400 hover:text-rose-300 ml-2 shrink-0 cursor-pointer"
               >
-                Hủy
+                {isEnglish ? 'Remove' : 'Hủy'}
               </button>
             </div>
           ) : (
@@ -2458,7 +2474,7 @@ function OrderCard({
                     promoProps.onApply(promoProps.promoInput)
                   }
                 }}
-                placeholder="Nhập mã..."
+                placeholder={isEnglish ? 'Enter code...' : 'Nhập mã...'}
                 className="h-9 min-w-0 flex-1 rounded-lg border border-white/10 bg-slate-950/60 px-3 font-mono text-xs text-white uppercase outline-none focus:border-primary"
               />
               <button
@@ -2467,28 +2483,28 @@ function OrderCard({
                 disabled={!promoProps.promoInput?.trim()}
                 className="rounded-lg bg-primary/20 px-3 text-xs font-bold text-primary hover:bg-primary/30 border border-primary/40 disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
               >
-                Áp dụng
+                {isEnglish ? 'Apply' : 'Áp dụng'}
               </button>
             </div>
           )}
         </div>
       ) : cart?.promoCode ? (
         <div className="mt-4 rounded-md border border-primary/30 bg-primary/10 p-3 text-sm text-primary">
-          {'Mã khuyến mãi'}: {cart.promoCode}
+          {isEnglish ? 'Promo Code' : 'Mã khuyến mãi'}: {cart.promoCode}
         </div>
       ) : null}
 
-      <Line label={`Tổng cộng ${(cart?.items || []).reduce((sum, item) => sum + item.quantity, 0)} vé`} value={formatPrice(cartTotal(cart))} large />
+      <Line label={isEnglish ? `Total ${(cart?.items || []).reduce((sum, item) => sum + item.quantity, 0)} tickets` : `Tổng cộng ${(cart?.items || []).reduce((sum, item) => sum + item.quantity, 0)} vé`} value={formatPrice(cartTotal(cart), isEnglish)} large />
       {promoDiscount(cart) > 0 && (
-        <Line label={'Giảm giá'} value={`-${formatPrice(promoDiscount(cart))}`} tone="discount" />
+        <Line label={isEnglish ? 'Discount' : 'Giảm giá'} value={`-${formatPrice(promoDiscount(cart), isEnglish)}`} tone="discount" />
       )}
       {promoDiscount(cart) > 0 && (
-        <Line label={'Tổng thanh toán'} value={formatPrice(payableTotal(cart))} large />
+        <Line label={isEnglish ? 'Total Payment' : 'Tổng thanh toán'} value={formatPrice(payableTotal(cart), isEnglish)} large />
       )}
       {isPaused && (
         <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200 flex items-start gap-2">
           <AlertTriangle className="size-4 shrink-0 text-amber-400 mt-0.5" />
-          <span>Sự kiện đang tạm dừng bán vé. Quý khách không thể tiếp tục đặt vé.</span>
+          <span>{isEnglish ? 'Ticket sales currently paused. You cannot proceed to book tickets.' : 'Sự kiện đang tạm dừng bán vé. Quý khách không thể tiếp tục đặt vé.'}</span>
         </div>
       )}
 
@@ -2504,18 +2520,18 @@ function OrderCard({
               : 'btn-gold-primary cursor-pointer disabled:cursor-not-allowed disabled:opacity-50'
           )}
         >
-          {isPaused ? 'Tạm dừng bán vé' : cta}
+          {isPaused ? (isEnglish ? 'Sales Paused' : 'Tạm dừng bán vé') : t(cta)}
         </button>
         <button
           type="button"
           onClick={() => setCancelOpen(true)}
           className="w-full rounded-full border border-white/10 bg-transparent py-2.5 text-xs font-bold text-slate-400 transition hover:border-error/40 hover:bg-error/10 hover:text-error cursor-pointer"
         >
-          {'Hủy đặt vé'}
+          {isEnglish ? 'Cancel Booking' : 'Hủy đặt vé'}
         </button>
       </div>
       <p className="mt-6 flex items-center justify-center gap-2 text-xs font-medium text-slate-500">
-        <ShieldCheck className="size-4" /> {'Thanh to\u00e1n an toàn qua PayOS'}
+        <ShieldCheck className="size-4" /> {isEnglish ? 'Secure payment via PayOS' : 'Thanh toán an toàn qua PayOS'}
       </p>
 
       {cancelOpen && (
@@ -2646,19 +2662,19 @@ function PromoSection({
   )
 }
 
-function formatDateOnly(value) {
-  if (!value) return 'Chưa cập nhật'
-  return new Intl.DateTimeFormat('vi-VN').format(new Date(value))
+function formatDateOnly(value, isEnglish = (typeof document !== 'undefined' && document.documentElement.lang === 'en')) {
+  if (!value) return isEnglish ? 'Updating' : 'Chưa cập nhật'
+  return new Intl.DateTimeFormat(isEnglish ? 'en-US' : 'vi-VN').format(new Date(value))
 }
 
-function formatPromoTitle(promo) {
+function formatPromoTitle(promo, isEnglish = (typeof document !== 'undefined' && document.documentElement.lang === 'en')) {
   if (promo.discount_type === 'PERCENTAGE') {
     const cap = promo.max_discount !== null && promo.max_discount !== undefined
-      ? `, tối đa ${formatPrice(promo.max_discount)}`
+      ? (isEnglish ? `, max ${formatPrice(promo.max_discount, isEnglish)}` : `, tối đa ${formatPrice(promo.max_discount, isEnglish)}`)
       : ''
-    return `Giảm ${Number(promo.discount_value || 0)}%${cap}`
+    return isEnglish ? `${Number(promo.discount_value || 0)}% off${cap}` : `Giảm ${Number(promo.discount_value || 0)}%${cap}`
   }
-  return `Giảm ${formatPrice(promo.discount_value || 0)}`
+  return isEnglish ? `${formatPrice(promo.discount_value || 0, isEnglish)} off` : `Giảm ${formatPrice(promo.discount_value || 0, isEnglish)}`
 }
 
 function isPromoUsable(promo, subtotal) {
@@ -2778,23 +2794,24 @@ function OrganizerVoucherModal({ promoCode, setPromoCode, selectedPromo, setSele
 }
 
 function CancelBookingModal({ onStay, onCancel }) {
+  const { isEnglish } = useLanguage()
   return createPortal(
     <div className="fixed inset-0 z-[100] grid place-items-center bg-black/70 p-4 backdrop-blur-sm" onMouseDown={(event) => event.target === event.currentTarget && onStay()}>
       <section role="alertdialog" aria-modal="true" aria-labelledby="cancel-booking-title" className="w-full max-w-md rounded-2xl border border-white/10 bg-slate-900 p-6 text-white shadow-[0_24px_80px_rgba(0,0,0,0.8)]">
         <div className="flex items-start gap-4">
           <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-error/15"><AlertTriangle className="size-5 text-error" /></span>
           <div>
-            <h2 id="cancel-booking-title" className="font-display text-xl font-extrabold">{'H\u1ee7y \u0111\u01a1n h\u00e0ng?'}</h2>
-            <p className="mt-1 text-sm text-slate-400">{'B\u1ea1n c\u00f3 ch\u1eafc ch\u1eafn mu\u1ed1n ti\u1ebfp t\u1ee5c?'}</p>
+            <h2 id="cancel-booking-title" className="font-display text-xl font-extrabold">{isEnglish ? 'Cancel booking?' : 'Hủy đơn hàng?'}</h2>
+            <p className="mt-1 text-sm text-slate-400">{isEnglish ? 'Are you sure you want to proceed?' : 'Bạn có chắc chắn muốn tiếp tục?'}</p>
           </div>
         </div>
         <ul className="mt-5 space-y-2 rounded-xl border border-error/20 bg-error/5 p-4 text-sm text-slate-300">
-          <li className="flex gap-2"><span className="text-error">&bull;</span><span>{'B\u1ea1n s\u1ebd m\u1ea5t v\u1ecb tr\u00ed m\u00ecnh \u0111\u00e3 l\u1ef1a ch\u1ecdn.'}</span></li>
-          <li className="flex gap-2"><span className="text-error">&bull;</span><span>{'\u0110\u01a1n h\u00e0ng \u0111ang thanh to\u00e1n c\u00f3 th\u1ec3 b\u1ecb h\u1ee7y.'}</span></li>
+          <li className="flex gap-2"><span className="text-error">&bull;</span><span>{isEnglish ? 'You will lose your selected seats/tickets.' : 'Bạn sẽ mất vị trí mình đã lựa chọn.'}</span></li>
+          <li className="flex gap-2"><span className="text-error">&bull;</span><span>{isEnglish ? 'The pending order will be cancelled.' : 'Đơn hàng đang thanh toán có thể bị hủy.'}</span></li>
         </ul>
         <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-          <button type="button" onClick={onStay} className="rounded-xl border border-white/10 px-5 py-2.5 font-bold text-slate-300 transition hover:bg-slate-800 hover:text-white">{'Ở lại'}</button>
-          <button type="button" onClick={onCancel} className="rounded-xl bg-error px-5 py-2.5 font-bold text-white transition hover:bg-error/90">{'Hủy đơn'}</button>
+          <button type="button" onClick={onStay} className="rounded-xl border border-white/10 px-5 py-2.5 font-bold text-slate-300 transition hover:bg-slate-800 hover:text-white">{isEnglish ? 'Stay' : 'Ở lại'}</button>
+          <button type="button" onClick={onCancel} className="rounded-xl bg-error px-5 py-2.5 font-bold text-white transition hover:bg-error/90">{isEnglish ? 'Cancel Order' : 'Hủy đơn'}</button>
         </div>
       </section>
     </div>,
@@ -2803,22 +2820,23 @@ function CancelBookingModal({ onStay, onCancel }) {
 }
 
 function ResetSelectionModal({ onStay, onReset }) {
+  const { isEnglish } = useLanguage()
   return createPortal(
     <div className="fixed inset-0 z-[100] grid place-items-center bg-black/70 p-4 backdrop-blur-sm" onMouseDown={(event) => event.target === event.currentTarget && onStay()}>
       <section role="alertdialog" aria-modal="true" aria-labelledby="reset-selection-title" className="w-full max-w-md rounded-2xl border border-white/10 bg-slate-900 p-6 text-white shadow-[0_24px_80px_rgba(0,0,0,0.8)]">
         <div className="flex items-start gap-4">
           <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary/15"><RefreshCw className="size-5 text-primary" /></span>
           <div>
-            <h2 id="reset-selection-title" className="font-display text-xl font-extrabold">Bạn muốn chọn lại vé?</h2>
-            <p className="mt-1 text-sm text-slate-400">Các vé bạn đang chọn sẽ được xóa để bạn chọn lại từ đầu.</p>
+            <h2 id="reset-selection-title" className="font-display text-xl font-extrabold">{isEnglish ? 'Reselect tickets?' : 'Bạn muốn chọn lại vé?'}</h2>
+            <p className="mt-1 text-sm text-slate-400">{isEnglish ? 'Currently selected tickets will be cleared so you can reselect from scratch.' : 'Các vé bạn đang chọn sẽ được xóa để bạn chọn lại từ đầu.'}</p>
           </div>
         </div>
         <p className="mt-5 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm text-slate-300">
-          Ghế và số lượng vé đã chọn sẽ được xóa. Bạn vẫn ở trang này và có thể chọn vé mới ngay.
+          {isEnglish ? 'Seats and ticket quantities will be cleared. You can select new tickets right away.' : 'Ghế và số lượng vé đã chọn sẽ được xóa. Bạn vẫn ở trang này và có thể chọn vé mới ngay.'}
         </p>
         <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-          <button type="button" onClick={onStay} className="rounded-xl border border-white/10 px-5 py-2.5 font-bold text-slate-300 transition hover:bg-slate-800 hover:text-white">Giữ vé đã chọn</button>
-          <button type="button" onClick={onReset} className="cosmic-btn-primary px-5 py-2.5 font-bold">Chọn lại từ đầu</button>
+          <button type="button" onClick={onStay} className="rounded-xl border border-white/10 px-5 py-2.5 font-bold text-slate-300 transition hover:bg-slate-800 hover:text-white">{isEnglish ? 'Keep Selection' : 'Giữ vé đã chọn'}</button>
+          <button type="button" onClick={onReset} className="cosmic-btn-primary px-5 py-2.5 font-bold">{isEnglish ? 'Reselect' : 'Chọn lại từ đầu'}</button>
         </div>
       </section>
     </div>,

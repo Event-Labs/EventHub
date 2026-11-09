@@ -2,15 +2,26 @@ import { useQuery } from '@tanstack/react-query'
 import { fetchStaffCheckInReport } from '@/services/operations.js'
 import { Badge, StaffPage, StaffPanel, StaffTable } from './StaffComponents.jsx'
 
-const numberFormatter = new Intl.NumberFormat('vi-VN')
+const getAutoLocale = () =>
+  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
+   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
+    ? 'en-US'
+    : 'vi-VN'
+
+const numberFormatter = {
+  format: (num) => new Intl.NumberFormat(getAutoLocale()).format(num || 0)
+}
 
 function formatDateTime(value) {
-  if (!value) return 'Chưa cập nhật'
-  return new Date(value).toLocaleString('vi-VN')
+  const isEn = getAutoLocale() === 'en-US'
+  if (!value) return isEn ? 'Updating' : 'Chưa cập nhật'
+  return new Date(value).toLocaleString(getAutoLocale())
 }
 
 function checkInMethodLabel(method) {
-  return method === 'QR' ? 'Quét mã QR' : 'Thủ công'
+  const isEn = getAutoLocale() === 'en-US'
+  if (method === 'QR') return isEn ? 'QR Scan' : 'Quét mã QR'
+  return isEn ? 'Manual' : 'Thủ công'
 }
 
 export function StaffCheckInCountPage() {
@@ -38,7 +49,6 @@ export function StaffCheckInCountPage() {
   return (
     <StaffPage
       title="Thống kê Soát vé"
-      description="Dữ liệu thời gian thực của tất cả sự kiện bạn được phân công."
     >
       {reportQuery.isError && (
         <div className="mb-5 rounded-md border border-error/30 bg-error/10 px-4 py-3 text-sm font-semibold text-error">

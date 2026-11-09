@@ -120,9 +120,15 @@ function formatShortDate(value) {
   }
 }
 
+const getAutoLocale = () =>
+  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
+   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
+    ? 'en-US'
+    : 'vi-VN'
+
 function formatDate(value) {
   if (!value) return '—'
-  return new Date(value).toLocaleString('vi-VN', {
+  return new Date(value).toLocaleString(getAutoLocale(), {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',

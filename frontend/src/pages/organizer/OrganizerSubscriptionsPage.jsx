@@ -63,7 +63,7 @@ export function OrganizerSubscriptionsPage() {
   return (
     <OrganizerPage
       title="Gói Dịch vụ"
-      description="Xem các gói Organizer hiện có. Nâng cấp để mở khoá thêm tính năng và tăng giới hạn sử dụng."
+
     >
       {redirectNotice && (
         <div className="mb-6 flex items-start justify-between gap-4 rounded-xl border border-warning/40 bg-warning/10 p-4 text-warning">
@@ -585,14 +585,22 @@ function computeCountdown(endDateStr) {
   }
 }
 
+const getAutoLocale = () =>
+  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
+   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
+    ? 'en-US'
+    : 'vi-VN'
+
 function formatDate(dateStr) {
-  return new Intl.DateTimeFormat('vi-VN', {
+  return new Intl.DateTimeFormat(getAutoLocale(), {
     day: '2-digit', month: '2-digit', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   }).format(new Date(dateStr))
 }
 
 function formatMoney(value) {
+  const isEn = getAutoLocale() === 'en-US'
+  if (isEn) return `${new Intl.NumberFormat('en-US').format(Number(value || 0))} VND`
   return new Intl.NumberFormat('vi-VN', {
     style: 'currency',
     currency: 'VND',

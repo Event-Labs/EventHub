@@ -19,6 +19,7 @@ import {
   EyeOff,
   FileCheck2,
   FileText,
+  Globe,
   Heart,
   History,
   IdCard,
@@ -60,6 +61,7 @@ import { ProfileAvatar } from '@/pages/shared/ProfileAvatar.jsx'
 import { Modal } from '@/components/Modal.jsx'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
 
 const EMPTY_TEXT = 'Chưa cập nhật'
 
@@ -1037,6 +1039,7 @@ function getInitialFormData(user) {
 }
 
 function ProfileView({ user, tickets = [], ticketsLoading = false, favorites = [], favoritesLoading = false, onChangePassword }) {
+  const { language, setLanguage, isVietnamese, t } = useLanguage()
   const [isEditing, setIsEditing] = useState(false)
   const [formData, setFormData] = useState(() => getInitialFormData(user))
   const [errors, setErrors] = useState({})
@@ -1232,7 +1235,7 @@ function ProfileView({ user, tickets = [], ticketsLoading = false, favorites = [
             <span className="grid size-8 place-items-center rounded-xl bg-[#C99A47]/15 border border-[#E6C17A]/30 text-[#E6C17A]">
               <UserCircle className="size-4" />
             </span>
-            <h2 className="font-display text-base font-black text-white">Tài khoản của tôi</h2>
+            <h2 className="font-display text-base font-black text-white">{t('profile.myAccount')}</h2>
           </div>
           <div className="space-y-2">
             {/* Trạng thái tài khoản */}
@@ -1241,11 +1244,11 @@ function ProfileView({ user, tickets = [], ticketsLoading = false, favorites = [
                 <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-emerald-500/10 text-emerald-400">
                   <ShieldCheck className="size-4" />
                 </span>
-                <span className="text-xs font-medium text-slate-400">Trạng thái</span>
+                <span className="text-xs font-medium text-slate-400">{t('profile.accountStatus')}</span>
               </div>
               <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 text-xs font-bold text-emerald-400">
                 <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Hoạt động
+                {t('profile.activeStatus')}
               </span>
             </div>
 
@@ -1258,7 +1261,7 @@ function ProfileView({ user, tickets = [], ticketsLoading = false, favorites = [
                 <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-[#C99A47]/10 text-[#E6C17A] transition group-hover:scale-105">
                   <Ticket className="size-4" />
                 </span>
-                <span className="text-xs font-medium text-slate-400 group-hover:text-slate-200 transition">Vé đã đặt</span>
+                <span className="text-xs font-medium text-slate-400 group-hover:text-slate-200 transition">{t('profile.bookedTickets')}</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-black text-white group-hover:text-[#E6C17A] transition">
@@ -1277,7 +1280,7 @@ function ProfileView({ user, tickets = [], ticketsLoading = false, favorites = [
                 <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-sky-500/10 text-sky-400 transition group-hover:scale-105">
                   <CalendarCheck2 className="size-4" />
                 </span>
-                <span className="text-xs font-medium text-slate-400 group-hover:text-slate-200 transition">Đã tham gia</span>
+                <span className="text-xs font-medium text-slate-400 group-hover:text-slate-200 transition">{t('profile.participatedEvents')}</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-black text-white group-hover:text-[#E6C17A] transition">
@@ -1296,7 +1299,7 @@ function ProfileView({ user, tickets = [], ticketsLoading = false, favorites = [
                 <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-rose-500/10 text-rose-400 transition group-hover:scale-105">
                   <Heart className="size-4" />
                 </span>
-                <span className="text-xs font-medium text-slate-400 group-hover:text-slate-200 transition">Yêu thích</span>
+                <span className="text-xs font-medium text-slate-400 group-hover:text-slate-200 transition">{t('profile.favoriteEvents')}</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-black text-white group-hover:text-[#E6C17A] transition">
@@ -1305,6 +1308,50 @@ function ProfileView({ user, tickets = [], ticketsLoading = false, favorites = [
                 <ChevronRight className="size-4 text-slate-500 group-hover:text-[#E6C17A] group-hover:translate-x-0.5 transition" />
               </div>
             </Link>
+
+            {/* Cài đặt ngôn ngữ / Language Settings for Customer */}
+            <div className="rounded-xl border border-[#C99A47]/30 bg-gradient-to-b from-[#C99A47]/10 to-transparent p-3.5 space-y-2.5 mt-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="grid size-7 place-items-center rounded-lg bg-[#C99A47]/20 text-[#E6C17A]">
+                    <Globe className="size-4" />
+                  </span>
+                  <span className="text-xs font-bold text-white">
+                    {t('profile.languageSettings')}
+                  </span>
+                </div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-[#E6C17A] bg-[#C99A47]/20 px-2 py-0.5 rounded border border-[#C99A47]/30">
+                  {language.toUpperCase()}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-300 leading-relaxed">
+                {t('profile.languageSettingsDesc')}
+              </p>
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setLanguage('vi')}
+                  className={`flex items-center justify-center gap-1.5 rounded-lg py-2 px-2 text-xs font-bold transition-all ${
+                    isVietnamese
+                      ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] font-black shadow-[0_2px_10px_rgba(201,154,71,0.3)]'
+                      : 'bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white border border-white/10'
+                  }`}
+                >
+                  <span>Tiếng Việt</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLanguage('en')}
+                  className={`flex items-center justify-center gap-1.5 rounded-lg py-2 px-2 text-xs font-bold transition-all ${
+                    !isVietnamese
+                      ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] font-black shadow-[0_2px_10px_rgba(201,154,71,0.3)]'
+                      : 'bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white border border-white/10'
+                  }`}
+                >
+                  <span>English</span>
+                </button>
+              </div>
+            </div>
           </div>
         </aside>
 
@@ -1312,17 +1359,19 @@ function ProfileView({ user, tickets = [], ticketsLoading = false, favorites = [
         <div className="space-y-4">
           {!isEditing ? (
             <>
-              <CustomerInfoSection title="Thông tin cơ bản" icon={UserCircle}>
-                <CustomerInfoCard icon={UserCircle} label="Họ và tên" value={user?.full_name} />
-                <CustomerInfoCard icon={Calendar} label="Ngày sinh" value={formatDate(user?.dob)} />
-                <CustomerInfoCard icon={MapPin} label="Thành phố" value={user?.city} />
+              <CustomerInfoSection title={t('profile.basicInfo')} icon={UserCircle}>
+                <CustomerInfoCard icon={UserCircle} label={t('profile.fullName')} value={user?.full_name} />
+                <CustomerInfoCard icon={Calendar} label={t('profile.dob')} value={formatDate(user?.dob)} />
+                <CustomerInfoCard icon={MapPin} label={t('profile.city')} value={user?.city} />
               </CustomerInfoSection>
 
-              <CustomerInfoSection title="Thông tin liên hệ" icon={Phone}>
-                <CustomerInfoCard icon={Phone} label="Số điện thoại" value={user?.phone} />
-                <CustomerInfoCard icon={Mail} label="Email tài khoản" value={user?.email} linkType="email" />
-                <CustomerInfoCard icon={MapPin} label="Địa chỉ" value={user?.address} className="md:col-span-2" />
+              <CustomerInfoSection title={isVietnamese ? 'Thông tin liên hệ' : 'Contact Information'} icon={Phone}>
+                <CustomerInfoCard icon={Phone} label={t('profile.phone')} value={user?.phone} />
+                <CustomerInfoCard icon={Mail} label={t('profile.email')} value={user?.email} linkType="email" />
+                <CustomerInfoCard icon={MapPin} label={t('profile.address')} value={user?.address} className="md:col-span-2" />
               </CustomerInfoSection>
+
+              <LanguageSettingsPanel />
 
               <AccountSecurityPanel user={user} />
             </>
@@ -1421,6 +1470,67 @@ function ProfileView({ user, tickets = [], ticketsLoading = false, favorites = [
         </div>
       </div>
     </div>
+  )
+}
+
+function LanguageSettingsPanel() {
+  const { language, setLanguage, isVietnamese, t } = useLanguage()
+
+  return (
+    <section className="customer-profile-panel rounded-2xl border border-white/10 bg-slate-900/60 p-4 sm:p-6 text-content backdrop-blur-md shadow-xl">
+      <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+        <div className="flex items-center gap-3">
+          <span className="grid size-9 place-items-center rounded-xl bg-[#C99A47]/15 border border-[#E6C17A]/30 text-[#E6C17A]">
+            <Globe className="size-5" />
+          </span>
+          <div>
+            <h2 className="font-display text-lg font-black text-white">
+              {t('profile.languageSettings')}
+            </h2>
+            <p className="text-xs text-slate-400">
+              {t('profile.languageSettingsDesc')}
+            </p>
+          </div>
+        </div>
+        <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-[#C99A47]/15 border border-[#E6C17A]/30 px-3 py-1 text-xs font-black text-[#E6C17A]">
+          {isVietnamese ? 'Tiếng Việt (VI)' : 'English (EN)'}
+        </span>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 pt-1">
+        <button
+          type="button"
+          onClick={() => setLanguage('vi')}
+          className={`flex items-center justify-between rounded-xl border p-4 text-left transition-all ${
+            isVietnamese
+              ? 'border-[#E6C17A] bg-gradient-to-r from-[#C99A47]/20 to-[#E6C17A]/10 shadow-[0_0_16px_rgba(201,154,71,0.2)]'
+              : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/20'
+          }`}
+        >
+          <div>
+            <p className="text-sm font-extrabold text-white">Tiếng Việt</p>
+            <p className="text-xs text-slate-400">Giao diện và thông báo email bằng Tiếng Việt</p>
+          </div>
+          {isVietnamese && <CheckCircle2 className="size-5 text-[#E6C17A]" />}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setLanguage('en')}
+          className={`flex items-center justify-between rounded-xl border p-4 text-left transition-all ${
+            !isVietnamese
+              ? 'border-[#E6C17A] bg-gradient-to-r from-[#C99A47]/20 to-[#E6C17A]/10 shadow-[0_0_16px_rgba(201,154,71,0.2)]'
+              : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/20'
+          }`}
+        >
+          <div>
+            <p className="text-sm font-extrabold text-white">English</p>
+            <p className="text-xs text-slate-400">Interface and email notifications in English</p>
+          </div>
+          {!isVietnamese && <CheckCircle2 className="size-5 text-[#E6C17A]" />}
+        </button>
+      </div>
+    </section>
   )
 }
 
@@ -2292,11 +2402,17 @@ function booleanLabel(value) {
   return EMPTY_TEXT
 }
 
+const getAutoLocale = () =>
+  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
+   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
+    ? 'en-US'
+    : 'vi-VN'
+
 function formatDate(dateString) {
   if (!dateString) return EMPTY_TEXT
   const date = new Date(dateString)
   if (Number.isNaN(date.getTime())) return EMPTY_TEXT
-  return new Intl.DateTimeFormat('vi-VN', {
+  return new Intl.DateTimeFormat(getAutoLocale(), {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -2307,7 +2423,7 @@ function formatDateTime(dateString) {
   if (!dateString) return EMPTY_TEXT
   const date = new Date(dateString)
   if (Number.isNaN(date.getTime())) return EMPTY_TEXT
-  return new Intl.DateTimeFormat('vi-VN', {
+  return new Intl.DateTimeFormat(getAutoLocale(), {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',

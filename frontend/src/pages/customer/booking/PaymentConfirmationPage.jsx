@@ -7,12 +7,13 @@ import { clearBookingDraft } from '@/utils/bookingDraft.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { QRCodeImage } from '@/components/QRCodeImage.jsx'
 import { useToast } from '@/providers/ToastProvider.jsx'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
 import { cn } from '@/lib/utils.js'
 
-function formatPrice(value) {
+function formatPrice(value, isEnglish = false) {
   const number = Number(value)
-  if (!Number.isFinite(number)) return '0 đ'
-  return `${number.toLocaleString('vi-VN')} đ`
+  if (!Number.isFinite(number)) return isEnglish ? '0 ₫' : '0 đ'
+  return `${number.toLocaleString(isEnglish ? 'en-US' : 'vi-VN')} ₫`
 }
 
 function secondsLeft(expiredAt) {
@@ -33,6 +34,7 @@ function paymentQrImageSrc(qrCode) {
 }
 
 export function PaymentConfirmationPage() {
+  const { isEnglish } = useLanguage()
   const toast = useToast()
   const location = useLocation()
   const navigate = useNavigate()
@@ -64,11 +66,11 @@ export function PaymentConfirmationPage() {
   const cancelMutation = useMutation({
     mutationFn: () => cancelOrder(orderId),
     onSuccess: () => {
-      toast.success('Đã hủy đơn hàng.')
+      toast.success(isEnglish ? 'Order cancelled.' : 'Đã hủy đơn hàng.')
       statusQuery.refetch()
     },
     onError: (err) => {
-      toast.error(getApiMessage(err, 'Không thể hủy đơn hàng. Vui lòng thử lại.'))
+      toast.error(getApiMessage(err, isEnglish ? 'Failed to cancel order. Please try again.' : 'Không thể hủy đơn hàng. Vui lòng thử lại.'))
     },
   })
 
@@ -83,12 +85,12 @@ export function PaymentConfirmationPage() {
       paymentSuccessHandledRef.current = true
       clearBookingDraft()
       const msg = orderStatus === 'CONFIRMED'
-        ? 'Đặt vé thành công. Vé của bạn đã sẵn sàng!'
-        : 'Thanh toán thành công. Vé của bạn đã sẵn sàng!'
+        ? (isEnglish ? 'Booking confirmed. Your tickets are ready!' : 'Đặt vé thành công. Vé của bạn đã sẵn sàng!')
+        : (isEnglish ? 'Payment successful. Your tickets are ready!' : 'Thanh toán thành công. Vé của bạn đã sẵn sàng!')
       toast.success(msg)
       navigate('/my-tickets', { replace: true })
     }
-  }, [navigate, statusQuery.data?.order?.status, toast])
+  }, [navigate, statusQuery.data?.order?.status, toast, isEnglish])
 
   const data = statusQuery.data
   const remainingSeconds = useMemo(
@@ -99,21 +101,21 @@ export function PaymentConfirmationPage() {
   if (!orderId) {
     return (
       <div className="mx-auto max-w-lg px-4 py-16 text-center">
-        <p className="text-muted">Không tìm thấy thông tin đơn hàng.</p>
+        <p className="text-muted">{isEnglish ? 'Order information not found.' : 'Không tìm thấy thông tin đơn hàng.'}</p>
         <Link to="/my-tickets" className="mt-4 inline-block font-bold text-primary">
-          Xem vé của tôi
+          {isEnglish ? 'View My Tickets' : 'Xem vé của tôi'}
         </Link>
       </div>
     )
   }
 
   if (statusQuery.isLoading || !data) {
-    return <State message="Đang tải trạng thái thanh toán..." />
+    return <State message={isEnglish ? 'Loading payment status...' : 'Đang tải trạng thái thanh toán...'} />
   }
 
   const paid = data.order.status === 'PAID'
   const expired = ['EXPIRED', 'CANCELLED', 'FAILED'].includes(data.order.status) || remainingSeconds === 0
-  const eventTitle = data.order.event?.title || location.state?.eventTitle || 'Sự kiện'
+  const eventTitle = data.order.event?.title || location.state?.eventTitle || (isEnglish ? 'Event' : 'Sự kiện')
 
   if (paid) {
     return (
@@ -125,24 +127,27 @@ export function PaymentConfirmationPage() {
             <CheckCircle className="size-12" />
           </div>
           <h1 className="mt-8 font-display text-4xl font-extrabold text-white drop-shadow-md">
-            Thanh toán thành công!
+            {isEnglish ? 'Payment Successful!' : 'Thanh toán thành công!'}
           </h1>
           <p className="mx-auto mt-4 max-w-md text-slate-300 text-lg">
-            Đơn <span className="font-semibold text-primary">{data.order.order_code}</span> cho{' '}
-            {eventTitle} đã được xác nhận. Vé đã sẵn sàng trong My Tickets.
+            {isEnglish ? (
+              <>Order <span className="font-semibold text-primary">{data.order.order_code}</span> for {eventTitle} has been confirmed. Tickets are ready in My Tickets.</>
+            ) : (
+              <>Đơn <span className="font-semibold text-primary">{data.order.order_code}</span> cho {eventTitle} đã được xác nhận. Vé đã sẵn sàng trong My Tickets.</>
+            )}
           </p>
           <div className="mt-10 flex flex-wrap justify-center gap-4">
             <Link
               to="/my-tickets"
               className="cosmic-btn-primary px-8 py-3.5 text-[15px]"
             >
-              Vé của tôi
+              {isEnglish ? 'My Tickets' : 'Vé của tôi'}
             </Link>
             <Link
               to={`/events/${data.order.event?.slug || data.order.event?.id || ''}`}
               className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 px-8 py-3.5 font-bold text-white transition-all hover:bg-white/10 hover:border-white/20"
             >
-              Quay lại sự kiện
+              {isEnglish ? 'Back to Event' : 'Quay lại sự kiện'}
             </Link>
           </div>
         </section>
@@ -167,10 +172,10 @@ export function PaymentConfirmationPage() {
 
         <div className="mt-8 rounded-[24px] border border-white/5 bg-white/5 p-8 text-center shadow-inner">
           <p className="text-[10px] font-black uppercase tracking-widest text-white">
-            Số tiền cần thanh toán
+            {isEnglish ? 'Amount Due' : 'Số tiền cần thanh toán'}
           </p>
           <p className="mt-3 font-display text-5xl font-black text-white drop-shadow-lg tracking-tight">
-            {formatPrice(data.order.total_amount)}
+            {formatPrice(data.order.total_amount, isEnglish)}
           </p>
 
           {data.payment?.qr_code ? (
@@ -179,12 +184,14 @@ export function PaymentConfirmationPage() {
             </div>
           ) : (
             <div className="mx-auto mt-8 grid size-60 place-items-center rounded-2xl border-2 border-dashed border-white/10 bg-slate-900/50 text-sm font-medium text-slate-400">
-              QR sẽ hiển thị sau khi PayOS trả dữ liệu.
+              {isEnglish ? 'QR code will appear once PayOS responds.' : 'QR sẽ hiển thị sau khi PayOS trả dữ liệu.'}
             </div>
           )}
 
           <p className="mx-auto mt-6 max-w-md text-sm text-slate-400 leading-relaxed">
-            Quét QR trong app ngân hàng hoặc mở trang PayOS. Hệ thống sẽ tự động cập nhật khi thanh toán thành công.
+            {isEnglish
+              ? 'Scan this QR with your banking app or open PayOS payment page. The system will automatically update upon payment.'
+              : 'Quét QR trong app ngân hàng hoặc mở trang PayOS. Hệ thống sẽ tự động cập nhật khi thanh toán thành công.'}
           </p>
 
           {data.payment?.checkout_url && (
@@ -194,7 +201,7 @@ export function PaymentConfirmationPage() {
               rel="noreferrer"
               className="cosmic-btn-primary mx-auto mt-8 flex w-fit min-w-[280px] items-center justify-center gap-2 py-4"
             >
-              Mở trang thanh toán PayOS
+              {isEnglish ? 'Open PayOS Payment Page' : 'Mở trang thanh toán PayOS'}
               <ExternalLink className="size-5" />
             </a>
           )}
@@ -204,17 +211,17 @@ export function PaymentConfirmationPage() {
       <aside className="glass-panel h-fit rounded-[24px] p-8 border-primary/20 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)] relative overflow-hidden lg:sticky lg:top-24">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom,_var(--color-primary)_0%,_transparent_50%)] opacity-10 pointer-events-none" />
         <div className="rounded-[16px] border border-primary/30 bg-primary/10 p-6 text-center shadow-inner">
-          <p className="text-[10px] font-black uppercase tracking-widest text-primary">Thời gian giữ vé</p>
+          <p className="text-[10px] font-black uppercase tracking-widest text-primary">{isEnglish ? 'Reservation Window' : 'Thời gian giữ vé'}</p>
           <p className="mt-3 font-mono text-4xl font-bold text-white drop-shadow-sm">
             {formatCountdown(remainingSeconds)}
           </p>
         </div>
 
         <div className="mt-8 space-y-4 text-sm">
-          <Line label="Mã đơn" value={data.order.order_code} />
-          <Line label="Trạng thái đơn" value={data.order.status} />
-          <Line label="Trạng thái PayOS" value={data.payment?.status || 'PENDING'} />
-          <Line label="Tổng tiền" value={formatPrice(data.order.total_amount)} strong />
+          <Line label={isEnglish ? 'Order Code' : 'Mã đơn'} value={data.order.order_code} />
+          <Line label={isEnglish ? 'Order Status' : 'Trạng thái đơn'} value={data.order.status} />
+          <Line label={isEnglish ? 'PayOS Status' : 'Trạng thái PayOS'} value={data.payment?.status || 'PENDING'} />
+          <Line label={isEnglish ? 'Total Amount' : 'Tổng tiền'} value={formatPrice(data.order.total_amount, isEnglish)} strong />
         </div>
 
         <div className="mt-8 space-y-4">
@@ -225,7 +232,7 @@ export function PaymentConfirmationPage() {
             className="flex w-full items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 py-4 font-bold text-white transition-all hover:bg-white/10 hover:border-white/20 disabled:opacity-60"
           >
             <RefreshCw className={cn('size-5', statusQuery.isFetching && 'animate-spin')} />
-            {statusQuery.isFetching ? 'Đang kiểm tra...' : 'Kiểm tra trạng thái'}
+            {statusQuery.isFetching ? (isEnglish ? 'Checking...' : 'Đang kiểm tra...') : (isEnglish ? 'Check Status' : 'Kiểm tra trạng thái')}
           </button>
           <button
             type="button"
@@ -234,13 +241,15 @@ export function PaymentConfirmationPage() {
             className="flex w-full items-center justify-center gap-2 rounded-full border border-error/30 bg-transparent py-4 font-bold text-error transition-all hover:bg-error/10 hover:border-error/50 disabled:opacity-50"
           >
             <XCircle className="size-5" />
-            Hủy đơn
+            {isEnglish ? 'Cancel Order' : 'Hủy đơn'}
           </button>
         </div>
 
         {expired && (
           <p className="mt-6 rounded-xl border border-error/30 bg-error/10 p-4 text-sm font-medium text-error text-center">
-            Giao dịch đã hết thời gian giữ vé hoặc đã bị hủy. Vui lòng đặt vé lại từ đầu.
+            {isEnglish
+              ? 'Transaction reservation expired or order was cancelled. Please book again.'
+              : 'Giao dịch đã hết thời gian giữ vé hoặc đã bị hủy. Vui lòng đặt vé lại từ đầu.'}
           </p>
         )}
       </aside>

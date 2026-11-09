@@ -53,14 +53,21 @@ function isStaffManageableEvent(event) {
   return new Date(effectiveEnd).getTime() >= Date.now()
 }
 
+const getAutoLocale = () =>
+  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
+   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
+    ? 'en-US'
+    : 'vi-VN'
+
 function formatSessionTime(startTime, endTime) {
   if (!startTime) return ''
+  const isEn = getAutoLocale() === 'en-US'
   const start = new Date(startTime)
-  const dateStr = start.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
-  const timeStart = start.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false })
+  const dateStr = start.toLocaleDateString(getAutoLocale(), { day: '2-digit', month: isEn ? 'short' : '2-digit', year: 'numeric' })
+  const timeStart = start.toLocaleTimeString(getAutoLocale(), { hour: '2-digit', minute: '2-digit', hour12: false })
   if (!endTime) return `${timeStart}, ${dateStr}`
   const end = new Date(endTime)
-  const timeEnd = end.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false })
+  const timeEnd = end.toLocaleTimeString(getAutoLocale(), { hour: '2-digit', minute: '2-digit', hour12: false })
   return `${timeStart} - ${timeEnd}, ${dateStr}`
 }
 
@@ -173,7 +180,6 @@ export function OrganizerStaffManagementPage() {
   return (
     <OrganizerPage
       title="Quản lý Nhân sự"
-      description="Phân công, phân chia cổng và khu vực làm việc cho nhân sự từng sự kiện."
     >
       {/* ── Toolbar ── */}
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -369,7 +375,7 @@ export function OrganizerStaffManagementPage() {
                             )}
                           </td>
                           <td className="px-3.5 py-3 text-white whitespace-nowrap">
-                            {new Date(staff.assigned_at).toLocaleDateString('vi-VN')}
+                            {new Date(staff.assigned_at).toLocaleDateString(getAutoLocale())}
                           </td>
                           <td className="px-3.5 py-3 text-center whitespace-nowrap">
                             <div className="flex items-center justify-center gap-2">
@@ -505,7 +511,7 @@ export function OrganizerStaffManagementPage() {
                           </td>
                           <td className="px-3.5 py-3 text-white whitespace-nowrap">
                             {inv.expires_at
-                              ? new Date(inv.expires_at).toLocaleDateString('vi-VN')
+                              ? new Date(inv.expires_at).toLocaleDateString(getAutoLocale())
                               : '—'}
                           </td>
                           <td className="px-3.5 py-3 text-center whitespace-nowrap">

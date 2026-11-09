@@ -1,10 +1,13 @@
 import { Search, Sparkles } from 'lucide-react'
 import { renderCosmicTitle } from '@/lib/formatTitle.jsx'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
 
 /**
  * StaffPage – page-level layout wrapper
  */
 export function StaffPage({ title, description, action, children, className = '' }) {
+  const { t } = useLanguage()
+
   return (
     <div className={className}>
       {(title || action) && (
@@ -37,6 +40,7 @@ export function StaffPanel({ children, className = '' }) {
  * StaffTable
  */
 export function StaffTable({ headers, rows }) {
+  const { t } = useLanguage()
   return (
     <div className="w-full max-w-full min-w-0 overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
       <div className="w-full overflow-x-auto">
@@ -57,7 +61,7 @@ export function StaffTable({ headers, rows }) {
                       isCenter ? 'text-center' : ''
                     }`}
                   >
-                    {label}
+                    {t(label)}
                   </th>
                 )
               })}
@@ -105,12 +109,14 @@ export function StaffTable({ headers, rows }) {
  * StaffSearch
  */
 export function StaffSearch({ placeholder = 'Tìm kiếm...' }) {
+  const { isEnglish, t } = useLanguage()
+  const displayPlaceholder = placeholder === 'Tìm kiếm...' ? (isEnglish ? 'Search...' : 'Tìm kiếm...') : t(placeholder)
   return (
     <div className="glass-panel relative flex h-[44px] items-center rounded-full border-white/10 px-4 shadow-inner">
       <Search className="size-5 shrink-0 text-subtle" />
       <input
         className="ml-3 w-full bg-transparent text-[15px] font-normal text-content outline-none placeholder:text-muted"
-        placeholder={placeholder}
+        placeholder={displayPlaceholder}
       />
     </div>
   )
@@ -142,6 +148,7 @@ export function Avatar({ name, className = 'size-9' }) {
  * Insight
  */
 export function Insight({ children }) {
+  const { isEnglish } = useLanguage()
   return (
     <section className="glass-panel rounded-[24px] border-ai/20 bg-ai/10 p-6 shadow-[inset_0_0_20px_rgba(236,72,153,0.15)]">
       <div className="flex gap-5">
@@ -149,7 +156,7 @@ export function Insight({ children }) {
           <Sparkles className="size-6 text-ai drop-shadow-[0_0_8px_rgba(236,72,153,0.6)]" />
         </div>
         <p className="text-[15px] leading-relaxed text-subtle font-medium pt-1">
-          <span className="font-black text-ai drop-shadow-sm block text-lg mb-1">Gợi ý AI: </span>
+          <span className="font-black text-ai drop-shadow-sm block text-lg mb-1">{isEnglish ? 'AI Insight:' : 'Gợi ý AI:'} </span>
           {children}
         </p>
       </div>

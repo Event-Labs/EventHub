@@ -3,21 +3,25 @@ import { Calendar, Clock3, DoorOpen, Layers, MapPin } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { fetchAssignedStaffEvents } from '@/services/operations.js'
 import { Badge, StaffPage, StaffPanel, StaffSearch } from './StaffComponents.jsx'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
 
 const STAFF_ROLE_LABELS = {
-  staff: 'Nhân sự',
-  checkin: 'Nhân sự soát vé',
-  check_in: 'Nhân sự soát vé',
-  supervisor: 'Giám sát viên',
-  security: 'Nhân viên an ninh',
+  staff: { vi: 'Nhân sự', en: 'Staff' },
+  checkin: { vi: 'Nhân sự soát vé', en: 'Check-in Staff' },
+  check_in: { vi: 'Nhân sự soát vé', en: 'Check-in Staff' },
+  supervisor: { vi: 'Giám sát viên', en: 'Supervisor' },
+  security: { vi: 'Nhân viên an ninh', en: 'Security' },
 }
 
-function staffRoleLabel(role) {
-  if (!role) return 'Nhân sự'
-  return STAFF_ROLE_LABELS[String(role).toLowerCase()] || role
+function staffRoleLabel(role, isEnglish) {
+  if (!role) return isEnglish ? 'Staff' : 'Nhân sự'
+  const mapping = STAFF_ROLE_LABELS[String(role).toLowerCase()]
+  if (!mapping) return role
+  return isEnglish ? mapping.en : mapping.vi
 }
 
 export function StaffEventsPage({ empty = false }) {
+  const { isEnglish } = useLanguage()
   const [events, setEvents] = useState([])
   const [keyword, setKeyword] = useState('')
   const [loading, setLoading] = useState(true)
@@ -37,7 +41,7 @@ export function StaffEventsPage({ empty = false }) {
           setCurrentTime(Date.now())
         }
       } catch (err) {
-        if (active) setError(err.response?.data?.message || 'Không thể tải sự kiện được giao.')
+        if (active) setError(err.response?.data?.message || (isEnglish ? 'Failed to load assigned events.' : 'Không thể tải sự kiện được giao.'))
       } finally {
         if (active) setLoading(false)
       }
@@ -47,7 +51,7 @@ export function StaffEventsPage({ empty = false }) {
     return () => {
       active = false
     }
-  }, [])
+  }, [isEnglish])
 
   useEffect(() => {
     const timerId = window.setInterval(() => setCurrentTime(Date.now()), 1000)
@@ -58,33 +62,43 @@ export function StaffEventsPage({ empty = false }) {
     const normalized = keyword.trim().toLowerCase()
     if (!normalized) return events
     return events.filter((event) => {
-      const venue = [event.venue_name, event.address_line, event.district, event.city].filter(Boolean).join(' ')
-      return `${event.title} ${venue} ${event.staff_role || ''} ${event.gate || ''} ${event.zone || ''}`.toLowerCase().includes(normalized)
+      const title = String(event.title || '').toLowerCase()
+      const venue = String(event.venue_name || '').toLowerCase()
+      return title.includes(normalized) || venue.includes(normalized)
     })
   }, [events, keyword])
 
-  if (empty) return <NoAssignedEventsPage />
+  if (empty) {
+    return <NoAssignedEventsPage isEnglish={isEnglish} />
+  }
 
   return (
-    <StaffPage title="Sự kiện Được giao" description="Quản lý ca soát vé cho các sự kiện sắp tới.">
-      {error && <div className="mb-4 rounded-md border border-error/30 bg-error/10 px-4 py-3 text-sm font-semibold text-error">{error}</div>}
-      <div className="mb-5 grid gap-3 md:grid-cols-[1fr_auto]">
-        <div onChange={(event) => setKeyword(event.target.value)}>
-          <StaffSearch placeholder="Tìm theo tên sự kiện, địa điểm, cổng, khu vực..." />
+    <StaffPage
+      title={isEnglish ? 'Assigned Events' : 'Sự kiện được giao'}
+      action={
+        <div className="w-full sm:w-72">
+          <StaffSearch
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+            placeholder={isEnglish ? 'Search events, venues...' : 'Tìm kiếm sự kiện, địa điểm...'}
+          />
         </div>
-        <select className="h-10 rounded-md border border-border-soft/40 bg-panel-soft px-3 text-sm text-content outline-none focus:border-primary">
-          <option>Tất cả vai trò</option>
-        </select>
-      </div>
+      }
+    >
+      {error && (
+        <div className="mb-6 rounded-xl border border-error/30 bg-error/10 p-4 text-sm font-semibold text-error">
+          {error}
+        </div>
+      )}
 
       {loading ? (
-        <StaffPanel>Đang tải dữ liệu...</StaffPanel>
+        <StaffPanel>{isEnglish ? 'Loading data...' : 'Đang tải dữ liệu...'}</StaffPanel>
       ) : filteredEvents.length === 0 ? (
-        <NoAssignedEventsPage />
+        <NoAssignedEventsPage isEnglish={isEnglish} />
       ) : (
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
           {filteredEvents.map((event) => (
-            <AssignedEventCard key={event.id} event={event} currentTime={currentTime} />
+            <AssignedEventCard key={event.id} event={event} currentTime={currentTime} isEnglish={isEnglish} />
           ))}
         </div>
       )}
@@ -92,7 +106,7 @@ export function StaffEventsPage({ empty = false }) {
   )
 }
 
-function AssignedEventCard({ event, currentTime }) {
+function AssignedEventCard({ event, currentTime, isEnglish }) {
   const checkedIn = Number(event.checked_in || 0)
   const totalValid = Number(event.total_valid || 0)
   const progress = totalValid > 0 ? Math.min(100, Math.round((checkedIn / totalValid) * 100)) : 0
@@ -115,29 +129,35 @@ function AssignedEventCard({ event, currentTime }) {
         <div className="flex items-start justify-between gap-3">
           <h3 className="min-h-12 min-w-0 break-words font-extrabold leading-6">{event.title}</h3>
           <span className="shrink-0">
-            <Badge tone={statusTone}>{isCheckInOpen ? 'Đã mở check-in' : 'Chưa đến giờ check-in'}</Badge>
+            <Badge tone={statusTone}>
+              {isCheckInOpen
+                ? (isEnglish ? 'Check-in Open' : 'Đã mở check-in')
+                : (isEnglish ? 'Check-in Not Started' : 'Chưa đến giờ check-in')}
+            </Badge>
           </span>
         </div>
         <p className="mt-3 flex items-start gap-2 text-sm text-subtle">
           <Calendar className="mt-0.5 size-4 shrink-0" />
-          <span>{new Date(event.start_time).toLocaleString('vi-VN')}</span>
+          <span>{new Date(event.start_time).toLocaleString(isEnglish ? 'en-US' : 'vi-VN')}</span>
         </p>
         <p className="mt-2 flex items-start gap-2 text-sm leading-5 text-subtle">
           <MapPin className="mt-0.5 size-4 shrink-0" />
-          <span className="break-words">{venue || 'Chưa cập nhật địa điểm'}</span>
+          <span className="break-words">{venue || (isEnglish ? 'Venue TBD' : 'Chưa cập nhật địa điểm')}</span>
         </p>
         
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <Badge tone="blue">Vai trò: {staffRoleLabel(event.staff_role)}</Badge>
+          <Badge tone="blue">
+            {isEnglish ? 'Role: ' : 'Vai trò: '}{staffRoleLabel(event.staff_role, isEnglish)}
+          </Badge>
           {event.session_name || (event.assigned_sessions && event.assigned_sessions.length > 0) ? (
             <Badge tone="cyan">
               <span className="flex items-center gap-1">
                 <Clock3 className="size-3" />
-                {event.session_name || event.assigned_sessions.map((s) => s.session_name || 'Phiên làm việc').join(', ')}
+                {event.session_name || event.assigned_sessions.map((s) => s.session_name || (isEnglish ? 'Session' : 'Phiên làm việc')).join(', ')}
               </span>
             </Badge>
           ) : (
-            <Badge tone="slate">Toàn bộ sự kiện</Badge>
+            <Badge tone="slate">{isEnglish ? 'Full Event' : 'Toàn bộ sự kiện'}</Badge>
           )}
           {event.gate ? (
             <Badge tone="purple">
@@ -147,7 +167,7 @@ function AssignedEventCard({ event, currentTime }) {
               </span>
             </Badge>
           ) : (
-            <Badge tone="gray">Tất cả cổng</Badge>
+            <Badge tone="gray">{isEnglish ? 'All Gates' : 'Tất cả cổng'}</Badge>
           )}
           {event.zone && (
             <Badge tone="yellow">
@@ -163,11 +183,12 @@ function AssignedEventCard({ event, currentTime }) {
           checkinStartTime={event.checkin_start_time || event.start_time}
           currentTime={currentTime}
           isOpen={isCheckInOpen}
+          isEnglish={isEnglish}
         />
 
         <div className="mt-auto pt-5">
           <p className="flex items-center justify-between gap-3 text-sm font-semibold">
-            <span>Tiến độ soát vé</span>
+            <span>{isEnglish ? 'Check-in Progress' : 'Tiến độ soát vé'}</span>
             <span className="shrink-0">{checkedIn} / {totalValid}</span>
           </p>
           <div className="mt-2 h-2 rounded bg-panel-soft">
@@ -175,18 +196,20 @@ function AssignedEventCard({ event, currentTime }) {
           </div>
           <div className="mt-5 flex gap-3">
             {isCheckInOpen ? (
-              <Link to="/staff/qr-check-in" className="admin-primary flex-1">Check-in</Link>
+              <Link to="/staff/qr-check-in" className="admin-primary flex-1">{isEnglish ? 'Check-in' : 'Check-in'}</Link>
             ) : (
               <button
                 type="button"
                 className="admin-primary flex-1 cursor-not-allowed opacity-50"
                 disabled
-                title="Chưa đến giờ check-in do ban tổ chức thiết lập"
+                title={isEnglish ? 'Check-in window not yet opened by organizer' : 'Chưa đến giờ check-in do ban tổ chức thiết lập'}
               >
                 Check-in
               </button>
             )}
-            <Link to={`/staff/events/${event.id}`} className="admin-secondary flex-1">Chi tiết</Link>
+            <Link to={`/staff/events/${event.id}`} className="admin-secondary flex-1">
+              {isEnglish ? 'Details' : 'Chi tiết'}
+            </Link>
           </div>
         </div>
       </div>
@@ -194,18 +217,18 @@ function AssignedEventCard({ event, currentTime }) {
   )
 }
 
-function CheckInAvailability({ checkinStartTime, currentTime, isOpen }) {
+function CheckInAvailability({ checkinStartTime, currentTime, isOpen, isEnglish }) {
   const targetTime = new Date(checkinStartTime).getTime()
 
   if (!Number.isFinite(targetTime)) {
     return (
       <div className="mt-4 rounded-xl border border-warning/30 bg-warning/10 p-3 text-sm font-semibold text-warning">
-        Chưa xác định giờ check-in.
+        {isEnglish ? 'Check-in time not specified.' : 'Chưa xác định giờ check-in.'}
       </div>
     )
   }
 
-  const formattedStart = new Intl.DateTimeFormat('vi-VN', {
+  const formattedStart = new Intl.DateTimeFormat(isEnglish ? 'en-US' : 'vi-VN', {
     dateStyle: 'short',
     timeStyle: 'medium',
   }).format(new Date(targetTime))
@@ -215,8 +238,8 @@ function CheckInAvailability({ checkinStartTime, currentTime, isOpen }) {
       <div className="mt-4 flex items-start gap-2 rounded-xl border border-success/30 bg-success/10 p-3 text-sm text-success">
         <Clock3 className="mt-0.5 size-4 shrink-0" />
         <div>
-          <p className="font-extrabold">Đã đến giờ check-in</p>
-          <p className="mt-0.5 text-xs font-semibold">Mở từ {formattedStart}</p>
+          <p className="font-extrabold">{isEnglish ? 'Check-in is Open' : 'Đã đến giờ check-in'}</p>
+          <p className="mt-0.5 text-xs font-semibold">{isEnglish ? `Opened since ${formattedStart}` : `Mở từ ${formattedStart}`}</p>
         </div>
       </div>
     )
@@ -226,17 +249,17 @@ function CheckInAvailability({ checkinStartTime, currentTime, isOpen }) {
     <div className="mt-4 flex items-start gap-2 rounded-xl border border-warning/30 bg-warning/10 p-3 text-sm text-warning">
       <Clock3 className="mt-0.5 size-4 shrink-0" />
       <div>
-        <p className="font-extrabold">Chưa đến giờ check-in</p>
-        <p className="mt-0.5 text-xs font-semibold">Mở lúc {formattedStart}</p>
+        <p className="font-extrabold">{isEnglish ? 'Check-in Not Started' : 'Chưa đến giờ check-in'}</p>
+        <p className="mt-0.5 text-xs font-semibold">{isEnglish ? `Opens at ${formattedStart}` : `Mở lúc ${formattedStart}`}</p>
         <p className="mt-1 font-mono text-sm font-extrabold tabular-nums">
-          Còn {formatCheckInCountdown(targetTime - currentTime)}
+          {isEnglish ? 'Opens in ' : 'Còn '}{formatCheckInCountdown(targetTime - currentTime, isEnglish)}
         </p>
       </div>
     </div>
   )
 }
 
-function formatCheckInCountdown(remainingMs) {
+function formatCheckInCountdown(remainingMs, isEnglish) {
   const totalSeconds = Math.max(0, Math.ceil(remainingMs / 1000))
   const days = Math.floor(totalSeconds / 86400)
   const hours = Math.floor((totalSeconds % 86400) / 3600)
@@ -248,22 +271,31 @@ function formatCheckInCountdown(remainingMs) {
     return `${String(totalHours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
   }
 
+  if (isEnglish) {
+    return `${days}d ${String(hours).padStart(2, '0')}h ${String(minutes).padStart(2, '0')}m`
+  }
   return `${days} ngày ${String(hours).padStart(2, '0')} giờ ${String(minutes).padStart(2, '0')} phút`
 }
 
-export function NoAssignedEventsPage() {
+export function NoAssignedEventsPage({ isEnglish }) {
   return (
     <div className="grid min-h-[calc(100vh-140px)] place-items-center">
       <div className="max-w-md text-center">
         <div className="mx-auto grid size-32 place-items-center rounded-md bg-panel-soft text-muted">
           <Calendar className="size-16" />
         </div>
-        <h1 className="mt-6 text-xl font-extrabold text-content">Chưa có sự kiện được giao</h1>
+        <h1 className="mt-6 text-xl font-extrabold text-content">
+          {isEnglish ? 'No Assigned Events' : 'Chưa có sự kiện được giao'}
+        </h1>
         <p className="mt-3 text-sm leading-6 text-subtle">
-          Bạn chưa được phân công vào sự kiện nào. Vui lòng liên hệ ban tổ chức nếu có nhầm lẫn.
+          {isEnglish
+            ? 'You have not been assigned to any events. Please contact the organizer if this is a mistake.'
+            : 'Bạn chưa được phân công vào sự kiện nào. Vui lòng liên hệ ban tổ chức nếu có nhầm lẫn.'}
         </p>
         <div className="mt-7 flex flex-wrap justify-center gap-3">
-          <Link to="/" className="admin-primary">Về trang khách hàng</Link>
+          <Link to="/" className="admin-primary">
+            {isEnglish ? 'Back to Customer Site' : 'Về trang khách hàng'}
+          </Link>
         </div>
       </div>
     </div>

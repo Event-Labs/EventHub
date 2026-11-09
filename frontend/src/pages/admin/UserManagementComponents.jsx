@@ -21,6 +21,12 @@ import { Modal } from '@/components/Modal'
 import adminUserService from '@/services/adminUser'
 import { ProfileAvatar } from '@/pages/shared/ProfileAvatar.jsx'
 
+const getAutoLocale = () =>
+  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
+   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
+    ? 'en-US'
+    : 'vi-VN'
+
 export function UserDetailView({ userId, onBack, onStatusChange, refreshKey }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -82,7 +88,7 @@ export function UserDetailView({ userId, onBack, onStatusChange, refreshKey }) {
             <div className="mt-6 border-t border-border-soft/30 pt-6 flex justify-around">
               <div className="text-center">
                 <p className="text-[10px] font-extrabold text-subtle uppercase tracking-wider">Ngày tạo</p>
-                <p className="mt-1 font-extrabold text-content">{new Date(user.created_at).toLocaleDateString('vi-VN')}</p>
+                <p className="mt-1 font-extrabold text-content">{new Date(user.created_at).toLocaleDateString(getAutoLocale())}</p>
               </div>
               <div className="text-center">
                 <p className="text-[10px] font-extrabold text-subtle uppercase tracking-wider">Trạng thái</p>
@@ -139,7 +145,7 @@ export function UserDetailView({ userId, onBack, onStatusChange, refreshKey }) {
                 <Calendar className="size-4 text-subtle mt-0.5" />
                 <div>
                   <p className="font-bold text-content">Ngày sinh</p>
-                  <p className="text-subtle mt-0.5">{user.dob ? new Date(user.dob).toLocaleDateString('vi-VN') : 'Chưa cung cấp'}</p>
+                  <p className="text-subtle mt-0.5">{user.dob ? new Date(user.dob).toLocaleDateString(getAutoLocale()) : 'Chưa cung cấp'}</p>
                 </div>
               </div>
             </div>
@@ -152,8 +158,8 @@ export function UserDetailView({ userId, onBack, onStatusChange, refreshKey }) {
             items={[
               ['Sự kiện đã tạo', user.events_created || 0, 'Organizer'],
               ['Vé đã mua', user.tickets_bought || 0, 'Customer'],
-              ['Tổng giao dịch', `${Math.round(Number(user.total_spent || 0)).toLocaleString('vi-VN')} đ`, 'Finance'],
-              ['Cập nhật gần nhất', new Date(user.updated_at).toLocaleDateString('vi-VN'), 'System'],
+              ['Tổng giao dịch', `${Math.round(Number(user.total_spent || 0)).toLocaleString(getAutoLocale())} ₫`, 'Finance'],
+              ['Cập nhật gần nhất', new Date(user.updated_at).toLocaleDateString(getAutoLocale()), 'System'],
             ]}
           />
 

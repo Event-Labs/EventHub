@@ -10,12 +10,13 @@ import {
 } from '@/services/feedbacks.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
 
-function formatEventDate(item) {
+function formatEventDate(item, isEnglish = false) {
   if (!item) return ''
   const d = item.start_time || item.end_time
   if (!d) return ''
-  return new Date(d).toLocaleDateString('vi-VN', {
+  return new Date(d).toLocaleDateString(isEnglish ? 'en-US' : 'vi-VN', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -23,6 +24,7 @@ function formatEventDate(item) {
 }
 
 export function FeedbackPage() {
+  const { isEnglish } = useLanguage()
   const toast = useToast()
   const navigate = useNavigate()
   const location = useLocation()
@@ -75,13 +77,13 @@ export function FeedbackPage() {
   const submitMutation = useMutation({
     mutationFn: submitEventFeedback,
     onSuccess: () => {
-      toast.success('Cảm ơn bạn! Phản hồi đã được gửi thành công.')
+      toast.success(isEnglish ? 'Thank you! Your feedback has been submitted successfully.' : 'Cảm ơn bạn! Phản hồi đã được gửi thành công.')
       setContent('')
       setRating(0)
       queryClient.invalidateQueries({ queryKey: ['feedback-eligible-events'] })
     },
     onError: (err) => {
-      toast.error(getApiMessage(err, 'Không thể gửi phản hồi. Vui lòng thử lại.'))
+      toast.error(getApiMessage(err, isEnglish ? 'Failed to submit feedback. Please try again.' : 'Không thể gửi phản hồi. Vui lòng thử lại.'))
     },
   })
 
@@ -89,11 +91,11 @@ export function FeedbackPage() {
     event.preventDefault()
 
     if (!eventId) {
-      toast.error('Vui lòng chọn sự kiện.')
+      toast.error(isEnglish ? 'Please select an event.' : 'Vui lòng chọn sự kiện.')
       return
     }
     if (rating < 1) {
-      toast.error('Vui lòng chọn số sao đánh giá.')
+      toast.error(isEnglish ? 'Please select a star rating.' : 'Vui lòng chọn số sao đánh giá.')
       return
     }
 
@@ -110,10 +112,15 @@ export function FeedbackPage() {
     <div className="mx-auto max-w-5xl px-3.5 sm:px-6 lg:px-8 pt-4 sm:pt-8 pb-8 sm:pb-12">
       <div className="mb-10 text-center">
         <h1 className="font-display text-3xl font-black text-white md:text-4xl drop-shadow-lg">
-          Đánh giá <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#C99A47] to-[#E6C17A]">Sự kiện</span>
+          {isEnglish ? 'Event' : 'Đánh giá'}{' '}
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#C99A47] to-[#E6C17A]">
+            {isEnglish ? 'Reviews' : 'Sự kiện'}
+          </span>
         </h1>
         <p className="mt-3 text-base font-medium text-slate-300">
-          Chia sẻ trải nghiệm và cảm nhận của bạn để giúp ban tổ chức làm tốt hơn trong tương lai.
+          {isEnglish
+            ? 'Share your experience and thoughts to help organizers improve future events.'
+            : 'Chia sẻ trải nghiệm và cảm nhận của bạn để giúp ban tổ chức làm tốt hơn trong tương lai.'}
         </p>
       </div>
 
@@ -125,15 +132,17 @@ export function FeedbackPage() {
 
               <div className="space-y-6">
                 <div className="relative block" ref={dropdownRef}>
-                  <span className="mb-2 inline-block text-sm font-bold text-white">Sự kiện tham dự</span>
+                  <span className="mb-2 inline-block text-sm font-bold text-white">
+                    {isEnglish ? 'Attended Event' : 'Sự kiện tham dự'}
+                  </span>
                   <div 
                     className={`relative flex h-12 w-full cursor-pointer items-center justify-between rounded-xl border bg-panel/50 px-4 text-white backdrop-blur-md transition-all hover:border-[#C99A47]/50 ${isDropdownOpen ? 'border-[#C99A47] ring-2 ring-[#C99A47]/20' : 'border-white/15'}`}
                     onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                   >
                     <span className="truncate pr-4">
                       {events.find(e => e.id === eventId) 
-                        ? `${events.find(e => e.id === eventId).title} — ${formatEventDate(events.find(e => e.id === eventId))}`
-                        : 'Chọn sự kiện...'}
+                        ? `${events.find(e => e.id === eventId).title} — ${formatEventDate(events.find(e => e.id === eventId), isEnglish)}`
+                        : (isEnglish ? 'Select an event...' : 'Chọn sự kiện...')}
                     </span>
                     <ChevronDown className={`size-5 text-slate-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
                   </div>
@@ -157,7 +166,7 @@ export function FeedbackPage() {
                               }}
                             >
                               <span className="truncate">
-                                {item.title} — {formatEventDate(item)}
+                                {item.title} — {formatEventDate(item, isEnglish)}
                               </span>
                               {isSelected && <Check className="ml-2 size-4 shrink-0 text-[#E6C17A]" />}
                             </li>
@@ -169,7 +178,9 @@ export function FeedbackPage() {
                 </div>
 
                 <div>
-                  <span className="mb-2 inline-block text-sm font-bold text-white">Đánh giá của bạn</span>
+                  <span className="mb-2 inline-block text-sm font-bold text-white">
+                    {isEnglish ? 'Your Rating' : 'Đánh giá của bạn'}
+                  </span>
                   <div className="flex items-center justify-center gap-3 py-2 sm:gap-4">
                     {[1, 2, 3, 4, 5].map((value) => (
                       <button
@@ -179,7 +190,7 @@ export function FeedbackPage() {
                         onMouseEnter={() => setHoverRating(value)}
                         onMouseLeave={() => setHoverRating(0)}
                         onClick={() => setRating(value)}
-                        aria-label={`${value} sao`}
+                        aria-label={isEnglish ? `${value} stars` : `${value} sao`}
                       >
                         <Star
                           className={`size-10 transition-all duration-300 ${
@@ -194,12 +205,18 @@ export function FeedbackPage() {
                 </div>
 
                 <label className="block">
-                  <span className="mb-2 inline-block text-sm font-bold text-white">Nội dung chi tiết</span>
+                  <span className="mb-2 inline-block text-sm font-bold text-white">
+                    {isEnglish ? 'Detailed Review' : 'Nội dung chi tiết'}
+                  </span>
                   <textarea
                     className="min-h-40 w-full rounded-xl border border-white/15 bg-panel/50 p-4 text-white outline-none backdrop-blur-md transition-all focus:border-[#C99A47] focus:ring-2 focus:ring-[#C99A47]/20"
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
-                    placeholder="Chia sẻ trải nghiệm của bạn về chương trình, địa điểm, BTC..."
+                    placeholder={
+                      isEnglish
+                        ? 'Share your experience regarding the event program, venue, organization...'
+                        : 'Chia sẻ trải nghiệm của bạn về chương trình, địa điểm, BTC...'
+                    }
                     required
                     minLength={10}
                   />
@@ -207,7 +224,6 @@ export function FeedbackPage() {
               </div>
             </section>
 
-            {/* Button Gửi phản hồi đưa ra ngoài khung form đánh giá, căn phải */}
             <div className="flex justify-end pt-1">
               <button
                 type="submit"
@@ -221,36 +237,73 @@ export function FeedbackPage() {
                   WebkitTransform: 'translateZ(0)',
                 }}
               >
-                {submitMutation.isPending ? 'Đang gửi...' : 'Gửi phản hồi'}
+                {submitMutation.isPending
+                  ? isEnglish ? 'Submitting...' : 'Đang gửi...'
+                  : isEnglish ? 'Submit Review' : 'Gửi phản hồi'}
               </button>
             </div>
           </form>
         ) : (
           <section className="glass-panel relative overflow-hidden rounded-[24px] border-white/10 p-8 shadow-[0_8px_32px_0_rgba(0,0,0,0.37)]">
             {eligibleQuery.isLoading && (
-              <p className="text-sm text-muted">Đang tải danh sách sự kiện từ máy chủ...</p>
+              <p className="text-sm text-muted">
+                {isEnglish ? 'Loading eligible events from server...' : 'Đang tải danh sách sự kiện từ máy chủ...'}
+              </p>
             )}
 
             {eligibleQuery.isError && (
-              <p className="text-sm text-error">Không thể tải danh sách sự kiện. Thử lại sau.</p>
+              <p className="text-sm text-error">
+                {isEnglish ? 'Failed to load events. Please try again later.' : 'Không thể tải danh sách sự kiện. Thử lại sau.'}
+              </p>
             )}
 
             {!eligibleQuery.isLoading && !eligibleQuery.isError && events.length === 0 && (
               <p className="text-sm text-muted">
-                Hiện chưa có sự kiện nào có thể gửi phản hồi. Khi sự kiện bạn có vé bắt đầu diễn ra
-                hoặc đã kết thúc và bạn chưa từng đánh giá, sự kiện sẽ xuất hiện tại đây.
+                {isEnglish
+                  ? 'No events currently eligible for feedback. When an event you have tickets for starts or ends and has not yet been reviewed, it will appear here.'
+                  : 'Hiện chưa có sự kiện nào có thể gửi phản hồi. Khi sự kiện bạn có vé bắt đầu diễn ra hoặc đã kết thúc và bạn chưa từng đánh giá, sự kiện sẽ xuất hiện tại đây.'}
               </p>
             )}
           </section>
         )}
 
         <aside className="glass-panel h-fit rounded-[24px] border-white/10 bg-white/[0.02] p-6 shadow-[0_8px_32px_0_rgba(0,0,0,0.37)]">
-          <h3 className="font-display text-xl font-bold text-white">Lưu ý quan trọng</h3>
+          <h3 className="font-display text-xl font-bold text-white">
+            {isEnglish ? 'Important Notes' : 'Lưu ý quan trọng'}
+          </h3>
           <ul className="mt-4 space-y-3 text-sm leading-relaxed text-slate-300">
-            <li className="flex gap-2"><span className="text-[#E6C17A] shrink-0">•</span> <span>Bạn có thể gửi phản hồi ngay khi sự kiện bắt đầu diễn ra hoặc sau khi kết thúc.</span></li>
-            <li className="flex gap-2"><span className="text-[#E6C17A] shrink-0">•</span> <span>Mỗi sự kiện chỉ gửi phản hồi một lần duy nhất.</span></li>
-            <li className="flex gap-2"><span className="text-[#E6C17A] shrink-0">•</span> <span>Hệ thống chỉ cho phép đánh giá khi bạn có vé hợp lệ hoặc đã check-in.</span></li>
-            <li className="flex gap-2"><span className="text-[#E6C17A] shrink-0">•</span> <span>Nội dung phản hồi sẽ được gửi trực tiếp đến ban tổ chức để cải thiện chất lượng chương trình.</span></li>
+            <li className="flex gap-2">
+              <span className="text-[#E6C17A] shrink-0">•</span>
+              <span>
+                {isEnglish
+                  ? 'You can submit feedback as soon as the event starts or after it concludes.'
+                  : 'Bạn có thể gửi phản hồi ngay khi sự kiện bắt đầu diễn ra hoặc sau khi kết thúc.'}
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <span className="text-[#E6C17A] shrink-0">•</span>
+              <span>
+                {isEnglish
+                  ? 'Each event allows only one feedback submission.'
+                  : 'Mỗi sự kiện chỉ gửi phản hồi một lần duy nhất.'}
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <span className="text-[#E6C17A] shrink-0">•</span>
+              <span>
+                {isEnglish
+                  ? 'Feedback is only allowed for valid ticket holders or checked-in attendees.'
+                  : 'Hệ thống chỉ cho phép đánh giá khi bạn có vé hợp lệ hoặc đã check-in.'}
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <span className="text-[#E6C17A] shrink-0">•</span>
+              <span>
+                {isEnglish
+                  ? 'Your feedback is sent directly to the organizer to improve quality.'
+                  : 'Nội dung phản hồi sẽ được gửi trực tiếp đến ban tổ chức để cải thiện chất lượng chương trình.'}
+              </span>
+            </li>
           </ul>
         </aside>
       </div>

@@ -9,6 +9,12 @@ import { getProfile } from '@/services/user.service.js'
 import { isAuthenticated, getStoredUser, getStoredUserKey } from '@/lib/auth.js'
 import { clearBookingDraft, readBookingDraft } from '@/utils/bookingDraft.js'
 
+const getAutoLocale = () =>
+  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
+   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
+    ? 'en-US'
+    : 'vi-VN'
+
 function ActionMessage({ content, navigate, setInput, onSendMessage }) {
   const actionRegex = /\[ACTION:([A-Z_]+):?([^\]]*)\]/g;
   const parts = [];
@@ -411,7 +417,7 @@ function ActionMessage({ content, navigate, setInput, onSendMessage }) {
                   <div className="text-slate-300 flex items-center gap-1.5">
                     <span>🎭 {proposal.session.name}</span>
                     {proposal.session.start_time && (
-                      <span className="text-slate-400">({new Date(proposal.session.start_time).toLocaleDateString('vi-VN')})</span>
+                      <span className="text-slate-400">({new Date(proposal.session.start_time).toLocaleDateString(getAutoLocale())})</span>
                     )}
                   </div>
                 )}
@@ -1268,7 +1274,7 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
           <div className="flex-1 overflow-y-auto p-3 space-y-2 bg-[#090f1f] scrollbar-thin scrollbar-thumb-slate-700">
             {sessions.map((session) => {
               const isActive = session.id === activeSessionId;
-              const formattedTime = new Date(session.updatedAt || session.createdAt).toLocaleDateString('vi-VN', {
+              const formattedTime = new Date(session.updatedAt || session.createdAt).toLocaleDateString(getAutoLocale(), {
                 hour: '2-digit',
                 minute: '2-digit',
                 day: '2-digit',

@@ -11,11 +11,18 @@ import {
 } from 'recharts'
 import { BarChart3, Clock, Table2 } from 'lucide-react'
 
+const getAutoLocale = () =>
+  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
+   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
+    ? 'en-US'
+    : 'vi-VN'
+
 function fmtDate(iso) {
   if (!iso) return '—'
-  return new Date(iso).toLocaleDateString('vi-VN', {
+  const isEn = getAutoLocale() === 'en-US'
+  return new Date(iso).toLocaleDateString(getAutoLocale(), {
     day: '2-digit',
-    month: '2-digit',
+    month: isEn ? 'short' : '2-digit',
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',

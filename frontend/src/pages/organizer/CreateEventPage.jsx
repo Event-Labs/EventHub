@@ -23,14 +23,31 @@ import { useToast } from '@/providers/ToastProvider.jsx'
 import { AiEventContentGeneratorModal } from './AiEventContentGeneratorModal.jsx'
 import { AiDocumentExtractorModal } from './AiDocumentExtractorModal.jsx'
 import { validateRefundRules, generateRefundPolicyLines, generateRefundPolicyText } from '@/utils/refundPolicy.js'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
 
-const STEP_LABELS = [
+const getAutoLocale = () =>
+  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
+   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
+    ? 'en-US'
+    : 'vi-VN'
+
+const STEP_LABELS_VI = [
   'Thông tin sự kiện',
   'Ngày giờ & Địa điểm',
   'Hạng vé & Sơ đồ ghế',
   'Chính sách & Cài đặt',
   'Xem trước & Gửi duyệt',
 ]
+
+const STEP_LABELS_EN = [
+  'Event Info',
+  'Date & Venue',
+  'Tickets & Seating',
+  'Policies & Settings',
+  'Preview & Submit',
+]
+
+const STEP_LABELS = STEP_LABELS_VI
 
 const INITIAL_FORM = {
   title: '',
@@ -146,7 +163,7 @@ function checkSessionsOverlap(sessions) {
   return null
 }
 
-function calculateEventCompleteness(formData) {
+function calculateEventCompleteness(formData, isEnglish = false) {
   const titleValid = Boolean(formData.title?.trim())
   const categoryValid = Boolean(formData.category_id)
   const shortDescValid = Boolean(formData.short_description?.trim())
@@ -216,101 +233,101 @@ function calculateEventCompleteness(formData) {
     {
       id: 'title_category',
       step: 1,
-      label: 'Tên & Danh mục sự kiện',
+      label: isEnglish ? 'Event Name & Category' : 'Tên & Danh mục sự kiện',
       completed: Boolean(titleValid && categoryValid),
       detail: !titleValid
-        ? 'Chưa nhập tên sự kiện'
+        ? (isEnglish ? 'Event name is required' : 'Chưa nhập tên sự kiện')
         : !categoryValid
-          ? 'Chưa chọn danh mục'
-          : 'Đã hoàn tất',
+          ? (isEnglish ? 'Category is required' : 'Chưa chọn danh mục')
+          : (isEnglish ? 'Completed' : 'Đã hoàn tất'),
     },
     {
       id: 'descriptions',
       step: 1,
-      label: 'Mô tả ngắn & Chi tiết',
+      label: isEnglish ? 'Short & Full Description' : 'Mô tả ngắn & Chi tiết',
       completed: Boolean(shortDescValid && descValid),
       detail: !shortDescValid
-        ? 'Chưa nhập mô tả ngắn'
+        ? (isEnglish ? 'Short description is required' : 'Chưa nhập mô tả ngắn')
         : !descValid
-          ? 'Chưa nhập mô tả chi tiết'
-          : 'Đã hoàn tất',
+          ? (isEnglish ? 'Full description is required' : 'Chưa nhập mô tả chi tiết')
+          : (isEnglish ? 'Completed' : 'Đã hoàn tất'),
     },
     {
       id: 'media',
       step: 1,
-      label: 'Ảnh Thumbnail & Banner',
+      label: isEnglish ? 'Thumbnail & Banner' : 'Ảnh Thumbnail & Banner',
       completed: Boolean(thumbValid && bannerValid),
       detail: !thumbValid && !bannerValid
-        ? 'Chưa tải thumbnail và banner'
+        ? (isEnglish ? 'Missing thumbnail and banner' : 'Chưa tải thumbnail và banner')
         : !thumbValid
-          ? 'Chưa tải ảnh thumbnail'
+          ? (isEnglish ? 'Missing thumbnail' : 'Chưa tải ảnh thumbnail')
           : !bannerValid
-            ? 'Chưa tải ảnh banner'
-            : 'Đã tải đủ ảnh',
+            ? (isEnglish ? 'Missing banner' : 'Chưa tải ảnh banner')
+            : (isEnglish ? 'Images uploaded' : 'Đã tải đủ ảnh'),
     },
     {
       id: 'sessions',
       step: 2,
-      label: 'Lịch trình & Địa điểm',
+      label: isEnglish ? 'Schedule & Venue' : 'Lịch trình & Địa điểm',
       completed: sessionsValid,
       detail: !hasSessions
-        ? 'Cần tạo ít nhất 1 phiên sự kiện'
+        ? (isEnglish ? 'At least 1 event session required' : 'Cần tạo ít nhất 1 phiên sự kiện')
         : overlapInfo
-          ? `Trùng giờ: "${overlapInfo.nameA}" và "${overlapInfo.nameB}"`
+          ? (isEnglish ? `Time conflict: "${overlapInfo.nameA}" and "${overlapInfo.nameB}"` : `Trùng giờ: "${overlapInfo.nameA}" và "${overlapInfo.nameB}"`)
           : !sessionsValid
-            ? 'Phiên chưa đủ ngày giờ hoặc chưa chọn địa điểm'
-            : `${formData.sessions.length} phiên hợp lệ`,
+            ? (isEnglish ? 'Incomplete session date/time or venue' : 'Phiên chưa đủ ngày giờ hoặc chưa chọn địa điểm')
+            : (isEnglish ? `${formData.sessions.length} valid session(s)` : `${formData.sessions.length} phiên hợp lệ`),
     },
     {
       id: 'tickets',
       step: 3,
-      label: 'Hạng vé sự kiện',
+      label: isEnglish ? 'Event Ticket Tiers' : 'Hạng vé sự kiện',
       completed: ticketsValid,
       detail: !hasSessions
-        ? 'Cần tạo phiên trước khi tạo vé'
+        ? (isEnglish ? 'Create sessions before ticket tiers' : 'Cần tạo phiên trước khi tạo vé')
         : !ticketsValid
-          ? 'Mỗi phiên cần ít nhất 1 loại vé hợp lệ (tên, giá >= 0, số lượng > 0)'
-          : 'Đã cấu hình đủ loại vé',
+          ? (isEnglish ? 'Each session needs at least 1 valid ticket tier' : 'Mỗi phiên cần ít nhất 1 loại vé hợp lệ (tên, giá >= 0, số lượng > 0)')
+          : (isEnglish ? 'Ticket tiers configured' : 'Đã cấu hình đủ loại vé'),
     },
     {
       id: 'seat_map',
       step: 3,
-      label: 'Sơ đồ ghế (Phiên có ghế)',
+      label: isEnglish ? 'Seat Map (Seated Sessions)' : 'Sơ đồ ghế (Phiên có ghế)',
       completed: seatMapValid,
       detail: !seatMapValid
-        ? 'Có phiên chọn chỗ ngồi nhưng chưa gắn sơ đồ ghế'
-        : 'Sơ đồ ghế hợp lệ',
+        ? (isEnglish ? 'Seated session missing seat map' : 'Có phiên chọn chỗ ngồi nhưng chưa gắn sơ đồ ghế')
+        : (isEnglish ? 'Seat map valid' : 'Sơ đồ ghế hợp lệ'),
     },
     {
       id: 'permits',
       step: 4,
-      label: 'Giấy phép tổ chức & Giấy tờ liên quan',
+      label: isEnglish ? 'Event Permits & Documents' : 'Giấy phép tổ chức & Giấy tờ liên quan',
       completed: permitsValid,
       detail: !permitsValid
-        ? 'Cần tải lên giấy phép tổ chức hoặc giấy tờ liên quan'
-        : `Đã tải lên ${permitFiles.length} tài liệu pháp lý`,
+        ? (isEnglish ? 'Please upload event permits or legal documents' : 'Cần tải lên giấy phép tổ chức hoặc giấy tờ liên quan')
+        : (isEnglish ? `${permitFiles.length} legal document(s) uploaded` : `Đã tải lên ${permitFiles.length} tài liệu pháp lý`),
     },
     {
       id: 'policies',
       step: 4,
-      label: 'Chính sách & Điều khoản tham dự',
+      label: isEnglish ? 'Policies & Participation Terms' : 'Chính sách & Điều khoản tham dự',
       completed: policiesValid,
       detail: !refundRulesValid
-        ? 'Cấu hình hoàn vé chưa hợp lệ'
+        ? (isEnglish ? 'Invalid refund policy configuration' : 'Cấu hình hoàn vé chưa hợp lệ')
         : policyFileUrl
-          ? `Đã đính kèm file: ${formData.refund_policy?.policy_file_name || 'chính sách'}`
+          ? (isEnglish ? `Attached file: ${formData.refund_policy?.policy_file_name || 'policy'}` : `Đã đính kèm file: ${formData.refund_policy?.policy_file_name || 'chính sách'}`)
           : hasTerms
-            ? 'Đã nhập điều khoản tham dự'
-            : 'Áp dụng điều khoản tiêu chuẩn (Không bắt buộc)',
+            ? (isEnglish ? 'Terms of attendance entered' : 'Đã nhập điều khoản tham dự')
+            : (isEnglish ? 'Standard terms applied (Optional)' : 'Áp dụng điều khoản tiêu chuẩn (Không bắt buộc)'),
     },
     {
       id: 'review_terms',
       step: 5,
-      label: 'Cam kết & Xác nhận xuất bản',
+      label: isEnglish ? 'Commitment & Publish Confirmation' : 'Cam kết & Xác nhận xuất bản',
       completed: termsAccepted,
       detail: !termsAccepted
-        ? 'Cần xác nhận cam kết điều khoản ở Bước 5'
-        : 'Đã cam kết tuân thủ quy định',
+        ? (isEnglish ? 'Need commitment confirmation in Step 5' : 'Cần xác nhận cam kết điều khoản ở Bước 5')
+        : (isEnglish ? 'Agreed to comply with terms' : 'Đã cam kết tuân thủ quy định'),
     },
   ]
 
@@ -331,7 +348,9 @@ function calculateEventCompleteness(formData) {
 }
 
 function WizardStepper({ currentStep, maxCompletedStep, onStepClick }) {
-  const progress = Math.min(100, Math.max(0, ((currentStep - 1) / (STEP_LABELS.length - 1)) * 100))
+  const { isEnglish } = useLanguage()
+  const stepLabels = isEnglish ? STEP_LABELS_EN : STEP_LABELS_VI
+  const progress = Math.min(100, Math.max(0, ((currentStep - 1) / (stepLabels.length - 1)) * 100))
 
   return (
     <div className="w-full max-w-5xl mx-auto px-4 py-4">
@@ -344,7 +363,7 @@ function WizardStepper({ currentStep, maxCompletedStep, onStepClick }) {
           />
         </div>
 
-        {STEP_LABELS.map((label, index) => {
+        {stepLabels.map((label, index) => {
           const stepNum = index + 1
           const active = stepNum === currentStep
           const done = stepNum < currentStep
@@ -352,7 +371,7 @@ function WizardStepper({ currentStep, maxCompletedStep, onStepClick }) {
 
           return (
             <button
-              key={label}
+              key={index}
               type="button"
               disabled={!isClickable}
               onClick={() => isClickable && onStepClick(stepNum)}
@@ -387,12 +406,13 @@ function WizardStepper({ currentStep, maxCompletedStep, onStepClick }) {
 }
 
 function SetupProgressWidget({ completeness, className = '' }) {
+  const { isEnglish } = useLanguage()
   return (
     <div className={`overflow-hidden rounded-2xl border border-border-soft/30 bg-surface shadow-[0_4px_24px_rgba(0,0,0,0.18)] ${className}`}>
       <div className="border-b border-border-soft/30 bg-panel-soft/60 px-6 py-4 flex items-center justify-between">
         <h3 className="text-xs font-extrabold text-content uppercase tracking-wider flex items-center gap-2">
           <Icon name="monitoring" className="text-[#C99A47] text-base" />
-          Tiến độ thiết lập
+          {isEnglish ? 'Setup Progress' : 'Tiến độ thiết lập'}
         </h3>
         <span className={`text-xs font-bold ${completeness?.isReady ? 'text-success' : 'text-[#C99A47]'}`}>
           {completeness?.percent ?? 0}%
@@ -406,9 +426,9 @@ function SetupProgressWidget({ completeness, className = '' }) {
           />
         </div>
         <div className="flex items-center justify-between text-xs text-subtle pt-1">
-          <span>Mục hoàn thành</span>
+          <span>{isEnglish ? 'Completed items' : 'Mục hoàn thành'}</span>
           <strong className="text-content font-bold">
-            {completeness?.completedCount ?? 0}/{completeness?.total ?? 0} mục
+            {completeness?.completedCount ?? 0}/{completeness?.total ?? 0} {isEnglish ? 'items' : 'mục'}
           </strong>
         </div>
       </div>
@@ -428,6 +448,7 @@ function Step1EventInfo({
   uploadingBanner,
   completeness,
 }) {
+  const { isEnglish } = useLanguage()
   const [isAiModalOpen, setIsAiModalOpen] = useState(false)
 
   const addTag = () => {
@@ -567,12 +588,12 @@ function Step1EventInfo({
         <section className="bg-surface border border-border-soft/30 rounded-xl p-6 shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
           <h3 className="text-[20px] font-semibold mb-6 flex items-center gap-2 text-content">
             <Icon name="image" className="text-[#C99A47]" />
-            Ảnh sự kiện
+            {isEnglish ? 'Event Media' : 'Ảnh sự kiện'}
           </h3>
           <div className="flex flex-col md:flex-row gap-6 h-auto md:h-[240px]">
             <div className="w-full md:w-1/3 flex flex-col">
               <label className="block text-[13px] font-medium mb-2 text-subtle shrink-0">
-                Ảnh đại diện (1:1) <span className="text-red-500 font-bold ml-0.5">*</span>
+                {isEnglish ? 'Thumbnail Image (1:1)' : 'Ảnh đại diện (1:1)'} <span className="text-red-500 font-bold ml-0.5">*</span>
               </label>
               <label className="flex-1 w-full rounded-xl flex flex-col items-center justify-center p-4 text-center border-2 border-dashed border-border-soft/40 hover:border-tertiary cursor-pointer overflow-hidden transition bg-panel-soft">
                 {formData.thumbnail_url ? (
@@ -580,8 +601,12 @@ function Step1EventInfo({
                 ) : (
                   <>
                     <Icon name="cloud_upload" className="text-muted mb-2" style={{ fontSize: 32 }} />
-                    <p className="text-xs font-semibold mb-1 text-subtle">{uploadingThumb ? 'Đang tải lên...' : 'Nhấn để tải lên'}</p>
-                    <p className="text-[10px] text-muted">Khuyên dùng: 1080x1080px</p>
+                    <p className="text-xs font-semibold mb-1 text-subtle">
+                      {uploadingThumb ? (isEnglish ? 'Uploading...' : 'Đang tải lên...') : (isEnglish ? 'Click to upload' : 'Nhấn để tải lên')}
+                    </p>
+                    <p className="text-[10px] text-muted">
+                      {isEnglish ? 'Recommended: 1080x1080px' : 'Khuyên dùng: 1080x1080px'}
+                    </p>
                   </>
                 )}
                 <input
@@ -595,7 +620,7 @@ function Step1EventInfo({
             </div>
             <div className="w-full md:w-2/3 flex flex-col">
               <label className="block text-[13px] font-medium mb-2 text-subtle shrink-0">
-                Ảnh bìa (16:9) <span className="text-red-500 font-bold ml-0.5">*</span>
+                {isEnglish ? 'Cover Banner (16:9)' : 'Ảnh bìa (16:9)'} <span className="text-red-500 font-bold ml-0.5">*</span>
               </label>
               <label className="flex-1 w-full rounded-xl flex flex-col items-center justify-center p-4 text-center border-2 border-dashed border-border-soft/40 hover:border-tertiary cursor-pointer overflow-hidden transition bg-panel-soft">
                 {formData.banner_url ? (
@@ -603,8 +628,12 @@ function Step1EventInfo({
                 ) : (
                   <>
                     <Icon name="landscape" className="text-muted mb-2" style={{ fontSize: 40 }} />
-                    <p className="text-xs font-semibold mb-1 text-subtle">{uploadingBanner ? 'Đang tải lên...' : 'Kéo thả hoặc nhấn để chọn file'}</p>
-                    <p className="text-[10px] text-muted">Khuyên dùng: 1920x1080px. JPG, PNG (Tối đa 5MB)</p>
+                    <p className="text-xs font-semibold mb-1 text-subtle">
+                      {uploadingBanner ? (isEnglish ? 'Uploading...' : 'Đang tải lên...') : (isEnglish ? 'Drag and drop or click to select files' : 'Kéo thả hoặc nhấn để chọn file')}
+                    </p>
+                    <p className="text-[10px] text-muted">
+                      {isEnglish ? 'Recommended: 1920x1080px. JPG, PNG (Maximum 5MB)' : 'Khuyên dùng: 1920x1080px. JPG, PNG (Tối đa 5MB)'}
+                    </p>
                   </>
                 )}
                 <input
@@ -633,21 +662,27 @@ function Step1EventInfo({
               </div>
             )}
             <div className="absolute top-3 left-3 flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0d1b2a] text-[11px] font-black uppercase tracking-wider shadow-[0_4px_16px_rgba(0,0,0,0.5)] border border-white/30 select-none">
-              <span>Xem trước</span>
+              <span>{isEnglish ? 'Preview' : 'Xem trước'}</span>
             </div>
           </div>
           <div className="p-5">
             <div className="mb-4">
               <h4 className={`text-[20px] font-semibold leading-tight ${formData.title ? 'text-content' : 'text-muted italic'}`}>
-                {formData.title || 'Sự kiện không tiêu đề'}
+                {formData.title || (isEnglish ? 'Untitled event' : 'Sự kiện không tiêu đề')}
               </h4>
               <p className="text-xs text-muted mt-1 italic">
-                {categories.find((c) => c.id === formData.category_id)?.name || 'Chưa chọn danh mục'}
+                {categories.find((c) => c.id === formData.category_id)?.name || (isEnglish ? 'Category not selected' : 'Chưa chọn danh mục')}
               </p>
             </div>
             <div className="flex items-center gap-2">
               <Icon name="location_on" className="text-[#C99A47] text-[18px]" />
-              <span className="text-sm text-content">{formData.format === 'ONLINE' ? 'Sự kiện trực tuyến' : formData.format === 'HYBRID' ? 'Sự kiện kết hợp' : 'Sự kiện trực tiếp'}</span>
+              <span className="text-sm text-content">
+                {formData.format === 'ONLINE'
+                  ? (isEnglish ? 'Online event' : 'Sự kiện trực tuyến')
+                  : formData.format === 'HYBRID'
+                    ? (isEnglish ? 'Hybrid event' : 'Sự kiện kết hợp')
+                    : (isEnglish ? 'Live event' : 'Sự kiện trực tiếp')}
+              </span>
             </div>
           </div>
         </div>
@@ -2744,7 +2779,7 @@ function Step4PoliciesSettings({ formData, setFormData, completeness, editPermis
                       <div className="min-w-0">
                         <p className="text-xs font-bold text-content truncate">{file.name}</p>
                         <p className="text-[11px] text-muted">
-                          {formatFileSize(file.size)} · {file.uploaded_at ? new Date(file.uploaded_at).toLocaleDateString('vi-VN') : 'Đã tải lên'}
+                          {formatFileSize(file.size)} · {file.uploaded_at ? new Date(file.uploaded_at).toLocaleDateString(getAutoLocale()) : (getAutoLocale() === 'en-US' ? 'Uploaded' : 'Đã tải lên')}
                         </p>
                       </div>
                     </div>
@@ -3144,6 +3179,7 @@ function Step4PoliciesSettings({ formData, setFormData, completeness, editPermis
 }
 
 function Step5ReviewSubmit({ formData, setFormData, categories, venues, completeness, onGoToStep }) {
+  const { isEnglish } = useLanguage()
   const categoryName = categories.find((c) => c.id === formData.category_id)?.name
   const firstSession = formData.sessions[0]
   const defaultVenue = venues.find((v) => v.id === firstSession?.venue_id)
@@ -3170,9 +3206,12 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
       const sessionIndex = formData.sessions.indexOf(session) + 1
       const ms = new Date(`${session.start_date}T${session.start_time}`).getTime() || 0
       const sessionTitle = session.session_name?.trim()
+      const sPrefix = isEnglish ? 'Session' : 'Phiên'
       const sName = sessionTitle
-        ? (sessionTitle.toLowerCase().startsWith('phiên') ? sessionTitle : `Phiên ${sessionIndex}: ${sessionTitle}`)
-        : `Phiên ${sessionIndex}`
+        ? (sessionTitle.toLowerCase().startsWith('phiên') || sessionTitle.toLowerCase().startsWith('session')
+            ? sessionTitle
+            : `${sPrefix} ${sessionIndex}: ${sessionTitle}`)
+        : `${sPrefix} ${sessionIndex}`
       group.sessions.push({
         name: sName,
         qty: tt.quantity,
@@ -3231,20 +3270,26 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
             </div>
           </div>
           <div className="p-6">
-            <h5 className="text-xs font-bold uppercase tracking-wider text-white mb-1">Mô tả tóm tắt sự kiện</h5>
-            <p className="text-sm text-white/90 leading-relaxed">{formData.short_description || 'Chưa có mô tả tóm tắt.'}</p>
+            <h5 className="text-xs font-bold uppercase tracking-wider text-white mb-1">
+              {isEnglish ? 'Event Summary' : 'Mô tả tóm tắt sự kiện'}
+            </h5>
+            <p className="text-sm text-white/90 leading-relaxed">
+              {formData.short_description || (isEnglish ? 'No summary description yet.' : 'Chưa có mô tả tóm tắt.')}
+            </p>
           </div>
         </section>
 
-        {/* Lịch trình & Địa điểm (Cải thiện giao diện hiển thị chi tiết, ĐÃ XÓA ô hiển thị public) */}
+        {/* Lịch trình & Địa điểm */}
         <section className="bg-surface border border-border-soft/30 rounded-2xl p-6 shadow-[0_2px_16px_rgba(0,0,0,0.12)] space-y-4">
           <div className="flex items-center justify-between gap-2 pb-3 border-b border-border-soft/30">
             <div className="flex items-center gap-2">
               <Icon name="calendar_today" className="text-[#C99A47] text-xl" />
-              <h4 className="text-sm font-extrabold uppercase tracking-wider text-content">Lịch trình & Địa điểm tổ chức</h4>
+              <h4 className="text-sm font-extrabold uppercase tracking-wider text-content">
+                {isEnglish ? 'Schedule & Venue' : 'Lịch trình & Địa điểm tổ chức'}
+              </h4>
             </div>
             <span className="px-3 py-1 rounded-full text-xs font-bold bg-tertiary/10 text-tertiary border border-tertiary/20">
-              {formData.sessions.length} phiên sự kiện
+              {formData.sessions.length} {isEnglish ? 'sessions' : 'phiên sự kiện'}
             </span>
           </div>
 
@@ -3252,8 +3297,10 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
             {formData.sessions.map((session, idx) => {
               const sVenue = venues.find((v) => v.id === session.venue_id) || defaultVenue
               const dateFormatted = session.start_date
-                ? session.start_date.split('-').reverse().join('/')
-                : 'Chưa chọn ngày'
+                ? (isEnglish
+                    ? new Date(session.start_date).toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })
+                    : session.start_date.split('-').reverse().join('/'))
+                : (isEnglish ? 'No date selected' : 'Chưa chọn ngày')
 
               return (
                 <div
@@ -3266,14 +3313,14 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
                         #{idx + 1}
                       </span>
                       <h5 className="font-bold text-sm text-content">
-                        {session.session_name || `Phiên ${idx + 1}`}
+                        {session.session_name || `${isEnglish ? 'Session' : 'Phiên'} ${idx + 1}`}
                       </h5>
                     </div>
                     <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border self-start sm:self-auto ${session.seating_type === 'ASSIGNED'
                       ? 'bg-primary/10 text-primary border-primary/20'
                       : 'bg-panel-soft text-subtle border-border-soft/50'
                       }`}>
-                      {session.seating_type === 'ASSIGNED' ? 'Sơ đồ ghế chỉ định' : 'Vé phổ thông (Tự do)'}
+                      {session.seating_type === 'ASSIGNED' ? (isEnglish ? 'Assigned Seating' : 'Sơ đồ ghế chỉ định') : (isEnglish ? 'General Admission' : 'Vé phổ thông (Tự do)')}
                     </span>
                   </div>
 
@@ -3281,14 +3328,14 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
                     <div className="flex items-center gap-2 text-content">
                       <Icon name="event" className="text-base text-tertiary shrink-0" />
                       <span className="truncate">
-                        Ngày: <strong className="text-content font-bold">{dateFormatted}</strong>
+                        {isEnglish ? 'Date:' : 'Ngày:'} <strong className="text-content font-bold">{dateFormatted}</strong>
                       </span>
                     </div>
 
                     <div className="flex items-center gap-2 text-content">
                       <Icon name="schedule" className="text-base text-tertiary shrink-0" />
                       <span className="truncate">
-                        Giờ diễn ra: <strong className="text-content font-bold">{session.start_time || '--:--'} - {session.end_time || '--:--'}</strong>
+                        {isEnglish ? 'Showtime:' : 'Giờ diễn ra:'} <strong className="text-content font-bold">{session.start_time || '--:--'} - {session.end_time || '--:--'}</strong>
                       </span>
                     </div>
 
@@ -3296,7 +3343,7 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
                       <div className="flex items-center gap-2 text-content">
                         <Icon name="how_to_reg" className="text-base text-tertiary shrink-0" />
                         <span className="truncate">
-                          Mở check-in: <strong className="text-content font-bold">{session.checkin_start_time}</strong>
+                          {isEnglish ? 'Check-in opens:' : 'Mở check-in:'} <strong className="text-content font-bold">{session.checkin_start_time}</strong>
                           {session.checkin_start_date && (
                             <span className="text-subtle font-normal ml-1">
                               ({session.checkin_start_date})
@@ -3309,7 +3356,7 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
                     <div className="flex items-center gap-2 text-content sm:col-span-2">
                       <Icon name="location_on" className="text-base text-tertiary shrink-0" />
                       <span className="truncate">
-                        Địa điểm: <strong className="text-content font-bold">{sVenue?.name || 'Chưa chọn địa điểm'}</strong>
+                        {isEnglish ? 'Venue:' : 'Địa điểm:'} <strong className="text-content font-bold">{sVenue?.name || (isEnglish ? 'No venue selected' : 'Chưa chọn địa điểm')}</strong>
                         {sVenue?.address && <span className="text-subtle font-normal ml-1.5 truncate">({sVenue.address})</span>}
                       </span>
                     </div>
@@ -3325,12 +3372,14 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
           <div className="flex items-center justify-between gap-2 pb-3 border-b border-border-soft/30">
             <div className="flex items-center gap-2">
               <Icon name="confirmation_number" className="text-[#C99A47] text-xl" />
-              <h4 className="text-sm font-extrabold uppercase tracking-wider text-content">Cơ cấu vé & Bảng giá</h4>
+              <h4 className="text-sm font-extrabold uppercase tracking-wider text-content">
+                {isEnglish ? 'Ticket Tiers & Pricing' : 'Cơ cấu vé & Bảng giá'}
+              </h4>
             </div>
             <div className="flex items-center gap-2.5 text-sm">
-              <span className="text-white font-medium">Tổng: <strong className="text-white font-bold">{totalEventTickets.toLocaleString('vi-VN')} vé</strong></span>
+              <span className="text-white font-medium">{isEnglish ? 'Total:' : 'Tổng:'} <strong className="text-white font-bold">{totalEventTickets.toLocaleString(getAutoLocale())} {isEnglish ? 'tickets' : 'vé'}</strong></span>
               <span className="text-border-soft/60">|</span>
-              <span className="text-white font-medium">Dự thu: <strong className="text-[#C99A47] font-bold">{totalEventRevenue.toLocaleString('vi-VN')} VND</strong></span>
+              <span className="text-white font-medium">{isEnglish ? 'Est. revenue:' : 'Dự thu:'} <strong className="text-[#C99A47] font-bold">{totalEventRevenue.toLocaleString(getAutoLocale())} VND</strong></span>
             </div>
           </div>
 
@@ -3349,26 +3398,26 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
                         <p className="font-bold text-sm text-content">{group.name}</p>
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${group.is_seated ? 'bg-primary/10 text-primary border border-primary/20' : 'bg-[#C99A47]/10 text-[#C99A47] border border-[#C99A47]/20'
                           }`}>
-                          {group.is_seated ? 'Ghế ngồi' : 'Vé tự do'}
+                          {group.is_seated ? (isEnglish ? 'Seated' : 'Ghế ngồi') : (isEnglish ? 'Standing / General' : 'Vé tự do')}
                         </span>
                       </div>
                       <p className="text-xs text-subtle font-medium mt-1">
-                        Tổng phát hành: <strong className="text-content">{Number(group.totalQty).toLocaleString('vi-VN')} vé</strong>
+                        {isEnglish ? 'Total issued:' : 'Tổng phát hành:'} <strong className="text-content">{Number(group.totalQty).toLocaleString(getAutoLocale())} {isEnglish ? 'tickets' : 'vé'}</strong>
                       </p>
                       {group.description && (
                         <p className="text-[11px] text-muted mt-1 leading-relaxed italic">
-                          Quyền lợi: {group.description}
+                          {isEnglish ? 'Perks:' : 'Quyền lợi:'} {group.description}
                         </p>
                       )}
                     </div>
                     <div className="text-right shrink-0">
                       {isFree ? (
                         <span className="text-xs font-black px-2.5 py-1 rounded-lg bg-[#C99A47]/15 text-[#C99A47] border border-[#C99A47]/30">
-                          Miễn phí
+                          {isEnglish ? 'Free' : 'Miễn phí'}
                         </span>
                       ) : (
                         <span className="text-sm font-black text-[#C99A47]">
-                          {Number(group.price).toLocaleString('vi-VN')} VND
+                          {Number(group.price).toLocaleString(getAutoLocale())} VND
                         </span>
                       )}
                     </div>
@@ -3378,7 +3427,7 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
                     <div className="mt-2 pl-2 pt-2 border-t border-border-soft/25 flex flex-wrap gap-1.5">
                       {group.sessions.map((s, idx) => (
                         <span key={idx} className="text-[11px] bg-surface/80 border border-border-soft/40 px-2 py-0.5 rounded-md text-subtle font-medium">
-                          {s.name}: <strong className="text-content">{s.qty} vé</strong>
+                          {s.name}: <strong className="text-content">{s.qty} {isEnglish ? 'tickets' : 'vé'}</strong>
                         </span>
                       ))}
                     </div>
@@ -3516,7 +3565,9 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
         <section className="bg-surface border border-border-soft/30 rounded-2xl p-6 shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
           <div className="flex items-center gap-2">
             <Icon name="verified" className="text-[#C99A47] text-xl" />
-            <h4 className="text-sm font-extrabold uppercase tracking-wider text-content">Cam kết của Ban tổ chức</h4>
+            <h4 className="text-sm font-extrabold uppercase tracking-wider text-content">
+              {isEnglish ? 'Organizer Commitment' : 'Cam kết của Ban tổ chức'}
+            </h4>
           </div>
           <label className="flex items-start gap-3.5 mt-5 cursor-pointer select-none group">
             <div className="relative flex items-center justify-center shrink-0 mt-0.5">
@@ -3540,9 +3591,11 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
             </div>
             <div className="text-xs text-content leading-relaxed">
               <strong className="block text-sm mb-1 font-bold text-content">
-                Xác nhận cam kết thông tin và hồ sơ pháp lý sự kiện
+                {isEnglish ? 'Confirmation of Information & Legal Documents Commitment' : 'Xác nhận cam kết thông tin và hồ sơ pháp lý sự kiện'}
               </strong>
-              Tôi cam đoan toàn bộ thông tin sự kiện, giá vé, lịch trình, chính sách và các giấy phép tổ chức đính kèm là hoàn toàn chính xác, có hiệu lực pháp lý. Tôi chịu hoàn toàn trách nhiệm trước pháp luật và cam kết tuân thủ các quy định hoạt động của EventHub.
+              {isEnglish
+                ? 'I certify that all event information, ticket prices, schedules, policies, and attached permits are completely accurate and legally valid. I accept full legal responsibility and agree to comply with EventHub operating terms.'
+                : 'Tôi cam đoan toàn bộ thông tin sự kiện, giá vé, lịch trình, chính sách và các giấy phép tổ chức đính kèm là hoàn toàn chính xác, có hiệu lực pháp lý. Tôi chịu hoàn toàn trách nhiệm trước pháp luật và cam kết tuân thủ các quy định hoạt động của EventHub.'}
             </div>
           </label>
         </section>
@@ -3553,7 +3606,9 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
 
         <div className={`bg-surface border border-border-soft/30 ${completeness?.isReady ? 'border-t-success' : 'border-t-warning'} border-t-4 rounded-xl p-6 shadow-[0_4px_24px_rgba(0,0,0,0.06)]`}>
           <div className="flex justify-between items-center mb-4">
-            <span className="text-xs font-bold uppercase text-white [html.light_&]:text-[#0D1B2A]">Trạng thái sự kiện</span>
+            <span className="text-xs font-bold uppercase text-white [html.light_&]:text-[#0D1B2A]">
+              {isEnglish ? 'Event Status' : 'Trạng thái sự kiện'}
+            </span>
             <span
               className={`px-2 py-0.5 rounded text-[11px] font-bold uppercase border ${completeness?.isReady
                 ? 'bg-success/10 text-success border-success/20'
@@ -3563,10 +3618,10 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
                 }`}
             >
               {completeness?.isReady
-                ? 'Tuyệt vời'
+                ? (isEnglish ? 'Ready' : 'Tuyệt vời')
                 : (completeness?.percent ?? 0) >= 70
-                  ? 'Gần hoàn thành'
-                  : 'Chưa hoàn thiện'}
+                  ? (isEnglish ? 'Almost Ready' : 'Gần hoàn thành')
+                  : (isEnglish ? 'Incomplete' : 'Chưa hoàn thiện')}
             </span>
           </div>
 
@@ -3574,27 +3629,37 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
             <div className="p-4 bg-success/10 border border-success/20 rounded-xl mb-6">
               <div className="flex items-center gap-1.5 text-success font-bold text-xs mb-1">
                 <Icon name="check_circle" className="text-[16px]" />
-                <span>Sự kiện đã sẵn sàng!</span>
+                <span>{isEnglish ? 'Event is ready!' : 'Sự kiện đã sẵn sàng!'}</span>
               </div>
               <p className="text-xs text-muted leading-relaxed">
-                Tất cả thông tin bắt buộc đã được điền đầy đủ. Bạn có thể nhấn &quot;Gửi để duyệt&quot; bên dưới để gửi cho Ban quản trị.
+                {isEnglish
+                  ? 'All required information has been filled. You can click "Submit for Review" below to submit to Admin.'
+                  : 'Tất cả thông tin bắt buộc đã được điền đầy đủ. Bạn có thể nhấn "Gửi để duyệt" bên dưới để gửi cho Ban quản trị.'}
               </p>
             </div>
           ) : (
             <div className="p-4 bg-warning/10 border border-warning/20 rounded-xl mb-6">
               <div className="flex items-center gap-1.5 text-warning font-bold text-xs mb-1">
                 <Icon name="info" className="text-[16px]" />
-                <span>Còn {completeness?.missingItems?.length || 0} mục chưa hoàn thiện:</span>
+                <span>
+                  {isEnglish
+                    ? `${completeness?.missingItems?.length || 0} incomplete item(s):`
+                    : `Còn ${completeness?.missingItems?.length || 0} mục chưa hoàn thiện:`}
+                </span>
               </div>
               <p className="text-xs text-muted leading-relaxed">
-                Vui lòng bổ sung các thông tin còn thiếu trước khi gửi sự kiện để phê duyệt.
+                {isEnglish
+                  ? 'Please provide the missing details before submitting for approval.'
+                  : 'Vui lòng bổ sung các thông tin còn thiếu trước khi gửi sự kiện để phê duyệt.'}
               </p>
             </div>
           )}
 
           <div className="border-t border-border-soft/30 pt-4 space-y-2.5">
             <div className="flex justify-between items-center mb-1">
-              <span className="text-xs font-bold uppercase text-white [html.light_&]:text-[#0D1B2A]">Danh sách kiểm tra</span>
+              <span className="text-xs font-bold uppercase text-white [html.light_&]:text-[#0D1B2A]">
+                {isEnglish ? 'Checklist' : 'Danh sách kiểm tra'}
+              </span>
               <span className="text-xs font-bold text-white [html.light_&]:text-[#0D1B2A]">
                 {completeness?.completedCount ?? 0}/{completeness?.total ?? 0}
               </span>
@@ -3624,7 +3689,7 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
                     onClick={() => onGoToStep(item.step)}
                     className="shrink-0 px-2 py-0.5 rounded bg-tertiary/10 text-tertiary hover:bg-tertiary hover:text-white transition text-[11px] font-bold"
                   >
-                    Bước {item.step}
+                    {isEnglish ? `Step ${item.step}` : `Bước ${item.step}`}
                   </button>
                 )}
               </div>
@@ -3637,6 +3702,7 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
 }
 
 export function CreateEventPage() {
+  const { isEnglish } = useLanguage()
   const toast = useToast()
   const navigate = useNavigate()
   const location = useLocation()
@@ -3672,7 +3738,7 @@ export function CreateEventPage() {
       window.history.replaceState({}, document.title)
     }
   }, [location.state, toast])
-  const completeness = useMemo(() => calculateEventCompleteness(formData), [formData])
+  const completeness = useMemo(() => calculateEventCompleteness(formData, isEnglish), [formData, isEnglish])
   const pageTopRef = useRef(null)
 
   const scrollToTop = useCallback(() => {
@@ -4651,12 +4717,13 @@ export function CreateEventPage() {
 
   const nextLabel = useMemo(() => {
     if (currentStep === 4) {
+      if (isEnglish) return isEditMode ? 'Next: Review & Update' : 'Next: Review & Submit'
       return isEditMode ? 'Tiếp: Xem lại & cập nhật' : 'Tiếp theo: Xem lại & Gửi duyệt'
     }
-    if (currentStep === 3) return 'Tiếp theo: Chính sách & Thiết lập'
-    if (currentStep === 2) return 'Tiếp theo: Vé & Sơ đồ ghế'
-    return 'Tiếp theo'
-  }, [currentStep, isEditMode])
+    if (currentStep === 3) return isEnglish ? 'Next: Policies & Settings' : 'Tiếp theo: Chính sách & Thiết lập'
+    if (currentStep === 2) return isEnglish ? 'Next: Tickets & Seating' : 'Tiếp theo: Vé & Sơ đồ ghế'
+    return isEnglish ? 'Next' : 'Tiếp theo'
+  }, [currentStep, isEditMode, isEnglish])
 
   if (initialLoading) {
     return (
@@ -4789,7 +4856,7 @@ export function CreateEventPage() {
             onClick={() => navigate('/organizer/events')}
             className="px-6 py-2.5 rounded-full border border-white/20 bg-[#101c30] text-slate-200 text-sm font-semibold hover:bg-error/15 hover:border-error/50 hover:text-error shadow-[0_4px_16px_rgba(0,0,0,0.3)] transition-all cursor-pointer [html.light_&]:bg-white [html.light_&]:border-[#C99A47]/30 [html.light_&]:text-[#0D1B2A] [html.light_&]:shadow-sm"
           >
-            Hủy
+            {isEnglish ? 'Cancel' : 'Hủy'}
           </button>
           <button
             type="button"
@@ -4798,7 +4865,7 @@ export function CreateEventPage() {
             className="px-6 py-2.5 rounded-full border border-white/20 bg-[#101c30] text-white text-sm font-semibold hover:bg-[#182b4a] hover:border-[#C99A47]/60 shadow-[0_4px_16px_rgba(0,0,0,0.3)] transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer [html.light_&]:bg-white [html.light_&]:border-[#C99A47]/30 [html.light_&]:text-[#0D1B2A] [html.light_&]:shadow-sm [html.light_&]:hover:bg-[#F8F3EA]"
           >
             <Icon name="save" className="text-[18px] text-[#C99A47]" />
-            <span>Lưu bản nháp</span>
+            <span>{isEnglish ? 'Save Draft' : 'Lưu bản nháp'}</span>
           </button>
         </div>
         <div className="flex items-center gap-3">
@@ -4810,7 +4877,7 @@ export function CreateEventPage() {
               className="px-6 py-2.5 rounded-full border border-white/20 bg-[#101c30] text-white text-sm font-semibold hover:bg-[#182b4a] hover:border-white/40 shadow-[0_4px_16px_rgba(0,0,0,0.3)] transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer [html.light_&]:bg-white [html.light_&]:border-[#C99A47]/30 [html.light_&]:text-[#0D1B2A] [html.light_&]:shadow-sm [html.light_&]:hover:bg-[#F8F3EA]"
             >
               <Icon name="arrow_back" className="text-[18px]" />
-              <span>Quay lại</span>
+              <span>{isEnglish ? 'Back' : 'Quay lại'}</span>
             </button>
           )}
           {currentStep < 5 && (
@@ -4820,7 +4887,7 @@ export function CreateEventPage() {
               disabled={loading}
               className="org-btn-primary px-8 py-2.5 text-sm font-bold shadow-md disabled:opacity-50 transition cursor-pointer"
             >
-              {loading ? 'Đang lưu...' : (currentStep === 4 ? 'Tiếp theo' : nextLabel)}
+              {loading ? (isEnglish ? 'Saving...' : 'Đang lưu...') : (currentStep === 4 ? (isEnglish ? 'Next' : 'Tiếp theo') : nextLabel)}
               {!loading && <Icon name="arrow_forward" className="text-[18px]" />}
             </button>
           )}
@@ -4830,10 +4897,10 @@ export function CreateEventPage() {
               type="button"
               onClick={handleUpdateEvent}
               disabled={loading || !isValidAllSteps()}
-              title={!isValidAllSteps() ? 'Thông tin sự kiện còn thiếu hoặc không hợp lệ' : ''}
+              title={!isValidAllSteps() ? (isEnglish ? 'Event information is incomplete or invalid' : 'Thông tin sự kiện còn thiếu hoặc không hợp lệ') : ''}
               className="org-btn-primary px-8 py-2.5 text-sm font-bold shadow-md disabled:opacity-50 disabled:cursor-not-allowed transition ml-2 cursor-pointer"
             >
-              {loading ? 'Đang lưu...' : 'Lưu lại'}
+              {loading ? (isEnglish ? 'Saving...' : 'Đang lưu...') : (isEnglish ? 'Save' : 'Lưu lại')}
             </button>
           )}
 
@@ -4842,7 +4909,7 @@ export function CreateEventPage() {
               type="button"
               onClick={handleSubmit}
               disabled={loading || !completeness.isReady}
-              title={!completeness.isReady ? `Còn ${completeness.missingItems.length} mục chưa hoàn tất (Độ hoàn thiện ${completeness.percent}%)` : ''}
+              title={!completeness.isReady ? (isEnglish ? `${completeness.missingItems.length} items remaining (${completeness.percent}% completed)` : `Còn ${completeness.missingItems.length} mục chưa hoàn tất (Độ hoàn thiện ${completeness.percent}%)`) : ''}
               className="btn-led-submit ml-2"
             >
               <svg className="btn-led-submit-svg" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
@@ -4851,7 +4918,7 @@ export function CreateEventPage() {
                 <rect className="btn-led-submit-beam-core" pathLength="100" />
               </svg>
               <span className="btn-led-submit-content">
-                {loading ? 'Đang gửi...' : 'Gửi để duyệt'}
+                {loading ? (isEnglish ? 'Submitting...' : 'Đang gửi...') : (isEnglish ? 'Submit for Review' : 'Gửi để duyệt')}
               </span>
             </button>
           ) : (isEditMode && ['DRAFT', 'HIDDEN'].includes(eventStatus)) ? (
@@ -4859,7 +4926,7 @@ export function CreateEventPage() {
               type="button"
               onClick={handleSubmit}
               disabled={loading || !completeness.isReady}
-              title={!completeness.isReady ? `Còn ${completeness.missingItems.length} mục chưa hoàn tất (Độ hoàn thiện ${completeness.percent}%)` : ''}
+              title={!completeness.isReady ? (isEnglish ? `${completeness.missingItems.length} items remaining (${completeness.percent}% completed)` : `Còn ${completeness.missingItems.length} mục chưa hoàn tất (Độ hoàn thiện ${completeness.percent}%)`) : ''}
               className="btn-led-submit ml-2"
             >
               <svg className="btn-led-submit-svg" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
@@ -4868,7 +4935,7 @@ export function CreateEventPage() {
                 <rect className="btn-led-submit-beam-core" pathLength="100" />
               </svg>
               <span className="btn-led-submit-content">
-                {loading ? 'Đang xử lý...' : 'Gửi duyệt'}
+                {loading ? (isEnglish ? 'Processing...' : 'Đang xử lý...') : (isEnglish ? 'Submit for Review' : 'Gửi duyệt')}
               </span>
             </button>
           ) : null)}

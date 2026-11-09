@@ -2,16 +2,23 @@ import ExcelJS from 'exceljs'
 
 // ─── Format Helpers ─────────────────────────────────────────────────────────
 
+const getAutoLocale = () =>
+  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
+   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
+    ? 'en-US'
+    : 'vi-VN'
+
 function formatVND(n) {
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(n) || 0)
+  return new Intl.NumberFormat(getAutoLocale(), { style: 'currency', currency: 'VND' }).format(Number(n) || 0)
 }
 
 function formatDate(iso) {
   if (!iso) return '—'
+  const isEn = getAutoLocale() === 'en-US'
   try {
     const d = new Date(iso)
     if (Number.isNaN(d.getTime())) return '—'
-    return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    return d.toLocaleDateString(getAutoLocale(), { day: '2-digit', month: isEn ? 'short' : '2-digit', year: 'numeric' })
   } catch {
     return '—'
   }
