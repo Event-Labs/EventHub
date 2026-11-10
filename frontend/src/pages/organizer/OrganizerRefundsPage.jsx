@@ -14,6 +14,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { OrganizerPage, StatusBadge, TableActionButton } from './OrganizerComponents.jsx'
 import { fetchOrganizerRefundRequests, batchProcessOrganizerRefunds } from '@/services/refunds.js'
+import { formatRefundReason } from '@/utils/refundPolicy.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { CosmicSelect } from '@/components/CosmicSelect.jsx'
 
@@ -136,6 +137,7 @@ export function OrganizerRefundsPage() {
       const buyerEmail = (item.customer?.email || item.order?.buyer_email || '').toLowerCase()
       const eventTitle = (item.event?.title || '').toLowerCase()
       const reason = (item.reason || '').toLowerCase()
+      const formattedReason = formatRefundReason(item.reason).toLowerCase()
 
       return (
         ticketCode.includes(query) ||
@@ -143,7 +145,8 @@ export function OrganizerRefundsPage() {
         buyerName.includes(query) ||
         buyerEmail.includes(query) ||
         eventTitle.includes(query) ||
-        reason.includes(query)
+        reason.includes(query) ||
+        formattedReason.includes(query)
       )
     })
   }, [rawList, selectedStatus, selectedEventId, searchQuery])
@@ -519,8 +522,8 @@ export function OrganizerRefundsPage() {
                             {formatCurrency(item.refund_amount)}
                           </td>
                           <td className="max-w-[200px] px-3.5 py-3">
-                            <p className="line-clamp-2 text-slate-300 text-sm [html.light_&]:text-[#1B365D]" title={item.reason}>
-                              {item.reason}
+                            <p className="line-clamp-2 text-slate-300 text-sm [html.light_&]:text-[#1B365D]" title={formatRefundReason(item.reason)}>
+                              {formatRefundReason(item.reason)}
                             </p>
                           </td>
                           <td className="whitespace-nowrap px-3.5 py-3 !text-left" style={{ textAlign: 'left' }}>

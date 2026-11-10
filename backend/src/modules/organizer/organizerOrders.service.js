@@ -173,17 +173,17 @@ function buildFallbackFinancialSummary(payload, intelligence) {
   const fmt = (v) => formatMoney(v);
 
   const summary = `### 🎯 1. ĐÁNH GIÁ HIỆU SUẤT TÀI CHÍNH & TỶ SUẤT LỢI NHUẬN
-Sự kiện "${payload.event_title}" ghi nhận tổng doanh thu gộp đạt ${fmt(payload.gross_revenue)}, trong đó doanh thu ròng thực nhận là ${fmt(payload.net_revenue)} sau khi trừ chi phí dịch vụ & nền tảng ${fmt(payload.platform_fee || payload.subscription_cost)}. Biên lợi nhuận ròng đạt ${intelligence?.metrics?.net_margin_rate || 0}%, thể hiện mức độ kiểm soát chi phí ổn định. Doanh thu trên mỗi chỗ ngồi khả dụng (RevPAS) đạt ${fmt(intelligence?.metrics?.revpas || 0)}, tương ứng hiệu suất khai thác ${intelligence?.metrics?.revpas_efficiency || 0}% so với giá vé niêm yết trung bình ${fmt(intelligence?.metrics?.avg_ticket_price || 0)}.
+Sự kiện "${payload.event_title}" ghi nhận tổng doanh thu gộp đạt ${fmt(payload.gross_revenue)}, trong đó doanh thu ròng thực nhận là ${fmt(payload.net_revenue)} sau khi trừ chi phí dịch vụ & nền tảng ${fmt(payload.platform_fee || payload.subscription_cost)}. Biên lợi nhuận ròng đạt ${intelligence?.metrics?.net_margin_rate || 0}%, thể hiện mức độ kiểm soát chi phí ổn định. Doanh thu trên mỗi chỗ ngồi khả dụng đạt ${fmt(intelligence?.metrics?.revpas || 0)}, tương ứng hiệu suất khai thác ${intelligence?.metrics?.revpas_efficiency || 0}% so với giá vé niêm yết trung bình ${fmt(intelligence?.metrics?.avg_ticket_price || 0)}.
 
-### 📈 2. VẬN TỐC TIÊU THỤ & ĐỘ LỆCH HẠNG VÉ
-Tổng số lượng vé tiêu thụ đạt ${payload.tickets_sold} vé qua ${payload.total_orders} đơn hàng thành công, đạt tỷ lệ lấp đầy ${payload.occupancy_rate}%. Vận tốc bán vé gần nhất ghi nhận ở mức ${intelligence?.velocity?.daily_tickets || 0} vé/ngày (bình quân ${fmt(intelligence?.velocity?.daily_revenue || 0)}/ngày), trạng thái đà tăng trưởng: ${intelligence?.momentum?.label || 'Ổn định'}. Về cơ cấu danh mục, hạng vé ${starTier ? `"${starTier.name}"` : (payload.best_ticket_type || 'chủ lực')} là nguồn đóng góp doanh thu lớn nhất với tỷ trọng ${starTier?.revenue_contribution_pct || 0}% tổng doanh thu.
+### 📈 2. TỐC ĐỘ TIÊU THỤ & ĐỘ LỆCH HẠNG VÉ
+Tổng số lượng vé tiêu thụ đạt ${payload.tickets_sold} vé qua ${payload.total_orders} đơn hàng thành công, đạt tỷ lệ lấp đầy ${payload.occupancy_rate}%. Tốc độ bán vé gần nhất ghi nhận ở mức ${intelligence?.velocity?.daily_tickets || 0} vé/ngày (bình quân ${fmt(intelligence?.velocity?.daily_revenue || 0)}/ngày), trạng thái đà tăng trưởng: ${intelligence?.momentum?.label || 'Ổn định'}. Về cơ cấu danh mục, hạng vé ${starTier ? `"${starTier.name}"` : (payload.best_ticket_type || 'chủ lực')} là nguồn đóng góp doanh thu lớn nhất với tỷ trọng ${starTier?.revenue_contribution_pct || 0}% tổng doanh thu.
 
 ### ⚠️ 3. ĐIỂM NGHẼN TỒN KHO & CẢNH BÁO RỦI RO
 Điểm sức khỏe tài chính đạt ${intelligence?.health_score || 0}/100 (${getRiskLabel(intelligence?.risk_level)}). Số lượng vé còn tồn trong kho là ${intelligence?.metrics?.remaining_tickets || 0} vé trên tổng sức chứa ${intelligence?.metrics?.total_capacity || payload.tickets_sold} chỗ. ${intelligence?.inventory_pacing?.days_until_event !== null && intelligence?.inventory_pacing?.days_until_event !== undefined ? `Với thời gian đếm ngược còn ${intelligence.inventory_pacing.days_until_event} ngày đến sự kiện, mức độ rủi ro tồn kho được xếp loại ${intelligence.inventory_pacing.inventory_risk_level === 'CRITICAL' ? 'RẤT CAO' : (intelligence.inventory_pacing.inventory_risk_level === 'HIGH' ? 'CAO' : 'KIỂM SOÁT ĐƯỢC')}, đòi hỏi tốc độ tiêu thụ tối thiểu ${intelligence.inventory_pacing.required_daily_tickets || 0} vé/ngày để giải phóng toàn bộ chỗ ngồi.` : 'Cần tiếp tục theo dõi sát sao tiến độ tiêu thụ theo từng mốc mở bán.'} ${laggingTier ? `Hạng vé "${laggingTier.name}" đang có tỷ lệ lấp đầy thấp (${laggingTier.occupancy_rate}%), là điểm nghẽn tồn đọng cần giải tỏa.` : ''}
 
 ### 💡 4. KẾ HOẠCH HÀNH ĐỘNG DOANH THU & ĐỊNH GIÁ ĐỘNG
-1. **Tối ưu hóa giá vé & Kích cầu ngắn hạn (48h tới):** ${laggingTier ? `Kích hoạt chương trình Flash Bundle (mua 2 vé tặng kèm quyền lợi ưu đãi) hoặc voucher 10-15% cho hạng vé "${laggingTier.name}" để kích thích quyết định mua sớm.` : `Tập trung mở gói ưu đãi nhóm (Group Ticket) cho các hạng vé còn tồn để cải thiện doanh thu trung bình.`}
-2. **Khai thác tệp khách tiềm năng:** Thực hiện chiến dịch tiếp thị lại (Retargeting) hướng đến người dùng đã truy cập xem trang sự kiện nhưng chưa hoàn tất đặt vé.
+1. **Tối ưu hóa giá vé & Kích cầu ngắn hạn (48h tới):** ${laggingTier ? `Kích hoạt chương trình gói combo ưu đãi (mua 2 vé tặng kèm quyền lợi) hoặc mã giảm giá 10-15% cho hạng vé "${laggingTier.name}" để kích thích quyết định mua sớm.` : `Tập trung mở gói vé ưu đãi theo nhóm cho các hạng vé còn tồn để cải thiện doanh thu trung bình.`}
+2. **Khai thác tệp khách tiềm năng:** Thực hiện chiến dịch tiếp thị lại hướng đến người dùng đã truy cập xem trang sự kiện nhưng chưa hoàn tất đặt vé.
 3. **Mục tiêu doanh thu khả thi:** Ưu tiên đẩy mạnh bán vé cho các ngày cuối tuần để tối ưu hóa tỷ lệ lấp đầy trước giờ diễn ra sự kiện.`;
 
   return {
@@ -314,9 +314,9 @@ function buildFinancialIntelligence({ payload, ticketSales, eventSales, event })
     const tierSold = toNumber(t.sold_quantity);
     const tierCap = toNumber(t.capacity) || tierSold;
     const occPct = tierCap > 0 ? round((tierSold / tierCap) * 100, 1) : 0;
-    const revSharePct = grossRevenue > 0 ? round((tierRev / grossRevenue) * 100, 1) : 0;
+    const revSharePct = grossRevenue > 0 ? clamp(round((tierRev / grossRevenue) * 100, 1), 0, 100) : 0;
     let status = 'Đang bán tốt';
-    if (occPct >= 100) status = 'Hết vé (Sold Out)';
+    if (occPct >= 100) status = 'Đã hết vé';
     else if (occPct < 30) status = 'Chậm tiêu thụ';
     else if (occPct < 70) status = 'Trung bình';
     return {
@@ -594,7 +594,7 @@ class OrganizerOrdersService {
       subscription_cost: subscriptionCost,
       tickets_sold: toNumber(ticketSales.overall?.total_tickets_sold),
       total_orders: toNumber(event ? eventRevenue.total_orders : (revenueStats.overall?.total_orders || ticketSales.overall?.total_orders)),
-      occupancy_rate: toNumber(event ? eventSales.occupancy_rate : (revenueStats.dashboard?.occupancy_rate || eventSales.occupancy_rate)),
+      occupancy_rate: round(toNumber(event ? eventSales.occupancy_rate : (revenueStats.dashboard?.occupancy_rate || eventSales.occupancy_rate)), 1),
       best_ticket_type: bestTicketType?.ticket_type_name || '',
       best_sales_day: bestSalesDay?.day || '',
     };

@@ -123,13 +123,14 @@ function riskLabel(level) {
     LOW: 'Rủi ro thấp',
     MEDIUM: 'Rủi ro vừa',
     HIGH: 'Rủi ro cao',
+    CRITICAL: 'Rủi ro rất cao',
   }
   return labels[level] || level || '—'
 }
 
 function riskClass(level) {
   if (level === 'LOW') return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
-  if (level === 'HIGH') return 'border-rose-500/30 bg-rose-500/10 text-rose-400'
+  if (level === 'HIGH' || level === 'CRITICAL') return 'border-rose-500/30 bg-rose-500/10 text-rose-400'
   return 'border-amber-500/30 bg-amber-500/10 text-amber-400'
 }
 
@@ -1005,10 +1006,10 @@ function ExecutivePillarCard({ title, content, index }) {
         cardBorder: 'border-emerald-500/20 hover:border-emerald-500/40',
       }
     }
-    if (t.includes('VẬN TỐC') || t.includes('TIÊU THỤ') || index === 1) {
+    if (t.includes('TỐC ĐỘ') || t.includes('VẬN TỐC') || t.includes('TIÊU THỤ') || index === 1) {
       return {
         icon: Zap,
-        badge: 'Vận tốc & Đà tăng trưởng',
+        badge: 'Tốc độ bán & Đà tăng trưởng',
         badgeClass: 'border-cyan-500/30 bg-cyan-500/10 text-cyan-400',
         cardBorder: 'border-cyan-500/20 hover:border-cyan-500/40',
       }
@@ -1129,15 +1130,15 @@ function printExecutiveYieldReport({ financialSummary, eventTitle, dateRangeLabe
 
   <div class="kpi-grid">
     <div class="kpi-card">
-      <div class="kpi-label">Financial Health Score</div>
+      <div class="kpi-label">Điểm sức khỏe tài chính</div>
       <div class="kpi-val">${intel.health_score || 0} / 100</div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-label">RevPAS (Doanh thu / Chỗ)</div>
+      <div class="kpi-label">Doanh thu / Chỗ (RevPAS)</div>
       <div class="kpi-val">${fmtCurrency(metrics.revpas || 0)}</div>
     </div>
     <div class="kpi-card">
-      <div class="kpi-label">Vận tốc bán 7 ngày</div>
+      <div class="kpi-label">Tốc độ bán 7 ngày</div>
       <div class="kpi-val">${velocity.daily_tickets || 0} vé/ngày</div>
     </div>
   </div>
@@ -1579,7 +1580,7 @@ export function OrganizerDashboardPage() {
                     {isEnglish ? 'Initializing AI Revenue Advisor...' : 'Đang khởi tạo Cố vấn Doanh thu AI...'}
                   </h4>
                   <p className="mt-1 text-xs text-slate-300">
-                    {isEnglish ? 'Comprehensive analysis of RevPAS, sales velocity, inventory risk, and optimal What-If pricing scenarios...' : 'Phân tích toàn diện chỉ số RevPAS, gia tốc bán vé, rủi ro tồn kho và xây dựng kịch bản định giá What-If tối ưu...'}
+                    {isEnglish ? 'Comprehensive analysis of RevPAS, sales velocity, inventory risk, and optimal pricing scenarios...' : 'Phân tích toàn diện doanh thu trên mỗi chỗ (RevPAS), tốc độ bán vé, rủi ro tồn kho và kịch bản dự báo tăng trưởng...'}
                   </p>
                 </div>
               </div>
@@ -1598,15 +1599,12 @@ export function OrganizerDashboardPage() {
                       <h3 className="font-display text-lg font-black text-white">
                         {isEnglish ? 'AI Revenue Advisor Report' : 'Báo cáo Cố vấn Doanh thu AI'}
                       </h3>
-                      {financialSummary.source !== 'RULE_BASED_FALLBACK' && financialSummary.model !== 'financial-rule-fallback' && (
-                        <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
-                          AI Model ({financialSummary.model || 'eve-agent'})
-                        </span>
-                      )}
                     </div>
                     {financialSummary.source !== 'RULE_BASED_FALLBACK' && financialSummary.model !== 'financial-rule-fallback' && (
                       <p className="text-xs text-slate-400">
-                        {`Mô hình AI Yield Advisor (${financialSummary.model || 'eve-agent'}) · RevPAS, Sales Velocity, Pacing & Kịch bản What-If`}
+                        {isEnglish
+                          ? 'AI Revenue Advisor · Revenue / seat, Sales velocity, Inventory pacing & Forecast scenarios'
+                          : 'Cố vấn Doanh thu AI · Doanh thu / chỗ, Tốc độ bán vé, Tiến độ tồn kho & Kịch bản dự báo'}
                       </p>
                     )}
                   </div>
@@ -1648,7 +1646,7 @@ export function OrganizerDashboardPage() {
                     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
                       <div className="flex flex-col justify-between rounded-xl border border-white/10 bg-slate-950/60 p-3.5">
                         <div className="flex min-h-[28px] items-center">
-                          <p className="text-[10px] font-bold uppercase leading-tight text-slate-400">Health Score</p>
+                          <p className="text-[10px] font-bold uppercase leading-tight text-slate-400">{isEnglish ? 'Financial Health' : 'Điểm sức khỏe'}</p>
                         </div>
                         <p className="mt-1 font-display text-2xl font-black text-white">
                           {financialSummary.intelligence.health_score}{' '}
@@ -1661,66 +1659,66 @@ export function OrganizerDashboardPage() {
 
                       <div className="flex flex-col justify-between rounded-xl border border-white/10 bg-slate-950/60 p-3.5">
                         <div className="flex min-h-[28px] items-center">
-                          <p className="text-[10px] font-bold uppercase leading-tight text-slate-400">RevPAS (Doanh thu / Chỗ)</p>
+                          <p className="text-[10px] font-bold uppercase leading-tight text-slate-400">{isEnglish ? 'RevPAS (Revenue / Seat)' : 'Doanh thu / Chỗ (RevPAS)'}</p>
                         </div>
                         <p className="mt-1 font-display text-lg font-black text-white">
                           {fmtCurrency(financialSummary.intelligence.metrics?.revpas || 0)}
                         </p>
                         <p className="mt-1 text-[11px] text-cyan-400 font-semibold">
-                          Hiệu suất: {financialSummary.intelligence.metrics?.revpas_efficiency || 0}% giá vé
+                          {isEnglish ? `Efficiency: ${financialSummary.intelligence.metrics?.revpas_efficiency || 0}% price` : `Hiệu suất: ${financialSummary.intelligence.metrics?.revpas_efficiency || 0}% giá vé`}
                         </p>
                       </div>
 
                       <div className="flex flex-col justify-between rounded-xl border border-white/10 bg-slate-950/60 p-3.5">
                         <div className="flex min-h-[28px] items-center">
-                          <p className="text-[10px] font-bold uppercase leading-tight text-slate-400">Vận tốc bán 7 ngày</p>
+                          <p className="text-[10px] font-bold uppercase leading-tight text-slate-400">{isEnglish ? '7-Day Sales Velocity' : 'Tốc độ bán (7 ngày)'}</p>
                         </div>
                         <p className="mt-1 font-display text-lg font-black text-white">
                           {financialSummary.intelligence.velocity?.daily_tickets || 0}{' '}
-                          <span className="text-xs font-normal text-slate-400">vé/ngày</span>
+                          <span className="text-xs font-normal text-slate-400">{isEnglish ? 'tickets/day' : 'vé/ngày'}</span>
                         </p>
                         <p className="mt-1 text-[11px] text-emerald-400 font-semibold">
-                          {financialSummary.intelligence.momentum?.label || 'Ổn định'}
+                          {financialSummary.intelligence.momentum?.label || (isEnglish ? 'Stable' : 'Ổn định')}
                         </p>
                       </div>
 
                       <div className="flex flex-col justify-between rounded-xl border border-white/10 bg-slate-950/60 p-3.5">
                         <div className="flex min-h-[28px] items-center">
-                          <p className="text-[10px] font-bold uppercase leading-tight text-slate-400">Tồn kho & Pacing</p>
+                          <p className="text-[10px] font-bold uppercase leading-tight text-slate-400">{isEnglish ? 'Unsold & Inventory Pacing' : 'Vé tồn & Tiến độ bán'}</p>
                         </div>
                         <p className="mt-1 font-display text-lg font-black text-amber-400">
                           {financialSummary.intelligence.inventory_pacing?.remaining_tickets || 0}{' '}
-                          <span className="text-xs font-normal text-slate-400">vé tồn</span>
+                          <span className="text-xs font-normal text-slate-400">{isEnglish ? 'unsold' : 'vé tồn'}</span>
                         </p>
                         <p className="mt-1 text-[11px] text-slate-400">
                           {financialSummary.intelligence.inventory_pacing?.days_until_event !== null &&
                             financialSummary.intelligence.inventory_pacing?.days_until_event !== undefined
-                            ? `Còn ${financialSummary.intelligence.inventory_pacing.days_until_event} ngày`
-                            : 'Không giới hạn'}
+                            ? (isEnglish ? `${financialSummary.intelligence.inventory_pacing.days_until_event} days left` : `Còn ${financialSummary.intelligence.inventory_pacing.days_until_event} ngày`)
+                            : (isEnglish ? 'Unlimited' : 'Không giới hạn')}
                         </p>
                       </div>
 
                       <div className="flex flex-col justify-between rounded-xl border border-white/10 bg-slate-950/60 p-3.5">
                         <div className="flex min-h-[28px] items-center">
-                          <p className="text-[10px] font-bold uppercase leading-tight text-slate-400">Giá vé TB & AOV</p>
+                          <p className="text-[10px] font-bold uppercase leading-tight text-slate-400">{isEnglish ? 'Avg Price & Order Value' : 'Giá vé TB & Đơn hàng TB'}</p>
                         </div>
                         <p className="mt-1 font-display text-lg font-black text-emerald-400">
                           {fmtCurrency(financialSummary.intelligence.metrics?.avg_ticket_price || 0)}
                         </p>
                         <p className="mt-1 text-[11px] text-slate-400">
-                          AOV: {fmtCurrency(financialSummary.intelligence.metrics?.avg_order_value || 0)}/đơn
+                          {isEnglish ? 'Avg Order: ' : 'Đơn hàng TB: '}{fmtCurrency(financialSummary.intelligence.metrics?.avg_order_value || 0)}/đơn
                         </p>
                       </div>
 
                       <div className="flex flex-col justify-between rounded-xl border border-white/10 bg-slate-950/60 p-3.5">
                         <div className="flex min-h-[28px] items-center">
-                          <p className="text-[10px] font-bold uppercase leading-tight text-slate-400">Dự báo 7 ngày tới</p>
+                          <p className="text-[10px] font-bold uppercase leading-tight text-slate-400">{isEnglish ? '7-Day Forecast' : 'Dự báo 7 ngày tới'}</p>
                         </div>
                         <p className="mt-1 font-display text-lg font-black text-white">
                           {fmtCurrency(financialSummary.intelligence.forecast?.next_7_days_revenue || 0)}
                         </p>
                         <p className="mt-1 text-[11px] text-slate-400">
-                          ~{financialSummary.intelligence.forecast?.next_7_days_tickets || 0} vé
+                          ~{financialSummary.intelligence.forecast?.next_7_days_tickets || 0} {isEnglish ? 'tickets' : 'vé'}
                         </p>
                       </div>
                     </div>
@@ -1756,20 +1754,37 @@ export function OrganizerDashboardPage() {
                       <div className="flex items-center gap-2">
                         <TrendingUp className="size-4 text-emerald-400" />
                         <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-300">
-                          Mô phỏng kích cầu doanh thu (What-If Revenue Modeling)
+                          {isEnglish ? 'Revenue Growth Scenario Simulation' : 'Mô phỏng kịch bản tăng trưởng doanh thu'}
                         </h4>
                       </div>
                       <p className="mt-1.5 text-xs leading-relaxed text-slate-200">
-                        Nếu kích cầu bán thêm{' '}
-                        <strong className="text-white">
-                          {Number(financialSummary.intelligence.what_if.additional_tickets || 0).toLocaleString('vi-VN')} vé
-                        </strong>{' '}
-                        với giá trung bình hiện tại ({fmtCurrency(financialSummary.intelligence.what_if.avg_ticket_price)}),
-                        doanh thu dự kiến tăng thêm{' '}
-                        <strong className="font-black text-emerald-400">
-                          {fmtCurrency(financialSummary.intelligence.what_if.estimated_gross_revenue)}
-                        </strong>
-                        .
+                        {isEnglish ? (
+                          <>
+                            If you stimulate demand to sell an additional{' '}
+                            <strong className="text-white">
+                              {Number(financialSummary.intelligence.what_if.additional_tickets || 0).toLocaleString('en-US')} tickets
+                            </strong>{' '}
+                            at the current average price ({fmtCurrency(financialSummary.intelligence.what_if.avg_ticket_price)}),
+                            projected gross revenue increases by{' '}
+                            <strong className="font-black text-emerald-400">
+                              {fmtCurrency(financialSummary.intelligence.what_if.estimated_gross_revenue)}
+                            </strong>
+                            .
+                          </>
+                        ) : (
+                          <>
+                            Nếu kích cầu bán thêm{' '}
+                            <strong className="text-white">
+                              {Number(financialSummary.intelligence.what_if.additional_tickets || 0).toLocaleString('vi-VN')} vé
+                            </strong>{' '}
+                            với giá trung bình hiện tại ({fmtCurrency(financialSummary.intelligence.what_if.avg_ticket_price)}),
+                            doanh thu dự kiến tăng thêm{' '}
+                            <strong className="font-black text-emerald-400">
+                              {fmtCurrency(financialSummary.intelligence.what_if.estimated_gross_revenue)}
+                            </strong>
+                            .
+                          </>
+                        )}
                       </p>
                     </div>
                   )}
