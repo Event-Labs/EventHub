@@ -27,3 +27,16 @@ export async function assignZones(eventId, sessionId, data) {
   )
   return response.data.data
 }
+
+export async function generateSeatMapFromImage(file) {
+  const formData = new FormData()
+  formData.append('image', file)
+  formData.append('file', file)
+  const response = await http.post('/organizer/seat-maps/ai-generate', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+    timeout: 60000,
+  })
+  return response.data.data
+}

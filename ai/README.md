@@ -1,10 +1,13 @@
-# EventHub AI Training Pipeline
+# EventHub AI Training Pipeline & Unified AI Service
 
-This folder contains the complete AI training pipeline and Python package architecture for EventHub's local AI agent.
+This folder contains the complete AI training pipeline, Ollama GGUF models, and the **FastAPI Seat Map YOLO11 Service** for EventHub.
 
 ## Architecture
 
 The project follows a standard scalable Python package architecture:
+- `main.py`: FastAPI Unified AI Server (port `8001`) serving `/api/seatmap/predict` and `/health`.
+- `models/seatmap_yolo_best.pt`: Trained YOLO11 weights (`5.59 MB`) for Seat Map Object Detection.
+- `src/seatmap/reconstructor.py`: Post-processing engine that converts YOLO detections into EventHub `SeatMapEditor` JSON.
 - `src/config/`: Configuration settings (Model ID, directories, LoRA settings).
 - `src/data/`: Data generators modularized per feature (Chatbot, Finance, Review, Content).
 - `src/training/`: Training modules (SFTTrainer wrappers).
@@ -41,7 +44,18 @@ After getting the GGUF model (`eventhub-qwen3-4b.gguf`), place it in the root of
 .\export_to_ollama.ps1
 ```
 
-*(Note: See `colab_instructions.md` for running on Google Colab).*
+### 4. Start Seat Map AI Service (FastAPI + YOLO11 on Port 8001)
+From the `EventHub/ai/` directory, run:
+```powershell
+.\start_seatmap_ai.ps1
+```
+Or directly with Uvicorn:
+```bash
+uvicorn main:app --host 0.0.0.0 --port 8001
+```
+- **Health Check**: `http://localhost:8001/health`
+- **Swagger UI**: `http://localhost:8001/docs`
+- **Predict Endpoint**: `POST http://localhost:8001/api/seatmap/predict`
 
 ---
 
@@ -64,3 +78,12 @@ After getting the GGUF model (`eventhub-qwen3-4b.gguf`), place it in the root of
   ollama run eventhub-qwen3
   ```
 Lúc này API nội bộ của AI đã mở tại `http://localhost:11434/api/chat`, các bạn làm Backend có thể gọi thẳng vào API này để dùng!
+
+**Bước 4: Chạy AI Tạo Sơ Đồ Ghế (FastAPI Seatmap AI)**
+- Trọng số model đã có sẵn tại `EventHub/ai/models/seatmap_yolo_best.pt`.
+- Mở Terminal tại `EventHub/ai/` và chạy:
+  ```powershell
+  .\start_seatmap_ai.ps1
+  ```
+- Dịch vụ sẽ chạy tại `http://localhost:8001` (khớp với `AI_SERVICE_URL=http://localhost:8001` trong `backend/.env`).
+- 📘 Hướng dẫn chi tiết (cài đặt, API, xử lý lỗi): xem [README_SEATMAP.md](./README_SEATMAP.md).

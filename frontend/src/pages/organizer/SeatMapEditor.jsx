@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
+  AlignCenterHorizontal,
+  AlignCenterVertical,
   Ban,
   CheckSquare,
   ClipboardPaste,
   Copy,
   Eraser,
   Grid,
+  GripVertical,
   Hand,
   MousePointer2,
   Paintbrush,
@@ -15,12 +18,13 @@ import {
   RotateCcw,
   Settings,
   Shapes,
+  Sparkles,
   Trash2,
   Users,
   ZoomIn,
   ZoomOut,
 } from 'lucide-react'
-import { createSeatMap, getSeatMap, updateSeatMap } from '@/services/organizerSeatMaps.js'
+import { createSeatMap, generateSeatMapFromImage, getSeatMap, updateSeatMap } from '@/services/organizerSeatMaps.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 
@@ -35,6 +39,7 @@ const ZONE_COLORS = ['#EF4444', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC
 
 const STAGE_SHAPES = [
   { id: 'RECTANGLE', label: 'Hình chữ nhật / Vuông' },
+  { id: 'TRIANGLE', label: 'Hình tam giác' },
   { id: 'CIRCLE', label: 'Hình tròn / Ellipse' },
   { id: 'SEMI_CIRCLE', label: 'Hình bán nguyệt' },
   { id: 'T_STAGE', label: 'Sân khấu chữ T (Runway)' },
@@ -132,6 +137,24 @@ function RenameModal({ isOpen, title, initialValue, onSave, onClose }) {
 
 /** Gán row_label + seat_number duy nhất trước khi lưu (tránh UNIQUE constraint). */
 function normalizeSeatsForSave(seats) {
+  const existingKeys = new Set()
+  let allValidAndUnique = seats.length > 0
+  for (const s of seats) {
+    if (!s.rowLabel || s.rowLabel === 'X' || !s.seatNumber) {
+      allValidAndUnique = false
+      break
+    }
+    const k = `${s.rowLabel}|${s.seatNumber}`
+    if (existingKeys.has(k)) {
+      allValidAndUnique = false
+      break
+    }
+    existingKeys.add(k)
+  }
+  if (allValidAndUnique) {
+    return seats
+  }
+
   const sorted = [...seats].sort((a, b) => a.y - b.y || a.x - b.x)
   const rowGroups = []
 
@@ -181,6 +204,140 @@ function snapPoint(x, y, stagePos = 'TOP') {
   }
 }
 
+/**
+ * Tự động gióng thẳng hàng thông minh (Robust Smart Alignment):
+ * 1. Khi người dùng chọn ghế cụ thể (targetIds):
+ *    - Tự động gom cụm các ghế theo hàng ngang (chênh lệch Y <= 15px) và gióng thẳng hàng Y theo trung vị.
+ *    - Tự động gom cụm các ghế theo cột dọc (chênh lệch X <= 15px) và gióng thẳng hàng X theo trung vị.
+ *    - Hoạt động 100% tin cậy trên hàng lẻ, cột lẻ, hoặc cả khối ghế người dùng quét chọn.
+ * 2. Khi người dùng bấm căn hàng toàn bộ sơ đồ (targetIds = null):
+ *    - Tự động phát hiện các ghế thuộc đường cong / góc chéo (lân cận gần nhất có min(dx, dy) >= 7.5px) để BẢO VỆ NGUYÊN VẸN ĐỘ CONG.
+ *    - Chỉ gióng thẳng tắp các hàng ngang và cột dọc thẳng của khán đài.
+ */
+function autoAlignSeatList(allSeats, targetIds = null) {
+  if (!Array.isArray(allSeats) || allSeats.length < 2) return allSeats
+
+  const isManualSelection = Boolean(targetIds && targetIds.size > 0)
+  const isTarget = (id) => (!isManualSelection || targetIds.has(id))
+  const targetSeats = allSeats.filter((s) => isTarget(s.localId))
+  if (targetSeats.length < 2) return allSeats
+
+  const n = targetSeats.length
+  const rowSeatMap = new Map()
+  const colSeatMap = new Map()
+
+  // Helper 1D clustering
+  const cluster1D = (items, keyFn, thresh) => {
+    const sorted = [...items].sort((a, b) => keyFn(a) - keyFn(b))
+    const groups = []
+    for (const item of sorted) {
+      const v = keyFn(item)
+      let bestG = null
+      let bestD = 1e9
+      for (const g of groups) {
+        const mean = g.reduce((acc, cur) => acc + keyFn(cur), 0) / g.length
+        const d = Math.abs(v - mean)
+        if (d <= thresh && d < bestD) {
+          bestD = d
+          bestG = g
+        }
+      }
+      if (bestG) {
+        bestG.push(item)
+      } else {
+        groups.push([item])
+      }
+    }
+    return groups
+  }
+
+  if (isManualSelection) {
+    // Chế độ người dùng chọn chủ động: Căn thẳng tắp theo cụm hàng và cụm cột
+    // 1. Căn hàng ngang Y: các ghế có khoảng cách Y gần nhau (<= 14px)
+    const rowGroups = cluster1D(targetSeats, (s) => s.y, 14)
+    for (const group of rowGroups) {
+      if (group.length >= 2) {
+        const sortedY = group.map((s) => s.y).sort((a, b) => a - b)
+        const medY = sortedY[Math.floor(sortedY.length / 2)]
+        for (const s of group) {
+          rowSeatMap.set(s.localId, medY)
+        }
+      }
+    }
+
+    // 2. Căn cột dọc X: các ghế có khoảng cách X gần nhau (<= 14px)
+    const colGroups = cluster1D(targetSeats, (s) => s.x, 14)
+    for (const group of colGroups) {
+      if (group.length >= 2) {
+        const sortedX = group.map((s) => s.x).sort((a, b) => a - b)
+        const medX = sortedX[Math.floor(sortedX.length / 2)]
+        for (const s of group) {
+          colSeatMap.set(s.localId, medX)
+        }
+      }
+    }
+  } else {
+    // Chế độ tự động toàn bộ sơ đồ: Bảo vệ độ cong & đường chéo
+    const isCurvedOrDiagonal = new Array(n).fill(false)
+    for (let i = 0; i < n; i++) {
+      const s1 = targetSeats[i]
+      let minD = 1e9
+      let bestDx = 0
+      let bestDy = 0
+      for (let j = 0; j < n; j++) {
+        if (i === j) continue
+        const s2 = targetSeats[j]
+        const dx = Math.abs(s1.x - s2.x)
+        const dy = Math.abs(s1.y - s2.y)
+        const d = Math.hypot(dx, dy)
+        if (d < minD) {
+          minD = d
+          bestDx = dx
+          bestDy = dy
+        }
+      }
+      // Ghế nằm trên góc chéo 45 độ hoặc đường cong: lân cận gần nhất có min(dx, dy) >= 7.5px
+      if (minD <= 52 && Math.min(bestDx, bestDy) >= 7.5) {
+        isCurvedOrDiagonal[i] = true
+      }
+    }
+
+    const orthoSeats = targetSeats.filter((_, idx) => !isCurvedOrDiagonal[idx])
+    if (orthoSeats.length >= 2) {
+      // 1. Căn hàng ngang cho các ghế thẳng
+      const rowGroups = cluster1D(orthoSeats, (s) => s.y, 10)
+      for (const group of rowGroups) {
+        if (group.length >= 3) {
+          const sortedY = group.map((s) => s.y).sort((a, b) => a - b)
+          const medY = sortedY[Math.floor(sortedY.length / 2)]
+          for (const s of group) {
+            rowSeatMap.set(s.localId, medY)
+          }
+        }
+      }
+
+      // 2. Căn cột dọc cho các ghế thẳng
+      const colGroups = cluster1D(orthoSeats, (s) => s.x, 10)
+      for (const group of colGroups) {
+        if (group.length >= 3) {
+          const sortedX = group.map((s) => s.x).sort((a, b) => a - b)
+          const medX = sortedX[Math.floor(sortedX.length / 2)]
+          for (const s of group) {
+            colSeatMap.set(s.localId, medX)
+          }
+        }
+      }
+    }
+  }
+
+  return allSeats.map((s) => {
+    if (!isTarget(s.localId)) return s
+    const nextX = colSeatMap.has(s.localId) ? colSeatMap.get(s.localId) : s.x
+    const nextY = rowSeatMap.has(s.localId) ? rowSeatMap.get(s.localId) : s.y
+    return { ...s, x: nextX, y: nextY }
+  })
+}
+
 function seatAtPoint(seats, x, y) {
   return seats.find((s) => x >= s.x && x <= s.x + SEAT_W && y >= s.y && y <= s.y + SEAT_H)
 }
@@ -199,11 +356,51 @@ function seatKey(x, y) {
   return `${x},${y}`
 }
 
+function getTrianglePoints(area) {
+  if (Array.isArray(area?.trianglePoints) && area.trianglePoints.length === 3) {
+    return area.trianglePoints
+  }
+  return [
+    { x: 0.5, y: 0 },
+    { x: 1, y: 1 },
+    { x: 0, y: 1 },
+  ]
+}
+
+function computeTriangleAbsolutePoints(area) {
+  const { x, y, w, h } = area
+  const tPts = getTrianglePoints(area)
+  return tPts.map((p) => ({
+    x: x + w * p.x,
+    y: y + h * p.y,
+  }))
+}
+
+function computeTriangleCentroid(area) {
+  const pts = computeTriangleAbsolutePoints(area)
+  return {
+    x: (pts[0].x + pts[1].x + pts[2].x) / 3,
+    y: (pts[0].y + pts[1].y + pts[2].y) / 3,
+  }
+}
+
 function renderStageShapeBody(x, y, w, h, shape = 'RECTANGLE', color = 'var(--color-panel-soft)', label = 'SÂN KHẤU', position = 'TOP', isLight = false) {
   const fillColor = color || (isLight ? '#2563EB' : 'var(--color-panel-soft)')
   const strokeColor = isLight ? 'rgba(15,23,42,0.25)' : 'rgba(255,255,255,0.3)'
   const isFillLight = isLightColor(fillColor)
   const textColor = isFillLight ? '#0D1B2A' : '#FFFFFF'
+
+  if (shape === 'TRIANGLE') {
+    const points = `${x + w / 2},${y} ${x + w},${y + h} ${x},${y + h}`
+    return (
+      <g>
+        <polygon points={points} fill={fillColor} stroke={strokeColor} strokeWidth={3} />
+        <text x={x + w / 2} y={y + h * 0.65} textAnchor="middle" fill={textColor} fontSize={13} fontWeight="800" style={{ userSelect: 'none', pointerEvents: 'none' }}>
+          {label}
+        </text>
+      </g>
+    )
+  }
 
   if (shape === 'CIRCLE') {
     const rx = w / 2
@@ -308,6 +505,8 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
   const [gridConfig, setGridConfig] = useState({ rows: 10, cols: 20 })
   const [snapEnabled, setSnapEnabled] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [aiGenerating, setAiGenerating] = useState(false)
+  const aiFileInputRef = useRef(null)
   const [error, setError] = useState(null)
   const [mapName, setMapName] = useState('')
   const [zones, setZones] = useState([])
@@ -340,7 +539,9 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
   const [isDraggingSeats, setIsDraggingSeats] = useState(false)
   const [seatDragStartPt, setSeatDragStartPt] = useState(null)
   const [seatDragOriginals, setSeatDragOriginals] = useState({})
+  const [seatDragAnchorId, setSeatDragAnchorId] = useState(null)
   const [hasDraggedSeats, setHasDraggedSeats] = useState(false)
+  const [activeSnapGuides, setActiveSnapGuides] = useState({ x: null, y: null })
 
   const [auxElements, setAuxElements] = useState([])
   const [draggingAuxId, setDraggingAuxId] = useState(null)
@@ -348,6 +549,55 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
 
   const [selectedShapeId, setSelectedShapeId] = useState(null)
   const [draggingHandle, setDraggingHandle] = useState(null)
+
+  const mainContainerRef = useRef(null)
+  const [toolbarPos, setToolbarPos] = useState(null)
+  const toolbarRef = useRef(null)
+  const [selectionBarPos, setSelectionBarPos] = useState(null)
+  const selectionBarRef = useRef(null)
+  const [shapeInspectorPos, setShapeInspectorPos] = useState(null)
+  const shapeInspectorRef = useRef(null)
+
+  const makeDraggable = (setPos, elementRef) => (e) => {
+    if (e.button !== 0) return
+    if (e.target.closest('button, input, select, textarea')) return
+    e.stopPropagation()
+
+    const container = mainContainerRef.current
+    const el = elementRef.current
+    if (!container || !el) return
+
+    const containerRect = container.getBoundingClientRect()
+    const elRect = el.getBoundingClientRect()
+
+    const currentLeft = elRect.left - containerRect.left
+    const currentTop = elRect.top - containerRect.top
+
+    const startMouseX = e.clientX
+    const startMouseY = e.clientY
+
+    const handleMouseMove = (moveEvent) => {
+      moveEvent.preventDefault()
+      const dx = moveEvent.clientX - startMouseX
+      const dy = moveEvent.clientY - startMouseY
+
+      const maxX = Math.max(10, containerRect.width - elRect.width - 10)
+      const maxY = Math.max(10, containerRect.height - elRect.height - 10)
+
+      const nextX = Math.min(Math.max(10, currentLeft + dx), maxX)
+      const nextY = Math.min(Math.max(10, currentTop + dy), maxY)
+
+      setPos({ x: nextX, y: nextY })
+    }
+
+    const handleMouseUp = () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+  }
 
   const seatsRef = useRef(seats)
   seatsRef.current = seats
@@ -486,18 +736,27 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
       if (!selectedShapeId || !selectedShapeId.startsWith('std-')) {
         setSelectedShapeId(standingAreas[0].id)
       }
+    } else if (auxElements.length > 0) {
+      if (!selectedShapeId || !selectedShapeId.startsWith('aux-')) {
+        setSelectedShapeId(auxElements[0].id)
+      }
     }
-  }, [seats, standingAreas, selectedShapeId])
+    toast.success('Đã chọn tất cả')
+  }, [seats, standingAreas, auxElements, selectedShapeId, toast])
 
   const copySelected = useCallback(() => {
     if (selectedIds.size > 0) {
       const selectedSeats = seats.filter((s) => selectedIds.has(s.localId))
-      const selectedStanding = selectedShapeId
+      const selectedStanding = selectedShapeId && selectedShapeId.startsWith('std-')
         ? standingAreas.filter((a) => a.id === selectedShapeId)
-        : selectedIds.size === seats.length && seats.length > 0
+        : (selectedIds.size === seats.length && seats.length > 0)
           ? standingAreas
           : []
-      const selectedAux = selectedShapeId ? auxElements.filter((a) => a.id === selectedShapeId) : []
+      const selectedAux = selectedShapeId && selectedShapeId.startsWith('aux-')
+        ? auxElements.filter((a) => a.id === selectedShapeId)
+        : (selectedIds.size === seats.length && seats.length > 0)
+          ? auxElements
+          : []
 
       clipboardRef.current = {
         type: 'COMPOSITE',
@@ -505,6 +764,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
         standingAreas: JSON.parse(JSON.stringify(selectedStanding)),
         auxElements: JSON.parse(JSON.stringify(selectedAux)),
       }
+      toast.success('Đã sao chép các phần tử đã chọn')
       return
     }
 
@@ -515,6 +775,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
           type: 'STANDING',
           item: JSON.parse(JSON.stringify(standing)),
         }
+        toast.success(`Đã sao chép: ${standing.name || 'Vùng đứng'}`)
         return
       }
 
@@ -524,10 +785,11 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
           type: 'AUX',
           item: JSON.parse(JSON.stringify(aux)),
         }
+        toast.success(`Đã sao chép: ${aux.label || 'Vật thể'}`)
         return
       }
     }
-  }, [selectedIds, seats, selectedShapeId, standingAreas, auxElements])
+  }, [selectedIds, seats, selectedShapeId, standingAreas, auxElements, toast])
 
   const pasteCopied = useCallback(() => {
     if (!clipboardRef.current) return
@@ -568,11 +830,16 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
         const newPastedAux = copiedAux.map((a) => ({
           ...a,
           id: `aux-${newLocalId()}`,
+          label: `${a.label} (Bản sao)`,
           x: a.x + offset,
           y: a.y + offset,
         }))
         setAuxElements((prev) => [...prev, ...newPastedAux])
+        if (newPastedAux.length === 1 && (!copiedStanding || copiedStanding.length === 0)) {
+          setSelectedShapeId(newPastedAux[0].id)
+        }
       }
+      toast.success('Đã dán các phần tử')
     } else if (clipboardRef.current.type === 'SEATS') {
       const copied = clipboardRef.current.items
       const newPastedSeats = copied.map((s) => ({
@@ -583,6 +850,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
       }))
       setSeats((prev) => [...prev, ...newPastedSeats])
       setSelectedIds(new Set(newPastedSeats.map((s) => s.localId)))
+      toast.success(`Đã dán ${newPastedSeats.length} ghế`)
     } else if (clipboardRef.current.type === 'STANDING') {
       const item = clipboardRef.current.item
       const newStanding = {
@@ -594,18 +862,21 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
       }
       setStandingAreas((prev) => [...prev, newStanding])
       setSelectedShapeId(newStanding.id)
+      toast.success(`Đã dán: ${newStanding.name}`)
     } else if (clipboardRef.current.type === 'AUX') {
       const item = clipboardRef.current.item
       const newAux = {
         ...item,
         id: `aux-${newLocalId()}`,
+        label: `${item.label} (Bản sao)`,
         x: item.x + offset,
         y: item.y + offset,
       }
       setAuxElements((prev) => [...prev, newAux])
       setSelectedShapeId(newAux.id)
+      toast.success(`Đã dán: ${newAux.label}`)
     }
-  }, [saveHistory])
+  }, [saveHistory, toast])
 
   const deleteSelected = useCallback(() => {
     if (!selectedIds.size) return
@@ -613,6 +884,18 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
     setSeats((prev) => prev.filter((s) => !selectedIds.has(s.localId)))
     setSelectedIds(new Set())
   }, [selectedIds, saveHistory])
+
+  const deleteStandingArea = useCallback((id) => {
+    saveHistory()
+    setStandingAreas((prev) => prev.filter((a) => a.id !== id))
+    setSelectedShapeId((cur) => (cur === id ? null : cur))
+  }, [saveHistory])
+
+  const deleteAuxElement = useCallback((id) => {
+    saveHistory()
+    setAuxElements((prev) => prev.filter((a) => a.id !== id))
+    setSelectedShapeId((cur) => (cur === id ? null : cur))
+  }, [saveHistory])
 
   const applyZoneToSelected = useCallback(
     (zoneId) => {
@@ -633,58 +916,163 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
     )
   }, [selectedIds, saveHistory])
 
+  const alignSelectedHorizontal = useCallback(() => {
+    if (!selectedIds.size) return
+    saveHistory()
+    const selectedSeats = seats.filter((s) => selectedIds.has(s.localId))
+    if (!selectedSeats.length) return
+    const sorted = [...selectedSeats].sort((a, b) => a.x - b.x)
+    const targetY = sorted[0].y
+    setSeats((prev) =>
+      prev.map((s) => (selectedIds.has(s.localId) ? { ...s, y: targetY } : s)),
+    )
+    toast.success(`Đã căn thẳng hàng ngang ${selectedSeats.length} ghế`)
+  }, [selectedIds, seats, saveHistory, toast])
+
+  const alignSelectedVertical = useCallback(() => {
+    if (!selectedIds.size) return
+    saveHistory()
+    const selectedSeats = seats.filter((s) => selectedIds.has(s.localId))
+    if (!selectedSeats.length) return
+    const sorted = [...selectedSeats].sort((a, b) => a.y - b.y)
+    const targetX = sorted[0].x
+    setSeats((prev) =>
+      prev.map((s) => (selectedIds.has(s.localId) ? { ...s, x: targetX } : s)),
+    )
+    toast.success(`Đã căn thẳng hàng dọc ${selectedSeats.length} ghế`)
+  }, [selectedIds, seats, saveHistory, toast])
+
+  const snapSelectedToGrid = useCallback(() => {
+    if (!selectedIds.size) return
+    saveHistory()
+    const selectedSeats = seats.filter((s) => selectedIds.has(s.localId))
+    if (!selectedSeats.length) return
+    const sorted = [...selectedSeats].sort((a, b) => a.y - b.y || a.x - b.x)
+    const origin = sorted[0]
+    setSeats((prev) =>
+      prev.map((s) => {
+        if (!selectedIds.has(s.localId)) return s
+        const relX = Math.round((s.x - origin.x) / SNAP_X) * SNAP_X
+        const relY = Math.round((s.y - origin.y) / SNAP_Y) * SNAP_Y
+        return {
+          ...s,
+          x: Math.max(0, origin.x + relX),
+          y: Math.max(0, origin.y + relY),
+        }
+      }),
+    )
+    toast.success(`Đã hít đều ${selectedIds.size} ghế theo lưới chuẩn của khối`)
+  }, [selectedIds, seats, saveHistory, toast])
+
+  const autoAlignSelected = useCallback(() => {
+    if (!selectedIds.size) return
+    saveHistory()
+    setSeats((prev) => {
+      const next = autoAlignSeatList(prev, selectedIds)
+      return next
+    })
+    toast.success(`Đã tự động căn thẳng hàng ${selectedIds.size} ghế theo các trục!`)
+  }, [selectedIds, saveHistory, toast])
+
+  const autoAlignAllSeats = useCallback(() => {
+    if (!seats.length) return
+    saveHistory()
+    setSeats((prev) => {
+      const next = autoAlignSeatList(prev, null)
+      return next
+    })
+    toast.success(`Đã tự động căn thẳng hàng toàn bộ ${seats.length} ghế!`)
+  }, [seats.length, saveHistory, toast])
+
   useEffect(() => {
     function onKeyDown(e) {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return
       const key = e.key.toLowerCase()
-      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
-      const ctrlKey = isMac ? e.metaKey : e.ctrlKey
+      const isCtrl = e.ctrlKey || e.metaKey
 
-      if (ctrlKey && key === 'z') {
+      if (isCtrl && (e.code === 'KeyZ' || key === 'z')) {
         e.preventDefault()
         undo()
+        toast.success('Đã hoàn tác')
         return
       }
-      if (ctrlKey && key === 'a') {
+      if (isCtrl && (e.code === 'KeyA' || key === 'a')) {
         e.preventDefault()
         selectAll()
         return
       }
-      if (ctrlKey && key === 'c') {
+      if (isCtrl && (e.code === 'KeyC' || key === 'c')) {
         e.preventDefault()
         copySelected()
         return
       }
-      if (ctrlKey && key === 'v') {
+      if (isCtrl && (e.code === 'KeyV' || key === 'v')) {
         e.preventDefault()
         pasteCopied()
         return
       }
 
-      if (key === 'delete' || key === 'backspace') {
+      if (key === 'delete' || key === 'backspace' || e.code === 'Delete' || e.code === 'Backspace') {
+        let deleted = false
         if (selectedIds.size) {
           e.preventDefault()
           deleteSelected()
+          deleted = true
         }
-        if (selectedShapeId && selectedShapeId.startsWith('std-')) {
+        if (selectedShapeId) {
           e.preventDefault()
-          saveHistory()
-          deleteStandingArea(selectedShapeId)
+          if (selectedShapeId.startsWith('std-')) {
+            deleteStandingArea(selectedShapeId)
+            deleted = true
+          } else if (selectedShapeId.startsWith('aux-')) {
+            deleteAuxElement(selectedShapeId)
+            deleted = true
+          } else if (selectedShapeId === 'STAGE') {
+            saveHistory()
+            setStageConfig((c) => ({ ...c, position: 'HIDDEN' }))
+            setSelectedShapeId(null)
+            deleted = true
+          }
         }
+        if (deleted) {
+          toast.success('Đã xóa phần tử')
+        }
+        return
       }
-      if (key === 'escape') {
+      if (key === 'escape' || e.code === 'Escape') {
         setSelectedIds(new Set())
         setSelectedShapeId(null)
         setRubberBand(null)
       }
-      const matched = TOOLS.find((t) => t.shortcut.toLowerCase() === key)
-      if (matched && !(matched.freeformOnly && layoutType === 'GRID')) {
-        setTool(matched.id)
+      if (!isCtrl && !e.altKey) {
+        const matched = TOOLS.find((t) => t.shortcut.toLowerCase() === key)
+        if (matched && !(matched.freeformOnly && layoutType === 'GRID')) {
+          setTool(matched.id)
+          if (matched.id === 'PAINT') {
+            setSidebarTab('ZONES')
+            if (!activeZoneId && zones.length > 0) setActiveZoneId(zones[0].localId)
+          }
+        }
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [selectedIds, selectedShapeId, deleteSelected, layoutType, undo, selectAll, copySelected, pasteCopied, saveHistory])
+  }, [
+    selectedIds,
+    selectedShapeId,
+    deleteSelected,
+    deleteStandingArea,
+    deleteAuxElement,
+    layoutType,
+    undo,
+    selectAll,
+    copySelected,
+    pasteCopied,
+    saveHistory,
+    toast,
+    zones,
+    activeZoneId,
+  ])
 
   function toSVGPoint(e) {
     const rect = svgRef.current.getBoundingClientRect()
@@ -735,13 +1123,15 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
     if (activeZoneId === zoneLocalId) setActiveZoneId(null)
   }
 
-  function addStandingArea() {
+  function addStandingArea(shape = 'RECTANGLE') {
     saveHistory()
     const newArea = {
       id: `std-${newLocalId()}`,
-      name: `Vùng Đứng ${standingAreas.length + 1}`,
+      name: shape === 'TRIANGLE' ? `Khối Tam Giác ${standingAreas.length + 1}` : `Vùng Đứng ${standingAreas.length + 1}`,
       capacity: 100,
       color: ZONE_COLORS[standingAreas.length % ZONE_COLORS.length],
+      shape: shape,
+      trianglePoints: shape === 'TRIANGLE' ? [{ x: 0.5, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }] : undefined,
       x: 200,
       y: 200,
       w: 240,
@@ -752,12 +1142,6 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
     setSelectedShapeId(newArea.id)
     setSelectedIds(new Set())
     setSidebarTab('ZONES')
-  }
-
-  function deleteStandingArea(id) {
-    saveHistory()
-    setStandingAreas((prev) => prev.filter((a) => a.id !== id))
-    if (selectedShapeId === id) setSelectedShapeId(null)
   }
 
   function applyPreset(presetType) {
@@ -786,6 +1170,68 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
         { id: `std-${newLocalId()}`, name: 'Vùng Đứng GA (Festival)', capacity: 300, color: '#F59E0B', x: 160, y: 120, w: 580, h: 140, rotation: 0 }
       ])
       toast.success('Đã áp dụng mẫu Festival Hỗn hợp (Ghế + Đứng)')
+    }
+  }
+
+  async function handleAiImageChange(e) {
+    const file = e.target.files?.[0]
+    if (e.target) e.target.value = ''
+    if (!file) return
+
+    setAiGenerating(true)
+    setError(null)
+    try {
+      const aiData = await generateSeatMapFromImage(file)
+      if (aiData?.isValidSeatMap === false) {
+        const invalidMsg =
+          aiData.invalidReason ||
+          'Hình ảnh tải lên không phải là sơ đồ ghế hoặc sơ đồ sân khấu hợp lệ. Vui lòng chọn ảnh sơ đồ ghế rõ nét.'
+        setError(invalidMsg)
+        toast.error(invalidMsg)
+        return
+      }
+      saveHistory()
+
+      if (aiData.layoutType) setLayoutType(aiData.layoutType)
+      if (aiData.canvasBg) setCanvasBg(aiData.canvasBg)
+      if (aiData.gridConfig) setGridConfig(aiData.gridConfig)
+      if (aiData.stageConfig) setStageConfig(aiData.stageConfig)
+      if (Array.isArray(aiData.zones)) {
+        setZones(aiData.zones)
+        setActiveZoneId(aiData.zones[0]?.localId || null)
+      }
+      if (Array.isArray(aiData.standingAreas)) {
+        setStandingAreas(aiData.standingAreas)
+      }
+      if (Array.isArray(aiData.auxElements)) {
+        setAuxElements(aiData.auxElements)
+      }
+      if (Array.isArray(aiData.seats)) {
+        const autoAligned = autoAlignSeatList(aiData.seats)
+        setSeats(autoAligned)
+        seatCounter.current = autoAligned.length + 1
+      }
+      setSelectedIds(new Set())
+      setSelectedShapeId(null)
+
+      if (!mapName.trim()) {
+        const baseName = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ')
+        setMapName(`Sơ đồ AI - ${baseName}`)
+      }
+
+      const seatCnt = aiData.seats?.length || 0
+      const zoneCnt = aiData.zones?.length || 0
+      const standCnt = aiData.standingAreas?.length || 0
+      toast.success(
+        `AI đã dựng xong sơ đồ: tự động căn thẳng hàng ${seatCnt} ghế, ${zoneCnt} khu vực và ${standCnt} khối khán đài!`,
+      )
+    } catch (err) {
+      console.error('[AI Seatmap Import Error]:', err)
+      const message = getApiMessage(err, 'Không thể phân tích ảnh sơ đồ ghế bằng AI.')
+      setError(message)
+      toast.error(message)
+    } finally {
+      setAiGenerating(false)
     }
   }
 
@@ -879,6 +1325,14 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
   }
 
   function handleStageMouseDown(e) {
+    if (tool === 'ERASE') {
+      e.stopPropagation()
+      saveHistory()
+      setStageConfig((c) => ({ ...c, position: 'HIDDEN' }))
+      if (selectedShapeId === 'STAGE') setSelectedShapeId(null)
+      toast.success('Đã ẩn sân khấu')
+      return
+    }
     if (tool !== 'SELECT') return
     e.stopPropagation()
     setSelectedShapeId('STAGE')
@@ -912,6 +1366,12 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
   }
 
   function handleAuxMouseDown(e, aux) {
+    if (tool === 'ERASE') {
+      e.stopPropagation()
+      deleteAuxElement(aux.id)
+      toast.success(`Đã xóa ${aux.label || 'vật thể'}`)
+      return
+    }
     if (tool !== 'SELECT') return
     e.stopPropagation()
     saveHistory()
@@ -938,6 +1398,12 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
   }
 
   function handleStandingMouseDown(e, area) {
+    if (tool === 'ERASE') {
+      e.stopPropagation()
+      deleteStandingArea(area.id)
+      toast.success(`Đã xóa ${area.name || 'vùng đứng'}`)
+      return
+    }
     if (tool !== 'SELECT') return
     e.stopPropagation()
     saveHistory()
@@ -992,19 +1458,8 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
       return
     }
 
-    if (tool === 'PAINT' && activeZoneId) {
-      const targets =
-        selectedIds.has(seat.localId) && selectedIds.size > 1 ? selectedIds : new Set([seat.localId])
-      setSeats((prev) =>
-        prev.map((s) =>
-          targets.has(s.localId) && !s.isDisabled ? { ...s, zoneLocalId: activeZoneId } : s,
-        ),
-      )
-      return
-    }
-
-    if (tool === 'SELECT') {
-      if (activeZoneId !== null) {
+    if (tool === 'PAINT') {
+      if (activeZoneId) {
         const targets =
           selectedIds.has(seat.localId) && selectedIds.size > 1 ? selectedIds : new Set([seat.localId])
         setSeats((prev) =>
@@ -1013,28 +1468,34 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
           ),
         )
       } else {
-        let next = new Set(selectedIds)
-        if (e.shiftKey) {
-          if (next.has(seat.localId)) next.delete(seat.localId)
-          else next.add(seat.localId)
-          setSelectedIds(next)
-        } else {
-          if (!next.has(seat.localId)) {
-            next = new Set([seat.localId])
-            setSelectedIds(next)
-          }
-        }
-        setIsDraggingSeats(true)
-        const pt = toSVGPoint(e)
-        setSeatDragStartPt(pt)
-        const origs = {}
-        next.forEach((id) => {
-          const found = seatsRef.current.find((s) => s.localId === id)
-          if (found) origs[id] = { x: found.x, y: found.y }
-        })
-        setSeatDragOriginals(origs)
-        setHasDraggedSeats(false)
+        toast.info('Vui lòng chọn một màu khu vực trước khi tô')
       }
+      return
+    }
+
+    if (tool === 'SELECT') {
+      let next = new Set(selectedIds)
+      if (e.shiftKey) {
+        if (next.has(seat.localId)) next.delete(seat.localId)
+        else next.add(seat.localId)
+        setSelectedIds(next)
+      } else {
+        if (!next.has(seat.localId)) {
+          next = new Set([seat.localId])
+          setSelectedIds(next)
+        }
+      }
+      setIsDraggingSeats(true)
+      setSeatDragAnchorId(seat.localId)
+      const pt = toSVGPoint(e)
+      setSeatDragStartPt(pt)
+      const origs = {}
+      next.forEach((id) => {
+        const found = seatsRef.current.find((s) => s.localId === id)
+        if (found) origs[id] = { x: found.x, y: found.y }
+      })
+      setSeatDragOriginals(origs)
+      setHasDraggedSeats(false)
     }
   }
 
@@ -1075,6 +1536,98 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
         } else {
           setAuxElements((prev) => prev.map((a) => (a.id === draggingHandle.elementId ? { ...a, rotation: newRot } : a)))
         }
+      } else if (draggingHandle.type === 'TRIANGLE_VERTEX') {
+        const { elementId, vertexIndex, startPoints, startPt, areaW, areaH, rotation } = draggingHandle
+        const dx = pt.x - startPt.x
+        const dy = pt.y - startPt.y
+        const rad = ((rotation || 0) * Math.PI) / 180
+        const localDx = dx * Math.cos(-rad) - dy * Math.sin(-rad)
+        const localDy = dx * Math.sin(-rad) + dy * Math.cos(-rad)
+
+        const newRelX = Math.max(-0.2, Math.min(1.2, startPoints[vertexIndex].x + localDx / areaW))
+        const newRelY = Math.max(-0.2, Math.min(1.2, startPoints[vertexIndex].y + localDy / areaH))
+
+        const newPoints = startPoints.map((p, idx) =>
+          idx === vertexIndex
+            ? { x: Math.round(newRelX * 1000) / 1000, y: Math.round(newRelY * 1000) / 1000 }
+            : p
+        )
+
+        if (elementId.startsWith('std-')) {
+          setStandingAreas((prev) =>
+            prev.map((a) => (a.id === elementId ? { ...a, trianglePoints: newPoints } : a))
+          )
+        } else if (elementId.startsWith('aux-')) {
+          setAuxElements((prev) =>
+            prev.map((a) => (a.id === elementId ? { ...a, trianglePoints: newPoints } : a))
+          )
+        }
+      } else if (draggingHandle.type === 'TRIANGLE_EDGE') {
+        const { elementId, edgeIndex, startPoints, startPt, areaW, areaH, rotation } = draggingHandle
+        const dx = pt.x - startPt.x
+        const dy = pt.y - startPt.y
+        const rad = ((rotation || 0) * Math.PI) / 180
+        const localDx = dx * Math.cos(-rad) - dy * Math.sin(-rad)
+        const localDy = dx * Math.sin(-rad) + dy * Math.cos(-rad)
+
+        let newPoints
+        if (edgeIndex === 1) {
+          const dRelY = localDy / areaH
+          newPoints = startPoints.map((p, idx) => {
+            if (idx === 1 || idx === 2) {
+              return { x: p.x, y: Math.max(0, Math.min(1.5, Math.round((p.y + dRelY) * 1000) / 1000)) }
+            }
+            return p
+          })
+        } else if (edgeIndex === 0) {
+          const dRelX = localDx / areaW
+          const dRelY = localDy / areaH
+          newPoints = startPoints.map((p, idx) => {
+            if (idx === 1) {
+              return {
+                x: Math.max(0, Math.min(1.5, Math.round((p.x + dRelX) * 1000) / 1000)),
+                y: Math.max(0, Math.min(1.5, Math.round((p.y + dRelY) * 1000) / 1000)),
+              }
+            }
+            if (idx === 0) {
+              return {
+                x: Math.max(0, Math.min(1, Math.round((p.x + dRelX * 0.5) * 1000) / 1000)),
+                y: p.y,
+              }
+            }
+            return p
+          })
+        } else if (edgeIndex === 2) {
+          const dRelX = localDx / areaW
+          const dRelY = localDy / areaH
+          newPoints = startPoints.map((p, idx) => {
+            if (idx === 2) {
+              return {
+                x: Math.max(-0.5, Math.min(1, Math.round((p.x + dRelX) * 1000) / 1000)),
+                y: Math.max(0, Math.min(1.5, Math.round((p.y + dRelY) * 1000) / 1000)),
+              }
+            }
+            if (idx === 0) {
+              return {
+                x: Math.max(0, Math.min(1, Math.round((p.x + dRelX * 0.5) * 1000) / 1000)),
+                y: p.y,
+              }
+            }
+            return p
+          })
+        }
+
+        if (newPoints) {
+          if (elementId.startsWith('std-')) {
+            setStandingAreas((prev) =>
+              prev.map((a) => (a.id === elementId ? { ...a, trianglePoints: newPoints } : a))
+            )
+          } else if (elementId.startsWith('aux-')) {
+            setAuxElements((prev) =>
+              prev.map((a) => (a.id === elementId ? { ...a, trianglePoints: newPoints } : a))
+            )
+          }
+        }
       }
       return
     }
@@ -1104,22 +1657,138 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
 
     if (isDraggingSeats && seatDragStartPt) {
       setHasDraggedSeats(true)
-      const dx = pt.x - seatDragStartPt.x
-      const dy = pt.y - seatDragStartPt.y
+      let dx = pt.x - seatDragStartPt.x
+      let dy = pt.y - seatDragStartPt.y
 
-      let snappedDx = dx, snappedDy = dy
-      if (snapEnabled) {
-        snappedDx = Math.round(dx / SNAP_X) * SNAP_X
-        snappedDy = Math.round(dy / SNAP_Y) * SNAP_Y
+      // Shift key lock axis: di chuyển theo 1 trục duy nhất
+      if (e.shiftKey) {
+        if (Math.abs(dx) > Math.abs(dy)) {
+          dy = 0
+        } else {
+          dx = 0
+        }
       }
+
+      let deltaX = dx
+      let deltaY = dy
+      let guideX = null
+      let guideY = null
+
+      const anchorOrig = seatDragAnchorId && seatDragOriginals[seatDragAnchorId]
+
+      if (snapEnabled && !e.altKey && anchorOrig) {
+        let rawTargetX = anchorOrig.x + dx
+        let rawTargetY = anchorOrig.y + dy
+
+        // 1. Tự động hít về vị trí ban đầu nếu di chuyển gần vị trí gốc (<= 5px)
+        if (Math.abs(dx) <= 5) {
+          rawTargetX = anchorOrig.x
+          guideX = anchorOrig.x
+        }
+        if (Math.abs(dy) <= 5) {
+          rawTargetY = anchorOrig.y
+          guideY = anchorOrig.y
+        }
+
+        // 2. Tìm ghế lân cận (không thuộc nhóm đang kéo) để hít nam châm thông minh (Smart Magnetic Alignment)
+        const otherSeats = seatsRef.current.filter((s) => !seatDragOriginals[s.localId])
+
+        // --- Căn thẳng hàng X (cột dọc thẳng tắp, ví dụ C18 thẳng hàng với B11) ---
+        if (guideX === null) {
+          let bestDiffX = 1e9
+          let bestSnapX = null
+
+          // a) Thẳng hàng X với ghế lân cận (cùng cột dọc trong phạm vi 280px theo Y)
+          for (const s of otherSeats) {
+            const distY = Math.abs(rawTargetY - s.y)
+            if (distY <= 280) {
+              const diffX = Math.abs(rawTargetX - s.x)
+              if (diffX <= 8 && diffX < bestDiffX) {
+                bestDiffX = diffX
+                bestSnapX = s.x
+              }
+            }
+          }
+
+          // b) Bước khoảng cách tiêu chuẩn 34px sang trái/phải với ghế cùng hàng (Y lệch <= 16px)
+          if (bestSnapX === null) {
+            for (const s of otherSeats) {
+              const distY = Math.abs(rawTargetY - s.y)
+              if (distY <= 16) {
+                for (const offset of [-SNAP_X, SNAP_X]) {
+                  const targetCandX = s.x + offset
+                  const diffX = Math.abs(rawTargetX - targetCandX)
+                  if (diffX <= 6 && diffX < bestDiffX) {
+                    bestDiffX = diffX
+                    bestSnapX = targetCandX
+                  }
+                }
+              }
+            }
+          }
+
+          if (bestSnapX !== null) {
+            rawTargetX = bestSnapX
+            guideX = bestSnapX
+          }
+        }
+
+        // --- Căn thẳng hàng Y (hàng ngang thẳng tắp) ---
+        if (guideY === null) {
+          let bestDiffY = 1e9
+          let bestSnapY = null
+
+          // a) Thẳng hàng Y với ghế lân cận (cùng hàng ngang trong phạm vi 280px theo X)
+          for (const s of otherSeats) {
+            const distX = Math.abs(rawTargetX - s.x)
+            if (distX <= 280) {
+              const diffY = Math.abs(rawTargetY - s.y)
+              if (diffY <= 8 && diffY < bestDiffY) {
+                bestDiffY = diffY
+                bestSnapY = s.y
+              }
+            }
+          }
+
+          // b) Bước khoảng cách tiêu chuẩn 36px lên/xuống với ghế cùng cột (X lệch <= 16px)
+          if (bestSnapY === null) {
+            for (const s of otherSeats) {
+              const distX = Math.abs(rawTargetX - s.x)
+              if (distX <= 16) {
+                for (const offset of [-SNAP_Y, SNAP_Y]) {
+                  const targetCandY = s.y + offset
+                  const diffY = Math.abs(rawTargetY - targetCandY)
+                  if (diffY <= 6 && diffY < bestDiffY) {
+                    bestDiffY = diffY
+                    bestSnapY = targetCandY
+                  }
+                }
+              }
+            }
+          }
+
+          if (bestSnapY !== null) {
+            rawTargetY = bestSnapY
+            guideY = bestSnapY
+          }
+        }
+
+        deltaX = Math.round(rawTargetX - anchorOrig.x)
+        deltaY = Math.round(rawTargetY - anchorOrig.y)
+      } else {
+        deltaX = Math.round(dx)
+        deltaY = Math.round(dy)
+      }
+
+      setActiveSnapGuides({ x: guideX, y: guideY })
 
       setSeats((prev) =>
         prev.map((s) => {
           if (seatDragOriginals[s.localId]) {
             return {
               ...s,
-              x: Math.max(0, seatDragOriginals[s.localId].x + snappedDx),
-              y: Math.max(0, seatDragOriginals[s.localId].y + snappedDy),
+              x: Math.max(0, seatDragOriginals[s.localId].x + deltaX),
+              y: Math.max(0, seatDragOriginals[s.localId].y + deltaY),
             }
           }
           return s
@@ -1148,9 +1817,14 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
     setDraggingHandle(null)
 
     if (isDraggingSeats) {
+      if (hasDraggedSeats) {
+        saveHistory()
+      }
       setIsDraggingSeats(false)
       setSeatDragStartPt(null)
       setSeatDragOriginals({})
+      setSeatDragAnchorId(null)
+      setActiveSnapGuides({ x: null, y: null })
     }
 
     paintVisited.current = new Set()
@@ -1322,7 +1996,36 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
           )}
         </div>
 
-        <button type="button" onClick={handleSave} disabled={saving} className="org-btn-primary min-w-[100px]">
+        <input
+          ref={aiFileInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          onChange={handleAiImageChange}
+          className="hidden"
+        />
+        <button
+          type="button"
+          onClick={() => aiFileInputRef.current?.click()}
+          disabled={aiGenerating || saving}
+          className="flex items-center gap-1.5 rounded-xl border border-[#C99A47]/60 bg-gradient-to-r from-[#C99A47]/20 to-[#E6C17A]/20 hover:from-[#C99A47]/35 hover:to-[#E6C17A]/35 px-3.5 py-2 text-xs font-extrabold text-[#E6C17A] transition shadow-sm disabled:opacity-50"
+          title="Tải ảnh sơ đồ ghế lên để AI tự động nhận diện và dựng sơ đồ"
+        >
+          <Sparkles className={`size-4 ${aiGenerating ? 'animate-spin' : ''}`} />
+          <span>{aiGenerating ? 'AI đang dựng...' : 'Tạo từ ảnh (AI)'}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={autoAlignAllSeats}
+          disabled={saving || aiGenerating || seats.length < 2}
+          className="flex items-center gap-1.5 rounded-xl border border-primary/40 bg-primary/10 hover:bg-primary/20 px-3.5 py-2 text-xs font-bold text-primary transition shadow-sm disabled:opacity-40 cursor-pointer"
+          title="Tự động căn thẳng hàng toàn bộ các ghế trên cùng một trục dọc hoặc ngang"
+        >
+          <Sparkles className="size-4" />
+          <span>Tự động căn hàng</span>
+        </button>
+
+        <button type="button" onClick={handleSave} disabled={saving || aiGenerating} className="org-btn-primary min-w-[100px]">
           {saving ? 'Đang lưu...' : 'Lưu sơ đồ'}
         </button>
       </header>
@@ -1485,9 +2188,23 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                 {/* Mẫu có sẵn */}
                 <section className="rounded-xl border border-border-soft/20 p-3.5 bg-panel-soft/10 space-y-2">
                   <p className="text-xs font-bold uppercase tracking-wide text-white">
-                    Mẫu thiết kế nhanh
+                    Mẫu thiết kế nhanh & AI
                   </p>
                   <div className="grid grid-cols-1 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => aiFileInputRef.current?.click()}
+                      disabled={aiGenerating}
+                      className="flex flex-col items-center justify-center gap-1 rounded-xl border border-[#C99A47]/60 bg-gradient-to-r from-[#C99A47]/15 to-[#E6C17A]/10 p-3 text-center hover:border-[#E6C17A] hover:from-[#C99A47]/25 hover:to-[#E6C17A]/20 transition disabled:opacity-50"
+                    >
+                      <span className="flex items-center gap-1.5 text-sm font-extrabold text-[#E6C17A]">
+                        <Sparkles className="size-4" />
+                        {aiGenerating ? 'AI đang phân tích ảnh...' : 'Nhập sơ đồ từ ảnh (AI YOLO)'}
+                      </span>
+                      <span className="text-[11px] text-subtle">
+                        Tự động nhận diện ghế, sân khấu, khu vực & vùng đứng
+                      </span>
+                    </button>
                     <button
                       type="button"
                       onClick={() => applyPreset('THEATER')}
@@ -1526,16 +2243,25 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                     <p className="text-xs font-bold uppercase tracking-wide text-white">
                       Vùng đứng (Không ghế)
                     </p>
-                    <button
-                      type="button"
-                      onClick={addStandingArea}
-                      className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-[#C99A47]/60 hover:border-[#E6C17A] bg-[#C99A47]/5 hover:bg-[#C99A47]/15 py-2.5 px-3 text-xs font-bold text-[#E6C17A] hover:text-white transition-all cursor-pointer"
-                    >
-                      + Thêm vùng đứng
-                    </button>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => addStandingArea('RECTANGLE')}
+                        className="flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-[#C99A47]/60 hover:border-[#E6C17A] bg-[#C99A47]/5 hover:bg-[#C99A47]/15 py-2.5 px-2 text-xs font-bold text-[#E6C17A] hover:text-white transition-all cursor-pointer"
+                      >
+                        + Vùng đứng
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => addStandingArea('TRIANGLE')}
+                        className="flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-[#C99A47]/60 hover:border-[#E6C17A] bg-[#C99A47]/5 hover:bg-[#C99A47]/15 py-2.5 px-2 text-xs font-bold text-[#E6C17A] hover:text-white transition-all cursor-pointer"
+                      >
+                        + Khối tam giác
+                      </button>
+                    </div>
                   </div>
                   <p className="text-[11px] text-subtle leading-relaxed">
-                    Tạo các khu vực vé đứng tự do (GA Standing, VIP Standing...). Khách hàng mua vé vùng này sẽ không cần chọn từng số ghế.
+                    Tạo các khu vực vé đứng tự do hoặc khối hình tam giác, chữ nhật. Có thể kéo các cạnh và đỉnh tam giác để tùy biến hình dạng.
                   </p>
 
                   <div className="space-y-2">
@@ -1551,14 +2277,111 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                             onChange={(e) => setStandingAreas((prev) => prev.map((a) => (a.id === area.id ? { ...a, name: e.target.value } : a)))}
                             className="bg-transparent font-bold text-xs text-content outline-none border-b border-border-soft/40 focus:border-tertiary w-full"
                           />
+                          <select
+                            value={area.shape || 'RECTANGLE'}
+                            onChange={(e) => {
+                              saveHistory()
+                              const newShape = e.target.value
+                              setStandingAreas((prev) =>
+                                prev.map((a) =>
+                                  a.id === area.id
+                                    ? {
+                                        ...a,
+                                        shape: newShape,
+                                        trianglePoints:
+                                          newShape === 'TRIANGLE'
+                                            ? a.trianglePoints || [{ x: 0.5, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }]
+                                            : a.trianglePoints,
+                                      }
+                                    : a,
+                                ),
+                              )
+                            }}
+                            className="rounded-lg border border-border-soft/40 bg-panel-soft px-1.5 py-1 text-[11px] font-bold text-content outline-none"
+                            title="Chọn hình dạng"
+                          >
+                            <option value="RECTANGLE">Chữ nhật</option>
+                            <option value="TRIANGLE">Tam giác</option>
+                            <option value="CIRCLE">Hình tròn</option>
+                            <option value="DIAMOND">Hình thoi</option>
+                          </select>
                           <input
                             type="color"
                             value={area.color || '#EF4444'}
                             onChange={(e) => setStandingAreas((prev) => prev.map((a) => (a.id === area.id ? { ...a, color: e.target.value } : a)))}
                             className="h-6 w-8 cursor-pointer rounded border-0 bg-transparent p-0"
                           />
-                          <button type="button" onClick={() => deleteStandingArea(area.id)} className="text-muted hover:text-error transition"><Trash2 className="size-3.5" /></button>
+                          <button
+                            type="button"
+                            onClick={() => deleteStandingArea(area.id)}
+                            className="text-muted hover:text-error transition"
+                            title="Xóa vùng đứng (Backspace/Delete)"
+                          >
+                            <Trash2 className="size-3.5" />
+                          </button>
                         </div>
+                        {area.shape === 'TRIANGLE' && (
+                          <div className="flex items-center gap-1.5 text-[11px] pt-1 border-t border-border-soft/20">
+                            <span className="text-[10px] text-subtle font-bold">Mẫu:</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                saveHistory()
+                                setStandingAreas((prev) =>
+                                  prev.map((a) => (a.id === area.id ? { ...a, trianglePoints: [{ x: 0.5, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }] } : a)),
+                                )
+                              }}
+                              className="px-1.5 py-0.5 rounded bg-panel-soft hover:bg-tertiary/20 text-[10px] font-bold border border-border-soft/30"
+                              title="Tam giác cân"
+                            >
+                              Cân
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                saveHistory()
+                                setStandingAreas((prev) =>
+                                  prev.map((a) => (a.id === area.id ? { ...a, trianglePoints: [{ x: 0, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }] } : a)),
+                                )
+                              }}
+                              className="px-1.5 py-0.5 rounded bg-panel-soft hover:bg-tertiary/20 text-[10px] font-bold border border-border-soft/30"
+                              title="Tam giác vuông góc trái"
+                            >
+                              Vuông trái
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                saveHistory()
+                                setStandingAreas((prev) =>
+                                  prev.map((a) => (a.id === area.id ? { ...a, trianglePoints: [{ x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }] } : a)),
+                                )
+                              }}
+                              className="px-1.5 py-0.5 rounded bg-panel-soft hover:bg-tertiary/20 text-[10px] font-bold border border-border-soft/30"
+                              title="Tam giác vuông góc phải"
+                            >
+                              Vuông phải
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                saveHistory()
+                                const cur = getTrianglePoints(area)
+                                setStandingAreas((prev) =>
+                                  prev.map((a) =>
+                                    a.id === area.id
+                                      ? { ...a, trianglePoints: cur.map((p) => ({ x: p.x, y: 1 - p.y })) }
+                                      : a,
+                                  ),
+                                )
+                              }}
+                              className="px-1.5 py-0.5 rounded bg-panel-soft hover:bg-tertiary/20 text-[10px] font-bold border border-border-soft/30"
+                              title="Lật ngược tam giác theo chiều dọc"
+                            >
+                              Lật dọc
+                            </button>
+                          </div>
+                        )}
                         <div className="grid grid-cols-2 gap-2">
                           <label className="text-[10px] text-subtle">
                             Sức chứa (người)
@@ -1833,13 +2656,28 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
         </aside>
 
         {/* Main Canvas Container */}
-        <main className="relative flex flex-1 flex-col overflow-hidden">
+        <main ref={mainContainerRef} className="relative flex flex-1 flex-col overflow-hidden">
           {/* Floating Toolbar */}
-          <div className={`absolute top-4 left-4 z-10 flex items-center gap-2 rounded-2xl border p-1.5 shadow-2xl backdrop-blur-md transition-colors ${
-            isLightCanvas
-              ? 'border-slate-300 bg-white/95 text-slate-800 shadow-xl shadow-slate-900/10'
-              : 'border-border-soft/40 bg-surface/90 text-content'
-          }`}>
+          <div
+            ref={toolbarRef}
+            onMouseDown={makeDraggable(setToolbarPos, toolbarRef)}
+            style={toolbarPos ? { left: `${toolbarPos.x}px`, top: `${toolbarPos.y}px`, right: 'auto', bottom: 'auto' } : undefined}
+            className={`absolute ${toolbarPos ? '' : 'top-4 left-4'} z-10 flex items-center gap-2 rounded-2xl border p-1.5 shadow-2xl backdrop-blur-md select-none transition-colors cursor-grab active:cursor-grabbing ${
+              isLightCanvas
+                ? 'border-slate-300 bg-white/95 text-slate-800 shadow-xl shadow-slate-900/10'
+                : 'border-border-soft/40 bg-surface/90 text-content'
+            }`}
+          >
+            <div
+              className="flex items-center text-subtle hover:text-content cursor-grab active:cursor-grabbing px-1 py-1 select-none"
+              title="Kéo để di chuyển thanh công cụ (Nhấp đúp để về mặc định)"
+              onDoubleClick={(e) => {
+                e.stopPropagation()
+                setToolbarPos(null)
+              }}
+            >
+              <GripVertical className="size-4" />
+            </div>
             <div className={`flex items-center gap-1 border-r pr-2 ${isLightCanvas ? 'border-slate-300' : 'border-border-soft/30'}`}>
               {visibleTools.map((t) => {
                 const IconComp = t.icon
@@ -1848,7 +2686,13 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                   <button
                     key={t.id}
                     type="button"
-                    onClick={() => setTool(t.id)}
+                    onClick={() => {
+                      setTool(t.id)
+                      if (t.id === 'PAINT') {
+                        setSidebarTab('ZONES')
+                        if (!activeZoneId && zones.length > 0) setActiveZoneId(zones[0].localId)
+                      }
+                    }}
                     title={`${t.label} (${t.shortcut})`}
                     className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold transition-all ${isActive
                       ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md shadow-[#C99A47]/30 font-black'
@@ -1920,8 +2764,8 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
               </button>
             </div>
 
-            {/* Quick Paint zone selector */}
-            {(tool === 'PAINT' || tool === 'SELECT') && zones.length > 0 && (
+            {/* Quick Paint zone selector (Only active and visible in Paint mode) */}
+            {tool === 'PAINT' && zones.length > 0 && (
               <div className="flex items-center gap-1.5 pl-1">
                 <span className={`text-sm font-extrabold hidden lg:inline ${isLightCanvas ? 'text-slate-800' : 'text-subtle'}`}>
                   Tô khu vực:
@@ -1933,7 +2777,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                       type="button"
                       onClick={() => {
                         setActiveZoneId(z.localId)
-                        if (selectedIds.size > 0) applyZoneToSelected(z.localId)
+                        if (tool === 'PAINT' && selectedIds.size > 0) applyZoneToSelected(z.localId)
                       }}
                       title={z.name}
                       className={`size-6 rounded-full border-2 transition-transform ${activeZoneId === z.localId
@@ -1952,12 +2796,27 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
           {selectedShapeId && (() => {
             if (selectedShapeId === 'STAGE') {
               return (
-                <div className={`absolute top-4 right-4 z-20 flex items-center gap-3 rounded-2xl border p-3 shadow-2xl backdrop-blur-md ${
-                  isLightCanvas
-                    ? 'border-primary/50 bg-white/95 text-slate-800 shadow-slate-900/15'
-                    : 'border-primary/40 bg-surface/95 text-content'
-                }`}>
-                  <div className="flex flex-col gap-1">
+                <div
+                  ref={shapeInspectorRef}
+                  onMouseDown={makeDraggable(setShapeInspectorPos, shapeInspectorRef)}
+                  style={shapeInspectorPos ? { left: `${shapeInspectorPos.x}px`, top: `${shapeInspectorPos.y}px`, right: 'auto', bottom: 'auto' } : undefined}
+                  className={`absolute ${shapeInspectorPos ? '' : 'top-4 right-4'} z-20 flex items-center gap-2.5 rounded-2xl border p-3 shadow-2xl backdrop-blur-md select-none cursor-grab active:cursor-grabbing ${
+                    isLightCanvas
+                      ? 'border-primary/50 bg-white/95 text-slate-800 shadow-slate-900/15'
+                      : 'border-primary/40 bg-surface/95 text-content'
+                  }`}
+                >
+                  <div
+                    className="flex items-center text-subtle hover:text-content cursor-grab active:cursor-grabbing pr-0.5 select-none"
+                    title="Kéo để di chuyển khung (Nhấp đúp để về mặc định)"
+                    onDoubleClick={(e) => {
+                      e.stopPropagation()
+                      setShapeInspectorPos(null)
+                    }}
+                  >
+                    <GripVertical className="size-4" />
+                  </div>
+                  <div className="flex flex-col gap-1 cursor-default">
                     <span className={`text-[10px] font-bold uppercase tracking-wider ${isLightCanvas ? 'text-slate-800' : 'text-white'}`}>Chỉnh sửa Sân khấu</span>
                     <div className="flex items-center gap-2">
                       <input
@@ -1998,47 +2857,186 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
             const standingItem = standingAreas.find((a) => a.id === selectedShapeId)
             if (standingItem) {
               return (
-                <div className={`absolute top-4 right-4 z-20 flex items-center gap-3 rounded-2xl border p-3 shadow-2xl backdrop-blur-md ${
-                  isLightCanvas
-                    ? 'border-tertiary/50 bg-white/95 text-slate-800 shadow-slate-900/15'
-                    : 'border-tertiary/40 bg-surface/95 text-content'
-                }`}>
-                  <div className="flex flex-col gap-1">
-                    <span className={`text-[10px] font-bold uppercase tracking-wider ${isLightCanvas ? 'text-slate-800' : 'text-white'}`}>Chỉnh sửa Vùng đứng</span>
-                    <div className="flex items-center gap-2">
+                <div
+                  ref={shapeInspectorRef}
+                  onMouseDown={makeDraggable(setShapeInspectorPos, shapeInspectorRef)}
+                  style={shapeInspectorPos ? { left: `${shapeInspectorPos.x}px`, top: `${shapeInspectorPos.y}px`, right: 'auto', bottom: 'auto' } : undefined}
+                  className={`absolute ${shapeInspectorPos ? '' : 'top-4 right-4'} z-20 flex flex-col gap-2 rounded-2xl border p-3 shadow-2xl backdrop-blur-md select-none cursor-grab active:cursor-grabbing ${
+                    isLightCanvas
+                      ? 'border-tertiary/50 bg-white/95 text-slate-800 shadow-slate-900/15'
+                      : 'border-tertiary/40 bg-surface/95 text-content'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2 border-b border-border-soft/30 pb-1.5 cursor-grab active:cursor-grabbing">
+                    <div className="flex items-center gap-1">
+                      <div
+                        className="cursor-grab active:cursor-grabbing p-0.5"
+                        title="Kéo để di chuyển khung (Nhấp đúp để về mặc định)"
+                        onDoubleClick={(e) => {
+                          e.stopPropagation()
+                          setShapeInspectorPos(null)
+                        }}
+                      >
+                        <GripVertical className="size-3.5 text-subtle hover:text-content" />
+                      </div>
+                      <span className={`text-[10px] font-bold uppercase tracking-wider ${isLightCanvas ? 'text-slate-800' : 'text-white'}`}>
+                        Chỉnh sửa {standingItem.shape === 'TRIANGLE' ? 'Khối Tam Giác' : 'Vùng Đứng'}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedShapeId(null)}
+                      className={`text-xs font-bold px-1.5 py-0.5 rounded ${isLightCanvas ? 'text-slate-500 hover:text-slate-900' : 'text-muted hover:text-content'}`}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2 cursor-default">
+                    <input
+                      type="text"
+                      value={standingItem.name}
+                      onChange={(e) => setStandingAreas((prev) => prev.map((a) => (a.id === standingItem.id ? { ...a, name: e.target.value } : a)))}
+                      placeholder="Tên vùng đứng..."
+                      className={`rounded-xl border px-3 py-1.5 text-xs font-bold outline-none focus:border-tertiary w-36 shadow-inner ${
+                        isLightCanvas ? 'border-slate-300 bg-slate-100 text-slate-900' : 'border-border-soft/40 bg-panel-soft text-content'
+                      }`}
+                      autoFocus
+                    />
+                    <label className={`text-[10px] font-bold flex items-center gap-1 ${isLightCanvas ? 'text-slate-600' : 'text-subtle'}`}>
+                      Sức chứa:
                       <input
-                        type="text"
-                        value={standingItem.name}
-                        onChange={(e) => setStandingAreas((prev) => prev.map((a) => (a.id === standingItem.id ? { ...a, name: e.target.value } : a)))}
-                        placeholder="Tên vùng đứng..."
-                        className={`rounded-xl border px-3 py-1.5 text-xs font-bold outline-none focus:border-tertiary w-44 shadow-inner ${
+                        type="number"
+                        min={1}
+                        value={standingItem.capacity}
+                        onChange={(e) => setStandingAreas((prev) => prev.map((a) => (a.id === standingItem.id ? { ...a, capacity: Number(e.target.value) } : a)))}
+                        className={`w-14 rounded-xl border px-2 py-1 text-xs font-bold outline-none focus:border-tertiary ${
                           isLightCanvas ? 'border-slate-300 bg-slate-100 text-slate-900' : 'border-border-soft/40 bg-panel-soft text-content'
                         }`}
-                        autoFocus
                       />
-                      <label className={`text-[10px] font-bold flex items-center gap-1 ${isLightCanvas ? 'text-slate-600' : 'text-subtle'}`}>
-                        Sức chứa:
-                        <input
-                          type="number"
-                          min={1}
-                          value={standingItem.capacity}
-                          onChange={(e) => setStandingAreas((prev) => prev.map((a) => (a.id === standingItem.id ? { ...a, capacity: Number(e.target.value) } : a)))}
-                          className={`w-16 rounded-xl border px-2 py-1 text-xs font-bold outline-none focus:border-tertiary ${
-                            isLightCanvas ? 'border-slate-300 bg-slate-100 text-slate-900' : 'border-border-soft/40 bg-panel-soft text-content'
-                          }`}
-                        />
-                      </label>
-                      <input
-                        type="color"
-                        value={standingItem.color || '#EF4444'}
-                        onChange={(e) => setStandingAreas((prev) => prev.map((a) => (a.id === standingItem.id ? { ...a, color: e.target.value } : a)))}
-                        className="h-7 w-8 cursor-pointer rounded border-0 bg-transparent p-0"
-                        title="Màu đại diện"
-                      />
-                      <button type="button" onClick={() => deleteStandingArea(standingItem.id)} className="text-error hover:bg-error/10 p-1.5 rounded-lg transition" title="Xóa vùng đứng"><Trash2 className="size-3.5" /></button>
-                      <button type="button" onClick={() => setSelectedShapeId(null)} className={`text-xs font-bold px-1.5 py-1 ${isLightCanvas ? 'text-slate-500 hover:text-slate-900' : 'text-muted hover:text-content'}`}>✕</button>
-                    </div>
+                    </label>
+                    <input
+                      type="color"
+                      value={standingItem.color || '#EF4444'}
+                      onChange={(e) => setStandingAreas((prev) => prev.map((a) => (a.id === standingItem.id ? { ...a, color: e.target.value } : a)))}
+                      className="h-7 w-8 cursor-pointer rounded border-0 bg-transparent p-0"
+                      title="Màu đại diện"
+                    />
+                    <select
+                      value={standingItem.shape || 'RECTANGLE'}
+                      onChange={(e) => {
+                        saveHistory()
+                        const newShape = e.target.value
+                        setStandingAreas((prev) =>
+                          prev.map((a) =>
+                            a.id === standingItem.id
+                              ? {
+                                  ...a,
+                                  shape: newShape,
+                                  trianglePoints:
+                                    newShape === 'TRIANGLE'
+                                      ? a.trianglePoints || [{ x: 0.5, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }]
+                                      : a.trianglePoints,
+                                }
+                              : a,
+                          ),
+                        )
+                      }}
+                      className={`rounded-xl border px-2 py-1 text-xs font-bold outline-none focus:border-primary ${
+                        isLightCanvas ? 'border-slate-300 bg-slate-100 text-slate-900' : 'border-border-soft/40 bg-panel-soft text-content'
+                      }`}
+                      title="Hình dạng khối"
+                    >
+                      <option value="RECTANGLE">Chữ nhật</option>
+                      <option value="TRIANGLE">Tam giác</option>
+                      <option value="CIRCLE">Hình tròn</option>
+                      <option value="DIAMOND">Hình thoi</option>
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => deleteStandingArea(standingItem.id)}
+                      className="text-error hover:bg-error/10 p-1.5 rounded-lg transition"
+                      title="Xóa vùng đứng (Backspace/Delete)"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
                   </div>
+                  {standingItem.shape === 'TRIANGLE' && (
+                    <div className="flex items-center gap-1.5 pt-1 border-t border-border-soft/20 text-[11px]">
+                      <span className={`text-[10px] font-bold ${isLightCanvas ? 'text-slate-600' : 'text-subtle'}`}>Mẫu tam giác:</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          saveHistory()
+                          setStandingAreas((prev) =>
+                            prev.map((a) =>
+                              a.id === standingItem.id
+                                ? { ...a, trianglePoints: [{ x: 0.5, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }] }
+                                : a,
+                            ),
+                          )
+                        }}
+                        className="px-2 py-0.5 rounded-lg bg-panel-soft hover:bg-tertiary/20 font-bold border border-border-soft/40 transition"
+                        title="Tam giác cân"
+                      >
+                        Cân
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          saveHistory()
+                          setStandingAreas((prev) =>
+                            prev.map((a) =>
+                              a.id === standingItem.id
+                                ? { ...a, trianglePoints: [{ x: 0, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }] }
+                                : a,
+                            ),
+                          )
+                        }}
+                        className="px-2 py-0.5 rounded-lg bg-panel-soft hover:bg-tertiary/20 font-bold border border-border-soft/40 transition"
+                        title="Tam giác vuông góc trái"
+                      >
+                        Vuông trái
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          saveHistory()
+                          setStandingAreas((prev) =>
+                            prev.map((a) =>
+                              a.id === standingItem.id
+                                ? { ...a, trianglePoints: [{ x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }] }
+                                : a,
+                            ),
+                          )
+                        }}
+                        className="px-2 py-0.5 rounded-lg bg-panel-soft hover:bg-tertiary/20 font-bold border border-border-soft/40 transition"
+                        title="Tam giác vuông góc phải"
+                      >
+                        Vuông phải
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          saveHistory()
+                          const cur = getTrianglePoints(standingItem)
+                          setStandingAreas((prev) =>
+                            prev.map((a) =>
+                              a.id === standingItem.id
+                                ? {
+                                    ...a,
+                                    trianglePoints: cur.map((p) => ({ x: p.x, y: 1 - p.y })),
+                                  }
+                                : a,
+                            ),
+                          )
+                        }}
+                        className="px-2 py-0.5 rounded-lg bg-panel-soft hover:bg-tertiary/20 font-bold border border-border-soft/40 transition"
+                        title="Lật ngược tam giác theo chiều dọc"
+                      >
+                        Lật dọc
+                      </button>
+                    </div>
+                  )}
                 </div>
               )
             }
@@ -2046,12 +3044,27 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
             const auxItem = auxElements.find((a) => a.id === selectedShapeId)
             if (auxItem) {
               return (
-                <div className={`absolute top-4 right-4 z-20 flex items-center gap-3 rounded-2xl border p-3 shadow-2xl backdrop-blur-md ${
-                  isLightCanvas
-                    ? 'border-slate-300 bg-white/95 text-slate-800 shadow-slate-900/15'
-                    : 'border-border-soft/40 bg-surface/95 text-content'
-                }`}>
-                  <div className="flex flex-col gap-1">
+                <div
+                  ref={shapeInspectorRef}
+                  onMouseDown={makeDraggable(setShapeInspectorPos, shapeInspectorRef)}
+                  style={shapeInspectorPos ? { left: `${shapeInspectorPos.x}px`, top: `${shapeInspectorPos.y}px`, right: 'auto', bottom: 'auto' } : undefined}
+                  className={`absolute ${shapeInspectorPos ? '' : 'top-4 right-4'} z-20 flex items-center gap-2.5 rounded-2xl border p-3 shadow-2xl backdrop-blur-md select-none cursor-grab active:cursor-grabbing ${
+                    isLightCanvas
+                      ? 'border-slate-300 bg-white/95 text-slate-800 shadow-slate-900/15'
+                      : 'border-border-soft/40 bg-surface/95 text-content'
+                  }`}
+                >
+                  <div
+                    className="flex items-center text-subtle hover:text-content cursor-grab active:cursor-grabbing pr-0.5 select-none"
+                    title="Kéo để di chuyển khung (Nhấp đúp để về mặc định)"
+                    onDoubleClick={(e) => {
+                      e.stopPropagation()
+                      setShapeInspectorPos(null)
+                    }}
+                  >
+                    <GripVertical className="size-4" />
+                  </div>
+                  <div className="flex flex-col gap-1 cursor-default">
                     <span className={`text-[10px] font-bold uppercase tracking-wider ${isLightCanvas ? 'text-slate-800' : 'text-white'}`}>Chỉnh sửa Vật thể phụ</span>
                     <div className="flex items-center gap-2">
                       <input
@@ -2064,7 +3077,14 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                         }`}
                         autoFocus
                       />
-                      <button type="button" onClick={() => setAuxElements((prev) => prev.filter((a) => a.id !== auxItem.id))} className="text-error hover:bg-error/10 p-1.5 rounded-lg transition" title="Xóa"><Trash2 className="size-3.5" /></button>
+                      <button
+                        type="button"
+                        onClick={() => deleteAuxElement(auxItem.id)}
+                        className="text-error hover:bg-error/10 p-1.5 rounded-lg transition"
+                        title="Xóa vật thể (Backspace/Delete)"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
                       <button type="button" onClick={() => setSelectedShapeId(null)} className={`text-xs font-bold px-1.5 py-1 ${isLightCanvas ? 'text-slate-500 hover:text-slate-900' : 'text-muted hover:text-content'}`}>✕</button>
                     </div>
                   </div>
@@ -2110,14 +3130,89 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
 
           {/* Selection Action Bar for Seats */}
           {selectedIds.size > 0 && (
-            <div className={`absolute top-4 right-4 z-10 flex items-center gap-3 rounded-2xl border px-4 py-2 shadow-2xl backdrop-blur-md transition-colors ${
-              isLightCanvas
-                ? 'border-[#C99A47] bg-white/95 text-slate-800 shadow-slate-900/15'
-                : 'border-tertiary/30 bg-surface/95 text-content'
-            }`}>
-              <span className={`text-xs font-bold ${isLightCanvas ? 'text-slate-800' : 'text-content'}`}>
+            <div
+              ref={selectionBarRef}
+              onMouseDown={makeDraggable(setSelectionBarPos, selectionBarRef)}
+              style={selectionBarPos ? { left: `${selectionBarPos.x}px`, top: `${selectionBarPos.y}px`, right: 'auto', bottom: 'auto' } : undefined}
+              className={`absolute ${selectionBarPos ? '' : 'top-4 right-4'} z-10 flex items-center gap-2.5 rounded-2xl border px-3 py-2 shadow-2xl backdrop-blur-md select-none transition-colors cursor-grab active:cursor-grabbing ${
+                isLightCanvas
+                  ? 'border-[#C99A47] bg-white/95 text-slate-800 shadow-slate-900/15'
+                  : 'border-tertiary/30 bg-surface/95 text-content'
+              }`}
+            >
+              <div
+                className="flex items-center text-subtle hover:text-content cursor-grab active:cursor-grabbing pr-0.5 select-none"
+                title="Kéo để di chuyển khung tác vụ (Nhấp đúp để về mặc định)"
+                onDoubleClick={(e) => {
+                  e.stopPropagation()
+                  setSelectionBarPos(null)
+                }}
+              >
+                <GripVertical className="size-4" />
+              </div>
+              <span className={`text-xs font-bold ${isLightCanvas ? 'text-slate-800' : 'text-content'} cursor-default`}>
                 Đã chọn <span className={`${isLightCanvas ? 'text-[#C99A47]' : 'text-primary'} font-extrabold`}>{selectedIds.size}</span> ghế
               </span>
+              {zones.length > 0 && (
+                <div className="flex items-center gap-1.5 border-l border-r px-2.5 border-border-soft/40">
+                  <span className={`text-[11px] font-bold ${isLightCanvas ? 'text-slate-600' : 'text-subtle'}`}>Gán khu vực:</span>
+                  <div className="flex items-center gap-1">
+                    {zones.map((z) => (
+                      <button
+                        key={z.localId}
+                        type="button"
+                        onClick={() => applyZoneToSelected(z.localId)}
+                        title={`Gán các ghế đã chọn vào ${z.name}`}
+                        className="size-5 rounded-full border-2 border-white/80 shadow-sm hover:scale-115 transition-transform cursor-pointer"
+                        style={{ backgroundColor: z.color }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+              {/* Align & Snap Tools */}
+              <div className="flex items-center gap-1 border-r pr-2 border-border-soft/40">
+                <button
+                  type="button"
+                  onClick={alignSelectedHorizontal}
+                  className="flex items-center gap-1 rounded-xl border border-primary/30 bg-primary/10 px-2.5 py-1.5 text-xs font-bold text-primary hover:bg-primary/20 transition cursor-pointer"
+                  title="Căn các ghế đã chọn thành 1 hàng ngang thẳng tắp"
+                >
+                  <AlignCenterHorizontal className="size-3.5" />
+                  Căn ngang
+                </button>
+                <button
+                  type="button"
+                  onClick={alignSelectedVertical}
+                  className="flex items-center gap-1 rounded-xl border border-primary/30 bg-primary/10 px-2.5 py-1.5 text-xs font-bold text-primary hover:bg-primary/20 transition cursor-pointer"
+                  title="Căn các ghế đã chọn thành 1 cột dọc thẳng tắp"
+                >
+                  <AlignCenterVertical className="size-3.5" />
+                  Căn dọc
+                </button>
+                <button
+                  type="button"
+                  onClick={snapSelectedToGrid}
+                  className={`flex items-center gap-1 rounded-xl border px-2.5 py-1.5 text-xs font-bold transition cursor-pointer ${
+                    isLightCanvas
+                      ? 'border-slate-300 bg-slate-100 text-slate-800 hover:bg-slate-200'
+                      : 'border-border-soft bg-surface-soft text-content hover:bg-surface-elevated'
+                  }`}
+                  title="Hít toàn bộ các ghế đã chọn vào các điểm ô lưới chuẩn"
+                >
+                  <Grid className="size-3.5" />
+                  Hít lưới
+                </button>
+                <button
+                  type="button"
+                  onClick={autoAlignSelected}
+                  className="flex items-center gap-1 rounded-xl border border-indigo-500/40 bg-indigo-500/15 px-2.5 py-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/25 transition cursor-pointer"
+                  title="Tự động căn thẳng hàng các ghế đã chọn theo các trục dọc và ngang"
+                >
+                  <Sparkles className="size-3.5" />
+                  Tự động căn hàng
+                </button>
+              </div>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
@@ -2131,6 +3226,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                   type="button"
                   onClick={deleteSelected}
                   className="flex items-center gap-1 rounded-xl border border-error/40 bg-error/15 px-3 py-1.5 text-xs font-bold text-red-700 dark:text-error hover:bg-error/25 transition"
+                  title="Xóa ghế đã chọn (Backspace/Delete)"
                 >
                   <Trash2 className="size-3.5" />
                   Xóa
@@ -2236,11 +3332,25 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                   )
                 })()}
 
-                {/* Standing Areas (Vùng đứng không ghế) */}
+                {/* Standing Areas (Vùng đứng không ghế & Khối hình) */}
                 {standingAreas.map((area) => {
                   const isSelected = selectedShapeId === area.id
-                  const { id, name, capacity, color, x, y, w, h, rotation } = area
+                  const { id, name, capacity, color, x, y, w, h, rotation, shape = 'RECTANGLE' } = area
                   const fillColor = color || '#EF4444'
+
+                  const isTriangle = shape === 'TRIANGLE'
+                  const tPts = isTriangle ? getTrianglePoints(area) : null
+                  const p0 = isTriangle ? { x: x + w * tPts[0].x, y: y + h * tPts[0].y } : null
+                  const p1 = isTriangle ? { x: x + w * tPts[1].x, y: y + h * tPts[1].y } : null
+                  const p2 = isTriangle ? { x: x + w * tPts[2].x, y: y + h * tPts[2].y } : null
+                  const centroid = isTriangle ? {
+                    x: (p0.x + p1.x + p2.x) / 3,
+                    y: (p0.y + p1.y + p2.y) / 3,
+                  } : { x: x + w / 2, y: y + h / 2 }
+
+                  const m01 = isTriangle ? { x: (p0.x + p1.x) / 2, y: (p0.y + p1.y) / 2 } : null
+                  const m12 = isTriangle ? { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 } : null
+                  const m20 = isTriangle ? { x: (p2.x + p0.x) / 2, y: (p2.y + p0.y) / 2 } : null
 
                   return (
                     <g
@@ -2250,21 +3360,53 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                       onDoubleClick={(e) => handleStandingDoubleClick(e, area)}
                       style={{ cursor: tool === 'SELECT' ? 'move' : 'default' }}
                     >
-                      <rect
-                        x={x}
-                        y={y}
-                        width={w}
-                        height={h}
-                        rx={12}
-                        fill={fillColor}
-                        fillOpacity={0.25}
-                        stroke={fillColor}
-                        strokeWidth={2}
-                        strokeDasharray="6 4"
-                      />
+                      {isTriangle ? (
+                        <polygon
+                          points={`${p0.x},${p0.y} ${p1.x},${p1.y} ${p2.x},${p2.y}`}
+                          fill={fillColor}
+                          fillOpacity={0.25}
+                          stroke={fillColor}
+                          strokeWidth={2}
+                          strokeDasharray="6 4"
+                        />
+                      ) : shape === 'CIRCLE' ? (
+                        <ellipse
+                          cx={x + w / 2}
+                          cy={y + h / 2}
+                          rx={w / 2}
+                          ry={h / 2}
+                          fill={fillColor}
+                          fillOpacity={0.25}
+                          stroke={fillColor}
+                          strokeWidth={2}
+                          strokeDasharray="6 4"
+                        />
+                      ) : shape === 'DIAMOND' ? (
+                        <polygon
+                          points={`${x + w / 2},${y} ${x + w},${y + h / 2} ${x + w / 2},${y + h} ${x},${y + h / 2}`}
+                          fill={fillColor}
+                          fillOpacity={0.25}
+                          stroke={fillColor}
+                          strokeWidth={2}
+                          strokeDasharray="6 4"
+                        />
+                      ) : (
+                        <rect
+                          x={x}
+                          y={y}
+                          width={w}
+                          height={h}
+                          rx={12}
+                          fill={fillColor}
+                          fillOpacity={0.25}
+                          stroke={fillColor}
+                          strokeWidth={2}
+                          strokeDasharray="6 4"
+                        />
+                      )}
                       <text
-                        x={x + w / 2}
-                        y={y + h / 2 - 6}
+                        x={centroid.x}
+                        y={centroid.y - 6}
                         textAnchor="middle"
                         fill={isLightCanvas ? '#0F172A' : 'white'}
                         fontSize={13}
@@ -2274,8 +3416,8 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                         {name || 'Vùng đứng'}
                       </text>
                       <text
-                        x={x + w / 2}
-                        y={y + h / 2 + 12}
+                        x={centroid.x}
+                        y={centroid.y + 12}
                         textAnchor="middle"
                         fill={isLightCanvas ? '#334155' : 'rgba(255,255,255,0.85)'}
                         fontSize={11}
@@ -2289,22 +3431,179 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                         <>
                           <line x1={x + w / 2} y1={y} x2={x + w / 2} y2={y - 30} stroke="#3B82F6" strokeWidth={2} />
                           <circle
-                            cx={x + w / 2} cy={y - 30} r={6} fill="white" stroke="#3B82F6" strokeWidth={2}
+                            cx={x + w / 2}
+                            cy={y - 30}
+                            r={6}
+                            fill="white"
+                            stroke="#3B82F6"
+                            strokeWidth={2}
                             style={{ cursor: 'pointer' }}
+                            title="Xoay hình"
                             onMouseDown={(e) => {
                               e.stopPropagation()
-                              setDraggingHandle({ type: 'ROTATE', elementId: id, cx: x + w / 2, cy: y + h / 2, startRot: rotation || 0, startPt: toSVGPoint(e) })
+                              setDraggingHandle({
+                                type: 'ROTATE',
+                                elementId: id,
+                                cx: x + w / 2,
+                                cy: y + h / 2,
+                                startRot: rotation || 0,
+                                startPt: toSVGPoint(e),
+                              })
                             }}
                           />
-                          <circle
-                            cx={x + w} cy={y + h} r={6} fill="white" stroke="#3B82F6" strokeWidth={2}
-                            style={{ cursor: 'nwse-resize' }}
-                            onMouseDown={(e) => {
-                              e.stopPropagation()
-                              setDraggingHandle({ type: 'RESIZE', elementId: id, startW: w, startH: h, startPt: toSVGPoint(e), cx: x + w / 2, cy: y + h / 2, rotation: rotation || 0 })
-                            }}
-                          />
-                          <rect x={x} y={y} width={w} height={h} rx={12} fill="none" stroke="#3B82F6" strokeWidth={2} strokeDasharray="4 4" pointerEvents="none" />
+
+                          {isTriangle ? (
+                            <>
+                              {/* Dashed triangle outline */}
+                              <polygon
+                                points={`${p0.x},${p0.y} ${p1.x},${p1.y} ${p2.x},${p2.y}`}
+                                fill="none"
+                                stroke="#3B82F6"
+                                strokeWidth={2}
+                                strokeDasharray="4 4"
+                                pointerEvents="none"
+                              />
+
+                              {/* 3 Edge Drag Handles at midpoints (Kéo cạnh) */}
+                              {[
+                                { idx: 0, pt: m01, label: 'Cạnh phải' },
+                                { idx: 1, pt: m12, label: 'Cạnh đáy' },
+                                { idx: 2, pt: m20, label: 'Cạnh trái' },
+                              ].map((edge) => (
+                                <g key={`edge-${edge.idx}`}>
+                                  <rect
+                                    x={edge.pt.x - 7}
+                                    y={edge.pt.y - 7}
+                                    width={14}
+                                    height={14}
+                                    rx={3}
+                                    fill="#F59E0B"
+                                    stroke="#FFFFFF"
+                                    strokeWidth={2}
+                                    style={{ cursor: 'move' }}
+                                    onMouseDown={(e) => {
+                                      e.stopPropagation()
+                                      saveHistory()
+                                      setDraggingHandle({
+                                        type: 'TRIANGLE_EDGE',
+                                        elementId: id,
+                                        edgeIndex: edge.idx,
+                                        startPoints: tPts,
+                                        startPt: toSVGPoint(e),
+                                        areaX: x,
+                                        areaY: y,
+                                        areaW: w,
+                                        areaH: h,
+                                        rotation: rotation || 0,
+                                      })
+                                    }}
+                                  >
+                                    <title>Kéo để chỉnh {edge.label}</title>
+                                  </rect>
+                                </g>
+                              ))}
+
+                              {/* 3 Vertex Drag Handles (Kéo đỉnh) */}
+                              {[
+                                { idx: 0, pt: p0, label: 'Đỉnh trên' },
+                                { idx: 1, pt: p1, label: 'Đỉnh dưới phải' },
+                                { idx: 2, pt: p2, label: 'Đỉnh dưới trái' },
+                              ].map((vertex) => (
+                                <circle
+                                  key={`vertex-${vertex.idx}`}
+                                  cx={vertex.pt.x}
+                                  cy={vertex.pt.y}
+                                  r={7}
+                                  fill="#FFFFFF"
+                                  stroke="#2563EB"
+                                  strokeWidth={2.5}
+                                  style={{ cursor: 'crosshair' }}
+                                  onMouseDown={(e) => {
+                                    e.stopPropagation()
+                                    saveHistory()
+                                    setDraggingHandle({
+                                      type: 'TRIANGLE_VERTEX',
+                                      elementId: id,
+                                      vertexIndex: vertex.idx,
+                                      startPoints: tPts,
+                                      startPt: toSVGPoint(e),
+                                      areaX: x,
+                                      areaY: y,
+                                      areaW: w,
+                                      areaH: h,
+                                      rotation: rotation || 0,
+                                    })
+                                  }}
+                                >
+                                  <title>Kéo để chỉnh {vertex.label}</title>
+                                </circle>
+                              ))}
+
+                              {/* Bounding Corner Resize Handle (Bottom-Right) */}
+                              <circle
+                                cx={x + w}
+                                cy={y + h}
+                                r={6}
+                                fill="white"
+                                stroke="#3B82F6"
+                                strokeWidth={2}
+                                style={{ cursor: 'nwse-resize' }}
+                                title="Kéo dãn kích thước W x H"
+                                onMouseDown={(e) => {
+                                  e.stopPropagation()
+                                  saveHistory()
+                                  setDraggingHandle({
+                                    type: 'RESIZE',
+                                    elementId: id,
+                                    startW: w,
+                                    startH: h,
+                                    startPt: toSVGPoint(e),
+                                    cx: x + w / 2,
+                                    cy: y + h / 2,
+                                    rotation: rotation || 0,
+                                  })
+                                }}
+                              />
+                            </>
+                          ) : (
+                            <>
+                              <circle
+                                cx={x + w}
+                                cy={y + h}
+                                r={6}
+                                fill="white"
+                                stroke="#3B82F6"
+                                strokeWidth={2}
+                                style={{ cursor: 'nwse-resize' }}
+                                onMouseDown={(e) => {
+                                  e.stopPropagation()
+                                  saveHistory()
+                                  setDraggingHandle({
+                                    type: 'RESIZE',
+                                    elementId: id,
+                                    startW: w,
+                                    startH: h,
+                                    startPt: toSVGPoint(e),
+                                    cx: x + w / 2,
+                                    cy: y + h / 2,
+                                    rotation: rotation || 0,
+                                  })
+                                }}
+                              />
+                              <rect
+                                x={x}
+                                y={y}
+                                width={w}
+                                height={h}
+                                rx={12}
+                                fill="none"
+                                stroke="#3B82F6"
+                                strokeWidth={2}
+                                strokeDasharray="4 4"
+                                pointerEvents="none"
+                              />
+                            </>
+                          )}
                         </>
                       )}
                     </g>
@@ -2416,6 +3715,34 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                     strokeWidth={1.5}
                     strokeDasharray="4 4"
                     pointerEvents="none"
+                  />
+                )}
+
+                {/* Smart Magnetic Guides khi kéo ghế */}
+                {activeSnapGuides.x !== null && (
+                  <line
+                    x1={activeSnapGuides.x + SEAT_W / 2}
+                    y1={-1000}
+                    x2={activeSnapGuides.x + SEAT_W / 2}
+                    y2={5000}
+                    stroke="#3B82F6"
+                    strokeWidth={1.5}
+                    strokeDasharray="4 4"
+                    pointerEvents="none"
+                    opacity={0.85}
+                  />
+                )}
+                {activeSnapGuides.y !== null && (
+                  <line
+                    x1={-1000}
+                    y1={activeSnapGuides.y + SEAT_H / 2}
+                    x2={5000}
+                    y2={activeSnapGuides.y + SEAT_H / 2}
+                    stroke="#3B82F6"
+                    strokeWidth={1.5}
+                    strokeDasharray="4 4"
+                    pointerEvents="none"
+                    opacity={0.85}
                   />
                 )}
               </g>
@@ -2585,44 +3912,88 @@ export function SeatMapPreview({ seatMap, seats: propSeats, zones: propZones, wi
           {renderStage()}
 
           {/* Standing Areas */}
-          {standingAreas.map((a) => (
-            <g key={a.id} transform={a.rotation ? `rotate(${a.rotation}, ${a.x - minX + a.w / 2}, ${a.y - minY + a.h / 2})` : undefined}>
-              <rect
-                x={a.x - minX}
-                y={a.y - minY}
-                width={a.w}
-                height={a.h}
-                rx={12}
-                fill={a.color || '#EF4444'}
-                fillOpacity={isLightPreview ? 0.35 : 0.25}
-                stroke={a.color || '#EF4444'}
-                strokeWidth={2}
-                strokeDasharray="6 4"
-              />
-              <text
-                x={a.x - minX + a.w / 2}
-                y={a.y - minY + a.h / 2 - 6}
-                textAnchor="middle"
-                fill={isLightPreview ? '#0F172A' : 'white'}
-                fontSize={13}
-                fontWeight="800"
-                style={{ userSelect: 'none', pointerEvents: 'none' }}
-              >
-                {a.name || 'Vùng đứng'}
-              </text>
-              <text
-                x={a.x - minX + a.w / 2}
-                y={a.y - minY + a.h / 2 + 12}
-                textAnchor="middle"
-                fill={isLightPreview ? '#334155' : 'rgba(255,255,255,0.85)'}
-                fontSize={11}
-                fontWeight="700"
-                style={{ userSelect: 'none', pointerEvents: 'none' }}
-              >
-                Sức chứa: {a.capacity || 0} người
-              </text>
-            </g>
-          ))}
+          {standingAreas.map((a) => {
+            const isTriangle = a.shape === 'TRIANGLE'
+            const tPts = isTriangle ? getTrianglePoints(a) : null
+            const ax = a.x - minX
+            const ay = a.y - minY
+            const p0 = isTriangle ? { x: ax + a.w * tPts[0].x, y: ay + a.h * tPts[0].y } : null
+            const p1 = isTriangle ? { x: ax + a.w * tPts[1].x, y: ay + a.h * tPts[1].y } : null
+            const p2 = isTriangle ? { x: ax + a.w * tPts[2].x, y: ay + a.h * tPts[2].y } : null
+            const cx = isTriangle ? (p0.x + p1.x + p2.x) / 3 : ax + a.w / 2
+            const cy = isTriangle ? (p0.y + p1.y + p2.y) / 3 : ay + a.h / 2
+
+            return (
+              <g key={a.id} transform={a.rotation ? `rotate(${a.rotation}, ${ax + a.w / 2}, ${ay + a.h / 2})` : undefined}>
+                {isTriangle ? (
+                  <polygon
+                    points={`${p0.x},${p0.y} ${p1.x},${p1.y} ${p2.x},${p2.y}`}
+                    fill={a.color || '#EF4444'}
+                    fillOpacity={isLightPreview ? 0.35 : 0.25}
+                    stroke={a.color || '#EF4444'}
+                    strokeWidth={2}
+                    strokeDasharray="6 4"
+                  />
+                ) : a.shape === 'CIRCLE' ? (
+                  <ellipse
+                    cx={ax + a.w / 2}
+                    cy={ay + a.h / 2}
+                    rx={a.w / 2}
+                    ry={a.h / 2}
+                    fill={a.color || '#EF4444'}
+                    fillOpacity={isLightPreview ? 0.35 : 0.25}
+                    stroke={a.color || '#EF4444'}
+                    strokeWidth={2}
+                    strokeDasharray="6 4"
+                  />
+                ) : a.shape === 'DIAMOND' ? (
+                  <polygon
+                    points={`${ax + a.w / 2},${ay} ${ax + a.w},${ay + a.h / 2} ${ax + a.w / 2},${ay + a.h} ${ax},${ay + a.h / 2}`}
+                    fill={a.color || '#EF4444'}
+                    fillOpacity={isLightPreview ? 0.35 : 0.25}
+                    stroke={a.color || '#EF4444'}
+                    strokeWidth={2}
+                    strokeDasharray="6 4"
+                  />
+                ) : (
+                  <rect
+                    x={ax}
+                    y={ay}
+                    width={a.w}
+                    height={a.h}
+                    rx={12}
+                    fill={a.color || '#EF4444'}
+                    fillOpacity={isLightPreview ? 0.35 : 0.25}
+                    stroke={a.color || '#EF4444'}
+                    strokeWidth={2}
+                    strokeDasharray="6 4"
+                  />
+                )}
+                <text
+                  x={cx}
+                  y={cy - 6}
+                  textAnchor="middle"
+                  fill={isLightPreview ? '#0F172A' : 'white'}
+                  fontSize={13}
+                  fontWeight="800"
+                  style={{ userSelect: 'none', pointerEvents: 'none' }}
+                >
+                  {a.name || 'Vùng đứng'}
+                </text>
+                <text
+                  x={cx}
+                  y={cy + 12}
+                  textAnchor="middle"
+                  fill={isLightPreview ? '#334155' : 'rgba(255,255,255,0.85)'}
+                  fontSize={11}
+                  fontWeight="700"
+                  style={{ userSelect: 'none', pointerEvents: 'none' }}
+                >
+                  Sức chứa: {a.capacity || 0} người
+                </text>
+              </g>
+            )
+          })}
 
           {/* Auxiliary Elements */}
           {seatMap?.config?.auxiliaryElements?.map((a) => (
