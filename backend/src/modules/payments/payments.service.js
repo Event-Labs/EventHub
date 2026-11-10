@@ -55,8 +55,19 @@ class PaymentsService {
   async getOrganizerPayosChannelForEvent(eventId) {
     const channel = await paymentsRepository.findOrganizerPayosChannelForEvent(eventId);
     if (!channel) {
+      if (env.PLATFORM_PAYOS_CLIENT_ID && env.PLATFORM_PAYOS_API_KEY && env.PLATFORM_PAYOS_CHECKSUM_KEY) {
+        return {
+          organizer_id: null,
+          provider: 'PAYOS',
+          client_id: env.PLATFORM_PAYOS_CLIENT_ID,
+          api_key_encrypted: env.PLATFORM_PAYOS_API_KEY,
+          checksum_key_encrypted: env.PLATFORM_PAYOS_CHECKSUM_KEY,
+          status: 'ACTIVE',
+          is_default: true,
+        };
+      }
       throw new AppError(
-        'Organizer has not configured payment channel.',
+        'Ban tổ chức sự kiện chưa thiết lập kênh thanh toán PayOS.',
         400,
         ErrorCodes.ORDER_INVALID_ITEMS,
       );
@@ -145,7 +156,7 @@ class PaymentsService {
 
   async syncTicketOrderFromPayos(orderId, userId) {
     const paymentOrder = await paymentsRepository.findLatestPaymentOrderWithChannelByOrderId(orderId, userId);
-    if (!paymentOrder || paymentOrder.status !== 'PENDING') {
+    if (!paymentOrder || (paymentOrder.status !== 'PENDING' && paymentOrder.status !== 'EXPIRED')) {
       return null;
     }
 
@@ -157,12 +168,23 @@ class PaymentsService {
         if (creds) {
           channelForPayos = {
             client_id: creds.clientId,
+            api_key: creds.apiKey,
             api_key_encrypted: creds.apiKey,
+            checksum_key: creds.checksumKey,
           };
         }
       } catch (err) {
         logger.error(`[PAYMENT_SYNC] Failed to get decrypted credentials for organizer ${organizerId}: ${err.message}`);
       }
+    }
+
+    if (!channelForPayos?.client_id && env.PLATFORM_PAYOS_CLIENT_ID) {
+      channelForPayos = {
+        client_id: env.PLATFORM_PAYOS_CLIENT_ID,
+        api_key: env.PLATFORM_PAYOS_API_KEY,
+        api_key_encrypted: env.PLATFORM_PAYOS_API_KEY,
+        checksum_key: env.PLATFORM_PAYOS_CHECKSUM_KEY,
+      };
     }
 
     const paymentData = await payosClient.getPaymentLinkInformation({
@@ -181,6 +203,7 @@ class PaymentsService {
         paymentData.reference ||
         paymentData.transactionId ||
         paymentData.transaction_id ||
+        paymentData.transactions?.[0]?.reference ||
         String(paymentOrder.provider_order_code),
       rawPayload: { source: 'payos_status_sync', data: paymentData },
     });
@@ -190,7 +213,7 @@ class PaymentsService {
 
   async syncTicketOrderFromPayosAnyUser(orderId) {
     const paymentOrder = await paymentsRepository.findLatestPaymentOrderWithChannelByOrderIdAnyUser(orderId);
-    if (!paymentOrder || paymentOrder.status !== 'PENDING') {
+    if (!paymentOrder || (paymentOrder.status !== 'PENDING' && paymentOrder.status !== 'EXPIRED')) {
       return null;
     }
 
@@ -202,12 +225,23 @@ class PaymentsService {
         if (creds) {
           channelForPayos = {
             client_id: creds.clientId,
+            api_key: creds.apiKey,
             api_key_encrypted: creds.apiKey,
+            checksum_key: creds.checksumKey,
           };
         }
       } catch (err) {
         logger.error(`[PAYMENT_SYNC_ANY] Failed to get decrypted credentials for organizer ${organizerId}: ${err.message}`);
       }
+    }
+
+    if (!channelForPayos?.client_id && env.PLATFORM_PAYOS_CLIENT_ID) {
+      channelForPayos = {
+        client_id: env.PLATFORM_PAYOS_CLIENT_ID,
+        api_key: env.PLATFORM_PAYOS_API_KEY,
+        api_key_encrypted: env.PLATFORM_PAYOS_API_KEY,
+        checksum_key: env.PLATFORM_PAYOS_CHECKSUM_KEY,
+      };
     }
 
     const paymentData = await payosClient.getPaymentLinkInformation({
@@ -226,6 +260,7 @@ class PaymentsService {
         paymentData.reference ||
         paymentData.transactionId ||
         paymentData.transaction_id ||
+        paymentData.transactions?.[0]?.reference ||
         String(paymentOrder.provider_order_code),
       rawPayload: { source: 'staff_direct_payos_status_sync', data: paymentData },
     });

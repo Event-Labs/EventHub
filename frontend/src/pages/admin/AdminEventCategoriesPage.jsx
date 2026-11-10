@@ -134,7 +134,6 @@ export function AdminEventCategoriesPage() {
   return (
     <Page
       title="Loại Sự kiện"
-      description="Quản lý các nhóm phân loại sự kiện trên nền tảng"
       action="Thêm loại"
       actionClassName="admin-primary shrink-0"
       actionIcon={Plus}
@@ -329,7 +328,7 @@ export function AdminEventCategoriesPage() {
                 type="button"
                 disabled={deleteMutation.isPending}
                 onClick={() => deleteMutation.mutate(deleteTarget.id)}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-error px-6 py-2.5 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-error px-6 py-2.5 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {deleteMutation.isPending ? 'Đang xóa...' : 'Xóa'}
               </button>

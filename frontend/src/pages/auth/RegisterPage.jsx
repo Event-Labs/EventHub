@@ -7,8 +7,10 @@ import { GoogleLogin } from '@react-oauth/google'
 import { clearAuthSession, getAuthToken, getPostLoginPath, getStoredUser, setAuthSession } from '@/lib/auth.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
 
 export function RegisterPage() {
+    const { isEnglish, language } = useLanguage()
     const toast = useToast()
     const navigate = useNavigate()
     const [form, setForm] = useState({
@@ -132,17 +134,19 @@ export function RegisterPage() {
                 <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_-20%,_var(--color-primary)_0%,_transparent_50%)] opacity-20" />
                 <div className="text-center">
                     <h1 className="font-display text-3xl font-extrabold text-white">
-                        Tạo tài khoản
+                        {isEnglish ? 'Create Account' : 'Tạo tài khoản'}
                     </h1>
                     <p className="mt-3 text-sm font-medium text-slate-300">
-                        Tài khoản khách hàng để mua vé, lưu yêu thích và theo dõi đơn
+                        {isEnglish
+                            ? 'Customer account to book tickets, save favorites, and track orders'
+                            : 'Tài khoản khách hàng để mua vé, lưu yêu thích và theo dõi đơn'}
                     </p>
                 </div>
                 <div className="mt-6 flex w-full justify-center overflow-hidden rounded-sm">
                     <GoogleLogin
                         onSuccess={handleGoogleSuccess}
                         onError={() => {
-                            const message = 'Đăng nhập Google thất bại.'
+                            const message = isEnglish ? 'Google sign-in failed.' : 'Đăng nhập Google thất bại.'
                             setError(message)
                             toast.error(message)
                         }}
@@ -150,19 +154,19 @@ export function RegisterPage() {
                         size="large"
                         text="continue_with"
                         shape="rectangular"
-                        locale="vi"
+                        locale={language === 'en' ? 'en' : 'vi'}
                     />
                 </div>
                 <div className="my-5 flex items-center gap-3 text-xs uppercase tracking-widest text-muted">
                     <span className="h-px flex-1 bg-border-soft" />
-                    hoặc email
+                    {isEnglish ? 'or email' : 'hoặc email'}
                     <span className="h-px flex-1 bg-border-soft" />
                 </div>
                 <form className="space-y-4" onSubmit={handleRegister}>
                     <Field
                         icon={User}
-                        label="Họ và tên"
-                        placeholder="Nguyễn Văn A"
+                        label={isEnglish ? 'Full Name' : 'Họ và tên'}
+                        placeholder={isEnglish ? 'John Doe' : 'Nguyễn Văn A'}
                         required
                         value={form.full_name}
                         onChange={(e) => setForm({ ...form, full_name: e.target.value })}
@@ -178,7 +182,7 @@ export function RegisterPage() {
                     />
                     <Field
                         icon={Phone}
-                        label="Số điện thoại"
+                        label={isEnglish ? 'Phone Number' : 'Số điện thoại'}
                         placeholder="0901 234 567"
                         type="tel"
                         value={form.phone}
@@ -188,7 +192,7 @@ export function RegisterPage() {
                         <div>
                             <Field
                                 icon={Lock}
-                                label="Mật khẩu"
+                                label={isEnglish ? 'Password' : 'Mật khẩu'}
                                 placeholder="••••••••"
                                 type="password"
                                 trailing={Eye}
@@ -196,11 +200,11 @@ export function RegisterPage() {
                                 value={form.password}
                                 onChange={(e) => setForm({ ...form, password: e.target.value })}
                             />
-                            <PasswordStrength password={form.password} />
+                            <PasswordStrength password={form.password} isEnglish={isEnglish} />
                         </div>
                         <Field
                             icon={Lock}
-                            label="Xác nhận mật khẩu"
+                            label={isEnglish ? 'Confirm Password' : 'Xác nhận mật khẩu'}
                             placeholder="••••••••"
                             type="password"
                             trailing={Eye}
@@ -210,21 +214,19 @@ export function RegisterPage() {
                         />
                     </div>
 
-
-
                     <button
                         type="submit"
                         disabled={loading}
                         className="btn-gold-primary w-full py-3.5 text-[15px] font-bold shadow-md transition-all hover:brightness-110 active:scale-95 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                         style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
                     >
-                        {loading ? 'Đang xử lý...' : 'Đăng ký'}
+                        {loading ? (isEnglish ? 'Processing...' : 'Đang xử lý...') : (isEnglish ? 'Sign Up' : 'Đăng ký')}
                     </button>
                 </form>
                 <p className="mt-6 text-center text-muted">
-                    Đã có tài khoản?{' '}
+                    {isEnglish ? 'Already have an account?' : 'Đã có tài khoản?'}{' '}
                     <Link to="/login" className="ml-1 font-bold text-primary hover:text-white transition-colors">
-                        Đăng nhập
+                        {isEnglish ? 'Sign In' : 'Đăng nhập'}
                     </Link>
                 </p>
             </div>
@@ -232,7 +234,7 @@ export function RegisterPage() {
     )
 }
 
-export function PasswordStrength({ password }) {
+export function PasswordStrength({ password, isEnglish = false }) {
     if (!password) return null
 
     let score = 0
@@ -242,10 +244,10 @@ export function PasswordStrength({ password }) {
     if (/[^a-zA-Z\d]/.test(password)) score++
 
     const getStrengthLabel = () => {
-        if (score === 0 || score === 1) return { text: 'Yếu', color: 'bg-error', textColor: 'text-error' }
-        if (score === 2) return { text: 'Trung bình', color: 'bg-orange-500', textColor: 'text-orange-500' }
-        if (score === 3) return { text: 'Khá', color: 'bg-blue-500', textColor: 'text-blue-500' }
-        return { text: 'Mạnh', color: 'bg-success', textColor: 'text-success' }
+        if (score === 0 || score === 1) return { text: isEnglish ? 'Weak' : 'Yếu', color: 'bg-error', textColor: 'text-error' }
+        if (score === 2) return { text: isEnglish ? 'Medium' : 'Trung bình', color: 'bg-orange-500', textColor: 'text-orange-500' }
+        if (score === 3) return { text: isEnglish ? 'Good' : 'Khá', color: 'bg-blue-500', textColor: 'text-blue-500' }
+        return { text: isEnglish ? 'Strong' : 'Mạnh', color: 'bg-success', textColor: 'text-success' }
     }
 
     const strength = getStrengthLabel()

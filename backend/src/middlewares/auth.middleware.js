@@ -48,6 +48,9 @@ const protect = async (req, res, next) => {
         }
         
         req.user = decoded; // { sub: userId, roles, jti }
+        if (req.user && !req.user.role && Array.isArray(req.user.roles)) {
+            req.user.role = req.user.roles.includes('ADMIN') ? 'ADMIN' : req.user.roles[0];
+        }
         next();
     } catch (err) {
         if (err instanceof AppError) return next(err);

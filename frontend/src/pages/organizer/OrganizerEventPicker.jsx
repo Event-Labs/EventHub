@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
   Calendar,
@@ -9,15 +9,24 @@ import {
   X,
 } from 'lucide-react'
 import { getEventOperationalStatus } from './eventStatusUtil.js'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
+import { VI_TO_EN } from '@/i18n/phraseDictionary.js'
+
+const getAutoLocale = () =>
+  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
+   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
+    ? 'en-US'
+    : 'vi-VN'
 
 function fmtEventDate(iso) {
-  if (!iso) return 'Chưa định ngày'
+  const isEn = getAutoLocale() === 'en-US'
+  if (!iso) return isEn ? 'Date TBD' : 'Chưa định ngày'
   try {
     const d = new Date(iso)
-    if (Number.isNaN(d.getTime())) return 'Chưa định ngày'
-    return d.toLocaleDateString('vi-VN', {
+    if (Number.isNaN(d.getTime())) return isEn ? 'Date TBD' : 'Chưa định ngày'
+    return d.toLocaleDateString(getAutoLocale(), {
       day: '2-digit',
-      month: '2-digit',
+      month: isEn ? 'short' : '2-digit',
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
@@ -38,31 +47,39 @@ export function OrganizerEventPicker({
   label = 'Phạm vi sự kiện',
   allowAll = true,
   placeholder = 'Chọn sự kiện...',
+  showCalendarIcon = false,
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [activeTab, setActiveTab] = useState('ALL')
-  const [popupStyle, setPopupStyle] = useState({ left: 0, top: 0, width: 420 })
+  const [popupStyle, setPopupStyle] = useState(null)
 
   const containerRef = useRef(null)
   const triggerRef = useRef(null)
   const popupRef = useRef(null)
   const inputRef = useRef(null)
 
+  const calculatePopupPosition = useCallback(() => {
+    const rect = triggerRef.current?.getBoundingClientRect()
+    if (!rect) return null
+
+    const width = Math.min(520, Math.max(rect.width, 360), window.innerWidth - 32)
+    const left = Math.min(Math.max(16, rect.left), window.innerWidth - width - 16)
+    const top = Math.min(rect.bottom + 6, window.innerHeight - 100)
+
+    return { left, top, width }
+  }, [])
+
   // Position calculation and outside click handler
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!isOpen) return undefined
 
     const updatePopupPosition = () => {
-      const rect = triggerRef.current?.getBoundingClientRect()
-      if (!rect) return
-
-      const width = Math.min(520, Math.max(rect.width, 360), window.innerWidth - 32)
-      const left = Math.min(Math.max(16, rect.left), window.innerWidth - width - 16)
-      const top = Math.min(rect.bottom + 6, window.innerHeight - 100)
-
-      setPopupStyle({ left, top, width })
+      const pos = calculatePopupPosition()
+      if (pos) setPopupStyle(pos)
     }
+
+    updatePopupPosition()
 
     const handlePointerDown = (event) => {
       const target = event.target
@@ -78,7 +95,6 @@ export function OrganizerEventPicker({
       if (e.key === 'Escape') setIsOpen(false)
     }
 
-    updatePopupPosition()
     document.addEventListener('pointerdown', handlePointerDown)
     document.addEventListener('keydown', handleKeyDown)
     window.addEventListener('resize', updatePopupPosition)
@@ -92,7 +108,18 @@ export function OrganizerEventPicker({
       window.removeEventListener('resize', updatePopupPosition)
       window.removeEventListener('scroll', updatePopupPosition, true)
     }
-  }, [isOpen])
+  }, [calculatePopupPosition, isOpen])
+
+  const handleToggle = () => {
+    if (loading) return
+    if (!isOpen) {
+      const pos = calculatePopupPosition()
+      if (pos) setPopupStyle(pos)
+      setIsOpen(true)
+    } else {
+      setIsOpen(false)
+    }
+  }
 
   // Augment events with computed operational status
   const enrichedEvents = useMemo(() => {
@@ -148,31 +175,36 @@ export function OrganizerEventPicker({
     setSearchQuery('')
   }
 
+  const { isEnglish, t } = useLanguage()
+
   const tabs = useMemo(() => {
     const list = [
-      { key: 'ALL', label: 'Tất cả', count: counts.ALL },
-      { key: 'RUNNING', label: 'Đang diễn ra', count: counts.RUNNING, isLive: true },
-      { key: 'UPCOMING', label: 'Sắp tới', count: counts.UPCOMING },
-      { key: 'ENDED', label: 'Đã kết thúc', count: counts.ENDED },
+      { key: 'ALL', label: isEnglish ? 'All' : 'Tất cả', count: counts.ALL },
+      { key: 'RUNNING', label: isEnglish ? 'Happening Now' : 'Đang diễn ra', count: counts.RUNNING, isLive: true },
+      { key: 'UPCOMING', label: isEnglish ? 'Upcoming' : 'Sắp tới', count: counts.UPCOMING },
+      { key: 'ENDED', label: isEnglish ? 'Ended' : 'Đã kết thúc', count: counts.ENDED },
     ]
     if (counts.DRAFT > 0) {
-      list.push({ key: 'DRAFT', label: 'Bản nháp & Chờ duyệt', count: counts.DRAFT })
+      list.push({ key: 'DRAFT', label: isEnglish ? 'Draft & Pending' : 'Bản nháp & Chờ duyệt', count: counts.DRAFT })
     }
     return list
-  }, [counts])
+  }, [counts, isEnglish])
+
+  const displayLabel = label === 'Phạm vi sự kiện' ? (isEnglish ? 'Event Scope' : 'Phạm vi sự kiện') : (isEnglish && VI_TO_EN[label] ? VI_TO_EN[label] : label)
+  const displayPlaceholder = placeholder === 'Chọn sự kiện...' ? (isEnglish ? 'Select event...' : 'Chọn sự kiện...') : placeholder
 
   return (
     <div ref={containerRef} className={`relative min-w-0 ${className}`}>
-      {label && (
+      {displayLabel && (
         <div className="flex items-center justify-between mb-1.5">
-          <span className="block text-base font-bold text-white [html.light_&]:text-[#0D1B2A]">{label}</span>
+          <span className="block text-base font-bold text-white [html.light_&]:text-[#0D1B2A]">{displayLabel}</span>
           {allowAll && selectedEvent && (
             <button
               type="button"
               onClick={handleClear}
               className="text-xs font-semibold text-cyan-400 hover:text-cyan-300 hover:underline"
             >
-              Quay lại tất cả
+              {isEnglish ? 'Back to all' : 'Quay lại tất cả'}
             </button>
           )}
         </div>
@@ -183,7 +215,7 @@ export function OrganizerEventPicker({
         ref={triggerRef}
         type="button"
         disabled={loading}
-        onClick={() => setIsOpen((prev) => !prev)}
+        onClick={handleToggle}
         className={`mt-1 flex h-10 w-full items-center justify-between gap-3 rounded-xl border px-3 text-left text-sm font-semibold text-white shadow-sm transition outline-none ${
           isOpen
             ? 'border-primary/60 bg-[#0d172e] ring-2 ring-primary/20 [html.light_&]:bg-white [html.light_&]:border-[#C99A47] [html.light_&]:text-[#0D1B2A] [html.light_&]:ring-[#C99A47]/20'
@@ -198,9 +230,9 @@ export function OrganizerEventPicker({
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
                   <span className="relative inline-flex size-2.5 rounded-full bg-emerald-500" />
                 </span>
-              ) : (
+              ) : showCalendarIcon ? (
                 <Calendar className="size-4 shrink-0 text-cyan-400" />
-              )}
+              ) : null}
               <span className="truncate font-bold text-white [html.light_&]:text-[#0D1B2A]">
                 {selectedEvent.title}
               </span>
@@ -208,7 +240,7 @@ export function OrganizerEventPicker({
                 className={`hidden shrink-0 whitespace-nowrap items-center gap-1 rounded-full border px-1.5 py-0.5 text-[9.5px] font-bold sm:inline-flex ${selectedStatus?.badgeClass}`}
               >
                 <span className={`size-1.5 rounded-full ${selectedStatus?.dotClass}`} />
-                {selectedStatus?.label}
+                {isEnglish ? (VI_TO_EN[selectedStatus?.label] || selectedStatus?.label) : selectedStatus?.label}
               </span>
             </>
           ) : allowAll ? (
@@ -217,18 +249,18 @@ export function OrganizerEventPicker({
                 <Layers className="size-3.5" />
               </div>
               <span className="truncate font-bold text-white [html.light_&]:text-[#0D1B2A]">
-                Tất cả sự kiện <span className="text-xs font-normal text-slate-400 [html.light_&]:text-[#536b88]">({events.length})</span>
+                {isEnglish ? 'All Events' : 'Tất cả sự kiện'} <span className="text-xs font-normal text-slate-400 [html.light_&]:text-[#536b88]">({events.length})</span>
               </span>
               <span className="hidden shrink-0 whitespace-nowrap items-center gap-1 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-1.5 py-0.5 text-[9.5px] font-bold text-cyan-300 [html.light_&]:bg-cyan-50 [html.light_&]:text-cyan-800 [html.light_&]:border-cyan-300 sm:inline-flex">
                 <span className="size-1.5 rounded-full bg-cyan-400 [html.light_&]:bg-cyan-600" />
-                Tổng quan
+                {isEnglish ? 'Overview' : 'Tổng quan'}
               </span>
             </>
           ) : (
             <>
               <Calendar className="size-4 shrink-0 text-slate-400 [html.light_&]:text-slate-500" />
               <span className="truncate font-semibold text-slate-400 [html.light_&]:text-slate-500">
-                {placeholder}
+                {displayPlaceholder}
               </span>
             </>
           )}
@@ -258,7 +290,7 @@ export function OrganizerEventPicker({
       </button>
 
       {/* Floating Dropdown Popover using createPortal (immune to z-index clipping) */}
-      {isOpen &&
+      {isOpen && popupStyle &&
         createPortal(
           <div
             ref={popupRef}
@@ -277,7 +309,7 @@ export function OrganizerEventPicker({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Tìm kiếm sự kiện theo tên hoặc thể loại..."
+                placeholder={isEnglish ? 'Search events by name or category...' : 'Tìm kiếm sự kiện theo tên hoặc thể loại...'}
                 className="h-9 w-full rounded-xl border border-white/10 bg-slate-950/70 pl-9 pr-8 text-xs font-medium text-white placeholder-slate-500 outline-none transition focus:border-[#E6C17A] focus:ring-1 focus:ring-[#C99A47]/40 [html.light_&]:bg-[#F8F3EA] [html.light_&]:border-[#C99A47]/30 [html.light_&]:text-[#0D1B2A] [html.light_&]:placeholder-[#536b88]"
               />
               {searchQuery && (
@@ -332,17 +364,17 @@ export function OrganizerEventPicker({
                   >
                     <span className="flex items-center gap-2">
                       <Layers className="size-3.5 text-[#E6C17A] [html.light_&]:text-[#C99A47]" />
-                      <span>Chọn lại tất cả sự kiện</span>
+                      <span>{isEnglish ? 'Select all events' : 'Chọn lại tất cả sự kiện'}</span>
                     </span>
-                    <span className="text-[11px] font-normal opacity-80">({events.length} sự kiện)</span>
+                    <span className="text-[11px] font-normal opacity-80">({events.length} {isEnglish ? 'events' : 'sự kiện'})</span>
                   </button>
                 ) : (
                   <div className="mb-2 flex items-center justify-between rounded-xl border border-[#C99A47]/40 bg-gradient-to-r from-[#C99A47]/20 via-[#E6C17A]/15 to-[#C99A47]/20 px-3 py-1.5 text-xs font-bold text-[#E6C17A] shadow-sm [html.light_&]:bg-[#FAF4EB] [html.light_&]:border-[#C99A47]/50 [html.light_&]:text-[#0D1B2A]">
                     <span className="flex items-center gap-2">
                       <Check className="size-3.5 text-[#E6C17A] [html.light_&]:text-[#C99A47]" />
-                      <span>Đang chọn: Tất cả sự kiện</span>
+                      <span>{isEnglish ? 'Selected: All Events' : 'Đang chọn: Tất cả sự kiện'}</span>
                     </span>
-                    <span className="text-[11px] font-normal text-[#FFF6DC] [html.light_&]:text-[#536b88]">({events.length} sự kiện)</span>
+                    <span className="text-[11px] font-normal text-[#FFF6DC] [html.light_&]:text-[#536b88]">({events.length} {isEnglish ? 'events' : 'sự kiện'})</span>
                   </div>
                 ))}
 

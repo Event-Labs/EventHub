@@ -10,6 +10,17 @@ export async function fetchMyOrganizerRequests() {
   return response.data.data
 }
 
+export async function scanCccdCard(file) {
+  const formData = new FormData()
+  formData.append('card_image', file)
+  const response = await http.post('/organizer-requests/cccd/scan', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  })
+  return response.data.data
+}
+
 export async function submitOrganizerRequest(payload) {
   const response = await http.post('/organizer-requests/me', payload)
   return response.data.data

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft,
   Calendar,
+  CalendarX,
   CheckCircle2,
   AlertTriangle,
   MapPin,
@@ -32,6 +33,7 @@ import {
   Table,
   ChevronDown,
   ChevronUp,
+  Ticket,
 } from 'lucide-react'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -58,6 +60,7 @@ import { useToast } from '@/providers/ToastProvider.jsx'
 import { Page, Panel, Badge, StatusBadge, ImagePlaceholder } from './AdminComponents.jsx'
 import { AdminReviewCriteriaModal } from './AdminReviewCriteriaModal.jsx'
 import { AdminSuspendModal } from './AdminSuspendModal.jsx'
+import { AdminEventCancellationDetailPage } from './AdminEventCancellationDetailPage.jsx'
 
 // ---------------------------------------------------------------------------
 // Constants & Helpers
@@ -118,9 +121,15 @@ function formatShortDate(value) {
   }
 }
 
+const getAutoLocale = () =>
+  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
+   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
+    ? 'en-US'
+    : 'vi-VN'
+
 function formatDate(value) {
   if (!value) return '—'
-  return new Date(value).toLocaleString('vi-VN', {
+  return new Date(value).toLocaleString(getAutoLocale(), {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -1056,6 +1065,188 @@ export function AdminEventReviewDetailPage() {
     enabled: !!eventId,
   })
 
+  // Parse pending revision details (ticket changes, session updates, general fields)
+  const revisionDetails = useMemo(() => {
+    const rev = event?.pending_revision
+    if (!rev) return null
+
+    const diffList = Array.isArray(rev.diff) ? rev.diff : Array.isArray(rev.proposed_changes) ? rev.proposed_changes : []
+    const before = rev.payload_before || {}
+    const after = rev.payload_after || {}
+
+    // 1. Ticket changes
+    const ticketChanges = []
+    const diffTickets = diffList.filter((d) => d.field === 'ticket_type' || d.field === 'ticket_added' || d.field === 'ticket_removed')
+
+    if (diffTickets.length > 0) {
+      diffTickets.forEach((dt) => {
+        if (dt.field === 'ticket_type') {
+          ticketChanges.push({
+            id: dt.ticket_id,
+            name: dt.ticket_name || dt.newValue?.name || dt.oldValue?.name || 'Vé',
+            typeLabel: dt.priceChanged && dt.qtyChanged ? 'Đổi giá & số lượng' : dt.priceChanged ? 'Đổi giá vé' : dt.qtyChanged ? 'Đổi số lượng' : 'Cập nhật',
+            priceChanged: Boolean(dt.priceChanged),
+            oldPrice: Number(dt.oldPrice ?? dt.oldValue?.price ?? 0),
+            newPrice: Number(dt.newPrice ?? dt.newValue?.price ?? 0),
+            qtyChanged: Boolean(dt.qtyChanged),
+            oldQuantity: Number(dt.oldQuantity ?? dt.oldValue?.quantity ?? 0),
+            newQuantity: Number(dt.newQuantity ?? dt.newValue?.quantity ?? 0),
+            nameChanged: Boolean(dt.nameChanged),
+            oldName: dt.oldValue?.name,
+            newName: dt.newValue?.name,
+          })
+        } else if (dt.field === 'ticket_added') {
+          ticketChanges.push({
+            name: dt.ticket_name || dt.newValue?.name || 'Vé mới',
+            typeLabel: 'Thêm vé mới',
+            isAdded: true,
+            newPrice: Number(dt.newValue?.price || 0),
+            newQuantity: Number(dt.newValue?.quantity || 0),
+          })
+        } else if (dt.field === 'ticket_removed') {
+          ticketChanges.push({
+            name: dt.ticket_name || dt.oldValue?.name || 'Vé đã xóa',
+            typeLabel: 'Xóa loại vé',
+            isRemoved: true,
+            oldPrice: Number(dt.oldValue?.price || 0),
+            oldQuantity: Number(dt.oldValue?.quantity || 0),
+          })
+        }
+      })
+    } else if (Array.isArray(after.ticket_types)) {
+      // Fallback: direct comparison between payload_before and payload_after
+      const beforeTickets = Array.isArray(before.ticket_types) && before.ticket_types.length > 0 ? before.ticket_types : (event.ticket_types || [])
+      const beforeMap = new Map(beforeTickets.map((t) => [t.id, t]))
+
+      after.ticket_types.forEach((att) => {
+        if (att.id && beforeMap.has(att.id)) {
+          const btt = beforeMap.get(att.id)
+          const priceChanged = att.price !== undefined && Number(att.price) !== Number(btt.price)
+          const qtyChanged = att.quantity !== undefined && Number(att.quantity) !== Number(btt.quantity)
+          const nameChanged = att.name && att.name.trim() !== (btt.name || '').trim()
+
+          if (priceChanged || qtyChanged || nameChanged) {
+            ticketChanges.push({
+              id: att.id,
+              name: att.name || btt.name || 'Vé',
+              typeLabel: priceChanged && qtyChanged ? 'Đổi giá & số lượng' : priceChanged ? 'Đổi giá vé' : qtyChanged ? 'Đổi số lượng' : 'Cập nhật',
+              priceChanged,
+              oldPrice: Number(btt.price || 0),
+              newPrice: Number(att.price ?? btt.price ?? 0),
+              qtyChanged,
+              oldQuantity: Number(btt.quantity || 0),
+              newQuantity: Number(att.quantity ?? btt.quantity ?? 0),
+              nameChanged,
+              oldName: btt.name,
+              newName: att.name,
+            })
+          }
+        } else if (!att.id) {
+          ticketChanges.push({
+            name: att.name || 'Vé mới',
+            typeLabel: 'Thêm vé mới',
+            isAdded: true,
+            newPrice: Number(att.price || 0),
+            newQuantity: Number(att.quantity || 0),
+          })
+        }
+      })
+    }
+
+    // 2. Session changes (only sessions that actually changed!)
+    const sessionChanges = []
+    const diffSessions = diffList.filter((d) => d.field?.startsWith('session_') || d.field === 'sessions_added' || d.field === 'session_removed')
+
+    if (diffSessions.length > 0) {
+      diffSessions.forEach((ds) => {
+        if (ds.field === 'sessions_added') {
+          sessionChanges.push({
+            name: ds.newValue?.session_name || 'Suất diễn mới',
+            typeLabel: 'Thêm suất mới',
+            startTime: ds.newValue?.start_time,
+            endTime: ds.newValue?.end_time,
+          })
+        } else if (ds.field === 'session_removed') {
+          sessionChanges.push({
+            name: ds.oldValue?.session_name || 'Suất diễn đã xóa',
+            typeLabel: 'Đã xóa',
+            isRemoved: true,
+          })
+        } else {
+          sessionChanges.push({
+            name: ds.newValue?.session_name || ds.oldValue?.session_name || 'Suất diễn',
+            typeLabel: 'Điều chỉnh thời gian / địa điểm',
+            startTime: ds.newValue?.start_time || ds.oldValue?.start_time,
+            endTime: ds.newValue?.end_time || ds.oldValue?.end_time,
+            oldStartTime: ds.oldValue?.start_time,
+            oldEndTime: ds.oldValue?.end_time,
+          })
+        }
+      })
+    } else if (Array.isArray(after.sessions) && Array.isArray(before.sessions) && before.sessions.length > 0) {
+      const beforeMap = new Map(before.sessions.map((s) => [s.id, s]))
+      after.sessions.forEach((as, idx) => {
+        if (as.id && beforeMap.has(as.id)) {
+          const bs = beforeMap.get(as.id)
+          const timeChanged =
+            new Date(as.start_time).getTime() !== new Date(bs.start_time).getTime() ||
+            new Date(as.end_time).getTime() !== new Date(bs.end_time).getTime()
+          const nameChanged = as.session_name && as.session_name !== bs.session_name
+          if (timeChanged || nameChanged) {
+            sessionChanges.push({
+              name: as.session_name || bs.session_name || `Suất #${idx + 1}`,
+              typeLabel: 'Điều chỉnh',
+              startTime: as.start_time,
+              endTime: as.end_time,
+              oldStartTime: bs.start_time,
+              oldEndTime: bs.end_time,
+            })
+          }
+        } else if (!as.id) {
+          sessionChanges.push({
+            name: as.session_name || `Suất #${idx + 1}`,
+            typeLabel: 'Thêm suất mới',
+            startTime: as.start_time,
+            endTime: as.end_time,
+          })
+        }
+      })
+    }
+
+    // 3. Other general field changes
+    const generalChanges = []
+    const fieldLabels = {
+      title: 'Tiêu đề sự kiện',
+      format: 'Hình thức tổ chức',
+      category_id: 'Danh mục sự kiện',
+      short_description: 'Mô tả ngắn',
+      description: 'Mô tả chi tiết',
+      refund_policy: 'Chính sách hoàn tiền',
+      additional_terms: 'Điều khoản bổ sung',
+      require_attendee_info: 'Yêu cầu thông tin người tham dự',
+      thumbnail_url: 'Ảnh thumbnail',
+      banner_url: 'Ảnh banner',
+    }
+
+    diffList
+      .filter((d) => !d.field?.startsWith('session') && !d.field?.startsWith('ticket'))
+      .forEach((d) => {
+        generalChanges.push({
+          field: d.field,
+          label: fieldLabels[d.field] || d.field,
+          oldValue: d.oldValue,
+          newValue: d.newValue,
+        })
+      })
+
+    return {
+      ticketChanges,
+      sessionChanges,
+      generalChanges,
+      changeClass: rev.change_class || 'MAJOR',
+    }
+  }, [event?.pending_revision, event?.ticket_types, event?.sessions])
+
   // Group tickets across sessions with rich session metadata
   const groupedTickets = useMemo(() => {
     if (!Array.isArray(event?.ticket_types) || event.ticket_types.length === 0) return []
@@ -1328,8 +1519,6 @@ export function AdminEventReviewDetailPage() {
   // -------------------------------------------------------------------------
   // Derived State / AI Data Resolution
   // -------------------------------------------------------------------------
-  const isOnline = event.format === 'ONLINE'
-
   const rawAiReview = aiReviewQuery.data || event.aiReview
   const aiData = parseAiReviewData(rawAiReview)
 
@@ -1424,10 +1613,10 @@ export function AdminEventReviewDetailPage() {
           description: decision === 'APPROVE'
             ? 'Các thay đổi về ngày giờ/suất diễn sẽ được áp dụng chính thức và trạng thái tạm dừng bán (nếu có) sẽ được mở lại.'
             : 'Bản đề xuất sửa đổi sẽ bị từ chối và lưu vào lịch sử kiểm duyệt. Cấu hình sự kiện hiện tại sẽ được giữ nguyên.',
-          tone: decision === 'APPROVE' ? 'success' : 'danger',
+          tone: decision === 'APPROVE' ? 'gold' : 'danger',
           confirmText: decision === 'APPROVE' ? 'Phê duyệt sửa đổi' : 'Từ chối sửa đổi',
           cancelText: 'Hủy bỏ',
-          confirmColor: decision === 'APPROVE' ? 'bg-success' : 'bg-error',
+          confirmColor: decision === 'APPROVE' ? undefined : 'bg-error',
           onConfirm: () => {
             reviewRevisionMutation.mutate({ decision, note: data.review_note?.trim() || null })
             setConfirmState(null)
@@ -1440,8 +1629,9 @@ export function AdminEventReviewDetailPage() {
         setConfirmState({
           title: 'Xác nhận phê duyệt',
           description: 'Bạn có chắc chắn muốn phê duyệt sự kiện này?',
+          tone: 'gold',
           confirmText: 'Phê duyệt',
-          confirmColor: 'bg-success',
+          cancelText: 'Hủy bỏ',
           onConfirm: () => {
             reviewMutation.mutate({
               status,
@@ -1544,7 +1734,7 @@ export function AdminEventReviewDetailPage() {
         subtitle: 'Áp dụng các thay đổi mới vào sự kiện trực tiếp.',
         eventTitle: event?.title,
         description: 'Các thay đổi về ngày giờ/suất diễn sẽ được áp dụng chính thức và trạng thái tạm dừng bán (nếu có) sẽ được mở lại.',
-        tone: 'success',
+        tone: 'gold',
         confirmText: 'Xác nhận duyệt sửa đổi',
         cancelText: 'Hủy bỏ',
         onConfirm: () => {
@@ -1570,8 +1760,13 @@ export function AdminEventReviewDetailPage() {
   }
 
   const isPending = reviewMutation.isPending || reviewRevisionMutation.isPending
-  const isPendingReview = event?.status === 'PENDING_REVIEW' || Boolean(event?.pending_revision) || event?.cancel_request?.status === 'PENDING'
+  const isPendingReview = event?.status === 'PENDING_REVIEW' || Boolean(event?.pending_revision)
   const customScrollbar = "[&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/10 hover:[&::-webkit-scrollbar-thumb]:bg-white/20"
+
+  // If this event has a cancellation request or is cancelled, render the dedicated cancellation review page
+  if (event?.cancel_request?.status === 'PENDING' || event?.status === 'CANCELLED') {
+    return <AdminEventCancellationDetailPage />
+  }
 
   const totalIssuesCount = (aiData?.critical_violations?.length || 0) + (aiData?.warnings?.length || 0)
 
@@ -1591,21 +1786,18 @@ export function AdminEventReviewDetailPage() {
           <h1 className="font-display text-base sm:text-xl font-black text-white drop-shadow-sm line-clamp-2 max-w-2xl">
             {event.title}
           </h1>
-          {event.pending_revision && event.pending_revision.status === 'SUBMITTED' ? (
+          {event.status === 'CANCELLED' ? (
+            <Badge tone="red">Đã hủy</Badge>
+          ) : event.cancel_request?.status === 'PENDING' ? (
+            <Badge tone="red">Chờ duyệt hủy</Badge>
+          ) : event.display_state === 'SUSPENDED_BY_ADMIN' ? (
+            <Badge tone="red">Bị đình chỉ</Badge>
+          ) : event.pending_revision && event.pending_revision.status === 'SUBMITTED' ? (
             <Badge tone="amber">Sửa đổi chờ duyệt</Badge>
+          ) : event.sales_status === 'PAUSED' ? (
+            <Badge tone="amber">Tạm dừng bán vé</Badge>
           ) : (
             <StatusBadge status={event.status} />
-          )}
-          {event.display_state === 'SUSPENDED_BY_ADMIN' && (
-            <Badge tone="red">Bị đình chỉ</Badge>
-          )}
-          {event.sales_status === 'PAUSED' && (
-            <Badge tone="amber">Tạm dừng bán vé</Badge>
-          )}
-          {event.cancel_request?.status === 'PENDING' && (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse">
-              Yêu cầu hủy sự kiện
-            </span>
           )}
         </div>
 
@@ -1635,27 +1827,61 @@ export function AdminEventReviewDetailPage() {
       <div className="flex flex-1 gap-5 overflow-hidden">
         {/* Left Column: Event Details */}
         <div className={`overflow-y-auto pr-1.5 flex-1 min-w-0 ${customScrollbar} ${!isPendingReview ? 'max-w-5xl mx-auto' : ''}`}>
+          {/* Priority Support Banner */}
+          {event.is_priority_support && (
+            <div className="mb-4 rounded-xl border border-amber-500/20 bg-amber-500/[0.04] px-4 py-3 text-slate-200 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                  <Sparkles className="size-4" />
+                </span>
+                <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                  <span className="font-semibold text-xs text-white">Ban tổ chức có hỗ trợ ưu tiên</span>
+                  {event.organizer_plan_name && (
+                    <span className="rounded bg-white/5 border border-white/10 px-2 py-0.5 text-[10px] font-medium text-amber-300">
+                      {event.organizer_plan_name}
+                    </span>
+                  )}
+                  <span className="text-[11px] text-slate-400">
+                    (Hàng đợi ưu tiên cao của hệ thống)
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Cancellation Request Banner */}
           {event.cancel_request?.status === 'PENDING' && (
-            <div className="mb-6 rounded-2xl border border-rose-500/40 bg-rose-950/30 p-5 shadow-lg backdrop-blur-xl">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex items-start gap-3">
-                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-rose-500/20 text-rose-300">
+            <div className="mb-6 rounded-xl border border-rose-500/30 bg-[#141b2d] p-5 shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-start gap-3.5">
+                  <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-rose-500/10 text-rose-300 border border-rose-500/20">
                     <ShieldAlert className="size-5" />
                   </span>
                   <div>
-                    <h3 className="text-base font-bold text-white">Yêu cầu hủy sự kiện từ Ban tổ chức</h3>
-                    <p className="text-xs text-slate-300 mt-0.5">
-                      Sự kiện đã có vé bán ra. BTC đã cam kết nghĩa vụ hoàn tiền 100% cho người mua.
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-bold text-white">Yêu cầu hủy sự kiện từ Ban tổ chức</h3>
+                      <span className="rounded-full bg-rose-500/15 px-2.5 py-0.5 text-[10px] font-semibold text-rose-300 border border-rose-500/25">
+                        Chờ duyệt hủy
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                      Sự kiện này đang có yêu cầu hủy và tạm dừng bán vé.
                     </p>
                   </div>
                 </div>
-                <span className="rounded-full bg-rose-500/20 px-3 py-1 text-xs font-bold text-rose-300 border border-rose-500/30">
-                  Chờ Admin duyệt
-                </span>
+
+                <button
+                  type="button"
+                  onClick={() => navigate(`/admin/events/cancellations/${eventId}`)}
+                  className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-rose-600 hover:bg-rose-500 px-4 py-2 text-xs font-semibold text-white transition cursor-pointer"
+                >
+                  <CalendarX className="size-4" />
+                  <span>Trang duyệt hủy</span>
+                  <ExternalLink className="size-3.5" />
+                </button>
               </div>
 
-              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs bg-black/20 p-3.5 rounded-xl border border-white/5">
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs bg-black/20 p-3 rounded-lg border border-white/5">
                 <div>
                   <span className="text-slate-400 font-medium">Lý do hủy:</span>{' '}
                   <strong className="text-white">
@@ -1669,75 +1895,122 @@ export function AdminEventReviewDetailPage() {
                   </strong>
                 </div>
                 <div className="md:col-span-2">
-                  <span className="text-slate-400 font-medium">Giải trình chi tiết:</span>
-                  <p className="mt-1 text-slate-200 bg-white/5 p-2 rounded-lg italic">
+                  <span className="text-slate-400 font-medium">Giải trình:</span>
+                  <p className="mt-1 text-slate-300 bg-white/[0.03] p-2 rounded border border-white/5 italic">
                     "{event.cancel_request.reason_note || event.cancel_request.note || event.cancel_request.reason || 'Không có giải trình chi tiết'}"
                   </p>
                 </div>
-              </div>
-
-              <div className="mt-4 flex gap-3 justify-end">
-                <button
-                  type="button"
-                  onClick={handleRejectCancelRequest}
-                  className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-white/10"
-                >
-                  Từ chối yêu cầu hủy
-                </button>
-                <button
-                  type="button"
-                  onClick={handleApproveCancelRequest}
-                  className="rounded-xl bg-rose-600 px-4 py-2 text-xs font-bold text-white shadow hover:bg-rose-500"
-                >
-                  Phê duyệt hủy & Tạo danh sách hoàn tiền
-                </button>
               </div>
             </div>
           )}
 
           {/* Pending Revision Banner */}
           {event.pending_revision && (
-            <div className="mb-6 rounded-2xl border border-amber-500/40 bg-gradient-to-br from-amber-950/40 via-slate-900/80 to-slate-900/90 p-5 shadow-xl backdrop-blur-xl">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex items-start gap-3">
-                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/30">
-                    <Sparkles className="size-5" />
+            <div className="mb-6 rounded-xl border border-white/10 bg-[#121c38]/90 p-4 sm:p-5 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-white/5 text-amber-300 border border-white/10">
+                    <Sparkles className="size-4" />
                   </span>
                   <div>
-                    <h3 className="text-base font-bold text-white">Bản sửa đổi sự kiện chờ duyệt (Major Revision)</h3>
-                    <p className="text-xs text-slate-300 mt-0.5">
-                      Ban tổ chức đã đề xuất các thay đổi quan trọng đối với sự kiện đang hoạt động. Vui lòng kiểm tra và quyết định phê duyệt.
+                    <h3 className="text-sm font-bold text-white">Bản sửa đổi sự kiện chờ duyệt</h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Ban tổ chức đã đề xuất các thay đổi đối với sự kiện. Vui lòng kiểm tra và duyệt nội dung.
                     </p>
                   </div>
                 </div>
-                <span className="rounded-full bg-amber-500/20 px-3 py-1 text-xs font-bold text-amber-300 border border-amber-500/30 animate-pulse">
+                <span className="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-[11px] font-medium text-amber-300 border border-amber-500/20 shrink-0">
                   Chờ duyệt sửa đổi
                 </span>
               </div>
 
               {/* Proposed Changes Diff */}
               <div className="mt-4 space-y-3">
-                <div className="text-xs bg-black/30 p-3.5 rounded-xl border border-white/5 space-y-2">
+                <div className="text-xs bg-black/25 p-3.5 rounded-lg border border-white/5 space-y-3">
                   <div className="flex items-center justify-between">
-                    <p className="font-bold text-amber-300 uppercase tracking-wider text-[11px]">
+                    <p className="font-semibold text-slate-300 uppercase tracking-wide text-[11px]">
                       Nội dung thay đổi đề xuất:
                     </p>
-                    <span className="text-[11px] text-slate-400">
-                      Mức độ: <strong className="text-amber-400 font-semibold">{event.pending_revision.change_class || 'MAJOR'}</strong>
-                    </span>
                   </div>
 
-                  {event.pending_revision.payload_after?.sessions && (
+                  {/* 1. Ticket Changes */}
+                  {revisionDetails?.ticketChanges && revisionDetails.ticketChanges.length > 0 && (
                     <div className="space-y-2 pt-1">
-                      <p className="text-[11px] font-semibold text-slate-300">Suất diễn mới:</p>
+                      <p className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                        <Ticket className="size-3.5 text-amber-400" />
+                        Thay đổi loại vé ({revisionDetails.ticketChanges.length}):
+                      </p>
                       <div className="grid gap-2">
-                        {event.pending_revision.payload_after.sessions.map((sess, idx) => (
-                          <div key={sess.id || idx} className="rounded-lg border border-amber-500/20 bg-amber-950/20 p-2.5 text-xs text-slate-200 flex flex-wrap items-center justify-between gap-2">
-                            <span className="font-bold text-white">{sess.session_name || `Suất #${idx + 1}`}</span>
+                        {revisionDetails.ticketChanges.map((tc, idx) => (
+                          <div key={tc.id || idx} className="rounded-lg border border-white/10 bg-white/[0.02] p-3 text-xs space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-white text-sm">{tc.name}</span>
+                                {tc.nameChanged && tc.oldName && (
+                                  <span className="text-[11px] text-slate-400">(Tên cũ: {tc.oldName})</span>
+                                )}
+                              </div>
+                              <span className="rounded bg-white/5 px-2 py-0.5 text-[10px] font-medium text-slate-300 border border-white/10">
+                                {tc.typeLabel}
+                              </span>
+                            </div>
+                            {tc.priceChanged && (
+                              <div className="flex items-center gap-2 pt-0.5">
+                                <span className="text-slate-400">Giá vé:</span>
+                                <span className="text-slate-500 line-through">
+                                  {tc.oldPrice.toLocaleString('vi-VN')} đ
+                                </span>
+                                <span className="text-slate-400 font-bold">→</span>
+                                <span className="text-emerald-400 font-bold text-sm">
+                                  {tc.newPrice.toLocaleString('vi-VN')} đ
+                                </span>
+                              </div>
+                            )}
+                            {tc.qtyChanged && (
+                              <div className="flex items-center gap-2">
+                                <span className="text-slate-400">Số lượng mở bán:</span>
+                                <span className="text-slate-500">
+                                  {tc.oldQuantity.toLocaleString('vi-VN')} vé
+                                </span>
+                                <span className="text-slate-400 font-bold">→</span>
+                                <span className="text-white font-medium">
+                                  {tc.newQuantity.toLocaleString('vi-VN')} vé
+                                </span>
+                              </div>
+                            )}
+                            {tc.isAdded && (
+                              <div className="text-xs text-slate-300 flex items-center gap-2">
+                                <span>Giá mở bán: <strong className="text-emerald-400">{tc.newPrice.toLocaleString('vi-VN')} đ</strong></span>
+                                <span>•</span>
+                                <span>Số lượng: <strong className="text-white">{tc.newQuantity.toLocaleString('vi-VN')} vé</strong></span>
+                              </div>
+                            )}
+                            {tc.isRemoved && (
+                              <div className="text-xs text-rose-300">
+                                Đã xoá loại vé này khỏi sự kiện
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 2. Session Changes (Only if sessions actually changed or added) */}
+                  {revisionDetails?.sessionChanges && revisionDetails.sessionChanges.length > 0 && (
+                    <div className="space-y-2 pt-1">
+                      <p className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                        <Calendar className="size-3.5 text-amber-400" />
+                        Điều chỉnh suất diễn ({revisionDetails.sessionChanges.length}):
+                      </p>
+                      <div className="grid gap-2">
+                        {revisionDetails.sessionChanges.map((sess, idx) => (
+                          <div key={idx} className="rounded-lg border border-white/10 bg-white/[0.02] p-2.5 text-xs text-slate-200 flex flex-wrap items-center justify-between gap-2">
+                            <span className="font-semibold text-white">{sess.name}</span>
                             <div className="flex items-center gap-3 text-slate-300">
-                              <span>Bắt đầu: <strong className="text-amber-300">{formatDate(sess.start_time)}</strong></span>
+                              <span>Bắt đầu: <strong className="text-white">{formatDate(sess.startTime)}</strong></span>
                               <span>•</span>
-                              <span>Kết thúc: <strong className="text-amber-300">{formatDate(sess.end_time)}</strong></span>
+                              <span>Kết thúc: <strong className="text-white">{formatDate(sess.endTime)}</strong></span>
                             </div>
                           </div>
                         ))}
@@ -1745,32 +2018,65 @@ export function AdminEventReviewDetailPage() {
                     </div>
                   )}
 
-                  {/* Other fields if any */}
-                  {Object.keys(event.pending_revision.proposed_changes || {})
-                    .filter((k) => k !== 'sessions')
-                    .map((k) => (
-                      <div key={k} className="text-xs text-slate-300">
-                        <span className="font-semibold text-white capitalize">{k}:</span>{' '}
-                        <span>{JSON.stringify(event.pending_revision.proposed_changes[k])}</span>
+                  {/* Fallback if no specific ticket/session diff detected but raw sessions exist */}
+                  {(!revisionDetails?.ticketChanges || revisionDetails.ticketChanges.length === 0) &&
+                   (!revisionDetails?.sessionChanges || revisionDetails.sessionChanges.length === 0) &&
+                   event.pending_revision.payload_after?.sessions && (
+                    <div className="space-y-2 pt-1">
+                      <p className="text-xs font-semibold text-slate-300">Suất diễn mới:</p>
+                      <div className="grid gap-2">
+                        {event.pending_revision.payload_after.sessions.map((sess, idx) => (
+                          <div key={sess.id || idx} className="rounded-lg border border-white/10 bg-white/[0.02] p-2.5 text-xs text-slate-200 flex flex-wrap items-center justify-between gap-2">
+                            <span className="font-semibold text-white">{sess.session_name || `Suất #${idx + 1}`}</span>
+                            <div className="flex items-center gap-3 text-slate-300">
+                              <span>Bắt đầu: <strong className="text-white">{formatDate(sess.start_time)}</strong></span>
+                              <span>•</span>
+                              <span>Kết thúc: <strong className="text-white">{formatDate(sess.end_time)}</strong></span>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    </div>
+                  )}
+
+                  {/* 3. General Field Changes */}
+                  {revisionDetails?.generalChanges && revisionDetails.generalChanges.length > 0 && (
+                    <div className="space-y-1.5 pt-1">
+                      {revisionDetails.generalChanges.map((gc) => (
+                        <div key={gc.field} className="text-xs text-slate-300 bg-white/[0.02] rounded-lg p-2.5 border border-white/5 flex flex-wrap items-center justify-between gap-2">
+                          <span className="font-medium text-slate-300">{gc.label}:</span>
+                          {typeof gc.newValue === 'object' && gc.newValue !== null ? (
+                            <span className="text-slate-400">Đã cập nhật nội dung mới</span>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              {gc.oldValue !== undefined && gc.oldValue !== null && (
+                                <span className="line-through text-slate-500">{String(gc.oldValue)}</span>
+                              )}
+                              <span className="text-slate-400 font-bold">→</span>
+                              <strong className="text-white">{String(gc.newValue)}</strong>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Revision Note Input & Action Buttons */}
-                <div className="pt-2 border-t border-white/10 flex flex-col sm:flex-row items-center gap-3">
+                <div className="pt-2 border-t border-white/10 flex flex-col sm:flex-row items-center gap-2.5">
                   <input
                     type="text"
                     value={revisionNote}
                     onChange={(e) => setRevisionNote(e.target.value)}
                     placeholder="Ghi chú duyệt sửa đổi (tuỳ chọn)..."
-                    className="flex-1 w-full h-10 rounded-xl border border-white/10 bg-black/40 px-3 text-xs text-white placeholder:text-slate-500 outline-none focus:border-amber-400"
+                    className="flex-1 w-full h-9 rounded-lg border border-white/10 bg-black/30 px-3 text-xs text-white placeholder:text-slate-500 outline-none focus:border-white/25"
                   />
                   <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
                     <button
                       type="button"
                       disabled={reviewRevisionMutation.isPending}
                       onClick={() => handleReviewRevision('REJECT')}
-                      className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 px-4 py-2 text-xs font-bold text-rose-300 transition disabled:opacity-50"
+                      className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 rounded-lg border border-rose-500/25 bg-rose-500/10 hover:bg-rose-500/15 px-3.5 py-2 text-xs font-medium text-rose-300 transition disabled:opacity-50 cursor-pointer"
                     >
                       <Ban className="size-3.5" />
                       <span>Từ chối sửa đổi</span>
@@ -1779,9 +2085,9 @@ export function AdminEventReviewDetailPage() {
                       type="button"
                       disabled={reviewRevisionMutation.isPending}
                       onClick={() => handleReviewRevision('APPROVE')}
-                      className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 px-5 py-2 text-xs font-bold text-white shadow-lg shadow-emerald-950/40 transition disabled:opacity-50"
+                      className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-semibold text-white shadow-sm transition disabled:opacity-50 cursor-pointer"
                     >
-                      <CheckCircle2 className="size-4" />
+                      <CheckCircle2 className="size-3.5" />
                       <span>Phê duyệt sửa đổi</span>
                     </button>
                   </div>
@@ -1840,7 +2146,6 @@ export function AdminEventReviewDetailPage() {
                     </p>
                   </div>
                 </div>
-                {!isOnline && (
                   <div className="flex items-start gap-4 rounded-[24px] border border-white/5 bg-white/[0.02] p-5 shadow-inner transition hover:-translate-y-1 hover:bg-white/[0.04]">
                     <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-rose-500/10 text-rose-400 ring-1 ring-rose-500/20">
                       <MapPin className="size-6" />
@@ -1854,7 +2159,6 @@ export function AdminEventReviewDetailPage() {
                       </p>
                     </div>
                   </div>
-                )}
               </div>
 
               <div className="mb-10">
@@ -3278,23 +3582,24 @@ function ConfirmModal({
 
   const getToneConfig = () => {
     switch (tone) {
+      case 'gold':
       case 'success':
         return {
           icon: CheckCircle2,
-          iconWrap: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30',
-          btnClass: 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/40',
+          iconWrap: 'bg-[#C99A47]/20 text-[#E6C17A] border border-[#C99A47]/40 shadow-[0_0_15px_rgba(201,154,71,0.2)]',
+          btnClass: confirmColor || 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] font-black shadow-lg shadow-[#C99A47]/30 hover:brightness-110 active:scale-95 border border-[#E6C17A]/40',
         }
       case 'danger':
         return {
           icon: AlertTriangle,
           iconWrap: 'bg-rose-500/20 text-rose-400 border border-rose-500/30',
-          btnClass: 'bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-900/40',
+          btnClass: confirmColor || 'bg-rose-600 hover:bg-rose-500 text-white font-bold shadow-lg shadow-rose-900/40',
         }
       case 'warning':
         return {
           icon: AlertTriangle,
           iconWrap: 'bg-amber-500/20 text-amber-400 border border-amber-500/30',
-          btnClass: 'bg-amber-600 hover:bg-amber-500 text-white shadow-lg shadow-amber-900/40',
+          btnClass: confirmColor || 'bg-amber-600 hover:bg-amber-500 text-white font-bold shadow-lg shadow-amber-900/40',
         }
       default:
         return {
@@ -3308,54 +3613,54 @@ function ConfirmModal({
   const { icon: ToneIcon, iconWrap, btnClass } = getToneConfig()
 
   return (
-    <div className="fixed inset-0 z-[120] grid place-items-center bg-black/75 p-4 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0b1329] p-6 shadow-2xl shadow-black/90 text-white">
+    <div className="fixed inset-0 z-[120] grid place-items-center bg-black/80 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="w-full max-w-lg rounded-2xl border border-white/15 bg-[#0b1329] p-7 shadow-2xl shadow-black/95 text-white">
         {/* Header */}
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-start gap-3">
-            <span className={`grid size-11 shrink-0 place-items-center rounded-xl ${iconWrap}`}>
-              <ToneIcon className="size-6" />
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-4">
+            <span className={`grid size-13 shrink-0 place-items-center rounded-2xl ${iconWrap}`}>
+              <ToneIcon className="size-7" />
             </span>
             <div>
-              <h3 className="text-xl font-black text-white">{title}</h3>
+              <h3 className="text-2xl font-black text-white tracking-tight">{title}</h3>
               {subtitle ? (
-                <p className="mt-1 text-xs text-slate-300">{subtitle}</p>
+                <p className="mt-1.5 text-sm font-medium text-slate-300">{subtitle}</p>
               ) : (
-                <p className="mt-1 text-xs text-slate-400">Vui lòng kiểm tra kỹ thông tin trước khi xác nhận.</p>
+                <p className="mt-1.5 text-sm font-medium text-slate-400">Vui lòng kiểm tra kỹ thông tin trước khi xác nhận.</p>
               )}
             </div>
           </div>
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-lg p-1 text-slate-400 hover:bg-white/10 hover:text-white transition"
+            className="rounded-xl p-1.5 text-slate-400 hover:bg-white/10 hover:text-white transition"
           >
-            <X className="size-5" />
+            <X className="size-5 sm:size-6" />
           </button>
         </div>
 
         {/* Event highlight box */}
         {eventTitle && (
-          <div className="mt-4 rounded-xl border border-white/10 bg-[#121c38] p-3 text-xs">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Sự kiện xử lý:</p>
-            <p className="font-bold text-white text-sm mt-0.5 truncate">{eventTitle}</p>
+          <div className="mt-5 rounded-xl border border-white/15 bg-[#121c38]/90 p-4">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Sự kiện xử lý:</p>
+            <p className="font-extrabold text-white text-base mt-1 truncate">{eventTitle}</p>
           </div>
         )}
 
         {/* Description */}
         {description && (
-          <p className="mt-3.5 text-xs text-slate-300 leading-relaxed">
+          <p className="mt-4 text-base sm:text-lg font-semibold text-slate-200 leading-relaxed">
             {description}
           </p>
         )}
 
         {/* Footer buttons */}
-        <div className="mt-6 flex gap-3 pt-2">
+        <div className="mt-7 flex gap-3.5 pt-2">
           <button
             type="button"
             onClick={onCancel}
             disabled={isPending}
-            className="flex-1 rounded-xl border border-border-soft/40 bg-panel-soft px-4 py-2.5 text-xs font-semibold text-subtle transition hover:border-border-soft hover:text-content disabled:opacity-50"
+            className="flex-1 rounded-xl border border-white/15 bg-slate-800/80 px-5 py-3 text-sm sm:text-base font-bold text-slate-300 transition hover:bg-slate-700/80 hover:text-white disabled:opacity-50 active:scale-95"
           >
             {cancelText}
           </button>
@@ -3363,11 +3668,11 @@ function ConfirmModal({
             type="button"
             onClick={onConfirm}
             disabled={isPending}
-            className={`flex-1 rounded-xl px-4 py-2.5 text-xs font-semibold transition disabled:opacity-50 ${btnClass}`}
+            className={`flex-1 rounded-xl px-5 py-3 text-sm sm:text-base font-black transition disabled:opacity-50 active:scale-95 ${btnClass}`}
           >
             {isPending ? (
               <span className="flex items-center justify-center gap-2">
-                <span className="size-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                <span className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
                 <span>Đang xử lý...</span>
               </span>
             ) : (

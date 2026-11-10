@@ -17,6 +17,7 @@ const TECHNICAL_MESSAGE_MAP = {
   'Event must have at least one ticket type before submit': 'Sự kiện cần có ít nhất một loại vé trước khi gửi duyệt.',
   'Organizer profile not found': 'Không tìm thấy hồ sơ nhà tổ chức.',
   'Organizer profile not found or inactive.': 'Hồ sơ nhà tổ chức không tồn tại hoặc chưa kích hoạt.',
+  'Organizer has not configured payment channel.': 'Ban tổ chức sự kiện chưa thiết lập kênh thanh toán PayOS.',
   'Organizer record not found. Please complete your organizer profile.': 'Chưa tìm thấy hồ sơ nhà tổ chức. Vui lòng hoàn tất thông tin nhà tổ chức.',
   'Venue not found': 'Không tìm thấy địa điểm.',
   'Venue name is required': 'Vui lòng nhập tên địa điểm.',

@@ -33,7 +33,9 @@ import {
   AdminPlansPage,
   AdminProfilePage,
   AdminEventReviewDetailPage,
+  AdminEventCancellationDetailPage,
 } from '@/pages/admin/AdminPages.jsx'
+import { AdminDisputesPage } from '@/pages/admin/AdminDisputesPage.jsx'
 import { OrganizerAnnouncementsPage } from '@/pages/organizer/OrganizerAnnouncementsPage.jsx'
 import { OrganizerAttendeesPage } from '@/pages/organizer/OrganizerAttendeesPage.jsx'
 import { OrganizerOrdersPage } from '@/pages/organizer/OrganizerOrdersPage.jsx'
@@ -120,12 +122,28 @@ export const router = createBrowserRouter([
         element: <AdminEventReviewDetailPage />,
       },
       {
+        path: 'events/cancellations',
+        element: <Navigate to="/admin/events/review" replace />,
+      },
+      {
+        path: 'events/cancellations/:eventId',
+        element: <AdminEventCancellationDetailPage />,
+      },
+      {
         path: 'platform-fee',
         element: <AdminFinancePage />,
       },
       {
         path: 'finance',
         element: <AdminFinancePage />,
+      },
+      {
+        path: 'disputes',
+        element: <AdminDisputesPage />,
+      },
+      {
+        path: 'refunds',
+        element: <Navigate to="/admin/disputes" replace />,
       },
       {
         path: 'plans',

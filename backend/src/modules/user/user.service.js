@@ -71,8 +71,13 @@ class UserService {
 
     async updateProfile(userId, updateData) {
         // Only allow certain fields to be updated
-        const allowedFields = ['full_name', 'phone', 'address', 'dob', 'city', 'avatar_url', 'bio'];
+        const allowedFields = ['full_name', 'phone', 'address', 'dob', 'city', 'avatar_url', 'bio', 'locale'];
         const updates = {};
+
+        if ('locale' in updateData) {
+            const loc = String(updateData.locale || '').toLowerCase();
+            updateData.locale = loc === 'en' ? 'en' : 'vi';
+        }
 
         if ('full_name' in updateData) {
             const fullName = String(updateData.full_name || '').trim();

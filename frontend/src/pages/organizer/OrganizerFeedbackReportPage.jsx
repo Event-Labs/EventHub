@@ -80,7 +80,6 @@ export function OrganizerFeedbackReportPage() {
   return (
     <OrganizerPage
       title="Báo cáo Phản hồi"
-      description="Theo dõi đánh giá và nhận xét từ khách tham dự"
     >
       {/* ── Event selector with Smart Event Picker ── */}
       <div className="mb-6 max-w-xl">

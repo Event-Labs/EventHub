@@ -2,6 +2,7 @@ const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
 const organizerOrdersRepository = require('./organizerOrders.repository');
 const organizerEventsRepository = require('./organizerEvents.repository');
+const subscriptionGuard = require('../organizer-subscriptions/subscriptionGuard.service');
 const logger = require('../../core/logger');
 
 const aiFinancialService = require('./aiFinancial.service');
@@ -522,6 +523,7 @@ class OrganizerOrdersService {
 
   async exportAttendees(userId, eventId, filters) {
     const organizerId = await this._resolveOrganizerId(userId);
+    await subscriptionGuard.assertAttendeeExportAllowed(organizerId);
     const event = await this._assertOwnsEvent(organizerId, eventId);
     const rows = await organizerOrdersRepository.findAttendeesForExport(
       organizerId,
@@ -560,6 +562,7 @@ class OrganizerOrdersService {
 
   async generateFinancialSummary(userId, filters = {}) {
     const organizerId = await this._resolveOrganizerId(userId);
+    await subscriptionGuard.assertAiReportAllowed(organizerId);
     let event = null;
     if (filters.eventId) {
       event = await this._assertOwnsEvent(organizerId, filters.eventId);

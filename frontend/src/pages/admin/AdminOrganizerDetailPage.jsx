@@ -63,7 +63,7 @@ export function AdminOrganizerDetailPage() {
 
   if (detailQuery.isLoading) {
     return (
-      <Page title="Chi tiết Organizer" description="Đang tải dữ liệu hồ sơ nhà tổ chức...">
+      <Page title="Chi tiết Organizer">
         <Panel><p className="text-sm text-subtle">Đang tải chi tiết organizer...</p></Panel>
       </Page>
     )
@@ -71,7 +71,7 @@ export function AdminOrganizerDetailPage() {
 
   if (detailQuery.isError || !organizer) {
     return (
-      <Page title="Chi tiết Organizer" description="Không thể tải dữ liệu organizer.">
+      <Page title="Chi tiết Organizer">
         <Panel>
           <p className="text-sm text-error">Không thể tải chi tiết organizer. Vui lòng thử lại.</p>
           <button type="button" onClick={() => navigate('/admin/organizers')} className="admin-secondary mt-4">
@@ -228,7 +228,9 @@ export function AdminOrganizerDetailPage() {
                   {request.kyc_ocr_data && (
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
                       <ShieldCheck className="size-3.5" />{' '}
-                      {request.kyc_ocr_data?.verification_method === 'PARTNER_VETTING' || request.kyc_ocr_data?.algorithm_checked
+                      {request.kyc_ocr_data?.scan_method === 'AI_OCR_AND_QR' || request.kyc_ocr_data?.has_qr_cross_check
+                        ? 'AI OCR + QR C06 Khớp (' + Math.round((request.kyc_ocr_data?.overall_confidence || 0.95) * 100) + '%)'
+                        : request.kyc_ocr_data?.verification_method === 'PARTNER_VETTING' || request.kyc_ocr_data?.algorithm_checked
                         ? 'Định danh số & Uy tín (Không lưu ảnh CCCD)'
                         : request.kyc_ocr_data?.scan_method === 'VNEID_GATEWAY' || request.kyc_ocr_data?.verified
                         ? 'Xác thực qua VNeID Mức 2'
@@ -319,14 +321,22 @@ function formatCurrency(value) {
   })
 }
 
+const getAutoLocale = () =>
+  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
+   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
+    ? 'en-US'
+    : 'vi-VN'
+
 function formatDate(value) {
-  if (!value) return 'Chưa có'
-  return new Date(value).toLocaleDateString('vi-VN')
+  const isEn = getAutoLocale() === 'en-US'
+  if (!value) return isEn ? 'N/A' : 'Chưa có'
+  return new Date(value).toLocaleDateString(getAutoLocale())
 }
 
 function formatDateTime(value) {
-  if (!value) return 'Chưa có'
-  return new Date(value).toLocaleString('vi-VN')
+  const isEn = getAutoLocale() === 'en-US'
+  if (!value) return isEn ? 'N/A' : 'Chưa có'
+  return new Date(value).toLocaleString(getAutoLocale())
 }
 
 function maskAccount(value) {

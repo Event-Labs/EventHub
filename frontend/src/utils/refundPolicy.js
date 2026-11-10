@@ -71,19 +71,21 @@ export function validateRefundRules(rules) {
 /**
  * Generates an array of formatted bullet points from structured refund policy
  * @param {Object} policy
+ * @param {string} [locale]
  * @returns {string[]}
  */
-export function generateRefundPolicyLines(policy) {
-  if (!policy) return ['• Vé không hỗ trợ hoàn hủy.']
+export function generateRefundPolicyLines(policy, locale = (typeof document !== 'undefined' && document.documentElement.lang === 'en' ? 'en' : 'vi')) {
+  const isEn = locale === 'en'
+  if (!policy) return [isEn ? '• Tickets are non-refundable.' : '• Vé không hỗ trợ hoàn hủy.']
 
   const isAllowed = Boolean(policy.allow_refund ?? policy.allow_refunds)
   if (!isAllowed) {
-    return ['• Vé không hỗ trợ hoàn hủy theo chính sách của sự kiện.']
+    return [isEn ? '• Tickets are non-refundable according to event policy.' : '• Vé không hỗ trợ hoàn hủy theo chính sách của sự kiện.']
   }
 
   const rules = Array.isArray(policy.refund_rules) ? policy.refund_rules : []
   if (rules.length === 0) {
-    return ['• Vé không hỗ trợ hoàn hủy.']
+    return [isEn ? '• Tickets are non-refundable.' : '• Vé không hỗ trợ hoàn hủy.']
   }
 
   const sorted = [...rules].sort((a, b) => Number(b.days_before) - Number(a.days_before))
@@ -92,20 +94,32 @@ export function generateRefundPolicyLines(policy) {
   for (let i = 0; i < sorted.length; i++) {
     const current = sorted[i]
     if (i === 0) {
-      lines.push(`• Hoàn ${current.refund_rate}% số tiền đã thanh toán nếu yêu cầu trước sự kiện ít nhất ${current.days_before} ngày.`)
+      lines.push(
+        isEn
+          ? `• Refund ${current.refund_rate}% of paid amount if requested at least ${current.days_before} days before event.`
+          : `• Hoàn ${current.refund_rate}% số tiền đã thanh toán nếu yêu cầu trước sự kiện ít nhất ${current.days_before} ngày.`
+      )
     } else {
       const prev = sorted[i - 1]
-      lines.push(`• Hoàn ${current.refund_rate}% số tiền đã thanh toán nếu yêu cầu trước sự kiện từ ${current.days_before} đến dưới ${prev.days_before} ngày.`)
+      lines.push(
+        isEn
+          ? `• Refund ${current.refund_rate}% of paid amount if requested from ${current.days_before} to under ${prev.days_before} days before event.`
+          : `• Hoàn ${current.refund_rate}% số tiền đã thanh toán nếu yêu cầu trước sự kiện từ ${current.days_before} đến dưới ${prev.days_before} ngày.`
+      )
     }
   }
 
   const minDays = sorted[sorted.length - 1].days_before
   if (minDays > 0) {
-    lines.push(`• Không hỗ trợ hoàn tiền nếu yêu cầu trong vòng ${minDays} ngày trước sự kiện.`)
+    lines.push(
+      isEn
+        ? `• Non-refundable if requested within ${minDays} days before event.`
+        : `• Không hỗ trợ hoàn tiền nếu yêu cầu trong vòng ${minDays} ngày trước sự kiện.`
+    )
   }
 
   if (policy.refund_notes && policy.refund_notes.trim()) {
-    lines.push(`* Ghi chú từ BTC: ${policy.refund_notes.trim()}`)
+    lines.push(isEn ? `* Note from Organizer: ${policy.refund_notes.trim()}` : `* Ghi chú từ BTC: ${policy.refund_notes.trim()}`)
   }
 
   return lines
@@ -114,8 +128,9 @@ export function generateRefundPolicyLines(policy) {
 /**
  * Generates full text string from structured refund policy
  * @param {Object} policy
+ * @param {string} [locale]
  * @returns {string}
  */
-export function generateRefundPolicyText(policy) {
-  return generateRefundPolicyLines(policy).join('\n')
+export function generateRefundPolicyText(policy, locale) {
+  return generateRefundPolicyLines(policy, locale).join('\n')
 }

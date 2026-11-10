@@ -301,6 +301,11 @@ class OrganizerEventsRepository {
           'seat_map_id', es.seat_map_id,
           'checkin_start_time', es.checkin_start_time,
           'status', es.status,
+          'disabled_seat_ids', COALESCE((
+            SELECT json_agg(ss.seat_id)
+            FROM session_seats ss
+            WHERE ss.event_session_id = es.id AND ss.status = 'BLOCKED'
+          ), '[]'::json),
           'venue', json_build_object(
             'id', v.id,
             'name', v.name,
@@ -755,7 +760,7 @@ class OrganizerEventsRepository {
     return rows[0];
   }
 
-  async assignZonesToTicketTypes(sessionId, assignments) {
+  async assignZonesToTicketTypes(sessionId, assignments, disabledSeatIds = null) {
     const client = await db.getClient();
     try {
       await client.query('BEGIN');
@@ -820,6 +825,41 @@ class OrganizerEventsRepository {
           `,
           [ticketTypeIds, zoneIds, sessionId],
         );
+      }
+
+      if (Array.isArray(disabledSeatIds)) {
+        if (disabledSeatIds.length > 0) {
+          await client.query(
+            `
+            UPDATE session_seats
+            SET status = 'BLOCKED'
+            WHERE event_session_id = $1
+              AND seat_id = ANY($2::uuid[])
+              AND (status = 'AVAILABLE' OR status IS NULL)
+            `,
+            [sessionId, disabledSeatIds],
+          );
+          await client.query(
+            `
+            UPDATE session_seats
+            SET status = 'AVAILABLE'
+            WHERE event_session_id = $1
+              AND status = 'BLOCKED'
+              AND NOT (seat_id = ANY($2::uuid[]))
+            `,
+            [sessionId, disabledSeatIds],
+          );
+        } else {
+          await client.query(
+            `
+            UPDATE session_seats
+            SET status = 'AVAILABLE'
+            WHERE event_session_id = $1
+              AND status = 'BLOCKED'
+            `,
+            [sessionId],
+          );
+        }
       }
 
       await client.query('COMMIT');

@@ -14,14 +14,15 @@
 const logger = require('../../core/logger');
 
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'eventhub-qwen3';
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'eve-agent';
+const OLLAMA_FALLBACK_MODEL = process.env.OLLAMA_FALLBACK_MODEL || 'qwen3-eventhub-Q4_K_M.gguf';
 const OLLAMA_VISION_MODEL = process.env.OLLAMA_VISION_MODEL || 'moondream';
-const OLLAMA_TIMEOUT = Number(process.env.OLLAMA_TIMEOUT_MS || 600000);
+const OLLAMA_TIMEOUT = Number(process.env.OLLAMA_TIMEOUT_MS || 90000);
 const OLLAMA_VISION_TIMEOUT = Number(process.env.OLLAMA_VISION_TIMEOUT_MS || 200000);
-const OLLAMA_NUM_CTX = Number(process.env.OLLAMA_NUM_CTX || 4096);
-const OLLAMA_NUM_THREAD = Number(process.env.OLLAMA_NUM_THREAD || 2);
-const OLLAMA_NUM_BATCH = Number(process.env.OLLAMA_NUM_BATCH || 512);
-const OLLAMA_NUM_GPU = process.env.OLLAMA_NUM_GPU !== undefined ? Number(process.env.OLLAMA_NUM_GPU) : 8;
+const OLLAMA_NUM_CTX = Number(process.env.OLLAMA_NUM_CTX || 8192);
+const OLLAMA_NUM_THREAD = Number(process.env.OLLAMA_NUM_THREAD || 12);
+const OLLAMA_NUM_BATCH = Number(process.env.OLLAMA_NUM_BATCH || 1024);
+const OLLAMA_NUM_GPU = process.env.OLLAMA_NUM_GPU !== undefined ? Number(process.env.OLLAMA_NUM_GPU) : 99;
 
 
 /**
@@ -213,6 +214,9 @@ async function chat(messages, options = {}) {
       const textOnlyMessages = processedMessages.map(({ images, ...rest }) => rest);
       const textOnlyBody = { ...body, messages: textOnlyMessages };
       result = await ollamaFetch('/api/chat', textOnlyBody, timeoutMs, retries, options.signal);
+    } else if (OLLAMA_FALLBACK_MODEL && model !== OLLAMA_FALLBACK_MODEL && !options._isFallback) {
+      logger.warn(`[OllamaClient] Primary model '${model}' failed (${err.message}). Retrying with fallback model '${OLLAMA_FALLBACK_MODEL}'...`);
+      return await chat(messages, { ...options, model: OLLAMA_FALLBACK_MODEL, _isFallback: true });
     } else {
       throw err;
     }

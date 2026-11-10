@@ -9,7 +9,7 @@ class PaymentsRepository {
       WHERE organizer_id = $1
         AND provider = 'PAYOS'
         AND status = 'ACTIVE'
-        AND is_default = true
+      ORDER BY is_default DESC, created_at DESC
       LIMIT 1
       `,
       [organizerId],
@@ -26,7 +26,7 @@ class PaymentsRepository {
       WHERE e.id = $1
         AND opc.provider = 'PAYOS'
         AND opc.status = 'ACTIVE'
-        AND opc.is_default = true
+      ORDER BY opc.is_default DESC, opc.created_at DESC
       LIMIT 1
       `,
       [eventId],
@@ -75,10 +75,14 @@ class PaymentsRepository {
         opc.client_id,
         opc.api_key_encrypted,
         opc.checksum_key_encrypted,
-        COALESCE(po.organizer_id, opc.organizer_id) AS organizer_id
+        COALESCE(po.organizer_id, opc.organizer_id, e.organizer_id) AS organizer_id
       FROM payment_orders po
       JOIN orders o ON o.id = po.order_id
-      JOIN organizer_payment_channels opc ON opc.id = po.payment_channel_id
+      LEFT JOIN organizer_payment_channels opc ON opc.id = po.payment_channel_id
+      LEFT JOIN order_items oi ON oi.order_id = o.id
+      LEFT JOIN ticket_types tt ON tt.id = oi.ticket_type_id
+      LEFT JOIN event_sessions es ON es.id = tt.event_session_id
+      LEFT JOIN events e ON e.id = es.event_id
       WHERE po.order_id = $1
         AND o.user_id = $2
       ORDER BY po.created_at DESC
@@ -97,9 +101,14 @@ class PaymentsRepository {
         opc.client_id,
         opc.api_key_encrypted,
         opc.checksum_key_encrypted,
-        COALESCE(po.organizer_id, opc.organizer_id) AS organizer_id
+        COALESCE(po.organizer_id, opc.organizer_id, e.organizer_id) AS organizer_id
       FROM payment_orders po
-      JOIN organizer_payment_channels opc ON opc.id = po.payment_channel_id
+      JOIN orders o ON o.id = po.order_id
+      LEFT JOIN organizer_payment_channels opc ON opc.id = po.payment_channel_id
+      LEFT JOIN order_items oi ON oi.order_id = o.id
+      LEFT JOIN ticket_types tt ON tt.id = oi.ticket_type_id
+      LEFT JOIN event_sessions es ON es.id = tt.event_session_id
+      LEFT JOIN events e ON e.id = es.event_id
       WHERE po.order_id = $1
       ORDER BY po.created_at DESC
       LIMIT 1

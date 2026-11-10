@@ -389,13 +389,13 @@ class PayOSRefundService {
           errorDesc.toLowerCase().includes('api key không tồn tại')
         ) {
           errorDesc =
-            `Tài khoản PayOS của Ban tổ chức chưa kích hoạt dịch vụ Chi hộ (Payouts) trên payOS (Lỗi 601: ${errorDesc || 'API key không tồn tại trên hệ thống chi hộ'}). Do cổng PayOS chỉ nhận tiền vào tài khoản ngân hàng và không tự động trừ tiền để hoàn trả, Ban tổ chức vui lòng chọn phương thức "Chuyển khoản thủ công" (quét mã VietQR hoặc chuyển trực tiếp) để hoàn tiền cho khách hàng.`;
+            'Tài khoản PayOS chưa kích hoạt dịch vụ Chi hộ (Lỗi 601). Vui lòng chọn "Chuyển khoản thủ công".';
         } else if (
           String(json.code) === '606' ||
           errorDesc.toLowerCase().includes('idempotency key')
         ) {
           errorDesc =
-            `Khóa giao dịch (Idempotency key) đã được sử dụng trước đó trên cổng PayOS (Lỗi 606). Vui lòng bấm thử lại để hệ thống tự động làm mới mã giao dịch hoặc chọn phương thức "Chuyển khoản thủ công".`;
+            'Trùng mã giao dịch PayOS (Lỗi 606). Vui lòng thử lại hoặc chọn "Chuyển khoản thủ công".';
         } else if (
           errorDesc.toLowerCase().includes('địa chỉ ip') ||
           errorDesc.toLowerCase().includes('ip không được phép') ||
@@ -403,29 +403,29 @@ class PayOSRefundService {
           (status === 403 && (String(json.code) === '403' || String(json.code) === 'IP_BLOCKED'))
         ) {
           const realIp = await organizerEgressService.getRealPublicIp();
-          errorDesc = `Cổng PayOS từ chối lệnh chi do IP chưa được thêm vào IP Whitelist (${json.desc || errorDesc || 'Địa chỉ IP không được phép truy cập'}). IP Outbound thực tế của máy chủ là: "${realIp}". Vui lòng vào my.payos.vn > Kênh chi > Cài đặt > thêm chính xác địa chỉ IP "${realIp}" vào danh sách "IP Whitelist" (xóa bỏ IP 198.51.100.1 nếu có), hoặc chọn phương thức "Chuyển khoản thủ công".`;
+          errorDesc = `IP máy chủ (${realIp}) chưa có trong Whitelist PayOS. Vui lòng chọn "Chuyển khoản thủ công".`;
         } else if (
           status === 404 ||
           errorDesc.toLowerCase().includes('endpoint not found') ||
           errorDesc.toLowerCase().includes('not found')
         ) {
           errorDesc =
-            'Cổng PayOS chưa kích hoạt Kênh chi (Payouts) cho tài khoản này (hoặc tính năng chi hộ tự động chưa được mở). Do PayOS nhận tiền trực tiếp về tài khoản ngân hàng và không hỗ trợ hoàn tiền đảo chiều tự động trên link thanh toán, vui lòng chọn phương thức "Chuyển khoản thủ công" để hoàn tiền cho khách hàng.';
+            'Tài khoản PayOS chưa mở Kênh chi tự động. Vui lòng chọn "Chuyển khoản thủ công".';
         } else if (
           status === 403 ||
           errorDesc.toLowerCase().includes('forbidden') ||
           errorDesc.toLowerCase().includes('permission')
         ) {
           errorDesc =
-            `Tài khoản PayOS từ chối thực hiện lệnh Chi hộ (Lỗi 403: ${errorDesc || 'Forbidden'}). Vui lòng kiểm tra lại quyền Chi hộ của API Key hoặc chọn phương thức "Chuyển khoản thủ công".`;
+            'PayOS từ chối lệnh Chi hộ (Lỗi 403). Vui lòng chọn "Chuyển khoản thủ công".';
         } else if (
           errorDesc.toLowerCase().includes('balance') ||
           errorDesc.toLowerCase().includes('số dư') ||
           errorDesc.toLowerCase().includes('không đủ')
         ) {
-          errorDesc = `Số dư tài khoản Chi hộ PayOS không đủ để thực hiện hoàn tiền (${errorDesc}). Vui lòng nạp thêm tiền vào ví Bảo Kim hoặc chọn phương thức "Chuyển khoản thủ công".`;
+          errorDesc = 'Số dư ví PayOS không đủ để hoàn tiền. Vui lòng chọn "Chuyển khoản thủ công".';
         } else if (!errorDesc) {
-          errorDesc = `Lỗi từ cổng PayOS (${status}): ${response.statusText || 'Giao dịch không thành công'}`;
+          errorDesc = `Cổng PayOS từ chối giao dịch (${status}). Vui lòng chọn "Chuyển khoản thủ công".`;
         }
 
         logger.error(

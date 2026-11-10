@@ -10,6 +10,12 @@ import { useToast } from '@/providers/ToastProvider.jsx'
 import { Modal } from '@/components/Modal.jsx'
 import { Badge, Page, Panel, StatusBadge, Table, TableActionButton } from './AdminComponents.jsx'
 
+const getAutoLocale = () =>
+  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
+   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
+    ? 'en-US'
+    : 'vi-VN'
+
 
 const statusFilters = [
   { label: 'Tất cả', value: '' },
@@ -129,7 +135,6 @@ export function AdminOrganizerRequestsPage() {
   return (
     <Page
       title="Yêu cầu Organizer"
-      description="Kiểm tra hồ sơ đăng ký và phê duyệt yêu cầu nâng quyền"
     >
       <div className="mb-6 grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
         <FilterGroup
@@ -261,7 +266,7 @@ export function AdminOrganizerRequestsPage() {
               tone={statusTone(request.status)}
             />,
             <span key="date" className="text-subtle font-medium whitespace-nowrap">
-              {new Date(request.created_at).toLocaleDateString('vi-VN')}
+              {new Date(request.created_at).toLocaleDateString(getAutoLocale())}
             </span>,
             <TableActionButton
               key="action"
@@ -293,7 +298,7 @@ export function AdminOrganizerRequestsPage() {
                 </button>
                 <button
                   type="button"
-                  className="admin-danger flex items-center gap-2 rounded-xl px-5 py-2.5 font-bold disabled:cursor-not-allowed disabled:opacity-70"
+                  className="admin-danger flex items-center gap-2 rounded-full px-5 py-2.5 font-bold disabled:cursor-not-allowed disabled:opacity-70"
                   disabled={reviewMutation.isPending}
                   onClick={() => submitReview('REJECTED')}
                 >
@@ -302,7 +307,7 @@ export function AdminOrganizerRequestsPage() {
                 </button>
                 <button
                   type="button"
-                  className="admin-primary flex items-center gap-2 rounded-xl px-6 py-2.5 font-bold disabled:cursor-not-allowed disabled:opacity-60"
+                  className="admin-primary flex items-center gap-2 rounded-full px-6 py-2.5 font-bold disabled:cursor-not-allowed disabled:opacity-60"
                   disabled={
                     reviewMutation.isPending ||
                     (selectedRequest.request_type === 'ORGANIZATION' &&
@@ -459,9 +464,16 @@ export function AdminOrganizerRequestsPage() {
                                     </p>
                                   </div>
                                 </div>
-                                <span className="inline-flex items-center gap-1 text-[11px] font-extrabold uppercase px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shrink-0 self-start sm:self-auto">
-                                  <Check className="size-3" /> Thuật toán C06 Hợp lệ
-                                </span>
+                                <div className="flex flex-wrap items-center gap-2 shrink-0 self-start sm:self-auto">
+                                  {(kyc.scan_method === 'AI_OCR_AND_QR' || kyc.has_qr_cross_check) && (
+                                    <span className="inline-flex items-center gap-1 text-[11px] font-extrabold uppercase px-3 py-1 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/40">
+                                      <Check className="size-3" /> AI OCR + QR Khớp ({Math.round((kyc.overall_confidence || 0.95) * 100)}%)
+                                    </span>
+                                  )}
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-extrabold uppercase px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                                    <Check className="size-3" /> Thuật toán C06 Hợp lệ
+                                  </span>
+                                </div>
                               </div>
 
                               <div className="rounded-xl bg-emerald-950/30 border border-emerald-500/20 px-3.5 py-2 text-xs text-emerald-300 flex items-center gap-2">

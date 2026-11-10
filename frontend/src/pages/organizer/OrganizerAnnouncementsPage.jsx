@@ -23,9 +23,16 @@ import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 import RichTextEditor from '@/components/RichTextEditor.jsx'
 
+const getAutoLocale = () =>
+  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
+   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
+    ? 'en-US'
+    : 'vi-VN'
+
 function formatDateTime(value) {
-  if (!value) return 'Chưa gửi'
-  return new Intl.DateTimeFormat('vi-VN', {
+  const isEn = getAutoLocale() === 'en-US'
+  if (!value) return isEn ? 'Not sent' : 'Chưa gửi'
+  return new Intl.DateTimeFormat(getAutoLocale(), {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(value))
@@ -212,7 +219,6 @@ export function OrganizerAnnouncementsPage() {
   return (
     <OrganizerPage
       title="Gửi Thông báo"
-      description="Gửi cập nhật quan trọng tới người đã mua vé qua hệ thống và email"
     >
       <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
         <div className="space-y-5">

@@ -15,7 +15,7 @@ import {
   UserRoundCheck,
   X,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { SectionHeader } from '@/components/SectionHeader.jsx'
 import {
@@ -33,9 +33,10 @@ import { getRememberLoginPreference, setAuthSession } from '@/lib/auth.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { formatNotificationDisplay } from '@/lib/notifications.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
 
 function isStaffInvitationNotification(notification) {
-  return notification.title === 'STAFF_INVITATION' || notification.title === 'Lời mời làm staff'
+  return notification.title === 'STAFF_INVITATION' || notification.title === 'Lời mời làm staff' || notification.title === 'Staff Invitation'
 }
 
 function isStaffInvitationStoreNotification(notification) {
@@ -47,7 +48,7 @@ function isOrganizerRejectedNotification(notification) {
   const c = (notification.content || '').toLowerCase()
   return (
     (t.includes('organizer') || c.includes('organizer')) &&
-    (t.includes('chưa được duyệt') || t.includes('từ chối') || c.includes('chưa được phê duyệt') || c.includes('chưa được duyệt') || c.includes('cập nhật thông tin'))
+    (t.includes('chưa được duyệt') || t.includes('từ chối') || c.includes('chưa được phê duyệt') || c.includes('chưa được duyệt') || c.includes('cập nhật thông tin') || t.includes('rejected') || c.includes('rejected'))
   )
 }
 
@@ -56,7 +57,7 @@ function isOrganizerApprovedNotification(notification) {
   const c = (notification.content || '').toLowerCase()
   return (
     (t.includes('organizer') || c.includes('organizer')) &&
-    (t.includes('đã được duyệt') || t.includes('phê duyệt') || c.includes('phê duyệt thành công') || c.includes('chúc mừng'))
+    (t.includes('đã được duyệt') || t.includes('phê duyệt') || c.includes('phê duyệt thành công') || c.includes('chúc mừng') || t.includes('approved') || c.includes('approved'))
   )
 }
 
@@ -75,25 +76,27 @@ function parseNotificationContent(content) {
   }
 }
 
-function staffInvitationStatusLabel(status) {
-  if (status === 'ACCEPTED') return 'Đã đồng ý'
-  if (status === 'DECLINED') return 'Đã từ chối'
-  return 'Đang chờ phản hồi'
+function staffInvitationStatusLabel(status, isEnglish = false) {
+  if (status === 'ACCEPTED') return isEnglish ? 'Accepted' : 'Đã đồng ý'
+  if (status === 'DECLINED') return isEnglish ? 'Declined' : 'Đã từ chối'
+  return isEnglish ? 'Pending Response' : 'Đang chờ phản hồi'
 }
 
-function getStaffInvitationDetails(notification, invitationsById) {
+function getStaffInvitationDetails(notification, invitationsById, isEnglish = false) {
   const invitation = invitationsById.get(notification.id)
   const meta = parseNotificationContent(notification.content)
   const status = invitation?.status || meta.status || 'PENDING'
   const role = invitation?.staff_role || meta.staff_role || 'Staff'
   const gate = invitation?.gate || meta.gate || null
   const zone = invitation?.zone || meta.zone || null
-  const eventTitle = invitation?.event_title || notification.event?.title || 'sự kiện'
-  const organizationName = invitation?.organization_name || 'Ban tổ chức'
+  const sessionName = invitation?.session_name || meta.session_name || null
+  const eventTitle = invitation?.event_title || notification.event?.title || (isEnglish ? 'event' : 'sự kiện')
+  const organizationName = invitation?.organization_name || (isEnglish ? 'Organizer' : 'Ban tổ chức')
   const locationParts = []
-  if (gate) locationParts.push(`Cổng ${gate}`)
-  if (zone) locationParts.push(`Khu vực ${zone}`)
-  const locationText = locationParts.length ? ` tại ${locationParts.join(' • ')}` : ''
+  if (sessionName) locationParts.push(isEnglish ? `Session: ${sessionName}` : `Phiên: ${sessionName}`)
+  if (gate) locationParts.push(isEnglish ? `Gate ${gate}` : `Cổng ${gate}`)
+  if (zone) locationParts.push(isEnglish ? `Zone ${zone}` : `Khu vực ${zone}`)
+  const locationText = locationParts.length ? ` (${locationParts.join(' • ')})` : ''
 
   return {
     ...invitation,
@@ -101,8 +104,10 @@ function getStaffInvitationDetails(notification, invitationsById) {
     event_slug: invitation?.event_slug || notification.event?.slug,
     event_title: eventTitle,
     status,
-    title: 'Lời mời làm staff',
-    content: `${organizationName} mời bạn làm staff cho sự kiện "${eventTitle}" với vai trò ${role}${locationText}.`,
+    title: isEnglish ? 'Staff Invitation' : 'Lời mời làm staff',
+    content: isEnglish
+      ? `${organizationName} invites you to join as staff for "${eventTitle}" in role ${role}${locationText}.`
+      : `${organizationName} mời bạn làm staff cho sự kiện "${eventTitle}" với vai trò ${role}${locationText}.`,
     expires_at: invitation?.expires_at || meta.expires_at || null,
   }
 }
@@ -116,14 +121,14 @@ function dedupeStaffInvitationNotifications(items) {
   )
 
   return items.filter((item) => {
-    if (item.title !== 'Lời mời làm staff') return true
+    if (item.title !== 'Lời mời làm staff' && item.title !== 'Staff Invitation') return true
     return !item.event_id || !storeInviteEventIds.has(item.event_id)
   })
 }
 
-function formatDateTime(value) {
-  if (!value) return 'Chưa cập nhật'
-  return new Intl.DateTimeFormat('vi-VN', {
+function formatDateTime(value, isEnglish = false) {
+  if (!value) return isEnglish ? 'N/A' : 'Chưa cập nhật'
+  return new Intl.DateTimeFormat(isEnglish ? 'en-US' : 'vi-VN', {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(value))
@@ -136,11 +141,13 @@ function iconFor(type) {
   return Bell
 }
 
-const FILTERS = [
-  { value: 'all', label: 'Tất cả' },
-  { value: 'unread', label: 'Chưa đọc' },
-  { value: 'invitation', label: 'Lời mời staff' },
-]
+function getNotificationFilters(isEnglish) {
+  return [
+    { value: 'all', label: isEnglish ? 'All' : 'Tất cả' },
+    { value: 'unread', label: isEnglish ? 'Unread' : 'Chưa đọc' },
+    { value: 'invitation', label: isEnglish ? 'Staff Invitations' : 'Lời mời staff' },
+  ]
+}
 
 function invitationStatusStyle(status) {
   if (status === 'ACCEPTED') return 'border-success/25 bg-success/10 text-success'
@@ -149,11 +156,14 @@ function invitationStatusStyle(status) {
 }
 
 export function NotificationsPage() {
+  const { isEnglish, t } = useLanguage()
   const toast = useToast()
   const [activeFilter, setActiveFilter] = useState('all')
   const [page, setPage] = useState(1)
   const [acceptedInvitationId, setAcceptedInvitationId] = useState(null)
   const queryClient = useQueryClient()
+  const filters = useMemo(() => getNotificationFilters(isEnglish), [isEnglish])
+
   const notificationsQuery = useQuery({
     queryKey: ['notifications', page, activeFilter],
     queryFn: () => fetchNotifications({
@@ -171,24 +181,24 @@ export function NotificationsPage() {
   const markReadMutation = useMutation({
     mutationFn: markNotificationRead,
     onSuccess: () => {
-      toast.success('Đã đánh dấu thông báo là đã đọc.')
+      toast.success(isEnglish ? 'Notification marked as read.' : 'Đã đánh dấu thông báo là đã đọc.')
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
       queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] })
     },
     onError: (err) => {
-      toast.error(getApiMessage(err, 'Không thể đánh dấu thông báo. Vui lòng thử lại.'))
+      toast.error(getApiMessage(err, isEnglish ? 'Failed to mark notification.' : 'Không thể đánh dấu thông báo. Vui lòng thử lại.'))
     },
   })
 
   const markAllMutation = useMutation({
     mutationFn: markAllNotificationsRead,
     onSuccess: () => {
-      toast.success('Đã đánh dấu tất cả thông báo là đã đọc.')
+      toast.success(isEnglish ? 'All notifications marked as read.' : 'Đã đánh dấu tất cả thông báo là đã đọc.')
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
       queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] })
     },
     onError: (err) => {
-      toast.error(getApiMessage(err, 'Không thể đánh dấu tất cả thông báo. Vui lòng thử lại.'))
+      toast.error(getApiMessage(err, isEnglish ? 'Failed to mark all notifications.' : 'Không thể đánh dấu tất cả thông báo. Vui lòng thử lại.'))
     },
   })
 
@@ -202,25 +212,25 @@ export function NotificationsPage() {
           remember: getRememberLoginPreference(),
         })
       }
-      toast.success(data?.message || 'Bạn đã nhận lời mời thành công.')
+      toast.success(data?.message || (isEnglish ? 'Invitation accepted successfully.' : 'Bạn đã nhận lời mời thành công.'))
       setAcceptedInvitationId(invitationId)
       queryClient.invalidateQueries({ queryKey: ['staff-invitations', 'me'] })
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
     },
     onError: (err) => {
-      toast.error(getApiMessage(err, 'Không thể đồng ý lời mời. Vui lòng thử lại.'))
+      toast.error(getApiMessage(err, isEnglish ? 'Failed to accept invitation. Please try again.' : 'Không thể đồng ý lời mời. Vui lòng thử lại.'))
     },
   })
 
   const declineInvitationMutation = useMutation({
     mutationFn: declineStaffInvitation,
     onSuccess: () => {
-      toast.success('Đã từ chối lời mời làm staff.')
+      toast.success(isEnglish ? 'Declined staff invitation.' : 'Đã từ chối lời mời làm staff.')
       queryClient.invalidateQueries({ queryKey: ['staff-invitations', 'me'] })
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
     },
     onError: (err) => {
-      toast.error(getApiMessage(err, 'Không thể từ chối lời mời. Vui lòng thử lại.'))
+      toast.error(getApiMessage(err, isEnglish ? 'Failed to decline invitation. Please try again.' : 'Không thể từ chối lời mời. Vui lòng thử lại.'))
     },
   })
 
@@ -235,17 +245,17 @@ export function NotificationsPage() {
   return (
     <div className="mx-auto max-w-7xl px-3.5 sm:px-6 lg:px-8 xl:px-12 pt-4 sm:pt-8 pb-8 sm:pb-12">
       <SectionHeader
-        title="Trung tâm thông báo"
-        description="Theo dõi cập nhật sự kiện, thanh toán và lời mời dành cho bạn."
+        title={isEnglish ? 'Notification Center' : 'Trung tâm thông báo'}
+        description={isEnglish ? 'Track event updates, payments, and invitations tailored for you.' : 'Theo dõi cập nhật sự kiện, thanh toán và lời mời dành cho bạn.'}
         action={displayNotifications.length ? (
           <button
             type="button"
             onClick={() => markAllMutation.mutate()}
             disabled={unreadCount === 0 || markAllMutation.isPending}
-            className="inline-flex h-11 items-center gap-2 rounded-xl border border-border-soft/50 bg-panel-soft px-4 text-sm font-bold text-content transition hover:border-primary/50 hover:text-primary disabled:cursor-not-allowed disabled:opacity-45"
+            className="inline-flex h-11 items-center gap-2 rounded-full border border-border-soft/50 bg-panel-soft px-5 text-sm font-bold text-content transition hover:border-primary/50 hover:text-primary disabled:cursor-not-allowed disabled:opacity-45"
           >
             {markAllMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <CheckCheck className="size-4" />}
-            Đánh dấu tất cả đã đọc
+            {isEnglish ? 'Mark all as read' : 'Đánh dấu tất cả đã đọc'}
           </button>
         ) : null}
       />
@@ -253,7 +263,7 @@ export function NotificationsPage() {
       {/* ── Phần 1: Bộ lọc ── */}
       <div className="relative z-10 mb-6 flex w-full justify-end">
         <div className="flex flex-wrap items-center gap-2">
-          {FILTERS.map((filter) => (
+          {filters.map((filter) => (
             <button
               key={filter.value}
               type="button"
@@ -278,29 +288,29 @@ export function NotificationsPage() {
       <section className="relative z-10 space-y-3.5">
         {notificationsQuery.isLoading && (
           <div className="rounded-2xl border border-white/10 bg-[#0f172a] p-8 shadow-xl">
-            <StatePanel message="Đang tải thông báo..." loading />
+            <StatePanel message={isEnglish ? 'Loading notifications...' : 'Đang tải thông báo...'} loading />
           </div>
         )}
         {notificationsQuery.isError && (
           <div className="rounded-2xl border border-white/10 bg-[#0f172a] p-8 shadow-xl">
-            <StatePanel message="Không thể tải thông báo." tone="error" />
+            <StatePanel message={isEnglish ? 'Failed to load notifications.' : 'Không thể tải thông báo.'} tone="error" />
           </div>
         )}
         {!notificationsQuery.isLoading && displayNotifications.length === 0 && (
           <div className="rounded-2xl border border-white/10 bg-[#0f172a] p-8 shadow-xl">
-            <StatePanel message="Bạn chưa có thông báo nào." />
+            <StatePanel message={isEnglish ? 'You have no notifications yet.' : 'Bạn chưa có thông báo nào.'} />
           </div>
         )}
         {!notificationsQuery.isLoading && displayNotifications.length > 0 && filteredNotifications.length === 0 && (
           <div className="rounded-2xl border border-white/10 bg-[#0f172a] p-8 shadow-xl">
-            <StatePanel message="Không có thông báo phù hợp với bộ lọc này." />
+            <StatePanel message={isEnglish ? 'No notifications match this filter.' : 'Không có thông báo phù hợp với bộ lọc này.'} />
           </div>
         )}
 
         {filteredNotifications.map((notification) => {
           const Icon = iconFor(notification.type)
           const isInvitation = isStaffInvitationNotification(notification)
-          const invitationDetails = isInvitation ? getStaffInvitationDetails(notification, invitationsById) : null
+          const invitationDetails = isInvitation ? getStaffInvitationDetails(notification, invitationsById, isEnglish) : null
           const eventPath = eventDetailPath(invitationDetails || notification)
           const display = formatNotificationDisplay(notification)
           const title = invitationDetails?.title || display.title
@@ -338,14 +348,16 @@ export function NotificationsPage() {
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="font-display text-base font-extrabold text-content sm:text-lg">
-                          {title}
+                          {t(title)}
                         </h3>
                         {!notification.is_read && (
-                          <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-primary">Mới</span>
+                          <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-primary">
+                            {isEnglish ? 'New' : 'Mới'}
+                          </span>
                         )}
                         {invitationStatus && (
                           <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide', invitationStatusStyle(invitationStatus))}>
-                            {staffInvitationStatusLabel(invitationStatus)}
+                            {staffInvitationStatusLabel(invitationStatus, isEnglish)}
                           </span>
                         )}
                       </div>
@@ -355,22 +367,22 @@ export function NotificationsPage() {
                           dangerouslySetInnerHTML={{ __html: content }}
                         />
                       ) : (
-                        <p className="mt-1.5 max-w-3xl text-sm leading-6 text-subtle whitespace-pre-line">{content}</p>
+                        <p className="mt-1.5 max-w-3xl text-sm leading-6 text-subtle whitespace-pre-line">{t(content)}</p>
                       )}
                       {invitationDetails?.expires_at && invitationStatus === 'PENDING' && (
                         <p className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-warning">
-                          <Clock3 className="size-3.5" /> Hết hạn {formatDateTime(invitationDetails.expires_at)}
+                          <Clock3 className="size-3.5" /> {isEnglish ? 'Expires' : 'Hết hạn'} {formatDateTime(invitationDetails.expires_at, isEnglish)}
                         </p>
                       )}
                     </div>
                     <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold text-muted">
-                      <Clock3 className="size-3.5" /> {formatDateTime(notification.created_at)}
+                      <Clock3 className="size-3.5" /> {formatDateTime(notification.created_at, isEnglish)}
                     </span>
                   </div>
                   <div className="mt-4 flex flex-wrap items-center gap-2">
                     {eventPath && (
-                      <Link className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border-soft/40 bg-panel-soft px-3 text-sm font-bold text-content transition hover:border-primary/50 hover:text-primary" to={eventPath}>
-                        Xem sự kiện <ChevronRight className="size-4" />
+                      <Link className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border-soft/40 bg-panel-soft px-4 text-sm font-bold text-content transition hover:border-primary/50 hover:text-primary" to={eventPath}>
+                        {isEnglish ? 'View Event' : 'Xem sự kiện'} <ChevronRight className="size-4" />
                       </Link>
                     )}
                     {isOrganizerRejected && (
@@ -381,9 +393,9 @@ export function NotificationsPage() {
                             markReadMutation.mutate(notification.id)
                           }
                         }}
-                        className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-4 text-xs font-black text-[#0D1B2A] shadow-md shadow-[#C99A47]/20 transition-all hover:brightness-110 active:scale-95 cursor-pointer"
+                        className="inline-flex h-9 items-center gap-1.5 rounded-full bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-4 text-xs font-black text-[#0D1B2A] shadow-md shadow-[#C99A47]/20 transition-all hover:brightness-110 active:scale-95 cursor-pointer"
                       >
-                        <FileEdit className="size-3.5" /> Cập nhật hồ sơ
+                        <FileEdit className="size-3.5" /> {isEnglish ? 'Update Profile' : 'Cập nhật hồ sơ'}
                       </Link>
                     )}
                     {isOrganizerApproved && (
@@ -394,9 +406,9 @@ export function NotificationsPage() {
                             markReadMutation.mutate(notification.id)
                           }
                         }}
-                        className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-4 text-xs font-extrabold text-emerald-300 transition hover:bg-emerald-500/25 active:scale-95 cursor-pointer"
+                        className="inline-flex h-9 items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/15 px-4 text-xs font-extrabold text-emerald-300 transition hover:bg-emerald-500/25 active:scale-95 cursor-pointer"
                       >
-                        Vào trang Organizer <ChevronRight className="size-3.5" />
+                        {isEnglish ? 'Go to Organizer Portal' : 'Vào trang Organizer'} <ChevronRight className="size-3.5" />
                       </Link>
                     )}
                     {canRespondToInvitation && (
@@ -404,46 +416,46 @@ export function NotificationsPage() {
                         <button
                           type="button"
                           onClick={() => acceptInvitationMutation.mutate(notification.id)}
-                          className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-success px-3.5 text-sm font-extrabold text-[#061225] transition hover:brightness-110 disabled:opacity-60 cursor-pointer"
+                          className="inline-flex h-9 items-center gap-1.5 rounded-full bg-success px-4 text-sm font-extrabold text-[#061225] transition hover:brightness-110 disabled:opacity-60 cursor-pointer shadow-md shadow-success/20"
                           disabled={acceptInvitationMutation.isPending || declineInvitationMutation.isPending}
                         >
-                          <Check className="size-4" /> Đồng ý lời mời
+                          <Check className="size-4" /> {isEnglish ? 'Accept Invitation' : 'Đồng ý lời mời'}
                         </button>
                         <button
                           type="button"
                           onClick={() => declineInvitationMutation.mutate(notification.id)}
-                          className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-error/30 px-3.5 text-sm font-bold text-error transition hover:bg-error/10 disabled:opacity-60 cursor-pointer"
+                          className="inline-flex h-9 items-center gap-1.5 rounded-full border border-error/40 px-4 text-sm font-bold text-error transition hover:bg-error/10 disabled:opacity-60 cursor-pointer"
                           disabled={acceptInvitationMutation.isPending || declineInvitationMutation.isPending}
                         >
-                          <X className="size-4" /> Từ chối
+                          <X className="size-4" /> {isEnglish ? 'Decline' : 'Từ chối'}
                         </button>
                       </>
                     )}
                     {canOpenStaffPortal && (
                       <Link
                         to={acceptInvitationMutation.data?.staff_portal_url || '/staff'}
-                        className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-sm font-extrabold text-[#081126] transition hover:brightness-110"
+                        className="inline-flex h-9 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-extrabold text-[#081126] transition hover:brightness-110"
                       >
-                        <UserRoundCheck className="size-4" /> Mở trang nhân sự
+                        <UserRoundCheck className="size-4" /> {isEnglish ? 'Open Staff Portal' : 'Mở trang nhân sự'}
                       </Link>
                     )}
                     {!notification.is_read && (
                       <button
                         type="button"
                         onClick={() => markReadMutation.mutate(notification.id)}
-                        className="ml-auto inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-bold text-muted transition hover:bg-white/5 hover:text-content cursor-pointer"
+                        className="ml-auto inline-flex h-9 items-center gap-1.5 rounded-full px-3.5 text-xs font-bold text-muted transition hover:bg-white/5 hover:text-content cursor-pointer"
                       >
-                        <CheckCheck className="size-4" /> Đã đọc
+                        <CheckCheck className="size-4" /> {isEnglish ? 'Read' : 'Đã đọc'}
                       </button>
                     )}
                   </div>
                   {acceptedInvitationId === notification.id && acceptInvitationMutation.isSuccess && (
                     <div className="mt-4 rounded-xl border border-success/25 bg-success/[0.07] px-4 py-3 text-sm">
                       <p className="font-semibold text-primary">
-                        {acceptInvitationMutation.data?.message || 'Bạn đã nhận lời mời thành công.'}
+                        {acceptInvitationMutation.data?.message || (isEnglish ? 'You accepted the invitation successfully.' : 'Bạn đã nhận lời mời thành công.')}
                       </p>
                       <p className="mt-1 text-muted">
-                        Bạn có thể mở cổng nhân sự để xem sự kiện được giao và sử dụng công cụ check-in.
+                        {isEnglish ? 'You can open the staff portal to view your assigned event and use check-in tools.' : 'Bạn có thể mở cổng nhân sự để xem sự kiện được giao và sử dụng công cụ check-in.'}
                       </p>
                     </div>
                   )}
@@ -461,6 +473,7 @@ export function NotificationsPage() {
             page={pagination.page}
             totalPages={pagination.total_pages}
             onPageChange={setPage}
+            isEnglish={isEnglish}
           />
         </div>
       )}
@@ -468,18 +481,18 @@ export function NotificationsPage() {
   )
 }
 
-function Pagination({ page, totalPages, onPageChange }) {
+function Pagination({ page, totalPages, onPageChange, isEnglish = false }) {
   const pages = Array.from({ length: totalPages }, (_, index) => index + 1)
     .filter((item) => item === 1 || item === totalPages || Math.abs(item - page) <= 1)
 
   return (
-    <nav className="flex items-center gap-2" aria-label="Phân trang thông báo">
+    <nav className="flex items-center gap-2" aria-label={isEnglish ? 'Notifications pagination' : 'Phân trang thông báo'}>
       <button
         type="button"
         onClick={() => onPageChange(page - 1)}
         disabled={page <= 1}
         className="grid size-9 sm:size-10 place-items-center rounded-full border border-white/10 bg-[#151d34] text-slate-200 transition-all hover:bg-white/10 hover:text-white disabled:border-white/5 disabled:bg-[#151d34]/40 disabled:text-slate-600 disabled:cursor-not-allowed cursor-pointer"
-        aria-label="Trang trước"
+        aria-label={isEnglish ? 'Previous page' : 'Trang trước'}
       >
         <ChevronLeft className="size-5" />
       </button>
@@ -510,15 +523,13 @@ function Pagination({ page, totalPages, onPageChange }) {
         onClick={() => onPageChange(page + 1)}
         disabled={page >= totalPages}
         className="grid size-9 sm:size-10 place-items-center rounded-full border border-white/10 bg-[#151d34] text-slate-200 transition-all hover:bg-white/10 hover:text-white disabled:border-white/5 disabled:bg-[#151d34]/40 disabled:text-slate-600 disabled:cursor-not-allowed cursor-pointer"
-        aria-label="Trang sau"
+        aria-label={isEnglish ? 'Next page' : 'Trang sau'}
       >
         <ChevronRight className="size-5" />
       </button>
     </nav>
   )
 }
-
-
 
 function StatePanel({ message, tone = 'default', loading = false }) {
   return (

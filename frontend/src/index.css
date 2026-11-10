@@ -810,12 +810,18 @@ html.light .create-event-page .bg-\[\#0b132b\] {
   align-items: center;
   justify-content: center;
   border-radius: 9999px;
-  background: linear-gradient(135deg, #C99A47, #E6C17A);
-  color: #0D1B2A;
+  background: linear-gradient(135deg, #C99A47, #E6C17A) !important;
+  color: #0D1B2A !important;
   font-weight: 700;
   transition: all 250ms cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 4px 20px -2px rgba(201, 154, 71, 0.45);
   border: 1px solid rgba(230, 193, 122, 0.4);
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
 
 .btn-gold-primary:hover {
@@ -2949,34 +2955,50 @@ html.light .policy-pdf-viewer svg {
 }
 
 /* ── My Tickets Empty State Visibility Guarantee ── */
+.empty-tickets-view,
 .empty-tickets-box,
+html.light .empty-tickets-view,
 html.light .empty-tickets-box,
+html.light .force-dark .empty-tickets-view,
 html.light .force-dark .empty-tickets-box {
-  background-color: rgba(15, 23, 42, 0.8) !important;
+  background: transparent !important;
+  background-color: transparent !important;
   background-image: none !important;
-  border: 1px solid rgba(201, 154, 71, 0.4) !important;
-  box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.6), 0 0 25px rgba(201, 154, 71, 0.2) !important;
+  border: none !important;
+  box-shadow: none !important;
   opacity: 1 !important;
   visibility: visible !important;
 }
 
+.empty-tickets-view h3,
 .empty-tickets-box h3,
+html.light .empty-tickets-view h3,
 html.light .empty-tickets-box h3,
+html.light .force-dark .empty-tickets-view h3,
 html.light .force-dark .empty-tickets-box h3 {
   color: #ffffff !important;
   display: block !important;
   opacity: 1 !important;
   visibility: visible !important;
+  font-size: 1.125rem !important;
+  font-weight: 600 !important;
+  line-height: 1.5rem !important;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
 }
 
+.empty-tickets-view p,
 .empty-tickets-box p,
+html.light .empty-tickets-view p,
 html.light .empty-tickets-box p,
+html.light .force-dark .empty-tickets-view p,
 html.light .force-dark .empty-tickets-box p {
   color: #cbd5e1 !important;
   display: block !important;
   opacity: 1 !important;
   visibility: visible !important;
+  font-size: 0.875rem !important;
+  line-height: 1.25rem !important;
+  margin-top: 0.375rem !important;
 }
 
 .empty-tickets-box a,
@@ -2998,5 +3020,13 @@ html.light .force-dark .empty-tickets-box .btn-gold-primary {
   box-shadow: 0 4px 20px rgba(201, 154, 71, 0.4) !important;
   opacity: 1 !important;
   visibility: visible !important;
+}
+
+input.no-picker-indicator::-webkit-calendar-picker-indicator,
+input.no-picker-indicator::-webkit-inner-spin-button,
+input.no-picker-indicator::-webkit-clear-button {
+  display: none !important;
+  -webkit-appearance: none !important;
+  margin: 0 !important;
 }
 

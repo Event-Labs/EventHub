@@ -1,9 +1,13 @@
 const { z } = require('zod');
 
 const VALID_STATUS_FILTERS = [
+  'ALL',
   'PENDING_REVIEW',
   'CANCEL_REQUESTS',
   'CANCELLATION_REQUESTS',
+  'CANCEL_ALL',
+  'CANCEL_APPROVED',
+  'CANCEL_REJECTED',
   'PUBLISHED',
   'REJECTED',
   'HIDDEN',

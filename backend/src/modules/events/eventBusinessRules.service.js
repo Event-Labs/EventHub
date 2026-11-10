@@ -18,6 +18,52 @@ const {
   classifyEventChanges,
 } = require('./eventLifecycleHelper');
 
+const BIN_TO_BANK_NAME = {
+  '970436': 'Vietcombank',
+  '970415': 'VietinBank',
+  '970418': 'BIDV',
+  '970405': 'Agribank',
+  '970407': 'Techcombank',
+  '970422': 'MB Bank',
+  '970416': 'ACB',
+  '970432': 'VPBank',
+  '970423': 'TPBank',
+  '970441': 'VIB',
+  '970403': 'Sacombank',
+  '970437': 'HDBank',
+  '970443': 'SHB',
+  '970448': 'OCB',
+  '970426': 'MSB',
+  '970449': 'LPBank',
+  '970412': 'PVcomBank',
+  '970409': 'Bac A Bank',
+  '970428': 'Nam A Bank',
+  '970452': 'Kienlongbank',
+  '970454': 'BVBank',
+  '970438': 'BaoViet Bank',
+  '970400': 'Saigonbank',
+  '970433': 'VietBank',
+  '970419': 'NCB',
+  '970424': 'Shinhan Bank',
+  '970457': 'Woori Bank',
+};
+
+function resolvePayerBankInfo(po, fallbackOrganizerId) {
+  let rawAccNum = po.payer_account_number;
+  if (rawAccNum && fieldCrypto.isEncrypted(rawAccNum)) {
+    const keysToTry = [po.organizer_id, fallbackOrganizerId, 'platform'].filter(Boolean);
+    for (const k of keysToTry) {
+      try {
+        rawAccNum = fieldCrypto.decrypt(rawAccNum, k, 'payer_account_number', { allowLegacy: true });
+        break;
+      } catch (_) {}
+    }
+  }
+
+  const bankName = BIN_TO_BANK_NAME[po.payer_bank_id] || po.payer_bank_id || null;
+  return { bankAccountNumber: rawAccNum, bankName };
+}
+
 class EventBusinessRulesService {
   /**
    * Helper to resolve organizer id from user id
@@ -92,12 +138,16 @@ class EventBusinessRulesService {
   async processConfirmedOrdersOnCancellation(client, eventId) {
     const { rows: confirmedOrders } = await client.query(
       `
-      SELECT DISTINCT o.id, o.promo_code_id, o.audit_trail
+      SELECT o.id, o.promo_code_id, o.audit_trail
       FROM orders o
-      JOIN order_items oi ON oi.order_id = o.id
-      JOIN ticket_types tt ON tt.id = oi.ticket_type_id
-      JOIN event_sessions es ON es.id = tt.event_session_id
-      WHERE es.event_id = $1 AND o.status = 'CONFIRMED'
+      WHERE o.status = 'CONFIRMED'
+        AND EXISTS (
+          SELECT 1
+          FROM order_items oi
+          JOIN ticket_types tt ON tt.id = oi.ticket_type_id
+          JOIN event_sessions es ON es.id = tt.event_session_id
+          WHERE oi.order_id = o.id AND es.event_id = $1
+        )
       FOR UPDATE OF o
       `,
       [eventId],
@@ -322,7 +372,7 @@ class EventBusinessRulesService {
   /**
    * Pause Sales (Organizer)
    */
-  async pauseSales(userId, eventId, { reason, note, scope, ticketTypeId, ticketTypeIds, ticketTypeName, ticketTypes } = {}) {
+  async pauseSales(userId, eventId, { reason, note, scope, ticketTypeId, ticketTypeIds, ticketTypeName, ticketTypes, sessionId, seatIds, seatLabels } = {}) {
     const organizerId = await this.resolveOrganizerId(userId);
     const client = await db.getClient();
     try {
@@ -333,11 +383,45 @@ class EventBusinessRulesService {
       const targetIds = Array.isArray(ticketTypeIds) && ticketTypeIds.length > 0
         ? ticketTypeIds.map(String)
         : (ticketTypeId ? [String(ticketTypeId)] : []);
+      const targetSeatIds = Array.isArray(seatIds) ? seatIds.map(String) : [];
       const isSpecific = scope === 'SPECIFIC' && targetIds.length > 0;
+      const isSeats = scope === 'SEATS' && targetSeatIds.length > 0;
 
       let updatedBlocks = Array.isArray(event.sales_blocks) ? [...event.sales_blocks] : [];
 
-      if (isSpecific) {
+      if (isSeats) {
+        // 1. Block specified seats in session_seats
+        await client.query(
+          `
+          UPDATE session_seats
+          SET status = 'BLOCKED'
+          WHERE seat_id = ANY($1::uuid[])
+            AND ($2::uuid IS NULL OR event_session_id = $2)
+            AND (status = 'AVAILABLE' OR status IS NULL)
+          `,
+          [targetSeatIds, sessionId || null],
+        );
+
+        // 2. Add seat sales block
+        updatedBlocks.push({
+          id: require('crypto').randomUUID(),
+          reason: SALES_BLOCK_REASONS.ORGANIZER_PAUSE,
+          source: 'ORGANIZER',
+          created_by: userId,
+          created_at: new Date().toISOString(),
+          released_by: null,
+          released_at: null,
+          metadata: {
+            reason: humanNote,
+            note: humanNote,
+            scope: 'SEATS',
+            session_id: sessionId || null,
+            seat_ids: targetSeatIds,
+            seat_labels: seatLabels || [],
+            count: targetSeatIds.length,
+          },
+        });
+      } else if (isSpecific) {
         const nameMap = new Map();
         if (Array.isArray(ticketTypes)) {
           ticketTypes.forEach((t) => nameMap.set(String(t.id), t.name));
@@ -379,15 +463,15 @@ class EventBusinessRulesService {
 
       // Check if there is still an event-wide block active
       const hasEventWideBlock = updatedBlocks.some(
-        (b) => !b.released_at && !(b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id)
+        (b) => !b.released_at && !(b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id) && !(b.metadata?.scope === 'SEATS')
       );
       const newSalesStatus = hasEventWideBlock ? 'PAUSED' : 'ON_SALE';
 
       const auditTrail = appendAuditTrail(event.audit_trail, {
         userId,
         role: 'ORGANIZER',
-        action: isSpecific ? 'PAUSE_TICKET_SALES' : 'PAUSE_SALES',
-        reason: humanNote || (isSpecific ? `Tạm dừng bán vé cho ${targetIds.length} loại vé` : 'Tạm dừng bán vé'),
+        action: isSeats ? 'PAUSE_SEAT_SALES' : isSpecific ? 'PAUSE_TICKET_SALES' : 'PAUSE_SALES',
+        reason: humanNote || (isSeats ? `Tạm dừng bán vé cho ${targetSeatIds.length} vị trí ghế` : isSpecific ? `Tạm dừng bán vé cho ${targetIds.length} loại vé` : 'Tạm dừng bán vé'),
         stateBefore: { sales_status: event.sales_status },
         stateAfter: { sales_status: newSalesStatus },
       });
@@ -419,7 +503,7 @@ class EventBusinessRulesService {
   /**
    * Resume Sales (Organizer)
    */
-  async resumeSales(userId, eventId, { ticketTypeId, ticketTypeIds } = {}) {
+  async resumeSales(userId, eventId, { ticketTypeId, ticketTypeIds, scope, sessionId, seatIds } = {}) {
     const organizerId = await this.resolveOrganizerId(userId);
     const client = await db.getClient();
     try {
@@ -438,13 +522,57 @@ class EventBusinessRulesService {
       const targetResumeIds = Array.isArray(ticketTypeIds) && ticketTypeIds.length > 0
         ? ticketTypeIds.map(String)
         : (ticketTypeId ? [String(ticketTypeId)] : null);
+      const targetResumeSeatIds = Array.isArray(seatIds) && seatIds.length > 0
+        ? seatIds.map(String)
+        : null;
+      const isSeats = scope === 'SEATS' && targetResumeSeatIds && targetResumeSeatIds.length > 0;
 
-      if (targetResumeIds && targetResumeIds.length > 0) {
+      if (isSeats) {
+        // Unblock specific seats in session_seats
+        await client.query(
+          `
+          UPDATE session_seats
+          SET status = 'AVAILABLE'
+          WHERE seat_id = ANY($1::uuid[])
+            AND ($2::uuid IS NULL OR event_session_id = $2)
+            AND status = 'BLOCKED'
+          `,
+          [targetResumeSeatIds, sessionId || null],
+        );
+
         updatedBlocks = updatedBlocks.map((b) => {
           if (
             b.reason === SALES_BLOCK_REASONS.ORGANIZER_PAUSE &&
             !b.released_at &&
-            targetResumeIds.includes(String(b.metadata?.ticket_type_id))
+            b.metadata?.scope === 'SEATS'
+          ) {
+            const remainingSeats = (b.metadata?.seat_ids || []).filter(
+              (sid) => !targetResumeSeatIds.includes(String(sid))
+            );
+            if (remainingSeats.length === 0) {
+              return {
+                ...b,
+                released_by: userId,
+                released_at: new Date().toISOString(),
+              };
+            }
+            return {
+              ...b,
+              metadata: {
+                ...b.metadata,
+                seat_ids: remainingSeats,
+                count: remainingSeats.length,
+              },
+            };
+          }
+          return b;
+        });
+      } else if (targetResumeIds && targetResumeIds.length > 0) {
+        updatedBlocks = updatedBlocks.map((b) => {
+          if (
+            b.reason === SALES_BLOCK_REASONS.ORGANIZER_PAUSE &&
+            !b.released_at &&
+            (targetResumeIds.includes(String(b.metadata?.ticket_type_id)) || targetResumeIds.includes(String(b.id)))
           ) {
             return {
               ...b,
@@ -455,6 +583,19 @@ class EventBusinessRulesService {
           return b;
         });
       } else {
+        // Resume all: unblock all blocked session_seats for this event and release all pause blocks
+        await client.query(
+          `
+          UPDATE session_seats ss
+          SET status = 'AVAILABLE'
+          FROM event_sessions es
+          WHERE ss.event_session_id = es.id
+            AND es.event_id = $1
+            AND ss.status = 'BLOCKED'
+          `,
+          [eventId],
+        );
+
         updatedBlocks = updatedBlocks.map((b) => {
           if (b.reason === SALES_BLOCK_REASONS.ORGANIZER_PAUSE && !b.released_at) {
             return {
@@ -892,9 +1033,10 @@ class EventBusinessRulesService {
     try {
       await client.query('BEGIN');
       const { rows: eventRows } = await client.query(
-        `SELECT e.*, o.user_id AS organizer_user_id 
+        `SELECT e.*, o.user_id AS organizer_user_id, o.business_email, u.email AS organizer_email 
          FROM events e 
          JOIN organizers o ON o.id = e.organizer_id 
+         LEFT JOIN users u ON u.id = o.user_id 
          WHERE e.id = $1 FOR UPDATE`,
         [eventId],
       );
@@ -966,7 +1108,8 @@ class EventBusinessRulesService {
       );
 
       for (const po of paidOrders) {
-        const hasCounter = Boolean(po.payer_bank_id && po.payer_account_number && po.payer_account_name);
+        const { bankAccountNumber, bankName } = resolvePayerBankInfo(po, event.organizer_id);
+        const hasCounter = Boolean(bankName && bankAccountNumber && po.payer_account_name);
         const dest = hasCounter ? 'PAYER_ACCOUNT' : 'CUSTOMER_INPUT';
         const readyAt = hasCounter ? new Date() : null;
         const refundCode = `RF_${po.order_code || po.id.slice(0, 8)}`;
@@ -999,8 +1142,8 @@ class EventBusinessRulesService {
             dest,
             readyAt,
             refundCode,
-            po.payer_bank_id,
-            po.payer_account_number,
+            bankName,
+            bankAccountNumber,
             po.payer_account_name,
           ],
         );
@@ -1055,13 +1198,22 @@ class EventBusinessRulesService {
       }).catch((e) => logger.warn(`[NOTIFY_ATTENDEES_CANCEL_ERR] ${e.message}`));
 
       if (event.organizer_user_id) {
-        notificationsService.createAndDispatch({
-          userId: event.organizer_user_id,
-          eventId,
-          title: 'Yêu cầu hủy sự kiện đã được duyệt',
-          content: `Yêu cầu hủy sự kiện "${event.title}" đã được Quản trị viên phê duyệt. Tiến trình hoàn tiền 100% cho khách hàng đã được khởi tạo.`,
-          type: 'EVENT',
-        }).catch((e) => logger.warn(`[NOTIFY_ORGANIZER_CANCEL_ERR] ${e.message}`));
+        const organizerEmail = event.business_email || event.organizer_email;
+        notificationsService.createAndDispatch(
+          {
+            userId: event.organizer_user_id,
+            eventId,
+            title: 'Yêu cầu hủy sự kiện đã được duyệt',
+            content: `Yêu cầu hủy sự kiện "${event.title}" đã được Quản trị viên phê duyệt. Tiến trình hoàn tiền 100% cho khách hàng đã được khởi tạo. Vui lòng vào mục Quản lý yêu cầu Hoàn vé để kiểm tra và thực hiện hoàn tiền cho người mua.`,
+            type: 'EVENT',
+          },
+          organizerEmail
+            ? {
+                email: organizerEmail,
+                subject: `[EventHub] Yêu cầu hủy sự kiện "${event.title}" đã được duyệt`,
+              }
+            : {},
+        ).catch((e) => logger.warn(`[NOTIFY_ORGANIZER_CANCEL_ERR] ${e.message}`));
       }
 
       return rows[0];
@@ -1090,20 +1242,37 @@ class EventBusinessRulesService {
       }
 
       // 1. Release CANCELLATION_REQUESTED sales block
-      const { updatedBlocks } = releaseSalesBlock(event.sales_blocks, {
+      const releaseResult = releaseSalesBlock(event.sales_blocks, {
         reason: SALES_BLOCK_REASONS.CANCELLATION_REQUESTED,
         releasedBy: adminId,
         userRole: 'ADMIN',
       });
 
-      // 2. Recompute sales status
+      // 2. Add ORGANIZER_PAUSE sales block so the event status returns to PAUSED instead of automatically switching to ON_SALE
+      const orgUserId = event.organizer_user_id || (await this.resolveOrganizerUserId(event.organizer_id));
+      const humanNote = note
+        ? `Tạm dừng bán vé sau khi yêu cầu hủy bị từ chối. Lý do từ chối: ${note}`
+        : 'Tạm dừng bán vé sau khi yêu cầu hủy bị từ chối';
+
+      const { updatedBlocks } = addSalesBlock(releaseResult.updatedBlocks, {
+        reason: SALES_BLOCK_REASONS.ORGANIZER_PAUSE,
+        source: 'ORGANIZER',
+        createdBy: orgUserId || adminId,
+        metadata: {
+          scope: 'ALL',
+          reason: humanNote,
+          note: humanNote,
+        },
+      });
+
+      // 3. Recompute sales status (will evaluate to PAUSED due to ORGANIZER_PAUSE block)
       const newSalesStatus = computeSalesStatus({
         status: event.status,
         salesBlocks: updatedBlocks,
         currentSalesStatus: event.sales_status,
       });
 
-      // 3. Update cancel_request to REJECTED
+      // 4. Update cancel_request to REJECTED
       const updatedCancelReq = {
         ...cancelReq,
         status: 'REJECTED',
@@ -1139,15 +1308,33 @@ class EventBusinessRulesService {
       await client.query('COMMIT');
 
       // Notify organizer of rejection
-      const orgUserId = event.organizer_user_id || (await this.resolveOrganizerUserId(event.organizer_id));
       if (orgUserId) {
-        notificationsService.createAndDispatch({
-          userId: orgUserId,
-          eventId,
-          title: 'Yêu cầu hủy sự kiện bị từ chối',
-          content: `Yêu cầu hủy sự kiện "${event.title}" đã bị Quản trị viên từ chối${note ? ` với lý do: "${note}"` : ''}.`,
-          type: 'EVENT',
-        }).catch((e) => logger.warn(`[NOTIFY_ORGANIZER_REJECT_ERR] ${e.message}`));
+        let organizerEmail = null;
+        try {
+          const { rows: uRows } = await client.query(
+            `SELECT u.email, o.business_email FROM users u LEFT JOIN organizers o ON o.user_id = u.id WHERE u.id = $1`,
+            [orgUserId],
+          );
+          if (uRows.length > 0) {
+            organizerEmail = uRows[0].business_email || uRows[0].email;
+          }
+        } catch (_) {}
+
+        notificationsService.createAndDispatch(
+          {
+            userId: orgUserId,
+            eventId,
+            title: 'Yêu cầu hủy sự kiện bị từ chối',
+            content: `Yêu cầu hủy sự kiện "${event.title}" đã bị Quản trị viên từ chối${note ? ` với lý do: "${note}"` : ''}. Trạng thái bán vé của sự kiện được chuyển về Tạm dừng bán vé. Bạn có thể mở bán lại vé khi đã sẵn sàng.`,
+            type: 'EVENT',
+          },
+          organizerEmail
+            ? {
+                email: organizerEmail,
+                subject: `[EventHub] Yêu cầu hủy sự kiện "${event.title}" bị từ chối`,
+              }
+            : {},
+        ).catch((e) => logger.warn(`[NOTIFY_ORGANIZER_REJECT_ERR] ${e.message}`));
       }
 
       return rows[0];
@@ -1315,9 +1502,10 @@ class EventBusinessRulesService {
     try {
       await client.query('BEGIN');
       const { rows: eventRows } = await client.query(
-        `SELECT e.*, o.user_id AS organizer_user_id 
+        `SELECT e.*, o.user_id AS organizer_user_id, o.business_email, u.email AS organizer_email 
          FROM events e 
          JOIN organizers o ON o.id = e.organizer_id 
+         LEFT JOIN users u ON u.id = o.user_id 
          WHERE e.id = $1 FOR UPDATE`,
         [eventId],
       );
@@ -1388,7 +1576,8 @@ class EventBusinessRulesService {
       );
 
       for (const po of paidOrders) {
-        const hasCounter = Boolean(po.payer_bank_id && po.payer_account_number && po.payer_account_name);
+        const { bankAccountNumber, bankName } = resolvePayerBankInfo(po, event.organizer_id);
+        const hasCounter = Boolean(bankName && bankAccountNumber && po.payer_account_name);
         const dest = hasCounter ? 'PAYER_ACCOUNT' : 'CUSTOMER_INPUT';
         const readyAt = hasCounter ? new Date() : null;
         const refundCode = `RF_${po.order_code || po.id.slice(0, 8)}`;
@@ -1421,8 +1610,8 @@ class EventBusinessRulesService {
             dest,
             readyAt,
             refundCode,
-            po.payer_bank_id,
-            po.payer_account_number,
+            bankName,
+            bankAccountNumber,
             po.payer_account_name,
           ],
         );
@@ -1493,134 +1682,7 @@ class EventBusinessRulesService {
     }
   }
 
-  /**
-   * Admin reviews pending revision (Section 4.4 & 4.5)
-   */
-  async reviewRevision(adminId, eventId, { decision, note }) {
-    if (!['APPROVE', 'REJECT'].includes(decision)) {
-      throw new AppError('Quyết định không hợp lệ (APPROVE hoặc REJECT)', 400, ErrorCodes.INVALID_INPUT);
-    }
 
-    const client = await db.getClient();
-    try {
-      await client.query('BEGIN');
-      const { rows: eventRows } = await client.query(
-        `SELECT e.*, o.user_id AS organizer_user_id FROM events e JOIN organizers o ON o.id = e.organizer_id WHERE e.id = $1 FOR UPDATE`,
-        [eventId],
-      );
-      const event = eventRows[0];
-      if (!event) throw new AppError('Sự kiện không tồn tại', 404, ErrorCodes.RESOURCE_NOT_FOUND);
-
-      const pending = event.pending_revision;
-      if (!pending || pending.status !== 'SUBMITTED') {
-        throw new AppError('Không có bản sửa đổi nào đang chờ xét duyệt.', 400, ErrorCodes.INVALID_INPUT);
-      }
-
-      const history = Array.isArray(event.revision_history) ? event.revision_history : [];
-      const updatedRevision = {
-        ...pending,
-        status: decision === 'APPROVE' ? 'APPROVED' : 'REJECTED',
-        reviewed_by: adminId,
-        reviewed_at: new Date().toISOString(),
-        admin_note: note || '',
-      };
-
-      const auditTrail = appendAuditTrail(event.audit_trail, {
-        userId: adminId,
-        role: 'ADMIN',
-        action: `REVISION_${decision}`,
-        reason: note || `Admin ${decision.toLowerCase()}ed event revision`,
-        diff: pending.diff,
-      });
-
-      let updatedEvent;
-      if (decision === 'APPROVE') {
-        const after = pending.payload_after || {};
-        const { rows } = await client.query(
-          `
-          UPDATE events
-          SET title = COALESCE($2, title),
-              short_description = COALESCE($3, short_description),
-              description = COALESCE($4, description),
-              location = COALESCE($5, location),
-              banner_url = COALESCE($6, banner_url),
-              thumbnail_url = COALESCE($7, thumbnail_url),
-              pending_revision = NULL,
-              revision_history = $8::jsonb,
-              audit_trail = $9::jsonb,
-              version = version + 1,
-              updated_at = NOW()
-          WHERE id = $1
-          RETURNING *
-          `,
-          [
-            eventId,
-            after.title || null,
-            after.short_description || null,
-            after.description || null,
-            typeof after.location === 'string' ? after.location : null,
-            after.banner_url || null,
-            after.thumbnail_url || null,
-            JSON.stringify([...history, updatedRevision]),
-            JSON.stringify(auditTrail),
-          ],
-        );
-        updatedEvent = rows[0];
-      } else {
-        const { rows } = await client.query(
-          `
-          UPDATE events
-          SET pending_revision = NULL,
-              revision_history = $2::jsonb,
-              audit_trail = $3::jsonb,
-              version = version + 1,
-              updated_at = NOW()
-          WHERE id = $1
-          RETURNING *
-          `,
-          [eventId, JSON.stringify([...history, updatedRevision]), JSON.stringify(auditTrail)],
-        );
-        updatedEvent = rows[0];
-      }
-
-      await client.query('COMMIT');
-
-      // Dispatch notifications
-      if (decision === 'APPROVE') {
-        notificationsService.notifyEventChange(eventId, {
-          reason: note || 'Quản trị viên đã duyệt các cập nhật sự kiện',
-          changeClass: pending.change_class,
-        }).catch((e) => logger.warn(`[NOTIFY_REVISION_ATTENDEES_ERR] ${e.message}`));
-
-        if (event.organizer_user_id) {
-          notificationsService.createAndDispatch({
-            userId: event.organizer_user_id,
-            eventId,
-            title: 'Bản sửa đổi sự kiện đã được phê duyệt',
-            content: `Bản sửa đổi cho sự kiện "${event.title}" đã được Quản trị viên phê duyệt thành công.`,
-            type: 'EVENT',
-          }).catch((e) => logger.warn(`[NOTIFY_ORGANIZER_REVISION_APPROVED_ERR] ${e.message}`));
-        }
-      } else {
-        if (event.organizer_user_id) {
-          notificationsService.createAndDispatch({
-            userId: event.organizer_user_id,
-            eventId,
-            title: 'Bản sửa đổi sự kiện bị từ chối',
-            content: `Bản sửa đổi cho sự kiện "${event.title}" đã bị Quản trị viên từ chối${note ? ` với lý do: "${note}"` : ''}.`,
-            type: 'EVENT',
-          }).catch((e) => logger.warn(`[NOTIFY_ORGANIZER_REVISION_REJECTED_ERR] ${e.message}`));
-        }
-      }
-
-      return updatedEvent;
-    } catch (err) {
-      await client.query('ROLLBACK');
-      throw err;
-    } finally {
-      client.release();
-    }
-  }
 
   // ==========================================================================
   // SECTION 7: REFUND PAYOUT INFO SUBMISSION & DISPUTE
@@ -1781,6 +1843,27 @@ class EventBusinessRulesService {
       [refundId, JSON.stringify(auditTrail)],
     );
 
+    // Invalidate ticket(s) and order if not already REFUNDED
+    if (refund.ticket_id) {
+      await db.query(
+        `UPDATE tickets SET status = 'REFUNDED' WHERE id = $1`,
+        [refund.ticket_id],
+      );
+    } else if (refund.order_id) {
+      await db.query(
+        `UPDATE tickets SET status = 'REFUNDED'
+         WHERE order_item_id IN (SELECT id FROM order_items WHERE order_id = $1)
+           AND status != 'REFUNDED'`,
+        [refund.order_id],
+      );
+    }
+    if (refund.order_id) {
+      await db.query(
+        `UPDATE orders SET status = 'REFUNDED', updated_at = now() WHERE id = $1 AND status != 'REFUNDED'`,
+        [refund.order_id],
+      );
+    }
+
     try {
       const orgUserId = await this.resolveOrganizerUserId(refund.organizer_id || refund.event_organizer_id);
       if (orgUserId) {
@@ -1867,12 +1950,19 @@ class EventBusinessRulesService {
    * Admin reviews a pending revision (APPROVE | REJECT)
    */
   async reviewRevision(adminId, eventId, { decision, note }) {
+    if (!['APPROVE', 'REJECT'].includes(decision)) {
+      throw new AppError('Quyết định không hợp lệ (APPROVE hoặc REJECT)', 400, ErrorCodes.INVALID_INPUT);
+    }
+
     const client = await db.getClient();
     try {
       await client.query('BEGIN');
 
       const { rows } = await client.query(
-        `SELECT * FROM events WHERE id = $1 AND deleted_at IS NULL FOR UPDATE`,
+        `SELECT e.*, o.user_id AS organizer_user_id 
+         FROM events e 
+         JOIN organizers o ON o.id = e.organizer_id 
+         WHERE e.id = $1 AND e.deleted_at IS NULL FOR UPDATE`,
         [eventId],
       );
       const event = rows[0];
@@ -1922,16 +2012,126 @@ class EventBusinessRulesService {
           );
         }
 
-        // 2. If general event fields were updated in payload_after, apply them
-        const generalFields = ['title', 'format', 'short_description', 'description', 'thumbnail_url', 'banner_url', 'category_id', 'additional_terms', 'require_attendee_info'];
+        // 2. If ticket_types were updated in payload_after, apply them to ticket_types table
+        if (Array.isArray(payloadAfter.ticket_types)) {
+          const { rows: sessionRows } = await client.query(
+            `SELECT id FROM event_sessions WHERE event_id = $1`,
+            [eventId],
+          );
+          const validSessionIds = new Set(sessionRows.map((r) => r.id));
+
+          const { rows: existingTtRows } = await client.query(
+            `SELECT tt.* FROM ticket_types tt
+             JOIN event_sessions es ON es.id = tt.event_session_id
+             WHERE es.event_id = $1`,
+            [eventId],
+          );
+          const existingMap = new Map(existingTtRows.map((t) => [t.id, t]));
+          const payloadIds = new Set(payloadAfter.ticket_types.filter((tt) => tt.id).map((tt) => tt.id));
+
+          for (const tt of payloadAfter.ticket_types) {
+            const sessionId = tt.event_session_id || tt.session_id;
+            if (sessionId && validSessionIds.has(sessionId)) {
+              if (tt.id && existingMap.has(tt.id)) {
+                await client.query(
+                  `
+                  UPDATE ticket_types
+                  SET name          = COALESCE($1, name),
+                      description   = $2,
+                      price         = COALESCE($3, price),
+                      quantity      = COALESCE($4, quantity),
+                      max_per_order = COALESCE($5, max_per_order),
+                      sale_start    = COALESCE($6, sale_start),
+                      sale_end      = COALESCE($7, sale_end),
+                      is_seated     = COALESCE($8, is_seated)
+                  WHERE id = $9 AND event_session_id = $10
+                  `,
+                  [
+                    tt.name || null,
+                    tt.description !== undefined ? tt.description : null,
+                    tt.price !== undefined ? Number(tt.price) : null,
+                    tt.quantity !== undefined ? Number(tt.quantity) : null,
+                    tt.max_per_order !== undefined ? Number(tt.max_per_order) : null,
+                    tt.sale_start || null,
+                    tt.sale_end || null,
+                    tt.is_seated !== undefined ? tt.is_seated : null,
+                    tt.id,
+                    sessionId,
+                  ],
+                );
+              } else if (!tt.id) {
+                await client.query(
+                  `
+                  INSERT INTO ticket_types (
+                    event_session_id, name, description, price, quantity, max_per_order, sale_start, sale_end, is_seated, created_at
+                  ) VALUES (
+                    $1, $2, $3, $4, $5, $6, $7, $8, $9, NOW()
+                  )
+                  `,
+                  [
+                    sessionId,
+                    tt.name || 'Vé tiêu chuẩn',
+                    tt.description || null,
+                    Number(tt.price || 0),
+                    Number(tt.quantity || 100),
+                    Number(tt.max_per_order || 10),
+                    tt.sale_start || null,
+                    tt.sale_end || null,
+                    tt.is_seated || false,
+                  ],
+                );
+              }
+            }
+          }
+
+          // Delete removed ticket types only if they have NO paid orders
+          for (const [existingId] of existingMap) {
+            if (!payloadIds.has(existingId)) {
+              const { rows: orderCheck } = await client.query(
+                `SELECT 1 FROM order_items oi WHERE oi.ticket_type_id = $1 LIMIT 1`,
+                [existingId],
+              );
+              if (orderCheck.length === 0) {
+                await client.query(`DELETE FROM ticket_types WHERE id = $1`, [existingId]);
+              }
+            }
+          }
+        }
+
+        // 3. If general event fields were updated in payload_after, apply them
+        const generalFields = [
+          'title',
+          'format',
+          'short_description',
+          'description',
+          'thumbnail_url',
+          'banner_url',
+          'category_id',
+          'additional_terms',
+          'require_attendee_info',
+          'refund_policy',
+          'seating_rules',
+          'tags',
+        ];
         const updates = [];
         const updateVals = [];
         let uIdx = 1;
 
         for (const gf of generalFields) {
           if (payloadAfter[gf] !== undefined) {
-            updates.push(`${gf} = $${uIdx}`);
-            updateVals.push(payloadAfter[gf]);
+            if (['refund_policy', 'seating_rules'].includes(gf)) {
+              updates.push(`${gf} = $${uIdx}::jsonb`);
+              updateVals.push(JSON.stringify(payloadAfter[gf]));
+            } else if (gf === 'tags') {
+              updates.push(`${gf} = $${uIdx}`);
+              updateVals.push(Array.isArray(payloadAfter[gf]) ? payloadAfter[gf] : []);
+            } else if (gf === 'category_id') {
+              updates.push(`${gf} = $${uIdx}`);
+              updateVals.push(payloadAfter[gf] || null);
+            } else {
+              updates.push(`${gf} = $${uIdx}`);
+              updateVals.push(payloadAfter[gf]);
+            }
             uIdx += 1;
           }
         }
@@ -1945,7 +2145,7 @@ class EventBusinessRulesService {
         }
       }
 
-      // 3. Release any CRITICAL_REVISION_PENDING block
+      // 4. Release any CRITICAL_REVISION_PENDING block
       let currentBlocks = Array.isArray(event.sales_blocks) ? [...event.sales_blocks] : [];
       const { updatedBlocks } = releaseSalesBlock(currentBlocks, {
         reason: 'CRITICAL_REVISION_PENDING',
@@ -1959,7 +2159,7 @@ class EventBusinessRulesService {
         currentSalesStatus: event.sales_status,
       });
 
-      // 4. Archive revision into history and clear pending_revision
+      // 5. Archive revision into history and clear pending_revision
       const archivedRevision = {
         ...revision,
         status: decision === 'APPROVE' ? 'APPROVED' : 'REJECTED',
@@ -1994,6 +2194,53 @@ class EventBusinessRulesService {
       );
 
       await client.query('COMMIT');
+
+      // 6. Dispatch notifications asynchronously
+      if (decision === 'APPROVE') {
+        notificationsService.notifyEventChange(eventId, {
+          reason: note || 'Quản trị viên đã duyệt các cập nhật sự kiện',
+          changeClass: revision.change_class,
+        }).catch((e) => logger.warn(`[NOTIFY_REVISION_ATTENDEES_ERR] ${e.message}`));
+
+        if (event.organizer_user_id) {
+          const organizerEmail = event.business_email || event.organizer_email;
+          notificationsService.createAndDispatch(
+            {
+              userId: event.organizer_user_id,
+              eventId,
+              title: 'Bản sửa đổi sự kiện đã được phê duyệt',
+              content: `Bản sửa đổi cho sự kiện "${event.title}" đã được Quản trị viên phê duyệt thành công.`,
+              type: 'EVENT',
+            },
+            organizerEmail
+              ? {
+                  email: organizerEmail,
+                  subject: `[EventHub] Bản sửa đổi sự kiện "${event.title}" đã được phê duyệt`,
+                }
+              : {},
+          ).catch((e) => logger.warn(`[NOTIFY_ORGANIZER_REVISION_APPROVED_ERR] ${e.message}`));
+        }
+      } else {
+        if (event.organizer_user_id) {
+          const organizerEmail = event.business_email || event.organizer_email;
+          notificationsService.createAndDispatch(
+            {
+              userId: event.organizer_user_id,
+              eventId,
+              title: 'Bản sửa đổi sự kiện bị từ chối',
+              content: `Bản sửa đổi cho sự kiện "${event.title}" đã bị Quản trị viên từ chối${note ? ` với lý do: "${note}"` : ''}.`,
+              type: 'EVENT',
+            },
+            organizerEmail
+              ? {
+                  email: organizerEmail,
+                  subject: `[EventHub] Bản sửa đổi sự kiện "${event.title}" bị từ chối`,
+                }
+              : {},
+          ).catch((e) => logger.warn(`[NOTIFY_ORGANIZER_REVISION_REJECTED_ERR] ${e.message}`));
+        }
+      }
+
       return updateRes.rows[0];
     } catch (err) {
       await client.query('ROLLBACK');

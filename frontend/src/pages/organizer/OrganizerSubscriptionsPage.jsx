@@ -63,7 +63,7 @@ export function OrganizerSubscriptionsPage() {
   return (
     <OrganizerPage
       title="Gói Dịch vụ"
-      description="Xem các gói Organizer hiện có. Nâng cấp để mở khoá thêm tính năng và tăng giới hạn sử dụng."
+
     >
       {redirectNotice && (
         <div className="mb-6 flex items-start justify-between gap-4 rounded-xl border border-warning/40 bg-warning/10 p-4 text-warning">
@@ -231,10 +231,10 @@ function StatLine({ icon: Icon, iconColor = 'text-[#F5EBDD]/60', label, value })
 function Pill({ label, isGold = false }) {
   return (
     <span
-      className={`rounded-md px-2 py-0.5 text-[11px] font-bold border shadow-sm ${
+      className={`inline-flex items-center self-start whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-bold tracking-tight border shadow-xs transition-colors ${
         isGold
-          ? 'bg-[#C99A47]/15 border-[#C99A47]/40 text-[#E6C17A]'
-          : 'bg-[#1B365D]/50 border-[#1B365D] text-[#F5EBDD]/90'
+          ? 'bg-[#C99A47]/15 border-[#C99A47]/50 text-[#E6C17A] shadow-[0_0_8px_rgba(201,154,71,0.15)]'
+          : 'bg-[#1B365D]/60 border-[#2A4878] text-[#F5EBDD]/95'
       }`}
     >
       {label}
@@ -317,9 +317,11 @@ function PlanCardInner({ plan, highlighted, isCurrentPlan, onSubscribe }) {
       </div>
 
       {/* Feature pills */}
-      <div className="mb-6 flex flex-wrap gap-1.5 min-h-[58px]">
+      <div className="mb-6 flex flex-wrap items-start content-start gap-1.5 min-h-[52px]">
         {plan.promo_code_enabled && <Pill label="Mã KM" isGold={highlighted} />}
         {plan.seat_map_enabled && <Pill label="Sơ đồ ghế" isGold={highlighted} />}
+        {plan.ai_event_creation_enabled && <Pill label="Tạo SK AI" isGold={highlighted} />}
+        {(plan.ai_seat_map_enabled ?? plan.custom_branding_enabled) && <Pill label="Sơ đồ ghế AI" isGold={highlighted} />}
         {plan.ai_report_enabled && <Pill label="Báo cáo AI" isGold={highlighted} />}
         {plan.advanced_analytics_enabled && <Pill label="Analytics" isGold={highlighted} />}
         {plan.attendee_export_enabled && <Pill label="Xuất DS" isGold={highlighted} />}
@@ -442,8 +444,9 @@ function CurrentPlanDetail({ plan, daysRemaining }) {
     { label: 'Check-in thủ công', value: plan.manual_checkin_enabled },
     { label: 'Xuất danh sách', value: plan.attendee_export_enabled },
     { label: 'Phân tích nâng cao', value: plan.advanced_analytics_enabled },
+    { label: 'Tạo sự kiện bằng AI', value: plan.ai_event_creation_enabled },
+    { label: 'Tạo sơ đồ ghế bằng AI', value: plan.ai_seat_map_enabled ?? plan.custom_branding_enabled },
     { label: 'Báo cáo AI', value: plan.ai_report_enabled },
-    { label: 'Thương hiệu riêng', value: plan.custom_branding_enabled },
     { label: 'Hỗ trợ ưu tiên', value: plan.priority_support },
   ]
 
@@ -582,14 +585,22 @@ function computeCountdown(endDateStr) {
   }
 }
 
+const getAutoLocale = () =>
+  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
+   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
+    ? 'en-US'
+    : 'vi-VN'
+
 function formatDate(dateStr) {
-  return new Intl.DateTimeFormat('vi-VN', {
+  return new Intl.DateTimeFormat(getAutoLocale(), {
     day: '2-digit', month: '2-digit', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   }).format(new Date(dateStr))
 }
 
 function formatMoney(value) {
+  const isEn = getAutoLocale() === 'en-US'
+  if (isEn) return `${new Intl.NumberFormat('en-US').format(Number(value || 0))} VND`
   return new Intl.NumberFormat('vi-VN', {
     style: 'currency',
     currency: 'VND',

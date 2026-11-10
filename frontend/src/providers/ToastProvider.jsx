@@ -40,15 +40,33 @@ export function ToastProvider({ children }) {
   }, [removeToast])
 
   const showToast = useCallback((message, options = {}) => {
+    if (!message) return null
+    const toastType = options.type || 'info'
     const id = crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`
-    const toast = {
-      id,
-      message,
-      type: options.type || 'info',
-    }
 
-    setToasts((current) => [...current, toast].slice(-4))
-    window.setTimeout(() => dismiss(id), options.duration || 4500)
+    setToasts((current) => {
+      // Deduplicate: Do not stack duplicate identical toasts or overlapping refund success toasts
+      const isRefundSuccess = (msg) => {
+        const lower = String(msg || '').toLowerCase()
+        return lower.includes('hoàn tiền') && (lower.includes('thành công') || lower.includes('hoàn tất'))
+      }
+      if (
+        current.some((t) => !t.leaving && (
+          (t.message === message && t.type === toastType) ||
+          (toastType === 'success' && isRefundSuccess(message) && isRefundSuccess(t.message))
+        ))
+      ) {
+        return current
+      }
+      window.setTimeout(() => dismiss(id), options.duration || 4500)
+      const toast = {
+        id,
+        message,
+        type: toastType,
+      }
+      return [...current, toast].slice(-4)
+    })
+
     return id
   }, [dismiss])
 

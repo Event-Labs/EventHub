@@ -52,7 +52,7 @@ const ticketAvailabilitySchema = z.object({
 const seatHoldSchema = ticketAvailabilitySchema;
 
 const seatHoldReleaseSchema = z.object({
-  event_id: z.string().uuid(),
+  event_id: z.union([z.string().uuid(), z.string().min(1)]).optional().nullable(),
   session_seat_ids: z.array(z.string().uuid()).optional().default([]),
 });
 

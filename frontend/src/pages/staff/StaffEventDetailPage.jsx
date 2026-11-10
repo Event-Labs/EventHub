@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Armchair, Calendar, DoorOpen, Layers, Loader2, MapPin, Users } from 'lucide-react'
+import { Armchair, Calendar, Clock, DoorOpen, Layers, Loader2, MapPin, Users } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import { fetchSessionSeats } from '@/services/events.js'
 import { fetchStaffCheckInReport } from '@/services/operations.js'
@@ -15,13 +15,22 @@ const EVENT_STATUS_LABELS = {
   CANCELLED: 'Đã hủy',
 }
 
+const getAutoLocale = () =>
+  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
+   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
+    ? 'en-US'
+    : 'vi-VN'
+
 function formatDateTime(value) {
-  if (!value) return 'Chưa cập nhật'
-  return new Date(value).toLocaleString('vi-VN')
+  const isEn = getAutoLocale() === 'en-US'
+  if (!value) return isEn ? 'Updating' : 'Chưa cập nhật'
+  return new Date(value).toLocaleString(getAutoLocale())
 }
 
 function checkInMethodLabel(method) {
-  return method === 'QR' ? 'Quét mã QR' : 'Thủ công'
+  const isEn = getAutoLocale() === 'en-US'
+  if (method === 'QR') return isEn ? 'QR Scan' : 'Quét mã QR'
+  return isEn ? 'Manual' : 'Thủ công'
 }
 
 export function StaffEventDetailPage() {
@@ -50,7 +59,7 @@ export function StaffEventDetailPage() {
 
   if (reportQuery.isError || !reportQuery.data?.event) {
     return (
-      <StaffPage title="Không thể tải sự kiện" description="Dữ liệu sự kiện không khả dụng hoặc bạn không có quyền truy cập.">
+      <StaffPage title="Không thể tải sự kiện">
         <StaffPanel>
           <p className="text-sm font-semibold text-error">
             {reportQuery.error?.response?.data?.message || 'Không tìm thấy dữ liệu sự kiện.'}
@@ -74,7 +83,6 @@ export function StaffEventDetailPage() {
   return (
     <StaffPage
       title={event.title}
-      description="Chi tiết vận hành sự kiện được giao."
     >
       <StaffPanel className="mb-5">
         <div className="grid gap-5 md:grid-cols-[180px_1fr]">
@@ -90,6 +98,16 @@ export function StaffEventDetailPage() {
               <Badge tone={event.status === 'COMPLETED' ? 'purple' : 'green'}>{EVENT_STATUS_LABELS[event.status] || 'Chưa xác định'}</Badge>
               <div className="flex flex-wrap items-center gap-2">
                 <Badge tone="blue">Vai trò: {event.staff_role || 'Nhân sự'}</Badge>
+                {event.session_name || (event.assigned_sessions && event.assigned_sessions.length > 0) ? (
+                  <Badge tone="cyan">
+                    <span className="flex items-center gap-1">
+                      <Clock className="size-3.5" />
+                      Phiên: {event.session_name || event.assigned_sessions.map((s) => s.session_name || 'Phiên làm việc').join(', ')}
+                    </span>
+                  </Badge>
+                ) : (
+                  <Badge tone="slate">Toàn bộ sự kiện</Badge>
+                )}
                 {event.gate ? (
                   <Badge tone="purple">
                     <span className="flex items-center gap-1">

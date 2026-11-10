@@ -13,6 +13,7 @@ import { uploadOrganizerAvatar, uploadOrganizerDocument } from '@/services/uploa
 import { getProfile } from '@/services/user.service.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
+import CCCDScanner from '@/components/cccd/CCCDScanner.jsx'
 
 export const CCCD_PROVINCE_CODES = {
   '001': 'Hà Nội', '002': 'Hà Giang', '004': 'Cao Bằng', '006': 'Bắc Kạn',
@@ -204,8 +205,7 @@ function RequestTypeSelector({ value, onChange, disabled = false }) {
           return (
             <label
               key={option.value}
-              className={`inline-flex items-center gap-2 text-sm font-bold ${active ? 'text-content' : 'text-muted'
-                } ${disabled ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'}`}
+              className={`inline-flex items-center gap-2 text-sm font-bold text-white ${disabled ? 'cursor-not-allowed opacity-80' : 'cursor-pointer'}`}
             >
               <input
                 type="radio"
@@ -214,7 +214,7 @@ function RequestTypeSelector({ value, onChange, disabled = false }) {
                 checked={active}
                 disabled={disabled}
                 onChange={() => onChange(option.value)}
-                className="size-4 accent-orange-500"
+                className="size-4.5 accent-[#C99A47] cursor-pointer"
               />
               {option.label}
             </label>
@@ -761,6 +761,7 @@ export function OrganizerRequestPage() {
 
       const finalKycData = !isOrganization
         ? {
+            ...(form.kyc_ocr_data || {}),
             verification_method: 'PARTNER_VETTING',
             id_number: form.individual_identity_number.trim(),
             full_name: form.individual_full_name.trim().toLocaleUpperCase('vi-VN'),
@@ -769,8 +770,8 @@ export function OrganizerRequestPage() {
             address: form.individual_address?.trim() || '',
             social_link: form.individual_social_link?.trim() || '',
             portfolio_url: form.individual_portfolio_url?.trim() || '',
-            province: validation?.province || '',
-            birth_year: validation?.birthYear || '',
+            province: validation?.province || form.kyc_ocr_data?.province || '',
+            birth_year: validation?.birthYear || form.kyc_ocr_data?.birth_year || '',
             algorithm_checked: true,
             submitted_at: new Date().toISOString(),
           }
@@ -857,22 +858,23 @@ export function OrganizerRequestPage() {
       />
 
       <div className="grid gap-8 lg:grid-cols-[1fr_380px] relative">
-        <section className="glass-panel rounded-[32px] border-primary/20 p-8 lg:p-10 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)] relative">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,_var(--color-primary)_0%,_transparent_60%)] opacity-5 pointer-events-none" />
-          {editingRequest && (
-            <div className="mb-4 rounded-lg border border-warning/30 bg-warning/10 p-4 text-sm text-warning">
-              Bạn đang chỉnh sửa yêu cầu đã gửi. Sau khi lưu, yêu cầu sẽ được đưa về trạng thái chờ duyệt.
-            </div>
-          )}
+        <div className="space-y-6">
+          <section className="glass-panel rounded-[32px] border-primary/20 p-8 lg:p-10 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)] relative">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,_var(--color-primary)_0%,_transparent_60%)] opacity-5 pointer-events-none" />
+            {editingRequest && (
+              <div className="mb-4 rounded-lg border border-warning/30 bg-warning/10 p-4 text-sm text-warning">
+                Bạn đang chỉnh sửa yêu cầu đã gửi. Sau khi lưu, yêu cầu sẽ được đưa về trạng thái chờ duyệt.
+              </div>
+            )}
 
-          {hasPendingIndividualRequest && !editingRequest && (
-            <p className="mb-4 text-sm text-muted">
-              Bạn đã có yêu cầu cá nhân đang chờ duyệt. Vui lòng đợi Admin xử lý trước khi gửi yêu cầu mới.
-            </p>
-          )}
+            {hasPendingIndividualRequest && !editingRequest && (
+              <p className="mb-4 text-sm text-muted">
+                Bạn đã có yêu cầu cá nhân đang chờ duyệt. Vui lòng đợi Admin xử lý trước khi gửi yêu cầu mới.
+              </p>
+            )}
 
-          {canSubmit && (
-            <form className="space-y-6" onSubmit={handleSubmit}>
+            {canSubmit && (
+              <form id="organizer-request-form" className="space-y-6" onSubmit={handleSubmit}>
               <FormSection
                 title="Loại đăng ký"
                 description="Chọn đúng nhóm đăng ký để hệ thống yêu cầu bộ thông tin phù hợp."
@@ -890,7 +892,7 @@ export function OrganizerRequestPage() {
               >
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field
-                    label="Tên cá nhân/tổ chức"
+                    label="Tên nhà tổ chức"
                     value={form.organization_name}
                     onChange={handleChange('organization_name')}
                     placeholder={
@@ -928,7 +930,7 @@ export function OrganizerRequestPage() {
                 </div>
 
                 <div>
-                  <span className="text-sm font-semibold text-muted">
+                  <span className="text-sm font-semibold text-white">
                     Ảnh đại diện
                     <RequiredMark />
                   </span>
@@ -1033,142 +1035,43 @@ export function OrganizerRequestPage() {
               {form.request_type === 'INDIVIDUAL' && (
                 <>
                   <FormSection
-                    title="Thông tin cá nhân"
-                    description="Vui lòng nhập đúng theo giấy tờ tùy thân để hồ sơ được xét duyệt nhanh nhất."
+                    title="Thông tin cá nhân & Định danh CCCD"
+                    description="Hệ thống tự động đọc và đối soát thông tin từ thẻ CCCD theo chuẩn Bộ Công An."
                   >
-                    <div className="flex items-center gap-2 rounded-xl bg-emerald-950/30 border border-emerald-500/20 px-3.5 py-2.5 text-xs text-emerald-300">
-                      <Lock className="size-4 shrink-0 text-emerald-400" />
-                      <span>Dữ liệu định danh được bảo mật an toàn theo tiêu chuẩn riêng tư.</span>
-                    </div>
+                    {/* Smart CCCD Scanner Component */}
+                    <CCCDScanner
+                      initialData={{
+                        fullName: form.individual_full_name,
+                        idNumber: form.individual_identity_number,
+                        dob: form.individual_dob,
+                        gender: form.individual_gender,
+                        address: form.individual_address,
+                      }}
+                      currentKycData={form.kyc_ocr_data}
+                      onApply={({ fullName, idNumber, dob, gender, address, kycData }) => {
+                        setForm((prev) => ({
+                          ...prev,
+                          individual_full_name: fullName ?? prev.individual_full_name,
+                          individual_identity_number: idNumber ?? prev.individual_identity_number,
+                          individual_dob: dob ?? prev.individual_dob,
+                          individual_gender: gender ?? prev.individual_gender,
+                          individual_address: address ?? prev.individual_address,
+                          kyc_ocr_data: kycData ?? prev.kyc_ocr_data,
+                        }))
+                      }}
+                    />
 
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="sm:col-span-2">
-                        <Field
-                          label="Họ và tên"
-                          value={form.individual_full_name}
-                          onChange={handleChange('individual_full_name')}
-                          placeholder="NGUYỄN VĂN A"
-                          required
-                        />
-                      </div>
-
-                      <div>
-                        <Field
-                          label="Số CCCD (12 chữ số)"
-                          value={form.individual_identity_number}
-                          onChange={(e) => {
-                            const val = e.target.value.replace(/\D/g, '').slice(0, 12)
-                            setForm((prev) => ({ ...prev, individual_identity_number: val }))
-                          }}
-                          placeholder="Nhập 12 số CCCD"
-                          required
-                        />
-                        {/* Real-time C06 feedback */}
-                        {form.individual_identity_number && (
-                          <div className="mt-1.5">
-                            {form.individual_identity_number.length < 12 && (
-                              <div className="text-[11px]">
-                                {form.individual_identity_number.length >= 3 && CCCD_PROVINCE_CODES[form.individual_identity_number.slice(0, 3)] ? (
-                                  <span className="text-emerald-400 font-medium flex items-center gap-1">
-                                    <Check className="size-3" /> Nơi cấp: {CCCD_PROVINCE_CODES[form.individual_identity_number.slice(0, 3)]}
-                                  </span>
-                                ) : form.individual_identity_number.length >= 3 ? (
-                                  <span className="text-rose-400 font-medium flex items-center gap-1">
-                                    <AlertTriangle className="size-3" /> Mã tỉnh '{form.individual_identity_number.slice(0, 3)}' không hợp lệ
-                                  </span>
-                                ) : null}
-                              </div>
-                            )}
-
-                            {form.individual_identity_number.length === 12 && (
-                              (() => {
-                                const check = validateCccdStructure(
-                                  form.individual_identity_number,
-                                  form.individual_dob,
-                                  form.individual_gender
-                                )
-                                if (!check.valid) {
-                                  return (
-                                    <div className="mt-2 rounded-xl bg-rose-950/40 border border-rose-500/40 p-2.5 text-xs text-rose-300 flex items-start gap-2">
-                                      <AlertTriangle className="size-4 text-rose-400 shrink-0 mt-0.5" />
-                                      <span>{check.message}</span>
-                                    </div>
-                                  )
-                                }
-                                return (
-                                  <div className="mt-2 rounded-xl border border-emerald-500/30 bg-emerald-950/30 p-2.5 text-xs space-y-1.5">
-                                    <div className="flex items-center gap-1.5 font-bold text-emerald-400">
-                                      <Check className="size-3.5" />
-                                      <span>Thông tin giải mã chuẩn C06 Bộ Công An:</span>
-                                    </div>
-                                    <div className="grid grid-cols-3 gap-2 pt-0.5 text-[11px] text-slate-300">
-                                      <div>
-                                        <span className="text-slate-400 block text-[10px]">Nơi khai sinh:</span>
-                                        <strong className="text-white text-xs">{check.province}</strong>
-                                      </div>
-                                      <div>
-                                        <span className="text-slate-400 block text-[10px]">Giới tính:</span>
-                                        <strong className="text-white text-xs">{check.gender}</strong>
-                                      </div>
-                                      <div>
-                                        <span className="text-slate-400 block text-[10px]">Năm sinh:</span>
-                                        <strong className="text-white text-xs">{check.birthYear}</strong>
-                                      </div>
-                                    </div>
-                                  </div>
-                                )
-                              })()
-                            )}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <Field
-                            label="Ngày sinh"
-                            type="text"
-                            value={form.individual_dob}
-                            onChange={handleChange('individual_dob')}
-                            placeholder="DD/MM/YYYY"
-                            required
-                          />
-                        </div>
-                        <div>
-                          <label className="block">
-                            <span className="text-sm font-semibold text-muted">
-                              Giới tính <RequiredMark />
-                            </span>
-                            <select
-                              value={form.individual_gender}
-                              onChange={handleChange('individual_gender')}
-                              className="cosmic-input w-full mt-2"
-                            >
-                              <option value="Nam">Nam</option>
-                              <option value="Nữ">Nữ</option>
-                            </select>
-                          </label>
-                        </div>
-                      </div>
-
-                      <div className="sm:col-span-2">
-                        <Field
-                          label="Nơi thường trú"
-                          value={form.individual_address}
-                          onChange={handleChange('individual_address')}
-                          placeholder="Địa chỉ theo CCCD"
-                          required
-                        />
-                      </div>
-
-                      <div className="sm:col-span-2">
-                        <Field
-                          label="Mã số thuế cá nhân (Tùy chọn)"
-                          value={form.individual_tax_code}
-                          onChange={handleChange('individual_tax_code')}
-                          placeholder="Mã số thuế (nếu có)"
-                        />
-                      </div>
+                    {/* Mã số thuế cá nhân (Tùy chọn) */}
+                    <div className="pt-2">
+                      <Field
+                        label="Mã số thuế cá nhân (Tùy chọn)"
+                        value={form.individual_tax_code}
+                        onChange={handleChange('individual_tax_code')}
+                        placeholder="Nhập mã số thuế cá nhân nếu có"
+                      />
+                      <p className="mt-1.5 text-xs text-slate-400">
+                        Cung cấp mã số thuế cá nhân để thuận tiện cho việc xuất hóa đơn và đối soát tài chính.
+                      </p>
                     </div>
                   </FormSection>
 
@@ -1227,7 +1130,7 @@ export function OrganizerRequestPage() {
                 description="Tóm tắt kinh nghiệm tổ chức, loại sự kiện dự kiến và phạm vi hoạt động."
               >
                 <label className="block">
-                  <span className="text-sm font-semibold text-muted">
+                  <span className="text-sm font-semibold text-white">
                     Mô tả
                     <RequiredMark />
                   </span>
@@ -1250,10 +1153,10 @@ export function OrganizerRequestPage() {
                     type="checkbox"
                     checked={form.terms_accepted}
                     onChange={handleCheckboxChange('terms_accepted')}
-                    className="mt-1 size-4 shrink-0 accent-orange-500"
+                    className="mt-1 size-4.5 shrink-0 rounded border border-white/20 bg-slate-900/60 accent-[#C99A47] cursor-pointer focus:ring-2 focus:ring-[#C99A47]/40"
                     required
                   />
-                  <span className="text-sm leading-6 text-muted">
+                  <span className="text-sm leading-6 text-slate-300">
                     Tôi xác nhận thông tin cung cấp là chính xác và đồng ý với{' '}
                     <PolicyLink to="/policies?policy_type=ORGANIZER_TERMS">
                       Điều khoản dịch vụ dành cho Nhà tổ chức
@@ -1275,40 +1178,42 @@ export function OrganizerRequestPage() {
                   </span>
                 </label>
               </FormSection>
-
-
-
-              <div className="flex flex-wrap justify-end gap-4 mt-8">
-                {editingRequest && (
-                  <button
-                    type="button"
-                    onClick={cancelEdit}
-                    className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 px-8 py-3.5 font-bold text-white transition-all hover:bg-white/10 hover:border-white/20"
-                  >
-                    Hủy chỉnh sửa
-                  </button>
-                )}
-                <button
-                  type="submit"
-                  disabled={requestMutation.isPending || isUploading}
-                  className="btn-gold-primary px-8 py-3.5 text-[15px] flex items-center gap-2 font-bold cursor-pointer transition-all hover:brightness-110 hover:shadow-[0_0_24px_rgba(201,154,71,0.6)] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
-                >
-                  {(requestMutation.isPending || isUploading) && (
-                    <Loader2 className="size-5 animate-spin" />
-                  )}
-                  {isUploading
-                    ? 'Đang tải tài liệu...'
-                    : requestMutation.isPending
-                      ? 'Đang lưu...'
-                      : editingRequest
-                        ? 'Cập nhật yêu cầu'
-                        : 'Gửi yêu cầu'}
-                </button>
-              </div>
             </form>
           )}
         </section>
+
+        {canSubmit && (
+          <div className="flex flex-wrap justify-end gap-4">
+            {editingRequest && (
+              <button
+                type="button"
+                onClick={cancelEdit}
+                className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 px-8 py-3.5 font-bold text-white transition-all hover:bg-white/10 hover:border-white/20"
+              >
+                Hủy chỉnh sửa
+              </button>
+            )}
+            <button
+              type="submit"
+              form="organizer-request-form"
+              disabled={requestMutation.isPending || isUploading}
+              className="btn-gold-primary px-8 py-3.5 text-[15px] flex items-center gap-2 font-bold cursor-pointer transition-all hover:brightness-110 hover:shadow-[0_0_24px_rgba(201,154,71,0.6)] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
+            >
+              {(requestMutation.isPending || isUploading) && (
+                <Loader2 className="size-5 animate-spin" />
+              )}
+              {isUploading
+                ? 'Đang tải tài liệu...'
+                : requestMutation.isPending
+                  ? 'Đang lưu...'
+                  : editingRequest
+                    ? 'Cập nhật yêu cầu'
+                    : 'Gửi yêu cầu'}
+            </button>
+          </div>
+        )}
+      </div>
 
         <aside>
           {requestQuery.isError ? (
@@ -1328,9 +1233,9 @@ function FormSection({ title, description, children }) {
   return (
     <section className="space-y-6 border-t-2 border-dashed border-white/10 pt-8 first:border-t-0 first:pt-0">
       <div>
-        <h2 className="font-display text-lg font-extrabold text-content">{title}</h2>
+        <h2 className="font-display text-lg font-extrabold text-white">{title}</h2>
         {description && (
-          <p className="mt-1 text-sm leading-6 text-subtle">{description}</p>
+          <p className="mt-1 text-sm leading-6 text-slate-300">{description}</p>
         )}
       </div>
       <div className="space-y-4">
@@ -1343,7 +1248,7 @@ function FormSection({ title, description, children }) {
 function Field({ label, value, onChange, placeholder, type = 'text', required = false }) {
   return (
     <label className="block">
-      <span className="text-sm font-semibold text-muted">
+      <span className="text-sm font-semibold text-white">
         {label}
         {required && <RequiredMark />}
       </span>
@@ -1362,7 +1267,7 @@ function Field({ label, value, onChange, placeholder, type = 'text', required = 
 function FileField({ label, file, existingUrl = '', onChange, required = false, imageOnly = false }) {
   return (
     <label className="glass-panel flex min-h-64 flex-col justify-between rounded-[24px] border-white/10 p-6 shadow-inner">
-      <span className="block min-h-12 text-sm font-semibold leading-6 text-muted">
+      <span className="block min-h-12 text-sm font-semibold leading-6 text-white">
         {label}
         {required && <RequiredMark />}
       </span>

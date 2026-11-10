@@ -25,6 +25,7 @@ const MESSAGE_MAP = {
     'Order not found': 'Không tìm thấy đơn hàng.',
     'Promo code already exists': 'Mã khuyến mãi đã tồn tại.',
     'Promo code not found': 'Không tìm thấy mã khuyến mãi.',
+    'Organizer has not configured payment channel.': 'Ban tổ chức sự kiện chưa thiết lập kênh thanh toán PayOS.',
     'Cloudinary is not configured': 'Hệ thống tải tệp chưa được cấu hình. Vui lòng liên hệ quản trị viên.',
 };
 

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Bell, Calendar, ChartNoAxesCombined, CircleDollarSign, FileText, Home, LayoutDashboard, MapPin, MessageSquareText, Percent, RotateCcw, Settings, Settings2, ShoppingCart, TicketCheck, User, UserCog, Users } from 'lucide-react'
-import { getStoredUser, getStoredUserKey, getUserRoles } from '@/lib/auth.js'
+import { getStoredUser, getStoredUserKey, getUserRoles, isAdminUser } from '@/lib/auth.js'
 import { ProfileAvatar } from '@/pages/shared/ProfileAvatar.jsx'
 import { RolePortalLayout } from '@/pages/shared/RolePortalLayout.jsx'
 import { fetchOrganizerProfile } from '@/services/organizerEvents.js'
@@ -70,7 +70,7 @@ export function OrganizerLayout() {
   const user = parseStoredUser()
   const currentUserKey = getStoredUserKey(user)
   const roles = getUserRoles(user)
-  const isAllowed = roles.some((role) => ['organizer', 'admin', 'super_admin'].includes(role))
+  const isAllowed = !isAdminUser(user) && roles.includes('organizer')
   const profileQuery = useQuery({
     queryKey: ['organizer-profile', currentUserKey],
     queryFn: fetchOrganizerProfile,
@@ -110,7 +110,7 @@ export function OrganizerLayout() {
           sources={[organizerAvatarUrl, googleAvatarUrl]}
           name={organizerDisplayName}
           alt="Ảnh đại diện nhà tổ chức"
-          className="size-7"
+          className="size-8 sm:size-8.5"
           fallback="EH"
         />
       }

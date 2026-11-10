@@ -387,7 +387,6 @@ export function OrganizerPaymentSettingsPage() {
   return (
     <OrganizerPage
       title="Cài đặt Thanh toán & Chi hộ"
-      description="Cấu hình Kênh thu để nhận tiền bán vé và Kênh chi để tự động hoàn tiền vé cho khách hàng qua PayOS."
     >
       {/* Channel Switcher Buttons - Below Title, Same Row, Right-aligned */}
       <div className="mb-5 flex flex-wrap sm:flex-nowrap items-center justify-start sm:justify-end gap-2 sm:gap-3">

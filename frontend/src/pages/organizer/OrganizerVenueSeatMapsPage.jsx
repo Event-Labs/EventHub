@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Armchair, ArrowLeft, Eye, Pencil, RotateCcw, Trash2, X, ZoomIn, ZoomOut } from 'lucide-react'
+import { Armchair, ArrowLeft, Eye, Lock, Pencil, RotateCcw, Trash2, X, ZoomIn, ZoomOut } from 'lucide-react'
 import {
   Badge,
   ConfirmModal,
@@ -12,6 +12,7 @@ import {
 } from './OrganizerComponents.jsx'
 import { getVenueSeatMaps } from '@/services/organizerVenues.js'
 import { deleteSeatMap, getSeatMap } from '@/services/organizerSeatMaps.js'
+import { fetchCurrentPlan } from '@/services/subscriptions.js'
 import { SeatMapEditor } from './SeatMapEditor.jsx'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
@@ -738,6 +739,17 @@ export function OrganizerVenueSeatMapsPage() {
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewSeatMapId, setPreviewSeatMapId] = useState(null)
   const [seatMapToDelete, setSeatMapToDelete] = useState(null)
+  const [currentPlan, setCurrentPlan] = useState(null)
+
+  useEffect(() => {
+    fetchCurrentPlan()
+      .then((res) => {
+        if (res?.active && res?.plan) {
+          setCurrentPlan(res.plan)
+        }
+      })
+      .catch(() => setCurrentPlan(null))
+  }, [])
 
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -759,6 +771,16 @@ export function OrganizerVenueSeatMapsPage() {
   }, [loadData])
 
   function openEditor(seatMapId) {
+    if (!seatMapId && currentPlan && !currentPlan.seat_map_enabled) {
+      toast.error('Gói dịch vụ hiện tại không hỗ trợ sơ đồ ghế. Vui lòng nâng cấp gói để sử dụng tính năng này.')
+      navigate('/organizer/subscriptions', {
+        state: {
+          returnTo: `/organizer/venues/${venueId}/seat-maps`,
+          message: 'Tính năng thiết kế Sơ đồ ghế ngồi yêu cầu gói dịch vụ hỗ trợ sơ đồ ghế. Vui lòng nâng cấp gói để sử dụng.',
+        },
+      })
+      return
+    }
     setEditingSeatMapId(seatMapId)
     setEditorOpen(true)
   }
@@ -800,7 +822,7 @@ export function OrganizerVenueSeatMapsPage() {
   return (
     <OrganizerPage
       title="Sơ đồ ghế"
-      description="Quản lý các sơ đồ chỗ ngồi cho địa điểm này."
+
     >
       <div className="mb-4 flex items-center justify-between">
         <button
@@ -811,8 +833,14 @@ export function OrganizerVenueSeatMapsPage() {
           <ArrowLeft className="size-4 text-white transition-transform duration-200 group-hover:-translate-x-1" />
           <span className="text-white">Quay lại địa điểm</span>
         </button>
-        <button type="button" onClick={() => openEditor(null)} className="org-btn-primary">
-          + Tạo sơ đồ mới
+        <button
+          type="button"
+          onClick={() => openEditor(null)}
+          className="org-btn-primary flex items-center gap-1.5"
+          title={currentPlan && !currentPlan.seat_map_enabled ? 'Cần nâng cấp gói để tạo sơ đồ ghế' : 'Tạo sơ đồ mới'}
+        >
+          {currentPlan && !currentPlan.seat_map_enabled && <Lock className="size-4" />}
+          <span>+ Tạo sơ đồ mới</span>
         </button>
       </div>
 

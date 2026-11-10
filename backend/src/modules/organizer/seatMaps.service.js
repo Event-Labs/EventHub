@@ -60,6 +60,7 @@ class SeatMapsService {
 
   async updateSeatMap(userId, seatMapId, data) {
     const organizerId = await this.resolveOrganizerId(userId);
+    await subscriptionGuard.assertSeatMapCreationAllowed(organizerId);
     const existing = await seatMapsRepository.findSeatMapById(seatMapId, organizerId);
     if (!existing) {
       throw new AppError('Không tìm thấy sơ đồ ghế.', 404, ErrorCodes.RESOURCE_NOT_FOUND);

@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
-import { BarChart3, CalendarCheck, DoorOpen, Layers, MapPin, QrCode, Ticket, UserCheck, UserPlus } from 'lucide-react'
+import { BarChart3, CalendarCheck, Clock, DoorOpen, Layers, MapPin, QrCode, Ticket, UserCheck, UserPlus } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { fetchStaffOverview } from '@/services/operations.js'
 import { Badge, StaffPage, StaffPanel } from './StaffComponents.jsx'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
+import { VI_TO_EN } from '@/i18n/phraseDictionary.js'
 
 const numberFormatter = new Intl.NumberFormat('vi-VN')
 
 export function StaffDashboardPage() {
+  const { isEnglish, t } = useLanguage()
   const [overview, setOverview] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -21,7 +24,7 @@ export function StaffDashboardPage() {
         const data = await fetchStaffOverview()
         if (active) setOverview(data)
       } catch (err) {
-        if (active) setError(err.response?.data?.message || 'Không thể tải tổng quan nhân sự.')
+        if (active) setError(err.response?.data?.message || (isEnglish ? 'Failed to load staff overview.' : 'Không thể tải tổng quan nhân sự.'))
       } finally {
         if (active) setLoading(false)
       }
@@ -31,21 +34,23 @@ export function StaffDashboardPage() {
     return () => {
       active = false
     }
-  }, [])
+  }, [isEnglish])
 
   const kpis = useMemo(
     () => [
-      ['Sự kiện được giao', overview?.assigned_events, CalendarCheck],
-      ['Vé đã soát', overview?.checked_in_tickets, UserCheck],
-      ['Vé chưa soát', overview?.remaining_tickets, Ticket],
+      [isEnglish ? 'Assigned Events' : 'Sự kiện được giao', overview?.assigned_events, CalendarCheck],
+      [isEnglish ? 'Checked-in Tickets' : 'Vé đã soát', overview?.checked_in_tickets, UserCheck],
+      [isEnglish ? 'Remaining Tickets' : 'Vé chưa soát', overview?.remaining_tickets, Ticket],
     ],
-    [overview],
+    [overview, isEnglish],
   )
 
   const todayEvents = overview?.today_events || []
 
   return (
-    <StaffPage title="Tổng quan Nhân sự" description="Theo dõi các sự kiện và ca soát vé hôm nay.">
+    <StaffPage
+      title={isEnglish ? 'Staff Operations Overview' : 'Tổng quan Nhân sự'}
+    >
       {error && (
         <div className="mb-4 rounded-xl border border-error/30 bg-error/10 px-4 py-3 text-sm font-semibold text-error">
           {error}
@@ -54,10 +59,10 @@ export function StaffDashboardPage() {
 
       {/* Quick shortcuts */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Shortcut to="/staff/qr-check-in" icon={QrCode} label="Quét mã QR" primary />
-        <Shortcut to="/staff/manual-check-in" icon={UserPlus} label="Soát vé thủ công" />
-        <Shortcut to="/staff/direct-booking" icon={Ticket} label="Đặt vé trực tiếp" />
-        <Shortcut to="/staff/check-in-count" icon={BarChart3} label="Thống kê soát vé" />
+        <Shortcut to="/staff/qr-check-in" icon={QrCode} label={isEnglish ? 'Scan QR Code' : 'Quét mã QR'} primary />
+        <Shortcut to="/staff/manual-check-in" icon={UserPlus} label={isEnglish ? 'Manual Check-in' : 'Soát vé thủ công'} />
+        <Shortcut to="/staff/direct-booking" icon={Ticket} label={isEnglish ? 'Direct Booking' : 'Đặt vé trực tiếp'} />
+        <Shortcut to="/staff/check-in-count" icon={BarChart3} label={isEnglish ? 'Check-in Statistics' : 'Thống kê soát vé'} />
       </div>
 
       {/* KPI Cards (Chỉ có text và data) */}
@@ -79,42 +84,70 @@ export function StaffDashboardPage() {
 
       {/* Main content */}
       <div className="mt-6 grid gap-5 lg:grid-cols-[1fr_340px]">
-        <StaffPanel>
+        <StaffPanel className="flex flex-col">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h3 className="text-base font-extrabold text-content">Sự kiện hôm nay</h3>
-              <p className="text-xs text-subtle">Danh sách sự kiện đang diễn ra trong ngày có phân công cho bạn</p>
+              <h3 className="text-base font-extrabold text-content">
+                {isEnglish ? "Today's Events" : 'Sự kiện hôm nay'}
+              </h3>
+              <p className="text-xs text-subtle">
+                {isEnglish ? 'List of events scheduled today assigned to you' : 'Danh sách sự kiện đang diễn ra trong ngày có phân công cho bạn'}
+              </p>
             </div>
-            <Badge tone={todayEvents.length > 0 ? 'green' : 'gray'}>{todayEvents.length} sự kiện</Badge>
+            <Badge tone={todayEvents.length > 0 ? 'green' : 'gray'}>
+              {todayEvents.length} {isEnglish ? 'events' : 'sự kiện'}
+            </Badge>
           </div>
 
           {loading ? (
-            <p className="mt-5 text-sm font-semibold text-subtle">Đang tải dữ liệu...</p>
+            <div className="flex flex-1 items-center justify-center py-12 text-center text-sm font-semibold text-subtle italic">
+              {isEnglish ? 'Loading data...' : 'Đang tải dữ liệu...'}
+            </div>
           ) : todayEvents.length === 0 ? (
-            <EmptyState message="Hôm nay chưa có sự kiện nào được giao cho bạn." />
+            <EmptyState message={isEnglish ? 'No assigned events scheduled for you today.' : 'Hôm nay chưa có sự kiện nào được giao cho bạn.'} />
           ) : (
             <div className="mt-5 space-y-4">
               {todayEvents.map((event) => (
-                <TodayEvent key={event.id} event={event} />
+                <TodayEvent key={event.id} event={event} isEnglish={isEnglish} />
               ))}
             </div>
           )}
         </StaffPanel>
 
         <StaffPanel>
-          <h3 className="text-base font-extrabold text-content">Hướng dẫn soát vé</h3>
+          <h3 className="text-base font-extrabold text-content">
+            {isEnglish ? 'Check-in Instructions' : 'Hướng dẫn soát vé'}
+          </h3>
           <div className="mt-4 space-y-3.5 text-xs text-subtle">
             <div className="rounded-xl border border-border-soft/30 bg-panel-soft/50 p-3.5">
-              <p className="font-bold text-content">1. Kiểm tra cổng & khu vực phân công</p>
-              <p className="mt-1 leading-5">Đứng đúng vị trí cổng (Gate) và khu vực (Zone) đã được ban tổ chức phân bổ trước khi bắt đầu soát vé.</p>
+              <p className="font-bold text-content">
+                {isEnglish ? '1. Check assigned gate & zone' : '1. Kiểm tra cổng & khu vực phân công'}
+              </p>
+              <p className="mt-1 leading-5">
+                {isEnglish
+                  ? 'Take your assigned gate and zone position allocated by the organizer before starting check-in.'
+                  : 'Đứng đúng vị trí cổng (Gate) và khu vực (Zone) đã được ban tổ chức phân bổ trước khi bắt đầu soát vé.'}
+              </p>
             </div>
             <div className="rounded-xl border border-border-soft/30 bg-panel-soft/50 p-3.5">
-              <p className="font-bold text-content">2. Quét mã QR khán giả</p>
-              <p className="mt-1 leading-5">Dùng camera thiết bị hoặc máy quét để quét mã vé QR trên điện thoại hoặc vé in của khách.</p>
+              <p className="font-bold text-content">
+                {isEnglish ? '2. Scan attendee QR code' : '2. Quét mã QR khán giả'}
+              </p>
+              <p className="mt-1 leading-5">
+                {isEnglish
+                  ? 'Use device camera or barcode scanner to scan the ticket QR code on mobile or printed pass.'
+                  : 'Dùng camera thiết bị hoặc máy quét để quét mã vé QR trên điện thoại hoặc vé in của khách.'}
+              </p>
             </div>
             <div className="rounded-xl border border-border-soft/30 bg-panel-soft/50 p-3.5">
-              <p className="font-bold text-content">3. Soát vé thủ công</p>
-              <p className="mt-1 leading-5">Nếu mã QR mờ hoặc hỏng, nhập trực tiếp mã vé 8 ký tự hoặc email người mua.</p>
+              <p className="font-bold text-content">
+                {isEnglish ? '3. Manual Check-in' : '3. Soát vé thủ công'}
+              </p>
+              <p className="mt-1 leading-5">
+                {isEnglish
+                  ? 'If the QR code is blurred or unreadable, enter the 8-character ticket code or buyer email.'
+                  : 'Nếu mã QR mờ hoặc hỏng, nhập trực tiếp mã vé 8 ký tự hoặc email người mua.'}
+              </p>
             </div>
           </div>
         </StaffPanel>
@@ -123,7 +156,7 @@ export function StaffDashboardPage() {
   )
 }
 
-function TodayEvent({ event }) {
+function TodayEvent({ event, isEnglish = false }) {
   const checkedIn = Number(event.checked_in || 0)
   const remaining = Number(event.remaining || 0)
   const total = Number(event.total_valid || checkedIn + remaining)
@@ -144,7 +177,15 @@ function TodayEvent({ event }) {
         <div className="flex flex-wrap items-start justify-between gap-2">
           <h4 className="font-extrabold text-primary">{event.title}</h4>
           <div className="flex flex-wrap items-center gap-1.5">
-            <Badge tone="green">Hôm nay</Badge>
+            <Badge tone="green">{isEnglish ? 'Today' : 'Hôm nay'}</Badge>
+            {(event.session_name || (event.assigned_sessions && event.assigned_sessions.length > 0)) && (
+              <Badge tone="cyan">
+                <span className="flex items-center gap-1">
+                  <Clock className="size-3" />
+                  {event.session_name || event.assigned_sessions.map((s) => s.session_name || (isEnglish ? 'Work Shift' : 'Phiên làm việc')).join(', ')}
+                </span>
+              </Badge>
+            )}
             {event.gate && (
               <Badge tone="purple">
                 <span className="flex items-center gap-1">
@@ -164,30 +205,35 @@ function TodayEvent({ event }) {
           </div>
         </div>
         <p className="mt-2 text-xs font-semibold text-subtle">
-          {new Date(event.start_time).toLocaleString('vi-VN')}
+          {new Date(event.start_time).toLocaleString(isEnglish ? 'en-US' : 'vi-VN')}
         </p>
         <p className="mt-1 flex items-center gap-1.5 text-xs text-subtle">
           <MapPin className="size-3.5 shrink-0" />
-          {venue || 'Chưa cập nhật địa điểm'}
+          {venue || (isEnglish ? 'Venue not updated' : 'Chưa cập nhật địa điểm')}
         </p>
         <div className="mt-2 flex flex-wrap gap-2 text-xs font-semibold text-subtle">
-          <span>Vai trò: <strong className="text-content">{event.staff_role || 'Nhân sự'}</strong></span>
+          <span>{isEnglish ? 'Role: ' : 'Vai trò: '}<strong className="text-content">{isEnglish ? (VI_TO_EN[event.staff_role] || event.staff_role || 'Staff') : (event.staff_role || 'Nhân sự')}</strong></span>
+          {event.session_name || (event.assigned_sessions && event.assigned_sessions.length > 0) ? (
+            <span>• {isEnglish ? 'Shift: ' : 'Phiên: '}<strong className="text-cyan-400">{event.session_name || event.assigned_sessions.map((s) => s.session_name || (isEnglish ? 'Shift' : 'Phiên làm việc')).join(', ')}</strong></span>
+          ) : (
+            <span>• {isEnglish ? 'Shift: ' : 'Phiên: '}<strong className="text-content">{isEnglish ? 'Entire event' : 'Toàn bộ sự kiện'}</strong></span>
+          )}
           {event.gate && (
-            <span>• Cổng: <strong className="text-primary">{event.gate}</strong></span>
+            <span>• {isEnglish ? 'Gate: ' : 'Cổng: '}<strong className="text-primary">{event.gate}</strong></span>
           )}
           {event.zone && (
-            <span>• Khu vực: <strong className="text-amber-500">{event.zone}</strong></span>
+            <span>• {isEnglish ? 'Zone: ' : 'Khu vực: '}<strong className="text-amber-500">{event.zone}</strong></span>
           )}
         </div>
         <p className="mt-3 text-xs font-semibold text-content">
-          Tiến độ soát vé <span className="float-right">{numberFormatter.format(checkedIn)} / {numberFormatter.format(total)}</span>
+          {isEnglish ? 'Check-in Progress ' : 'Tiến độ soát vé '}<span className="float-right">{numberFormatter.format(checkedIn)} / {numberFormatter.format(total)}</span>
         </p>
         <div className="mt-1.5 h-2 rounded-full bg-surface">
           <div className="h-full rounded-full bg-tertiary transition-all" style={{ width: `${progress}%` }} />
         </div>
         <div className="mt-4 flex flex-wrap gap-3">
-          <Link to="/staff/qr-check-in" className="admin-primary text-xs py-2">Bắt đầu soát vé</Link>
-          <Link to={`/staff/events/${event.id}`} className="admin-secondary text-xs py-2">Chi tiết</Link>
+          <Link to="/staff/qr-check-in" className="admin-primary text-xs py-2">{isEnglish ? 'Start Check-in' : 'Bắt đầu soát vé'}</Link>
+          <Link to={`/staff/events/${event.id}`} className="admin-secondary text-xs py-2">{isEnglish ? 'Details' : 'Chi tiết'}</Link>
         </div>
       </div>
     </div>
@@ -196,7 +242,7 @@ function TodayEvent({ event }) {
 
 function EmptyState({ message, compact = false }) {
   return (
-    <div className={`rounded-xl border border-border-soft/30 bg-panel-soft/40 text-sm font-semibold text-subtle ${compact ? 'mt-4 p-4' : 'mt-5 p-5'}`}>
+    <div className={`flex flex-1 items-center justify-center text-center italic text-sm text-subtle ${compact ? 'py-8' : 'min-h-[220px] py-12'}`}>
       {message}
     </div>
   )
@@ -206,14 +252,14 @@ function Shortcut({ to, icon: Icon, label, primary }) {
   return (
     <Link
       to={to}
-      className={`rounded-2xl border p-5 text-center font-bold transition-all hover:scale-[1.02] ${
+      className={`rounded-2xl border p-5 text-center transition-all hover:scale-[1.02] ${
         primary
           ? 'border-[#E6C17A]/40 bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-[0_4px_20px_rgba(201,154,71,0.35)]'
           : 'border-border-soft/40 bg-surface/80 text-content hover:border-[#C99A47]/40 hover:bg-panel-soft'
       }`}
     >
       <Icon className="mx-auto mb-2.5 size-6" />
-      <span className="text-sm">{label}</span>
+      <span className="text-base font-extrabold tracking-wide">{label}</span>
     </Link>
   )
 }

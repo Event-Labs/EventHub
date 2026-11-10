@@ -299,6 +299,9 @@ class OrdersRepository {
           if (b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id) {
             return ticketTypeIds.map(String).includes(String(b.metadata.ticket_type_id));
           }
+          if (b.metadata?.scope === 'SEATS') {
+            return false;
+          }
           return true;
         });
       if (isPausedForItems) {
@@ -306,6 +309,9 @@ class OrdersRepository {
         const relevantBlocks = activeBlocks.filter((b) => {
           if (b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id) {
             return ticketTypeIds.map(String).includes(String(b.metadata.ticket_type_id));
+          }
+          if (b.metadata?.scope === 'SEATS') {
+            return false;
           }
           return true;
         });
@@ -346,7 +352,7 @@ class OrdersRepository {
         throw new AppError('S\u1ef1 ki\u1ec7n \u0111\u00e3 k\u1ebft th\u00fac, kh\u00f4ng th\u1ec3 b\u00e1n v\u00e9.', 400, ErrorCodes.ORDER_TICKET_SALE_CLOSED);
       }
 
-      if (paymentChannel && firstTicket.organizer_id !== paymentChannel.organizer_id) {
+      if (paymentChannel && paymentChannel.organizer_id && firstTicket.organizer_id !== paymentChannel.organizer_id) {
         throw new AppError('K\u00eanh thanh to\u00e1n c\u1ee7a ban t\u1ed5 ch\u1ee9c kh\u00f4ng h\u1ee3p l\u1ec7.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
       }
 
@@ -370,7 +376,21 @@ class OrdersRepository {
 
       const requireAttendeeInfo = Boolean(firstTicket.require_attendee_info);
       if (requireAttendeeInfo && attendees.length !== totalRequested) {
-        throw new AppError('Vui lòng nhập đủ thông tin người tham dự cho từng vé.', 400, ErrorCodes.INVALID_INPUT);
+        if (buyer?.name && buyer?.email) {
+          while (attendees.length < totalRequested) {
+            const missingItem = items.find((it) => {
+              const currentCount = attendees.filter((a) => a.ticket_type_id === it.ticket_type_id).length;
+              return currentCount < it.quantity;
+            }) || items[0];
+            attendees.push({
+              ticket_type_id: missingItem?.ticket_type_id,
+              name: buyer.name,
+              email: buyer.email,
+            });
+          }
+        } else {
+          throw new AppError('Vui lòng nhập đủ thông tin người tham dự cho từng vé.', 400, ErrorCodes.INVALID_INPUT);
+        }
       }
       const attendeeQueues = requireAttendeeInfo ? buildAttendeeQueues(attendees) : new Map();
 
@@ -881,6 +901,14 @@ class OrdersRepository {
 
     const events = new Map();
     for (const row of rows) {
+      const venueObj = row.venue_name || row.address_line ? {
+        name: row.venue_name,
+        address_line: row.address_line,
+        ward: row.ward,
+        district: row.district,
+        city: row.city,
+      } : null;
+
       if (!events.has(row.event_id)) {
         events.set(row.event_id, {
           id: row.event_id,
@@ -890,24 +918,24 @@ class OrdersRepository {
           thumbnail_url: row.thumbnail_url,
           start_time: row.event_start_time,
           end_time: row.event_end_time,
+          venue: venueObj,
           sessions: [],
           ticket_types: [],
         });
       }
 
       const event = events.get(row.event_id);
+      if (!event.venue && venueObj) {
+        event.venue = venueObj;
+      }
+
       if (!event.sessions.some((session) => session.id === row.session_id)) {
         event.sessions.push({
           id: row.session_id,
           session_name: row.session_name,
           start_time: row.session_start_time,
           end_time: row.session_end_time,
-          venue: {
-            name: row.venue_name,
-            address_line: row.address_line,
-            district: row.district,
-            city: row.city,
-          },
+          venue: venueObj,
         });
       }
 
@@ -2182,7 +2210,7 @@ class OrdersRepository {
       }
 
       if (Number(paymentOrder.amount) !== Number(amount)) {
-        throw new AppError('S\u1ed1 ti\u1ec1n thanh to\u00e1n kh\u00f4ng h\u1ee3p l\u1ec7.', 400, ErrorCodes.INVALID_INPUT);
+        throw new AppError('Số tiền thanh toán không hợp lệ.', 400, ErrorCodes.INVALID_INPUT);
       }
 
       const orderResult = await client.query(
@@ -2191,7 +2219,12 @@ class OrdersRepository {
       );
       const order = orderResult.rows[0];
       if (!order) {
-        throw new AppError('Kh\u00f4ng t\u00ecm th\u1ea5y \u0111\u01a1n h\u00e0ng.', 404, ErrorCodes.ORDER_NOT_FOUND);
+        throw new AppError('Không tìm thấy đơn hàng.', 404, ErrorCodes.ORDER_NOT_FOUND);
+      }
+
+      if (order.status === 'PAID') {
+        await client.query('COMMIT');
+        return { alreadyPaid: true, orderId: order.id, order };
       }
 
       // Check event and order cancellation status (Section 6.10, BR-HE-07, BR-CE-13)
@@ -2214,9 +2247,25 @@ class OrdersRepository {
 
       // Parse PayOS counterAccount data if present (Section 7.15, 7.26)
       const dataPayload = rawPayload?.data || rawPayload || {};
-      const payerBankId = dataPayload.counterAccountBankId || dataPayload.counter_account_bank_id || null;
-      const rawAccNum = dataPayload.counterAccountNumber || dataPayload.counter_account_number || null;
-      const payerAccountName = dataPayload.counterAccountName || dataPayload.counter_account_name || null;
+      const tx0 = Array.isArray(dataPayload.transactions) ? dataPayload.transactions[0] || {} : {};
+      const payerBankId =
+        dataPayload.counterAccountBankId ||
+        dataPayload.counter_account_bank_id ||
+        tx0.counterAccountBankId ||
+        tx0.counter_account_bank_id ||
+        null;
+      const rawAccNum =
+        dataPayload.counterAccountNumber ||
+        dataPayload.counter_account_number ||
+        tx0.counterAccountNumber ||
+        tx0.counter_account_number ||
+        null;
+      const payerAccountName =
+        dataPayload.counterAccountName ||
+        dataPayload.counter_account_name ||
+        tx0.counterAccountName ||
+        tx0.counter_account_name ||
+        null;
       let encryptedAccNum = null;
       if (rawAccNum) {
         try {
@@ -2311,11 +2360,17 @@ class OrdersRepository {
         };
       }
 
-      if (order.status !== 'PENDING') {
+      const paidAtString = tx0.transactionDateTime || dataPayload.transactionDateTime || dataPayload.paidAt;
+      const paymentTimestamp = paidAtString ? new Date(paidAtString).getTime() : Date.now();
+      const orderExpiredTimestamp = order.expired_at ? new Date(order.expired_at).getTime() : Infinity;
+      const isPaidBeforeExpiry = paymentTimestamp <= (orderExpiredTimestamp + 180000); // 3-minute grace period for network/clock
+      const isPaidAfterExpiry = !isPaidBeforeExpiry && orderExpiredTimestamp <= Date.now();
+
+      if (order.status !== 'PENDING' && !(order.status === 'EXPIRED' && isPaidBeforeExpiry)) {
         throw new AppError('Không thể xác nhận đơn hàng.', 400, ErrorCodes.INVALID_INPUT);
       }
 
-      if (order.expired_at && new Date(order.expired_at).getTime() <= Date.now()) {
+      if (isPaidAfterExpiry) {
         await client.query(
           `
           UPDATE orders
@@ -2349,6 +2404,21 @@ class OrdersRepository {
           [order.id],
         );
         throw new AppError('Thời gian giữ đơn hàng đã hết.', 400, ErrorCodes.ORDER_TICKET_UNAVAILABLE);
+      }
+
+      if (order.status === 'EXPIRED') {
+        const seatsCheck = await client.query(
+          `
+          SELECT ss.id, ss.status
+          FROM order_items oi
+          JOIN session_seats ss ON ss.id = oi.session_seat_id
+          WHERE oi.order_id = $1 AND ss.status NOT IN ('HELD', 'AVAILABLE')
+          `,
+          [order.id],
+        );
+        if (seatsCheck.rows.length > 0) {
+          throw new AppError('Ghế đã được người khác đặt sau khi hết hạn giữ chỗ.', 400, ErrorCodes.ORDER_TICKET_UNAVAILABLE);
+        }
       }
 
       await client.query(
@@ -2500,10 +2570,11 @@ class OrdersRepository {
   async findPaidOrderEmailDetails(orderId) {
     const { rows } = await db.query(
       `SELECT o.id, o.order_code, o.buyer_name, o.buyer_email, o.subtotal, o.discount_amount,
-        o.platform_fee, o.total_amount, event_info.title AS event_title,
+        o.platform_fee, o.total_amount, COALESCE(o.locale, u.locale, 'vi') AS locale, event_info.title AS event_title,
         event_info.banner_url, event_info.thumbnail_url,
         po.paid_at, COALESCE(po.provider_transaction_id, po.provider_order_code::text) AS transaction_code
       FROM orders o
+      LEFT JOIN users u ON u.id = o.user_id
       JOIN LATERAL (
         SELECT e.id, e.title, e.banner_url, e.thumbnail_url
         FROM order_items oi
@@ -2710,6 +2781,9 @@ class OrdersRepository {
         activeBlocks.some((b) => {
           if (b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id) {
             return ticketTypeIds.map(String).includes(String(b.metadata.ticket_type_id));
+          }
+          if (b.metadata?.scope === 'SEATS') {
+            return false;
           }
           return true;
         });

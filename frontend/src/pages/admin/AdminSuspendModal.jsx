@@ -86,14 +86,14 @@ export function AdminSuspendModal({ event, onConfirm, onClose, loading }) {
               type="button"
               onClick={onClose}
               disabled={loading}
-              className="flex-1 rounded-xl border border-border-soft/40 bg-panel-soft px-4 py-2.5 text-xs font-semibold text-subtle transition hover:border-border-soft hover:text-content disabled:opacity-50"
+              className="flex-1 rounded-full border border-border-soft/40 bg-panel-soft px-4 py-2.5 text-xs font-semibold text-subtle transition hover:border-border-soft hover:text-content disabled:opacity-50"
             >
               Hủy bỏ
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 rounded-xl bg-rose-600 px-4 py-2.5 text-xs font-semibold text-white shadow-lg shadow-rose-900/40 transition hover:bg-rose-500 disabled:opacity-50"
+              className="flex-1 rounded-full bg-rose-600 px-4 py-2.5 text-xs font-semibold text-white shadow-lg shadow-rose-900/40 transition hover:bg-rose-500 disabled:opacity-50"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">

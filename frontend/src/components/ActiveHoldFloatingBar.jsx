@@ -9,31 +9,66 @@ import {
   readBookingDraft,
   secondsLeft,
 } from '@/utils/bookingDraft.js'
+import { isAuthenticated } from '@/lib/auth.js'
 
 export function ActiveHoldFloatingBar() {
   const location = useLocation()
   const navigate = useNavigate()
-  const [cart, setCart] = useState(() => readBookingDraft())
+  const [isAuth, setIsAuth] = useState(() => isAuthenticated())
+  const [cart, setCart] = useState(() => (isAuthenticated() ? readBookingDraft() : null))
   const [dismissed, setDismissed] = useState(false)
   const [tick, setTick] = useState(0)
 
+  // Listen to auth changes (login/logout) and clear-draft events to instantly update bar visibility
   useEffect(() => {
+    const handleAuth = () => {
+      const authed = isAuthenticated()
+      setIsAuth(authed)
+      if (!authed) {
+        setCart(null)
+      } else {
+        setCart(readBookingDraft())
+      }
+    }
+    const handleDraftCleared = () => {
+      setCart(null)
+      setDismissed(true)
+    }
+    window.addEventListener('eventhub-auth', handleAuth)
+    window.addEventListener('eventhub-booking-draft-cleared', handleDraftCleared)
+    return () => {
+      window.removeEventListener('eventhub-auth', handleAuth)
+      window.removeEventListener('eventhub-booking-draft-cleared', handleDraftCleared)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!isAuth) return
     const timer = window.setInterval(() => {
       setTick((t) => t + 1)
+      if (!isAuthenticated()) {
+        setIsAuth(false)
+        setCart(null)
+        return
+      }
       const current = readBookingDraft()
       setCart(current)
     }, 1000)
     return () => window.clearInterval(timer)
-  }, [])
+  }, [isAuth])
 
-  // Do not show on booking flow pages
+  // Do not show for unauthenticated visitors or on booking flow pages
+  if (!isAuth || !isAuthenticated()) return null
   if (location.pathname.startsWith('/booking/')) return null
   if (dismissed) return null
   if (!cart || !hasActiveSeatHold(cart)) return null
 
   const holdExpiresAt = cart.holdExpiresAt || cart.hold_expires_at
   const remaining = secondsLeft(holdExpiresAt)
-  if (remaining <= 0) return null
+  if (remaining <= 0) {
+    clearBookingDraft(cart?.eventId)
+    return null
+  }
 
   const totalSeats = (cart.selectedSeatIds?.length) || (cart.items?.reduce((s, i) => s + (i.quantity || 0), 0)) || 0
 

@@ -137,7 +137,7 @@ function toVietnamDateString(dateInput) {
   return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
 }
 
-function assertValidSessionTimes(startTime, endTime, validatePast = true) {
+function assertValidSessionTimes(startTime, endTime, validatePast = true, checkinStartTime = null) {
   if (!startTime || !endTime) {
     throw new AppError('Thời gian bắt đầu và kết thúc là bắt buộc.', 400, ErrorCodes.INVALID_INPUT);
   }
@@ -154,6 +154,23 @@ function assertValidSessionTimes(startTime, endTime, validatePast = true) {
   }
   if (validatePast && startDate.getTime() < Date.now() - 60000) {
     throw new AppError('Thời gian bắt đầu sự kiện không được ở trong quá khứ.', 400, ErrorCodes.INVALID_INPUT);
+  }
+  if (checkinStartTime) {
+    const checkinDate = new Date(checkinStartTime);
+    if (isNaN(checkinDate.getTime())) {
+      throw new AppError('Thời gian check-in không hợp lệ.', 400, ErrorCodes.INVALID_INPUT);
+    }
+    if (validatePast && checkinDate.getTime() < Date.now() - 60000) {
+      throw new AppError('Thời gian check-in không được ở trong quá khứ.', 400, ErrorCodes.INVALID_INPUT);
+    }
+    const checkinDay = toVietnamDateString(checkinDate);
+    const startDay = toVietnamDateString(startDate);
+    if (checkinDay > startDay) {
+      throw new AppError('Ngày check-in không được sau ngày diễn ra sự kiện.', 400, ErrorCodes.INVALID_INPUT);
+    }
+    if (checkinDate.getTime() > startDate.getTime()) {
+      throw new AppError('Thời gian check-in phải trước hoặc bằng thời gian bắt đầu sự kiện.', 400, ErrorCodes.INVALID_INPUT);
+    }
   }
 }
 
@@ -468,6 +485,7 @@ class OrganizerEventsService {
           payload_before: currentEvent,
           payload_after: data,
           diff: changes,
+          proposed_changes: changes,
           reason: payload.reason || 'Critical Event Update',
           note: payload.note || '',
           commitment_accepted_at: new Date().toISOString(),
@@ -510,6 +528,7 @@ class OrganizerEventsService {
           payload_before: currentEvent,
           payload_after: data,
           diff: changes,
+          proposed_changes: changes,
           reason: payload.reason || 'Major Event Update',
           submitted_by: userId,
           submitted_at: new Date().toISOString(),
@@ -623,9 +642,10 @@ class OrganizerEventsService {
         const existingSession = session.id ? existingSessions.find((item) => item.id === session.id) : null;
         const isNewOrChangedStartTime =
           !existingSession ||
-          new Date(existingSession.start_time).getTime() !== new Date(session.start_time).getTime();
+          new Date(existingSession.start_time).getTime() !== new Date(session.start_time).getTime() ||
+          new Date(existingSession.checkin_start_time || 0).getTime() !== new Date(session.checkin_start_time || 0).getTime();
 
-        assertValidSessionTimes(session.start_time, session.end_time, isNewOrChangedStartTime);
+        assertValidSessionTimes(session.start_time, session.end_time, isNewOrChangedStartTime, session.checkin_start_time);
         await this.assertVenueAccessible(organizerId, session.venue_id);
 
         const sessionData = {
@@ -857,7 +877,7 @@ class OrganizerEventsService {
       throw new AppError('venue_id, start_time and end_time are required', 400, ErrorCodes.INVALID_INPUT);
     }
 
-    assertValidSessionTimes(payload.start_time, payload.end_time);
+    assertValidSessionTimes(payload.start_time, payload.end_time, true, payload.checkin_start_time);
     await this.assertVenueAccessible(organizerId, payload.venue_id);
 
     const session = await organizerEventsRepository.createSession(eventId, payload);
@@ -880,14 +900,17 @@ class OrganizerEventsService {
     if (payload.venue_id) {
       await this.assertVenueAccessible(organizerId, payload.venue_id);
     }
-    if (payload.start_time || payload.end_time) {
+    if (payload.start_time || payload.end_time || payload.checkin_start_time !== undefined) {
       const startTime = payload.start_time || session.start_time;
       const endTime = payload.end_time || session.end_time;
+      const checkinTime = payload.checkin_start_time !== undefined ? payload.checkin_start_time : session.checkin_start_time;
       const isChanged = Boolean(
-        payload.start_time &&
-          new Date(payload.start_time).getTime() !== new Date(session.start_time).getTime(),
+        (payload.start_time &&
+          new Date(payload.start_time).getTime() !== new Date(session.start_time).getTime()) ||
+        (payload.checkin_start_time !== undefined &&
+          new Date(payload.checkin_start_time || 0).getTime() !== new Date(session.checkin_start_time || 0).getTime()),
       );
-      assertValidSessionTimes(startTime, endTime, isChanged);
+      assertValidSessionTimes(startTime, endTime, isChanged, checkinTime);
     }
 
     const updated = await organizerEventsRepository.updateSession(sessionId, eventId, payload);
@@ -960,7 +983,7 @@ class OrganizerEventsService {
     return { deleted: true };
   }
 
-  async assignZoneTicketTypes(userId, eventId, sessionId, assignments) {
+  async assignZoneTicketTypes(userId, eventId, sessionId, payload) {
     const organizerId = await this.resolveOrganizerId(userId);
     await this.assertOwnsEvent(organizerId, eventId);
     const { permissions } = await this.getEditContext(eventId);
@@ -973,7 +996,16 @@ class OrganizerEventsService {
     if (!session.seat_map_id) {
       throw new AppError('Session has no seat map assigned', 400, ErrorCodes.INVALID_INPUT);
     }
-    if (!Array.isArray(assignments) || !assignments.length) {
+
+    const assignments = Array.isArray(payload) ? payload : (payload?.assignments || []);
+    const disabledSeatIds = payload && !Array.isArray(payload)
+      ? (Array.isArray(payload.disabled_seat_ids) ? payload.disabled_seat_ids : (Array.isArray(payload.disabledSeatIds) ? payload.disabledSeatIds : null))
+      : null;
+
+    if (!Array.isArray(assignments)) {
+      throw new AppError('Zone assignments must be an array', 400, ErrorCodes.INVALID_INPUT);
+    }
+    if (!assignments.length && !disabledSeatIds) {
       throw new AppError('Zone assignments are required', 400, ErrorCodes.INVALID_INPUT);
     }
 
@@ -987,8 +1019,8 @@ class OrganizerEventsService {
       }
     }
 
-    await organizerEventsRepository.assignZonesToTicketTypes(sessionId, assignments);
-    return { assigned: assignments.length };
+    await organizerEventsRepository.assignZonesToTicketTypes(sessionId, assignments, disabledSeatIds);
+    return { assigned: assignments.length, disabled_seats: disabledSeatIds ? disabledSeatIds.length : undefined };
   }
 
   async getLatestAiContentGeneration(userId, _eventId) {

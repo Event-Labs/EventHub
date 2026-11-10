@@ -1,5 +1,6 @@
 import { isValidElement } from 'react'
 import { Link } from 'react-router-dom'
+import { translatePhrase } from '@/i18n/phraseDictionary.js'
 
 export const ACTION_TONES = {
   default:
@@ -36,6 +37,13 @@ export function TableActionButton({
   const toneClass = ACTION_TONES[tone] || ACTION_TONES.default
   const isIconButton = !label && !children
 
+  const activeLocale =
+    (typeof document !== 'undefined' && document.documentElement?.lang) ||
+    (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale')) ||
+    'vi'
+  const localizedLabel = typeof label === 'string' ? translatePhrase(label, activeLocale) : label
+  const localizedTitle = typeof title === 'string' ? translatePhrase(title, activeLocale) : (localizedLabel || title)
+
   const baseClasses = isIconButton
     ? `inline-flex size-8 items-center justify-center rounded-lg border transition-all duration-200 shrink-0 select-none ${toneClass} ${
         disabled ? 'opacity-40 cursor-not-allowed pointer-events-none' : 'hover:-translate-y-0.5'
@@ -56,14 +64,14 @@ export function TableActionButton({
   const content = (
     <>
       {renderIcon()}
-      {label && <span>{label}</span>}
+      {localizedLabel && <span>{localizedLabel}</span>}
       {children}
     </>
   )
 
   if (to && !disabled) {
     return (
-      <Link to={to} title={title || label} aria-label={title || label} className={baseClasses} {...props}>
+      <Link to={to} title={localizedTitle} aria-label={localizedTitle} className={baseClasses} {...props}>
         {content}
       </Link>
     )
@@ -74,8 +82,8 @@ export function TableActionButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      title={title || label}
-      aria-label={title || label}
+      title={localizedTitle}
+      aria-label={localizedTitle}
       className={baseClasses}
       {...props}
     >

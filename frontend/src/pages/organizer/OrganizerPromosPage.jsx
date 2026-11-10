@@ -72,8 +72,14 @@ function getPromoMessage(message, fallback) {
   return PROMO_MESSAGE_LABELS[message] || (/[À-ỹ]/.test(message) ? message : fallback)
 }
 
+const getAutoLocale = () =>
+  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
+   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
+    ? 'en-US'
+    : 'vi-VN'
+
 function formatPromoDate(date) {
-  return new Date(date).toLocaleDateString('vi-VN', {
+  return new Date(date).toLocaleDateString(getAutoLocale(), {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -86,7 +92,7 @@ function formatDateRange(start, end) {
 
 function formatPromoDateTime(date) {
   const value = new Date(date)
-  const time = value.toLocaleTimeString('vi-VN', {
+  const time = value.toLocaleTimeString(getAutoLocale(), {
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
@@ -331,7 +337,6 @@ export function OrganizerPromosPage() {
   return (
     <OrganizerPage
       title="Quản lý Mã khuyến mãi"
-      description="Tạo và theo dõi hiệu quả sử dụng mã khuyến mãi cho sự kiện."
       action={
         <button
           className={`flex items-center gap-2 ${hasEvents ? 'org-btn-primary' : 'bg-neutral text-muted cursor-not-allowed px-4 py-2 rounded-xl font-bold text-sm'}`}
@@ -465,8 +470,8 @@ export function OrganizerPromosPage() {
         onClose={() => setShowDeleteModal(false)}
         footer={
           <>
-            <button className="org-btn-secondary" onClick={() => setShowDeleteModal(false)}>Hủy</button>
-            <button className="bg-error text-white px-4 py-2 rounded-xl font-bold text-sm hover:opacity-90 transition-opacity" onClick={handleDelete}>Ngừng hoạt động</button>
+            <button className="org-btn-secondary px-6" onClick={() => setShowDeleteModal(false)}>Hủy</button>
+            <button className="inline-flex items-center justify-center gap-2 rounded-full bg-error px-6 py-2.5 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60" onClick={handleDelete}>Ngừng hoạt động</button>
           </>
         }
       >
@@ -517,9 +522,8 @@ function StatusBadge({ status }) {
 }
 
 function PromoFormModal({ open, onClose, title, onSubmit, formData, setFormData, errors = {}, events, isEdit, currentUsage }) {
-  const fieldClass = 'mt-1.5 h-11 w-full rounded-lg border border-white/15 bg-[#0d172e] px-3 text-sm text-white font-medium outline-none transition focus:border-tertiary focus:ring-2 focus:ring-tertiary/15 placeholder:text-slate-400'
+  const fieldClass = 'mt-1.5 h-11 w-full rounded-lg border border-white/15 bg-[#0d172e] px-3 text-sm text-white font-medium outline-none transition focus:border-tertiary focus:ring-2 focus:ring-tertiary/15 placeholder:text-slate-400 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-300 [html.light_&]:text-[#0D1B2A] [html.light_&]:placeholder:text-slate-400'
   const errorFieldClass = 'border-error bg-error/5 ring-1 ring-error/20 text-white'
-  const panelClass = 'rounded-xl border border-white/10 bg-[#0e172e] p-4 text-white'
 
   return (
     <Modal open={open} title={title} onClose={onClose} maxWidth="max-w-3xl"
@@ -530,26 +534,30 @@ function PromoFormModal({ open, onClose, title, onSubmit, formData, setFormData,
         </>
       }
     >
-      <form className="space-y-5" onSubmit={onSubmit}>
+      <form className="space-y-6" onSubmit={onSubmit}>
         {isEdit && currentUsage !== null && (
-          <div className="rounded-xl border border-tertiary/25 bg-tertiary/10 p-4">
-            <div className="flex items-center justify-between gap-4">
-              <p className="text-xs font-extrabold uppercase text-primary">Hiệu quả sử dụng hiện tại</p>
-              <span className="rounded-lg border border-tertiary/30 bg-surface/50 px-2.5 py-1 text-xs font-extrabold text-primary">{currentUsage}%</span>
-            </div>
-            <div className="mt-2 flex items-center gap-4">
-              <div className="h-2.5 flex-1 overflow-hidden rounded-full border border-border-soft/20 bg-panel-soft">
-                <div className="h-full bg-tertiary" style={{ width: `${currentUsage}%` }} />
+          <>
+            <div className="rounded-xl border border-tertiary/25 bg-tertiary/10 p-4">
+              <div className="flex items-center justify-between gap-4">
+                <p className="text-xs font-extrabold uppercase text-primary">Hiệu quả sử dụng hiện tại</p>
+                <span className="rounded-lg border border-tertiary/30 bg-surface/50 px-2.5 py-1 text-xs font-extrabold text-primary">{currentUsage}%</span>
               </div>
+              <div className="mt-2 flex items-center gap-4">
+                <div className="h-2.5 flex-1 overflow-hidden rounded-full border border-border-soft/20 bg-panel-soft">
+                  <div className="h-full bg-tertiary" style={{ width: `${currentUsage}%` }} />
+                </div>
+              </div>
+              <p className="mt-2 text-xs text-muted">Hãy cẩn thận khi giảm giới hạn sử dụng xuống thấp hơn số lượt đã dùng hiện tại.</p>
             </div>
-            <p className="mt-2 text-xs text-muted">Hãy cẩn thận khi giảm giới hạn sử dụng xuống thấp hơn số lượt đã dùng hiện tại.</p>
-          </div>
+            <div className="border-t border-white/10 [html.light_&]:border-slate-200" />
+          </>
         )}
 
-        <section className={panelClass}>
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[0.8fr_1.2fr]">
-            <label className="block">
-              <span className={`text-sm font-bold uppercase font-display tracking-tight transition-colors ${errors.code ? 'text-error' : 'text-white'}`}>Mã khuyến mãi</span>
+        {/* Phần 1: Mã khuyến mãi & Sự kiện áp dụng */}
+        <div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <label className="block min-w-0">
+              <span className={`text-sm font-bold uppercase font-display tracking-tight transition-colors ${errors.code ? 'text-error' : 'text-white [html.light_&]:text-[#0D1B2A]'}`}>Mã khuyến mãi</span>
               <input
                 type="text"
                 className={`${fieldClass} font-extrabold uppercase tracking-widest ${errors.code ? errorFieldClass : ''}`}
@@ -561,16 +569,16 @@ function PromoFormModal({ open, onClose, title, onSubmit, formData, setFormData,
               {errors.code && <p className="mt-1 flex items-center gap-1 text-[11px] font-bold text-error uppercase animate-in fade-in slide-in-from-top-1"><AlertCircle className="size-3" /> {errors.code}</p>}
             </label>
 
-            <div>
-              <span className={`text-sm font-bold uppercase font-display tracking-tight transition-colors ${errors.eventIds ? 'text-error' : 'text-white'}`}>Sự kiện áp dụng</span>
-              <label className={`mt-1.5 flex min-h-11 items-center justify-between gap-3 rounded-lg border px-3 text-sm font-bold transition ${formData.applyToAllEvents
-                ? 'border-tertiary/40 bg-tertiary/20 text-white'
-                : 'border-white/15 bg-[#0d172e] text-white'
+            <div className="min-w-0">
+              <span className={`text-sm font-bold uppercase font-display tracking-tight transition-colors ${errors.eventIds ? 'text-error' : 'text-white [html.light_&]:text-[#0D1B2A]'}`}>Sự kiện áp dụng</span>
+              <label className={`mt-1.5 flex h-11 items-center justify-between gap-3 rounded-lg border px-3 text-sm font-bold transition cursor-pointer ${formData.applyToAllEvents
+                ? 'border-tertiary/40 bg-tertiary/20 text-white [html.light_&]:text-[#0D1B2A] [html.light_&]:border-amber-400/60 [html.light_&]:bg-amber-50'
+                : 'border-white/15 bg-[#0d172e] text-white [html.light_&]:bg-slate-50 [html.light_&]:border-slate-300 [html.light_&]:text-[#0D1B2A]'
                 }`}>
                 <span>Áp dụng cho tất cả sự kiện</span>
                 <input
                   type="checkbox"
-                  className="size-4 accent-tertiary"
+                  className="size-4 accent-tertiary cursor-pointer"
                   checked={Boolean(formData.applyToAllEvents)}
                   onChange={(e) => setFormData({
                     ...formData,
@@ -589,19 +597,23 @@ function PromoFormModal({ open, onClose, title, onSubmit, formData, setFormData,
                     eventIds: e.target.value ? [e.target.value] : [],
                   })}
                 >
-                  <option value="" className="bg-[#0b1329] text-white">Chọn sự kiện cụ thể</option>
-                  {(events || []).filter(isApprovedOrPublishedEvent).map(ev => <option key={ev.id || ev._id} value={ev.id || ev._id} className="bg-[#0b1329] text-white">{ev.title || ev.name || ev.eventName || 'Sự kiện chưa đặt tên'}</option>)}
+                  <option value="" className="bg-[#0b1329] text-white [html.light_&]:bg-white [html.light_&]:text-[#0D1B2A]">Chọn sự kiện cụ thể</option>
+                  {(events || []).filter(isApprovedOrPublishedEvent).map(ev => <option key={ev.id || ev._id} value={ev.id || ev._id} className="bg-[#0b1329] text-white [html.light_&]:bg-white [html.light_&]:text-[#0D1B2A]">{ev.title || ev.name || ev.eventName || 'Sự kiện chưa đặt tên'}</option>)}
                 </select>
               )}
               {errors.eventIds && <p className="mt-1 flex items-center gap-1 text-[11px] font-bold text-error uppercase animate-in fade-in slide-in-from-top-1"><AlertCircle className="size-3" /> {errors.eventIds}</p>}
             </div>
           </div>
-        </section>
+        </div>
 
-        <section className={panelClass}>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <label className="block">
-              <span className="text-sm font-bold text-white uppercase font-display tracking-tight">Loại giảm giá</span>
+        {/* Dấu gạch ngang ngăn cách */}
+        <div className="border-t border-white/10 [html.light_&]:border-slate-200" />
+
+        {/* Phần 2: Loại giảm giá, Giá trị giảm, Giảm tối đa (Bằng nhau trên 1 hàng) */}
+        <div>
+          <div className={`grid grid-cols-1 gap-4 ${formData.discount_type === 'PERCENTAGE' ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
+            <label className="block min-w-0">
+              <span className="text-sm font-bold text-white uppercase font-display tracking-tight [html.light_&]:text-[#0D1B2A]">Loại giảm giá</span>
               <select
                 className={fieldClass}
                 value={formData.discount_type}
@@ -611,20 +623,20 @@ function PromoFormModal({ open, onClose, title, onSubmit, formData, setFormData,
                   max_discount: e.target.value === 'PERCENTAGE' ? formData.max_discount : '',
                 })}
               >
-                <option value="PERCENTAGE" className="bg-[#0b1329] text-white">Phần trăm (%)</option>
-                <option value="FIXED" className="bg-[#0b1329] text-white">Số tiền cố định (VND)</option>
+                <option value="PERCENTAGE" className="bg-[#0b1329] text-white [html.light_&]:bg-white [html.light_&]:text-[#0D1B2A]">Phần trăm (%)</option>
+                <option value="FIXED" className="bg-[#0b1329] text-white [html.light_&]:bg-white [html.light_&]:text-[#0D1B2A]">Số tiền cố định (VND)</option>
               </select>
             </label>
 
-            <label className="block">
-              <span className={`text-sm font-bold uppercase font-display tracking-tight transition-colors ${errors.discount_value ? 'text-error' : 'text-white'}`}>Giá trị giảm</span>
+            <label className="block min-w-0">
+              <span className={`text-sm font-bold uppercase font-display tracking-tight transition-colors ${errors.discount_value ? 'text-error' : 'text-white [html.light_&]:text-[#0D1B2A]'}`}>Giá trị giảm</span>
               <div className="relative mt-1.5">
-                <span className={`absolute left-3 top-1/2 -translate-y-1/2 ${errors.discount_value ? 'text-error' : 'text-slate-400'}`}>
+                <span className={`pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 ${errors.discount_value ? 'text-error' : 'text-slate-400'}`}>
                   {formData.discount_type === 'PERCENTAGE' ? <Percent className="size-4" /> : <DollarSign className="size-4" />}
                 </span>
                 <input
                   type="number"
-                  className={`${fieldClass} pl-10 font-extrabold ${errors.discount_value ? errorFieldClass : ''}`}
+                  className={`h-11 w-full rounded-lg border border-white/15 bg-[#0d172e] pl-9 pr-3 text-sm text-white font-extrabold outline-none transition focus:border-tertiary focus:ring-2 focus:ring-tertiary/15 placeholder:text-slate-400 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-300 [html.light_&]:text-[#0D1B2A] ${errors.discount_value ? errorFieldClass : ''}`}
                   placeholder="0"
                   value={formData.discount_value}
                   onChange={(e) => setFormData({ ...formData, discount_value: e.target.value })}
@@ -635,8 +647,8 @@ function PromoFormModal({ open, onClose, title, onSubmit, formData, setFormData,
             </label>
 
             {formData.discount_type === 'PERCENTAGE' && (
-              <label className="block">
-                <span className={`text-sm font-bold uppercase font-display tracking-tight transition-colors ${errors.max_discount ? 'text-error' : 'text-white'}`}>Giảm tối đa</span>
+              <label className="block min-w-0">
+                <span className={`text-sm font-bold uppercase font-display tracking-tight transition-colors ${errors.max_discount ? 'text-error' : 'text-white [html.light_&]:text-[#0D1B2A]'}`}>Giảm tối đa</span>
                 <input
                   type="number"
                   min="0"
@@ -649,12 +661,16 @@ function PromoFormModal({ open, onClose, title, onSubmit, formData, setFormData,
               </label>
             )}
           </div>
-        </section>
+        </div>
 
-        <section className={panelClass}>
+        {/* Dấu gạch ngang ngăn cách */}
+        <div className="border-t border-white/10 [html.light_&]:border-slate-200" />
+
+        {/* Phần 3: Giới hạn lượt dùng, Đơn hàng tối thiểu, Thời gian bắt đầu & kết thúc */}
+        <div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <label className="block">
-              <span className={`text-sm font-bold uppercase font-display tracking-tight transition-colors ${errors.usage_limit ? 'text-error' : 'text-white'}`}>Giới hạn lượt dùng</span>
+            <label className="block min-w-0">
+              <span className={`text-sm font-bold uppercase font-display tracking-tight transition-colors ${errors.usage_limit ? 'text-error' : 'text-white [html.light_&]:text-[#0D1B2A]'}`}>Giới hạn lượt dùng</span>
               <input
                 type="number"
                 className={`${fieldClass} ${errors.usage_limit ? errorFieldClass : ''}`}
@@ -665,8 +681,8 @@ function PromoFormModal({ open, onClose, title, onSubmit, formData, setFormData,
               {errors.usage_limit && <p className="mt-1 flex items-center gap-1 text-[11px] font-bold text-error uppercase animate-in fade-in slide-in-from-top-1"><AlertCircle className="size-3" /> {errors.usage_limit}</p>}
             </label>
 
-            <label className="block">
-              <span className="text-sm font-bold text-white uppercase font-display tracking-tight">Giá trị đơn hàng tối thiểu</span>
+            <label className="block min-w-0">
+              <span className="text-sm font-bold text-white uppercase font-display tracking-tight [html.light_&]:text-[#0D1B2A]">Giá trị đơn hàng tối thiểu</span>
               <input
                 type="number"
                 className={fieldClass}
@@ -676,8 +692,8 @@ function PromoFormModal({ open, onClose, title, onSubmit, formData, setFormData,
               />
             </label>
 
-            <label className="block">
-              <span className={`text-sm font-bold uppercase font-display tracking-tight transition-colors ${errors.start_time ? 'text-error' : 'text-white'}`}>Thời gian bắt đầu</span>
+            <label className="block min-w-0">
+              <span className={`text-sm font-bold uppercase font-display tracking-tight transition-colors ${errors.start_time ? 'text-error' : 'text-white [html.light_&]:text-[#0D1B2A]'}`}>Thời gian bắt đầu</span>
               <input
                 type="datetime-local"
                 className={`${fieldClass} ${errors.start_time ? errorFieldClass : ''}`}
@@ -688,8 +704,8 @@ function PromoFormModal({ open, onClose, title, onSubmit, formData, setFormData,
               {errors.start_time && <p className="mt-1 flex items-center gap-1 text-[11px] font-bold text-error uppercase animate-in fade-in slide-in-from-top-1"><AlertCircle className="size-3" /> {errors.start_time}</p>}
             </label>
 
-            <label className="block">
-              <span className={`text-sm font-bold uppercase font-display tracking-tight transition-colors ${errors.end_time ? 'text-error' : 'text-white'}`}>Thời gian kết thúc</span>
+            <label className="block min-w-0">
+              <span className={`text-sm font-bold uppercase font-display tracking-tight transition-colors ${errors.end_time ? 'text-error' : 'text-white [html.light_&]:text-[#0D1B2A]'}`}>Thời gian kết thúc</span>
               <input
                 type="datetime-local"
                 className={`${fieldClass} ${errors.end_time ? errorFieldClass : ''}`}
@@ -700,7 +716,7 @@ function PromoFormModal({ open, onClose, title, onSubmit, formData, setFormData,
               {errors.end_time && <p className="mt-1 flex items-center gap-1 text-[11px] font-bold text-error uppercase animate-in fade-in slide-in-from-top-1"><AlertCircle className="size-3" /> {errors.end_time}</p>}
             </label>
           </div>
-        </section>
+        </div>
       </form>
     </Modal>
   )

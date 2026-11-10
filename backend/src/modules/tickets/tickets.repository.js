@@ -1,6 +1,7 @@
 const db = require('../../infrastructure/database/db.client');
 const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
+const subscriptionGuard = require('../organizer-subscriptions/subscriptionGuard.service');
 const { COMPLETED_ORDER_STATUSES } = require('../orders/orders.constants');
 
 const STAFF_TICKET_SELECT = `
@@ -31,9 +32,9 @@ const STAFF_TICKET_SELECT = `
     o.id AS order_id,
     o.order_code,
     o.status AS order_status,
-    o.buyer_name,
-    o.buyer_email,
-    o.buyer_phone,
+    COALESCE(o.buyer_name, buyer_user.full_name) AS buyer_name,
+    COALESCE(o.buyer_email, buyer_user.email) AS buyer_email,
+    COALESCE(o.buyer_phone, buyer_user.phone) AS buyer_phone,
     checker.id AS checked_in_by_id,
     checker.full_name AS checked_in_by_name,
     checker.email AS checked_in_by_email,
@@ -45,6 +46,7 @@ const STAFF_TICKET_SELECT = `
   FROM tickets t
   JOIN order_items oi ON oi.id = t.order_item_id
   JOIN orders o ON o.id = oi.order_id
+  LEFT JOIN users buyer_user ON buyer_user.id = o.user_id
   JOIN events e ON e.id = t.event_id
   JOIN event_sessions es ON es.id = t.event_session_id
   JOIN ticket_types tt ON tt.id = t.ticket_type_id
@@ -275,19 +277,22 @@ class TicketsRepository {
       conditions.push(`(t.ticket_code ILIKE $${params.length} OR t.qr_code ILIKE $${params.length})`);
     }
 
-    if (filters.buyerName) {
-      params.push(`%${filters.buyerName}%`);
-      conditions.push(`(o.buyer_name ILIKE $${params.length} OR t.attendee_name ILIKE $${params.length})`);
+    const nameQuery = filters.buyerName || filters.name || filters.attendeeName;
+    if (nameQuery) {
+      params.push(`%${nameQuery}%`);
+      conditions.push(`(o.buyer_name ILIKE $${params.length} OR t.attendee_name ILIKE $${params.length} OR buyer_user.full_name ILIKE $${params.length})`);
     }
 
-    if (filters.buyerEmail) {
-      params.push(`%${filters.buyerEmail}%`);
-      conditions.push(`(o.buyer_email ILIKE $${params.length} OR t.attendee_email ILIKE $${params.length})`);
+    const emailQuery = filters.buyerEmail || filters.email || filters.attendeeEmail;
+    if (emailQuery) {
+      params.push(`%${emailQuery}%`);
+      conditions.push(`(o.buyer_email ILIKE $${params.length} OR t.attendee_email ILIKE $${params.length} OR buyer_user.email ILIKE $${params.length})`);
     }
 
-    if (filters.buyerPhone) {
-      params.push(`%${filters.buyerPhone}%`);
-      conditions.push(`o.buyer_phone ILIKE $${params.length}`);
+    const phoneQuery = filters.buyerPhone || filters.phone;
+    if (phoneQuery) {
+      params.push(`%${phoneQuery}%`);
+      conditions.push(`(o.buyer_phone ILIKE $${params.length} OR buyer_user.phone ILIKE $${params.length})`);
     }
 
     const { rows } = await db.query(
@@ -296,6 +301,11 @@ class TicketsRepository {
       JOIN event_staffs staff_scope
         ON staff_scope.event_id = t.event_id
        AND staff_scope.staff_id = $1
+       AND (
+         staff_scope.session_ids IS NULL
+         OR jsonb_array_length(staff_scope.session_ids) = 0
+         OR staff_scope.session_ids @> to_jsonb(t.event_session_id::text)
+       )
       WHERE e.deleted_at IS NULL
         AND (
           e.status = 'PUBLISHED'
@@ -335,6 +345,11 @@ class TicketsRepository {
             OR (scoped_event.status = 'COMPLETED' AND scoped_event.approval_status = 'APPROVED')
           )
           AND COALESCE(scoped_event.end_time, scoped_event.start_time) >= now()
+          AND (
+            escope.session_ids IS NULL
+            OR jsonb_array_length(escope.session_ids) = 0
+            OR escope.session_ids @> to_jsonb(t.event_session_id::text)
+          )
       ) THEN 0 ELSE 1 END
       LIMIT 1
       `,
@@ -357,9 +372,14 @@ class TicketsRepository {
           OR (e.status = 'COMPLETED' AND e.approval_status = 'APPROVED')
         )
         AND COALESCE(e.end_time, e.start_time) >= now()
+        AND (
+          es.session_ids IS NULL
+          OR jsonb_array_length(es.session_ids) = 0
+          OR es.session_ids @> to_jsonb($3::text)
+        )
       LIMIT 1
       `,
-      [ticket.event_id, staffId],
+      [ticket.event_id, staffId, ticket.event_session_id],
     );
 
     return {
@@ -381,6 +401,7 @@ class TicketsRepository {
           t.status,
           t.event_id,
           t.checked_in_at,
+          e.organizer_id,
           e.status AS event_status,
           es.status AS session_status,
           es.end_time AS session_end_time,
@@ -391,6 +412,11 @@ class TicketsRepository {
             FROM event_staffs staff_scope
             WHERE staff_scope.event_id = t.event_id
               AND staff_scope.staff_id = $2
+              AND (
+                staff_scope.session_ids IS NULL
+                OR jsonb_array_length(staff_scope.session_ids) = 0
+                OR staff_scope.session_ids @> to_jsonb(t.event_session_id::text)
+              )
           ) AS has_staff_access
         FROM tickets t
         JOIN event_sessions es ON es.id = t.event_session_id
@@ -414,6 +440,15 @@ class TicketsRepository {
       if (!lockedTicket.has_staff_access) {
         await client.query('ROLLBACK');
         return { state: 'FORBIDDEN_ACTION' };
+      }
+
+      // Manual checkin subscription guard
+      if (method === 'MANUAL') {
+        const isAllowed = await subscriptionGuard.isManualCheckinAllowed(lockedTicket.organizer_id);
+        if (!isAllowed) {
+          await client.query('ROLLBACK');
+          return { state: 'MANUAL_CHECKIN_NOT_ALLOWED', ticket: lockedTicket };
+        }
       }
 
       // Section 8.2: Event or Session CANCELLED -> SESSION_CANCELLED (AC-SC-02)

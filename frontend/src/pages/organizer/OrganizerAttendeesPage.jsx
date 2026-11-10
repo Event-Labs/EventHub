@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   Download,
   Loader2,
+  Lock,
   Search,
+  Ticket,
   X,
 } from 'lucide-react'
 import { fetchOrganizerEvents } from '@/services/organizerEvents.js'
@@ -14,6 +16,8 @@ import {
   exportOrganizerAttendees,
   fetchOrganizerAttendees,
 } from '@/services/organizerOrders.js'
+import { fetchCurrentPlan } from '@/services/subscriptions.js'
+import { useToast } from '@/providers/ToastProvider.jsx'
 import {
   AvatarInitials,
   Badge,
@@ -51,9 +55,15 @@ function getExportFilename(contentDisposition, eventTitle) {
   return quotedMatch?.[1] || fallback
 }
 
+const getAutoLocale = () =>
+  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
+   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
+    ? 'en-US'
+    : 'vi-VN'
+
 function formatDateTime(dateStr) {
   if (!dateStr) return '—'
-  return new Date(dateStr).toLocaleString('vi-VN', {
+  return new Date(dateStr).toLocaleString(getAutoLocale(), {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -65,12 +75,26 @@ function formatDateTime(dateStr) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export function OrganizerAttendeesPage() {
+  const navigate = useNavigate()
+  const toast = useToast()
   const [searchParams] = useSearchParams()
   const initialEventId = searchParams.get('eventId') || ''
 
+  const [currentPlan, setCurrentPlan] = useState(null)
   const [events, setEvents] = useState([])
   const [eventsLoading, setEventsLoading] = useState(true)
   const [selectedEventId, setSelectedEventId] = useState(initialEventId)
+
+  // Load current subscription plan
+  useEffect(() => {
+    fetchCurrentPlan()
+      .then((res) => {
+        if (res?.active && res?.plan) {
+          setCurrentPlan(res.plan)
+        }
+      })
+      .catch(() => setCurrentPlan(null))
+  }, [])
 
   // Attendees state
   const [attendees, setAttendees] = useState([])
@@ -177,6 +201,18 @@ export function OrganizerAttendeesPage() {
 
   const handleExport = async () => {
     if (!selectedEventId || exporting) return
+
+    if (currentPlan && !currentPlan.attendee_export_enabled) {
+      toast.error('Gói dịch vụ hiện tại không hỗ trợ tính năng xuất danh sách người tham dự. Vui lòng nâng cấp gói để sử dụng.')
+      navigate('/organizer/subscriptions', {
+        state: {
+          returnTo: selectedEventId ? `/organizer/attendees?eventId=${selectedEventId}` : '/organizer/attendees',
+          message: 'Tính năng Xuất danh sách người tham dự yêu cầu gói hỗ trợ xuất dữ liệu. Vui lòng nâng cấp gói dịch vụ.',
+        },
+      })
+      return
+    }
+
     setExporting(true)
     setError('')
     try {
@@ -208,7 +244,6 @@ export function OrganizerAttendeesPage() {
   return (
     <OrganizerPage
       title="Người tham dự"
-      description="Xem danh sách người tham dự từ vé đã bán cho sự kiện của bạn."
     >
       {/* ── Event selector with Smart Event Picker ── */}
       <div className="mb-6 max-w-xl">
@@ -283,7 +318,7 @@ export function OrganizerAttendeesPage() {
                     { value: '', label: 'Tất cả phiên' },
                     ...sessions.map((s) => ({
                       value: s.id,
-                      label: s.session_name || new Date(s.start_time).toLocaleDateString('vi-VN'),
+                      label: s.session_name || new Date(s.start_time).toLocaleDateString(getAutoLocale()),
                     })),
                   ]}
                   minWidth="min-w-[170px]"
@@ -319,9 +354,12 @@ export function OrganizerAttendeesPage() {
                 className="org-btn-primary flex items-center gap-2"
                 onClick={handleExport}
                 disabled={exporting || loading}
+                title={currentPlan && !currentPlan.attendee_export_enabled ? 'Cần nâng cấp gói dịch vụ để xuất danh sách' : 'Xuất danh sách'}
               >
                 {exporting ? (
                   <Loader2 className="size-4 animate-spin" />
+                ) : currentPlan && !currentPlan.attendee_export_enabled ? (
+                  <Lock className="size-4" />
                 ) : (
                   <Download className="size-4" />
                 )}
@@ -344,9 +382,12 @@ export function OrganizerAttendeesPage() {
             </OrganizerPanel>
           ) : attendees.length === 0 ? (
             <OrganizerPanel className="py-14 text-center">
-              <p className="font-bold text-content">Không tìm thấy người tham dự nào.</p>
+              <div className="mx-auto grid size-14 place-items-center rounded-2xl border border-[#C99A47]/30 bg-[#C99A47]/10 text-[#E6C17A] shadow-[0_0_20px_rgba(201,154,71,0.15)] mb-3">
+                <Ticket className="size-6 text-[#E6C17A]" />
+              </div>
+              <h3 className="text-base font-bold text-content">Không tìm thấy người tham dự nào</h3>
               <p className="mt-1 text-sm text-subtle">
-                Thử thay đổi bộ lọc hoặc sự kiện khác.
+                Thử thay đổi bộ lọc tìm kiếm hoặc chọn sự kiện khác.
               </p>
             </OrganizerPanel>
           ) : (

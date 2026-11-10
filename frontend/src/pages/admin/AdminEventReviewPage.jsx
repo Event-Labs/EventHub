@@ -57,47 +57,91 @@ import { AdminSuspendModal } from './AdminSuspendModal.jsx'
 // Config
 // ---------------------------------------------------------------------------
 const STATUS_TABS = [
+  { label: 'Tất cả', value: 'ALL' },
   { label: 'Chờ duyệt', value: 'PENDING_REVIEW' },
-  { label: 'Yêu cầu hủy', value: 'CANCEL_REQUESTS' },
+  { label: 'Đang chờ hủy', value: 'CANCEL_REQUESTS' },
+  { label: 'Đã hủy', value: 'CANCELLED' },
+  { label: 'Từ chối hủy', value: 'CANCEL_REJECTED' },
   { label: 'Đã duyệt', value: 'PUBLISHED' },
   { label: 'Từ chối', value: 'REJECTED' },
   { label: 'Bị đình chỉ', value: 'SUSPENDED' },
 ]
 
 /**
- * Both REJECTED and HIDDEN events share status='HIDDEN' in the DB.
- * Distinguish them via approval_status:
- *   HIDDEN + approval_status=REJECTED → event failed admin review ("Từ chối")
- *   HIDDEN + approval_status=APPROVED → event was published then hidden for violations ("Đã ẩn")
+ * Render single prioritized status badge for an event.
+ * Exactly 1 badge is displayed per event.
  */
-function statusBadge(status, approvalStatus, displayState) {
-  if (displayState === 'SUSPENDED_BY_ADMIN') {
+function statusBadge(eventOrStatus, approvalStatus, displayState, activeStatus) {
+  const event = typeof eventOrStatus === 'object' && eventOrStatus !== null ? eventOrStatus : null
+  const status = event ? event.status : eventOrStatus
+  const approval = event ? event.approval_status : approvalStatus
+  const display = event ? event.display_state : displayState
+
+  // 1. Highest priority: Cancelled (Đã hủy)
+  if (status === 'CANCELLED') {
+    return <Badge tone="red">Đã hủy</Badge>
+  }
+
+  // 2. Cancellation request pending (Chờ duyệt hủy)
+  if (event?.cancel_request?.status === 'PENDING') {
+    return <Badge tone="red">Chờ duyệt hủy</Badge>
+  }
+
+  // 3. Suspended by Admin (Bị đình chỉ)
+  if (display === 'SUSPENDED_BY_ADMIN') {
     return <Badge tone="red">Bị đình chỉ</Badge>
   }
-  if (displayState === 'HIDDEN_BY_ORGANIZER') {
+
+  // 4. Hidden by Organizer (BTC Tạm ẩn)
+  if (display === 'HIDDEN_BY_ORGANIZER') {
     return <Badge tone="gray">BTC Tạm ẩn</Badge>
   }
+
+  // 5. Rejected by Admin / Hidden (Từ chối / Đã ẩn)
   if (status === 'HIDDEN') {
-    return approvalStatus === 'REJECTED'
+    return approval === 'REJECTED'
       ? <Badge tone="red">Từ chối</Badge>
       : <Badge tone="gray">Đã ẩn</Badge>
   }
-  if (status === 'COMPLETED' && approvalStatus === 'APPROVED') {
-    return <Badge tone="green">Đã duyệt</Badge>
+
+  // 6. Pending revision waiting review (Sửa đổi chờ duyệt)
+  if (event?.pending_revision && event.pending_revision.status === 'SUBMITTED') {
+    return <Badge tone="amber">Sửa đổi chờ duyệt</Badge>
   }
+
+  // 7. Cancellation request rejected (Từ chối hủy)
+  if (event?.cancel_request?.status === 'REJECTED' && (activeStatus === 'CANCEL_REJECTED' || status === 'CANCEL_REJECTED')) {
+    return <Badge tone="gray">Từ chối hủy</Badge>
+  }
+
+  // 8. Completed & Approved or Ended
+  if (status === 'COMPLETED') {
+    return approval === 'APPROVED'
+      ? <Badge tone="green">Đã duyệt</Badge>
+      : <Badge tone="purple">Đã kết thúc</Badge>
+  }
+
+  // 9. Standard status mapping
   const map = {
     PENDING_REVIEW: { tone: 'amber', label: 'Chờ duyệt' },
     PUBLISHED: { tone: 'green', label: 'Đã duyệt' },
     CANCELLED: { tone: 'red', label: 'Đã hủy' },
     COMPLETED: { tone: 'purple', label: 'Đã kết thúc' },
+    DRAFT: { tone: 'gray', label: 'Bản nháp' },
   }
-  const cfg = map[status] ?? { tone: 'gray', label: status }
+  const cfg = map[status] ?? { tone: 'gray', label: status || '—' }
   return <Badge tone={cfg.tone}>{cfg.label}</Badge>
 }
 
+const getAutoLocale = () =>
+  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
+   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
+    ? 'en-US'
+    : 'vi-VN'
+
 function formatDate(value) {
   if (!value) return '—'
-  return new Date(value).toLocaleDateString('vi-VN', {
+  return new Date(value).toLocaleDateString(getAutoLocale(), {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -412,7 +456,7 @@ export function AdminEventReviewPage() {
         subtitle: 'Chấp thuận xuất bản sự kiện lên nền tảng.',
         eventTitle: selectedEvent.title,
         description: 'Sự kiện sẽ được công khai và cho phép người dùng đặt vé tham gia.',
-        tone: 'success',
+        tone: 'gold',
         confirmText: 'Phê duyệt',
         cancelText: 'Hủy bỏ',
         onConfirm: () => {
@@ -482,7 +526,6 @@ export function AdminEventReviewPage() {
   return (
     <Page
       title="Duyệt Sự kiện"
-      description="Kiểm duyệt và phê duyệt các sự kiện được gửi bởi Organizer."
     >
       {/* AI Auto-Review Control Banner */}
       <div className="mb-6 overflow-hidden rounded-2xl border border-indigo-500/30 bg-gradient-to-br from-indigo-950/40 via-panel-soft/70 to-panel p-4 shadow-lg backdrop-blur-md">
@@ -653,7 +696,9 @@ export function AdminEventReviewPage() {
       )}
       {!isLoading && !isError && items.length === 0 && (
         <Panel className="mt-5 text-sm text-subtle">
-          Không có sự kiện nào ở trạng thái này.
+          {activeStatus === 'ALL'
+            ? 'Chưa có sự kiện nào trên hệ thống.'
+            : 'Không có sự kiện nào ở trạng thái này.'}
         </Panel>
       )}
 
@@ -686,16 +731,31 @@ export function AdminEventReviewPage() {
 
                 /* Event name */
                 <div key="name">
-                  <p className="max-w-[200px] truncate font-semibold text-content">
-                    {event.title}
-                  </p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="max-w-[200px] truncate font-semibold text-content" title={event.title}>
+                      {event.title}
+                    </p>
+                    {event.is_priority_support && (
+                      <span title={`Sự kiện thuộc Ban tổ chức có Hỗ trợ ưu tiên (${event.organizer_plan_name || 'Gói cao cấp'})`} className="cursor-help inline-flex items-center">
+                        <Sparkles className="size-3.5 text-amber-400 shrink-0" />
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs text-subtle">{event.slug}</p>
                 </div>,
 
                 /* Organizer */
-                <span key="org" className="text-sm text-subtle">
-                  {event.organizer_name || '—'}
-                </span>,
+                <div key="org" className="flex flex-col gap-1">
+                  <span className="text-sm font-medium text-content">
+                    {event.organizer_name || '—'}
+                  </span>
+                  {event.is_priority_support && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 border border-amber-500/30 text-amber-300 w-fit shadow-sm">
+                      <Sparkles className="size-2.5 text-amber-400" />
+                      Ưu tiên duyệt ({event.organizer_plan_name || 'VIP'})
+                    </span>
+                  )}
+                </div>,
 
                 /* Event date */
                 <span key="date" className="text-sm text-subtle">
@@ -704,74 +764,67 @@ export function AdminEventReviewPage() {
 
                 /* Submitted date */
                 <span key="sub" className="text-sm text-subtle">
-                  {formatDate(event.created_at)}
+                  {formatDate(
+                    event.request_date ||
+                    event.cancel_request?.requested_at ||
+                    event.pending_revision?.submitted_at ||
+                    event.created_at
+                  )}
                 </span>,
 
                 /* Status badge */
                 <span key="status">
-                  <div className="flex flex-col gap-1 items-start">
-                    {statusBadge(event.status, event.approval_status, event.display_state)}
-                    {event.cancel_request?.status === 'PENDING' && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40 animate-pulse whitespace-nowrap">
-                        Chờ duyệt hủy
-                      </span>
-                    )}
-                    {event.pending_revision && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse whitespace-nowrap">
-                        Sửa đổi chờ duyệt
-                      </span>
-                    )}
-                  </div>
+                  {statusBadge(event, event.approval_status, event.display_state, activeStatus)}
                 </span>,
 
                 /* Actions */
-                <div key="actions" className="flex flex-col gap-2">
-                  <div className="flex items-center justify-center gap-2">
-                    {/* Suspend — for PUBLISHED events that are not suspended and not in pending revision */}
-                    {event.status === 'PUBLISHED' && event.display_state !== 'SUSPENDED_BY_ADMIN' && !event.pending_revision && (
-                      <TableActionButton
-                        title="Đình chỉ sự kiện (Khóa đa nguồn vi phạm)"
-                        tone="danger"
-                        icon={ShieldAlert}
-                        onClick={() => setSuspendTarget(event)}
-                        disabled={isMutating || suspendLoading}
-                      />
-                    )}
-                    {/* Unsuspend — when SUSPENDED_BY_ADMIN */}
-                    {event.display_state === 'SUSPENDED_BY_ADMIN' && (
-                      <TableActionButton
-                        title="Gỡ đình chỉ sự kiện"
-                        tone="success"
-                        icon={CheckCircle2}
-                        onClick={() => quickUnsuspend(event)}
-                        disabled={isMutating || suspendLoading}
-                      />
-                    )}
-                    {/* View/Review detail button */}
+                <div key="actions" className="flex items-center justify-center gap-2">
+                  {/* Suspend — for PUBLISHED events that are not suspended and not in pending revision */}
+                  {event.status === 'PUBLISHED' && event.display_state !== 'SUSPENDED_BY_ADMIN' && !event.pending_revision && (
                     <TableActionButton
-                      title={
-                        event.cancel_request?.status === 'PENDING'
-                          ? 'Xem & Duyệt yêu cầu hủy sự kiện'
+                      title="Đình chỉ sự kiện (Khóa đa nguồn vi phạm)"
+                      tone="danger"
+                      icon={ShieldAlert}
+                      onClick={() => setSuspendTarget(event)}
+                      disabled={isMutating || suspendLoading}
+                    />
+                  )}
+                  {/* Unsuspend — when SUSPENDED_BY_ADMIN */}
+                  {event.display_state === 'SUSPENDED_BY_ADMIN' && (
+                    <TableActionButton
+                      title="Gỡ đình chỉ sự kiện"
+                      tone="success"
+                      icon={CheckCircle2}
+                      onClick={() => quickUnsuspend(event)}
+                      disabled={isMutating || suspendLoading}
+                    />
+                  )}
+                  {/* View/Review detail button */}
+                  <TableActionButton
+                    title={
+                      event.cancel_request?.status === 'PENDING'
+                        ? 'Xem & Duyệt yêu cầu hủy sự kiện'
+                        : activeStatus === 'CANCEL_REJECTED' || activeStatus === 'CANCELLED' || event.status === 'CANCELLED'
+                          ? 'Xem chi tiết yêu cầu hủy'
                           : event.status === 'PENDING_REVIEW' || event.pending_revision
                             ? 'Xem chi tiết & Thẩm định duyệt'
                             : 'Xem chi tiết sự kiện'
+                    }
+                    tone={
+                      event.cancel_request?.status === 'PENDING' || event.status === 'CANCELLED'
+                        ? 'danger'
+                        : event.pending_revision
+                          ? 'warning'
+                          : 'primary'
+                    }
+                    icon={Eye}
+                    onClick={() => {
+                      if (activeStatus === 'CANCEL_REJECTED' || event.cancel_request?.status === 'REJECTED') {
+                        navigate(`/admin/events/cancellations/${event.id}`)
+                      } else {
+                        navigate(`/admin/events/review/${event.id}`)
                       }
-                      tone={
-                        event.cancel_request?.status === 'PENDING'
-                          ? 'danger'
-                          : event.pending_revision
-                            ? 'warning'
-                            : 'primary'
-                      }
-                      icon={Eye}
-                      onClick={() => navigate(`/admin/events/review/${event.id}`)}
-                    />
-                  </div>
-                  <input
-                    className="h-9 rounded-xl border border-border-soft/40 bg-panel-soft px-2 text-xs text-content outline-none focus:border-primary"
-                    placeholder="Ghi chú (tuỳ chọn)"
-                    value={notes[event.id] ?? ''}
-                    onChange={(e) => setNote(event.id, e.target.value)}
+                    }}
                   />
                 </div>,
               ])}
@@ -997,7 +1050,7 @@ function EventReviewModal({
               : ''}
           </span>
         </p>
-        <div className="mt-2">{statusBadge(event.status, event.approval_status)}</div>
+        <div className="mt-2">{statusBadge(event)}</div>
 
         {/* Event thumbnail */}
         {event.thumbnail_url && (
@@ -1010,9 +1063,8 @@ function EventReviewModal({
           </div>
         )}
 
-        <div className="mt-5 grid gap-3 md:grid-cols-2">
+        <div className="mt-5 grid gap-3 md:grid-cols-3">
           <DetailBlock icon={Tag} label="Danh mục" value={event.category_name || 'Chưa phân loại'} />
-          <DetailBlock icon={Calendar} label="Hình thức" value={event.format || 'Chưa cập nhật'} />
           <DetailBlock icon={Ticket} label="Số loại vé" value={`${groupedReviewTickets.length} loại vé`} />
           <DetailBlock icon={MapPin} label="Số phiên" value={`${event.sessions?.length || 0} phiên`} />
         </div>
@@ -1238,10 +1290,12 @@ function stripHtml(value) {
 
 function formatDateTime(value) {
   if (!value) return '—'
-  return new Date(value).toLocaleString('vi-VN')
+  return new Date(value).toLocaleString(getAutoLocale())
 }
 
 function formatMoney(value) {
+  const isEn = getAutoLocale() === 'en-US'
+  if (isEn) return `${new Intl.NumberFormat('en-US').format(Number(value || 0))} VND`
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(value || 0))
 }
 
@@ -1839,23 +1893,24 @@ function ConfirmModal({
 
   const getToneConfig = () => {
     switch (tone) {
+      case 'gold':
       case 'success':
         return {
           icon: CheckCircle2,
-          iconWrap: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30',
-          btnClass: 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-900/40',
+          iconWrap: 'bg-[#C99A47]/20 text-[#E6C17A] border border-[#C99A47]/40 shadow-[0_0_15px_rgba(201,154,71,0.2)]',
+          btnClass: confirmColor || 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] font-black shadow-lg shadow-[#C99A47]/30 hover:brightness-110 active:scale-95 border border-[#E6C17A]/40',
         }
       case 'danger':
         return {
           icon: AlertTriangle,
           iconWrap: 'bg-rose-500/20 text-rose-400 border border-rose-500/30',
-          btnClass: 'bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-900/40',
+          btnClass: confirmColor || 'bg-rose-600 hover:bg-rose-500 text-white font-bold shadow-lg shadow-rose-900/40',
         }
       case 'warning':
         return {
           icon: AlertTriangle,
           iconWrap: 'bg-amber-500/20 text-amber-400 border border-amber-500/30',
-          btnClass: 'bg-amber-600 hover:bg-amber-500 text-white shadow-lg shadow-amber-900/40',
+          btnClass: confirmColor || 'bg-amber-600 hover:bg-amber-500 text-white font-bold shadow-lg shadow-amber-900/40',
         }
       default:
         return {
@@ -1869,54 +1924,54 @@ function ConfirmModal({
   const { icon: ToneIcon, iconWrap, btnClass } = getToneConfig()
 
   return (
-    <div className="fixed inset-0 z-[120] grid place-items-center bg-black/75 p-4 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0b1329] p-6 shadow-2xl shadow-black/90 text-white">
+    <div className="fixed inset-0 z-[120] grid place-items-center bg-black/80 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="w-full max-w-lg rounded-2xl border border-white/15 bg-[#0b1329] p-7 shadow-2xl shadow-black/95 text-white">
         {/* Header */}
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-start gap-3">
-            <span className={`grid size-11 shrink-0 place-items-center rounded-xl ${iconWrap}`}>
-              <ToneIcon className="size-6" />
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-4">
+            <span className={`grid size-13 shrink-0 place-items-center rounded-2xl ${iconWrap}`}>
+              <ToneIcon className="size-7" />
             </span>
             <div className="min-w-0 flex-1">
-              <h3 className="text-xl font-black text-white">{title}</h3>
+              <h3 className="text-2xl font-black text-white tracking-tight">{title}</h3>
               {subtitle ? (
-                <p className="mt-1 text-xs text-slate-300">{subtitle}</p>
+                <p className="mt-1.5 text-sm font-medium text-slate-300">{subtitle}</p>
               ) : (
-                <p className="mt-1 text-xs text-slate-400">Vui lòng kiểm tra kỹ thông tin trước khi xác nhận.</p>
+                <p className="mt-1.5 text-sm font-medium text-slate-400">Vui lòng kiểm tra kỹ thông tin trước khi xác nhận.</p>
               )}
             </div>
           </div>
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-lg p-1 text-slate-400 hover:bg-white/10 hover:text-white transition"
+            className="rounded-xl p-1.5 text-slate-400 hover:bg-white/10 hover:text-white transition"
           >
-            <X className="size-5" />
+            <X className="size-5 sm:size-6" />
           </button>
         </div>
 
         {/* Event highlight box */}
         {eventTitle && (
-          <div className="mt-4 rounded-xl border border-white/10 bg-[#121c38] p-3 text-xs">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Sự kiện xử lý:</p>
-            <p className="font-bold text-white text-sm mt-0.5 truncate">{eventTitle}</p>
+          <div className="mt-5 rounded-xl border border-white/15 bg-[#121c38]/90 p-4">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Sự kiện xử lý:</p>
+            <p className="font-extrabold text-white text-base mt-1 truncate">{eventTitle}</p>
           </div>
         )}
 
         {/* Description */}
         {description && (
-          <p className="mt-3.5 text-xs text-slate-300 leading-relaxed">
+          <p className="mt-4 text-base sm:text-lg font-semibold text-slate-200 leading-relaxed">
             {description}
           </p>
         )}
 
         {/* Footer buttons */}
-        <div className="mt-6 flex gap-3 pt-2">
+        <div className="mt-7 flex gap-3.5 pt-2">
           <button
             type="button"
             onClick={onCancel}
             disabled={isPending}
-            className="flex-1 rounded-xl border border-border-soft/40 bg-panel-soft px-4 py-2.5 text-xs font-semibold text-subtle transition hover:border-border-soft hover:text-content disabled:opacity-50"
+            className="flex-1 rounded-xl border border-white/15 bg-slate-800/80 px-5 py-3 text-sm sm:text-base font-bold text-slate-300 transition hover:bg-slate-700/80 hover:text-white disabled:opacity-50 active:scale-95"
           >
             {cancelText}
           </button>
@@ -1924,11 +1979,11 @@ function ConfirmModal({
             type="button"
             onClick={onConfirm}
             disabled={isPending}
-            className={`flex-1 rounded-xl px-4 py-2.5 text-xs font-semibold transition disabled:opacity-50 ${btnClass}`}
+            className={`flex-1 rounded-xl px-5 py-3 text-sm sm:text-base font-black transition disabled:opacity-50 active:scale-95 ${btnClass}`}
           >
             {isPending ? (
               <span className="flex items-center justify-center gap-2">
-                <span className="size-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                <span className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
                 <span>Đang xử lý...</span>
               </span>
             ) : (

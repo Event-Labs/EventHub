@@ -11,8 +11,10 @@ import { useToast } from '@/providers/ToastProvider.jsx'
 import { Badge, KpiGrid, Page, Panel, Status, Table, TableActionButton, UserCell } from './AdminComponents.jsx'
 import { ConfirmSuspendOrganizerModal } from './ConfirmSuspendOrganizerModal.jsx'
 import { CosmicSelect } from '@/components/CosmicSelect.jsx'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
 
 export function AdminOrganizersPage() {
+  const { isEnglish, t } = useLanguage()
   const toast = useToast()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -86,8 +88,7 @@ export function AdminOrganizersPage() {
 
   return (
     <Page
-      title="Quản lý Organizer"
-      description="Theo dõi hồ sơ nhà tổ chức, gói dịch vụ, hiệu suất sự kiện và trạng thái hoạt động."
+      title={isEnglish ? 'Organizer Management' : 'Quản lý Organizer'}
     >
       <KpiGrid
         items={[
@@ -105,7 +106,7 @@ export function AdminOrganizersPage() {
             type="text"
             value={filters.search}
             onChange={(e) => updateFilter({ search: e.target.value })}
-            placeholder="Tìm theo tên, email, người sở hữu..."
+            placeholder={isEnglish ? 'Search by name, email, owner...' : 'Tìm theo tên, email, người sở hữu...'}
             className="h-10 w-full rounded-xl border border-white/15 bg-[#0d172e] pl-10 pr-3 text-sm font-normal text-white outline-none transition placeholder:text-white/50 focus:border-[#C99A47] focus:ring-2 focus:ring-[#C99A47]/10"
           />
         </div>
@@ -221,7 +222,11 @@ export function AdminOrganizersPage() {
 
       <div className="mt-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <p className="text-sm font-medium text-subtle">
-          Hiển thị <span className="font-bold">{startItem}</span> đến <span className="font-bold">{endItem}</span> trong tổng số <span className="font-bold">{total}</span> organizer
+          {isEnglish ? (
+            <>Showing <span className="font-bold">{startItem}</span> to <span className="font-bold">{endItem}</span> of <span className="font-bold">{total}</span> organizers</>
+          ) : (
+            <>Hiển thị <span className="font-bold">{startItem}</span> đến <span className="font-bold">{endItem}</span> trong tổng số <span className="font-bold">{total}</span> organizer</>
+          )}
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <button
@@ -229,8 +234,8 @@ export function AdminOrganizersPage() {
             disabled={filters.page === 1}
             onClick={() => setFilters((prev) => ({ ...prev, page: prev.page - 1 }))}
             className="grid h-9 min-w-9 place-items-center rounded-xl border border-border-soft/40 bg-panel-soft text-subtle transition hover:border-[#C99A47] hover:text-[#C99A47] disabled:cursor-not-allowed disabled:opacity-40"
-            title="Trang trước"
-            aria-label="Trang trước"
+            title={isEnglish ? 'Previous page' : 'Trang trước'}
+            aria-label={isEnglish ? 'Previous page' : 'Trang trước'}
           >
             <ChevronLeft className="size-4" />
           </button>
@@ -258,8 +263,8 @@ export function AdminOrganizersPage() {
             disabled={filters.page >= totalPages}
             onClick={() => setFilters((prev) => ({ ...prev, page: prev.page + 1 }))}
             className="grid h-9 min-w-9 place-items-center rounded-xl border border-border-soft/40 bg-panel-soft text-subtle transition hover:border-[#C99A47] hover:text-[#C99A47] disabled:cursor-not-allowed disabled:opacity-40"
-            title="Trang sau"
-            aria-label="Trang sau"
+            title={isEnglish ? 'Next page' : 'Trang sau'}
+            aria-label={isEnglish ? 'Next page' : 'Trang sau'}
           >
             <ChevronRight className="size-4" />
           </button>
@@ -313,7 +318,14 @@ function formatCurrency(value) {
   })
 }
 
+const getAutoLocale = () =>
+  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
+   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
+    ? 'en-US'
+    : 'vi-VN'
+
 function formatDate(value) {
-  if (!value) return 'Chưa có'
-  return new Date(value).toLocaleDateString('vi-VN')
+  const isEn = getAutoLocale() === 'en-US'
+  if (!value) return isEn ? 'N/A' : 'Chưa có'
+  return new Date(value).toLocaleDateString(getAutoLocale())
 }

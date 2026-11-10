@@ -1,6 +1,10 @@
 const db = require('../../infrastructure/database/db.client');
 const logger = require('../../core/logger');
 
+const DEFAULT_GREETING_CONTENT = `Xin chào bạn! Mình là Eve – Trợ lý AI của EventHub.
+
+Eve luôn sẵn sàng hỗ trợ bạn tìm kiếm sự kiện, tra cứu giá vé, đặt chỗ nhanh và giải đáp thắc mắc. Hôm nay bạn đang quan tâm đến sự kiện nào nè?`;
+
 class AiChatHistoryRepository {
   constructor() {
     this.ensureIndex();
@@ -51,6 +55,10 @@ class AiChatHistoryRepository {
       const conv = row.conversation || {};
       const createdAtMs = conv.created_at || (row.created_at ? new Date(row.created_at).getTime() : Date.now());
       const updatedAtMs = conv.updated_at || createdAtMs;
+      const rawMessages = Array.isArray(conv.messages) ? conv.messages : [];
+      const messages = (rawMessages.length === 0 || rawMessages[0]?.role !== 'assistant')
+        ? [{ role: 'assistant', content: DEFAULT_GREETING_CONTENT }, ...rawMessages]
+        : rawMessages;
 
       return {
         id: conv.session_id || row.id,
@@ -58,7 +66,7 @@ class AiChatHistoryRepository {
         title: conv.title || 'Đoạn chat mới',
         createdAt: Number(createdAtMs),
         updatedAt: Number(updatedAtMs),
-        messages: Array.isArray(conv.messages) ? conv.messages : [],
+        messages,
       };
     });
   }
@@ -72,12 +80,17 @@ class AiChatHistoryRepository {
     const finalUpdatedAt = Number(updatedAt || now);
     const finalTitle = title || existing?.conversation?.title || 'Đoạn chat mới';
 
+    const rawMessages = Array.isArray(messages) ? messages : [];
+    const finalMessages = (rawMessages.length === 0 || rawMessages[0]?.role !== 'assistant')
+      ? [{ role: 'assistant', content: DEFAULT_GREETING_CONTENT }, ...rawMessages]
+      : rawMessages;
+
     const conversationObj = {
       session_id: String(sessionId),
       title: finalTitle,
       created_at: finalCreatedAt,
       updated_at: finalUpdatedAt,
-      messages: Array.isArray(messages) ? messages : [],
+      messages: finalMessages,
     };
 
     if (existing) {

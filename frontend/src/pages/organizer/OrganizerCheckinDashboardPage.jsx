@@ -1,56 +1,38 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
-  CheckCircle2,
-  ChevronDown,
+  BarChart3,
   Clock,
+  History,
   Loader2,
-  ScanLine,
+  PieChart,
+  Ticket,
   TicketCheck,
   TrendingUp,
-  Users,
-  XCircle,
+  Wifi,
+  WifiOff,
 } from 'lucide-react'
 import { fetchOrganizerEvents } from '@/services/organizerEvents.js'
 import { fetchCheckinStats } from '@/services/organizerOrders.js'
-import { Badge, OrganizerPage, OrganizerPanel, StatCard } from './OrganizerComponents.jsx'
+import { Badge, OrganizerPage, OrganizerPanel } from './OrganizerComponents.jsx'
 import { OrganizerEventPicker } from './OrganizerEventPicker.jsx'
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+import { CheckinKpiCards } from './checkin/CheckinKpiCards.jsx'
+import { SessionStackedBarChart } from './checkin/SessionStackedBarChart.jsx'
+import { OverallDonutChart } from './checkin/OverallDonutChart.jsx'
+import { TicketTypeStackedBarChart } from './checkin/TicketTypeStackedBarChart.jsx'
+import { CheckinTrendLineChart } from './checkin/CheckinTrendLineChart.jsx'
 
 function fmtDateTime(iso) {
   if (!iso) return '—'
   return new Date(iso).toLocaleString('vi-VN', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
   })
 }
-
-function fmtDate(iso) {
-  if (!iso) return '—'
-  return new Date(iso).toLocaleDateString('vi-VN', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-  })
-}
-
-function fmtCurrency(n) {
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(n) || 0)
-}
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-function ProgressBar({ value, color = 'bg-primary' }) {
-  return (
-    <div className="h-2 w-full overflow-hidden rounded-full bg-panel-soft">
-      <div
-        className={`h-full rounded-full transition-all duration-500 ${color}`}
-        style={{ width: `${Math.min(value, 100)}%` }}
-      />
-    </div>
-  )
-}
-
-// ─── Main Page ────────────────────────────────────────────────────────────────
 
 export function OrganizerCheckinDashboardPage() {
   const [searchParams] = useSearchParams()
@@ -61,11 +43,13 @@ export function OrganizerCheckinDashboardPage() {
   const [selectedEventId, setSelectedEventId] = useState(initialEventId)
 
   const [stats, setStats] = useState(null)
-  const [loading, setLoading] = useState(false)
+  const [initialLoading, setInitialLoading] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [connectionStatus, setConnectionStatus] = useState('connected') // 'connected' | 'reconnecting' | 'error'
   const [error, setError] = useState('')
   const [lastRefresh, setLastRefresh] = useState(null)
 
-  // Load event list (published, completed, or events with ticket sales)
+  // 1. Load active events list for organizer
   useEffect(() => {
     setEventsLoading(true)
     fetchOrganizerEvents()
@@ -87,250 +71,217 @@ export function OrganizerCheckinDashboardPage() {
       .finally(() => setEventsLoading(false))
   }, [initialEventId])
 
-  const loadStats = useCallback(async () => {
+  // 2. Fetch stats function (with background poll support)
+  const loadStats = useCallback(
+    async (isManual = false) => {
+      if (!selectedEventId) return
+
+      if (isManual || !stats) {
+        setIsRefreshing(true)
+      }
+
+      try {
+        const data = await fetchCheckinStats(selectedEventId)
+        setStats(data)
+        setLastRefresh(new Date())
+        setConnectionStatus('connected')
+        setError('')
+      } catch (err) {
+        setConnectionStatus('reconnecting')
+        if (!stats) {
+          setError(err.response?.data?.message || 'Không thể tải dữ liệu check-in.')
+        }
+      } finally {
+        setIsRefreshing(false)
+        setInitialLoading(false)
+      }
+    },
+    [selectedEventId, stats]
+  )
+
+  // 3. Reset and load on event change
+  useEffect(() => {
     if (!selectedEventId) return
-    setLoading(true)
+    setStats(null)
+    setInitialLoading(true)
     setError('')
-    try {
-      const data = await fetchCheckinStats(selectedEventId)
-      setStats(data)
-      setLastRefresh(new Date())
-    } catch (err) {
-      setError(err.response?.data?.message || 'Không thể tải dữ liệu check-in.')
-    } finally {
-      setLoading(false)
-    }
+    loadStats(true)
   }, [selectedEventId])
 
-  useEffect(() => { loadStats() }, [loadStats])
-
-  // Auto-refresh every 30s
+  // 4. Polling timer every 5 seconds for Real-time Analytics
   useEffect(() => {
-    const timer = setInterval(loadStats, 30_000)
-    return () => clearInterval(timer)
-  }, [loadStats])
+    if (!selectedEventId) return
+    const timer = setInterval(() => {
+      loadStats(false)
+    }, 5_000)
 
-  const overall = stats?.overall
+    return () => clearInterval(timer)
+  }, [selectedEventId, loadStats])
+
+  const overall = stats?.overall ?? { total_tickets: 0, checked_in: 0, valid: 0, cancelled: 0, checkin_rate: 0 }
   const bySession = stats?.by_session ?? []
   const byTicketType = stats?.by_ticket_type ?? []
   const recentCheckins = stats?.recent_checkins ?? []
+  const timeline = stats?.checkin_timeline ?? []
 
   return (
     <OrganizerPage
       title="Theo dõi Check-in"
-      description="Theo dõi tình trạng check-in theo thời gian thực cho sự kiện của bạn."
     >
-      {/* ── Event selector with Smart Event Picker ── */}
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end">
-        {eventsLoading ? (
-          <div className="flex items-center gap-2 text-sm text-subtle">
-            <Loader2 className="size-4 animate-spin text-primary" /> Đang tải sự kiện...
-          </div>
-        ) : events.length === 0 ? (
-          <p className="text-sm text-subtle">Chưa có sự kiện nào trong hệ thống.</p>
-        ) : (
-          <div className="flex-1 max-w-xl">
+      {/* ── ROW 1: HEADER CONTROLS & REAL-TIME STATUS ── */}
+      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between border-b border-white/10 [html.light_&]:border-slate-200 pb-5">
+        {/* Left: Event selector */}
+        <div className="w-full lg:max-w-xl">
+          {eventsLoading ? (
+            <div className="flex items-center gap-2 text-sm text-slate-400">
+              <Loader2 className="size-4 animate-spin text-primary" /> Đang tải danh sách sự kiện...
+            </div>
+          ) : events.length === 0 ? (
+            <p className="text-sm text-slate-400">Chưa có sự kiện nào trong hệ thống.</p>
+          ) : (
             <OrganizerEventPicker
               events={events}
               selectedEventId={selectedEventId}
               onSelectEvent={setSelectedEventId}
               loading={eventsLoading}
-              label="Chọn sự kiện"
+              label="Chọn sự kiện theo dõi"
               allowAll={false}
+              showCalendarIcon={false}
               placeholder="Chọn sự kiện để theo dõi check-in..."
             />
-          </div>
-        )}
-        {lastRefresh && (
-          <div className="flex items-center gap-2 pb-0.5">
-            <p className="text-xs text-subtle [html.light_&]:text-[#536b88]">
-              Cập nhật: {lastRefresh.toLocaleTimeString('vi-VN')}
-            </p>
-          </div>
-        )}
+          )}
+        </div>
+
+        {/* Right: Real-time Connection Status */}
+        <div className="flex items-center gap-2.5 sm:gap-3 shrink-0 self-start lg:self-center">
+          {connectionStatus === 'connected' ? (
+            <div className="flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-1.5 text-xs font-semibold text-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.2)]">
+              <span className="relative flex size-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
+              </span>
+              <span>Cập nhật trực tiếp</span>
+              <span className="text-emerald-500/40">|</span>
+              <span className="text-slate-300 font-normal">
+                {lastRefresh ? lastRefresh.toLocaleTimeString('vi-VN') : '—'}
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3.5 py-1.5 text-xs font-semibold text-amber-400">
+              <span className="size-2 rounded-full bg-amber-500 animate-pulse" />
+              <span>Đang kết nối lại...</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {error && (
-        <div className="mb-5 rounded-lg border border-error/30 bg-error/10 px-4 py-3 text-sm text-error">
+        <div className="mb-6 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">
           {error}
         </div>
       )}
 
-      {loading && !stats ? (
-        <OrganizerPanel className="flex items-center justify-center py-20">
-          <Loader2 className="size-8 animate-spin text-tertiary" />
+      {initialLoading && !stats ? (
+        <OrganizerPanel className="flex flex-col items-center justify-center py-24 text-center">
+          <Loader2 className="size-10 animate-spin text-primary mb-3" />
+          <p className="text-sm font-semibold text-white">Đang tổng hợp số liệu check-in thời gian thực...</p>
         </OrganizerPanel>
       ) : stats ? (
-        <>
-          {/* ── KPI Cards ── */}
-          <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <StatCard
-              icon={Users}
-              label="Tổng vé"
-              value={overall.total_tickets.toLocaleString('vi-VN')}
-              sub="Vé đã bán (đơn PAID)"
-              accentBg="bg-tertiary/15"
-              accentColor="text-tertiary"
-            />
-            <StatCard
-              icon={CheckCircle2}
-              label="Đã check-in"
-              value={overall.checked_in.toLocaleString('vi-VN')}
-              sub={`${overall.checkin_rate}% tổng số vé`}
-              accentBg="bg-success/15"
-              accentColor="text-success"
-            />
-            <StatCard
-              icon={TicketCheck}
-              label="Chưa check-in"
-              value={overall.valid.toLocaleString('vi-VN')}
-              sub="Vé hợp lệ còn lại"
-              accentBg="bg-warning/15"
-              accentColor="text-warning"
-            />
-            <StatCard
-              icon={TrendingUp}
-              label="Tỷ lệ check-in"
-              value={`${overall.checkin_rate}%`}
-              sub={`${overall.checked_in} / ${overall.total_tickets}`}
-              accentBg="bg-ai/15"
-              accentColor="text-ai"
-            />
+        <div className="space-y-6">
+          {/* ── ROW 2: KPI SUMMARY CARDS ── */}
+          <CheckinKpiCards overall={overall} />
+
+          {/* ── ROW 3: MAIN CHARTS (SESSION & OVERALL DONUT) ── */}
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+            {/* Left: Check-in by Session (7 Cols) */}
+            <div className="xl:col-span-7">
+              <OrganizerPanel className="h-full">
+                <div className="mb-4 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <BarChart3 className="size-5 text-emerald-400" />
+                    <h2 className="font-bold text-content text-base">Check-in theo phiên</h2>
+                  </div>
+                  <span className="text-xs text-slate-400">{bySession.length} phiên</span>
+                </div>
+                <SessionStackedBarChart data={bySession} />
+              </OrganizerPanel>
+            </div>
+
+            {/* Right: Overall Check-in Doughnut (5 Cols) */}
+            <div className="xl:col-span-5">
+              <OrganizerPanel className="h-full flex flex-col justify-between">
+                <div className="mb-2 flex items-center gap-2">
+                  <PieChart className="size-5 text-cyan-400" />
+                  <h2 className="font-bold text-content text-base">Tổng thể check-in sự kiện</h2>
+                </div>
+                <div className="my-auto py-2">
+                  <OverallDonutChart overall={overall} />
+                </div>
+              </OrganizerPanel>
+            </div>
           </div>
 
-          {/* ── Overall progress ── */}
-          <OrganizerPanel className="mb-6">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-bold text-content">Tiến độ check-in tổng thể</h2>
-              <span className="text-sm font-bold text-tertiary">{overall.checkin_rate}%</span>
+          {/* ── ROW 4: TICKET ANALYTICS (CHECK-IN BY TICKET TYPE) ── */}
+          <OrganizerPanel>
+            <div className="mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Ticket className="size-5 text-amber-400" />
+                <h2 className="font-bold text-content text-base">Check-in theo hạng vé</h2>
+              </div>
+              <span className="text-xs text-slate-400">{byTicketType.length} hạng vé</span>
             </div>
-            <ProgressBar
-              value={overall.checkin_rate}
-              color={overall.checkin_rate >= 80 ? 'bg-success' : overall.checkin_rate >= 50 ? 'bg-primary' : 'bg-warning'}
-            />
-            <div className="mt-3 flex gap-6 text-xs text-subtle">
-              <span className="flex items-center gap-1.5">
-                <span className="size-2 rounded-full bg-success" /> Đã check-in: {overall.checked_in}
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="size-2 rounded-full bg-warning" /> Chưa check-in: {overall.valid}
-              </span>
-              {overall.cancelled > 0 && (
-                <span className="flex items-center gap-1.5">
-                  <span className="size-2 rounded-full bg-error" /> Đã hủy: {overall.cancelled}
-                </span>
-              )}
-            </div>
+            <TicketTypeStackedBarChart data={byTicketType} />
           </OrganizerPanel>
 
-          <div className="mb-6 grid gap-6 xl:grid-cols-2">
-            {/* ── By Session ── */}
-            {bySession.length > 0 && (
-              <OrganizerPanel>
-                <h2 className="mb-4 font-bold text-content">Check-in theo phiên</h2>
-                <div className="space-y-4">
-                  {bySession.map((s) => (
-                    <div key={s.session_id} className="rounded-xl border border-border-soft/30 bg-panel-soft/50 p-4">
-                      <div className="mb-2 flex items-start justify-between gap-2">
-                        <div>
-                          <p className="text-sm font-semibold text-content">{s.session_name}</p>
-                          <p className="text-xs text-subtle">
-                            {fmtDate(s.start_time)} · {s.venue_name}
-                          </p>
-                        </div>
-                        <span className="shrink-0 text-sm font-bold text-tertiary">
-                          {s.checkin_rate}%
-                        </span>
-                      </div>
-                      <ProgressBar
-                        value={s.checkin_rate}
-                        color={s.checkin_rate >= 80 ? 'bg-success' : 'bg-primary'}
-                      />
-                      <p className="mt-2 text-xs text-subtle">
-                        {s.checked_in} / {s.total_tickets} đã check-in
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </OrganizerPanel>
-            )}
+          {/* ── ROW 5: CHECK-IN TREND (OVER TIME) ── */}
+          <OrganizerPanel>
+            <div className="mb-4 flex items-center gap-2">
+              <TrendingUp className="size-5 text-cyan-400" />
+              <h2 className="font-bold text-content text-base">Xu hướng check-in theo thời gian</h2>
+            </div>
+            <CheckinTrendLineChart timeline={timeline} />
+          </OrganizerPanel>
 
-            {/* ── By Ticket Type ── */}
-            {byTicketType.length > 0 && (
-              <OrganizerPanel>
-                <h2 className="mb-4 font-bold text-content">Check-in theo loại vé</h2>
-                <div className="w-full max-w-full min-w-0 overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
-                  <div className="w-full overflow-x-auto">
-                    <table className="w-full min-w-[500px] text-sm">
-                      <thead className="border-b border-white/10 bg-[#172242] text-xs font-bold uppercase tracking-wider text-white">
-                        <tr>
-                          <th className="px-3.5 py-3 text-left font-bold uppercase tracking-wider text-white whitespace-nowrap">Loại vé</th>
-                          <th className="px-3.5 py-3 text-right font-bold uppercase tracking-wider text-white whitespace-nowrap">Tổng</th>
-                          <th className="px-3.5 py-3 text-right font-bold uppercase tracking-wider text-white whitespace-nowrap">Đã CK</th>
-                          <th className="px-3.5 py-3 text-right font-bold uppercase tracking-wider text-white whitespace-nowrap">Tỷ lệ</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-white/5 font-medium text-slate-300">
-                        {byTicketType.map((tt) => (
-                          <tr key={tt.ticket_type_id} className="hover:bg-white/[0.02] transition-colors">
-                            <td className="px-4 py-3.5">
-                              <p className="text-sm font-semibold text-content">{tt.ticket_type_name}</p>
-                              <p className="text-xs text-subtle">{fmtCurrency(tt.price)}</p>
-                            </td>
-                            <td className="px-4 py-3.5 text-right text-sm text-subtle">{tt.total_tickets}</td>
-                            <td className="px-4 py-3.5 text-right text-sm font-semibold text-success">{tt.checked_in}</td>
-                            <td className="px-4 py-3.5 text-right">
-                              <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-bold border ${tt.checkin_rate >= 80 ? 'bg-success/15 text-success border-success/30' :
-                                  tt.checkin_rate >= 50 ? 'bg-tertiary/15 text-tertiary border-tertiary/30' :
-                                    'bg-warning/15 text-warning border-warning/30'
-                                }`}>
-                                {tt.checkin_rate}%
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </OrganizerPanel>
-            )}
-          </div>
-
-          {/* ── Recent Check-ins ── */}
+          {/* ── ROW 6: RECENT CHECK-IN LOGS (LAST 20) ── */}
           {recentCheckins.length > 0 && (
             <OrganizerPanel>
-              <div className="mb-4 flex items-center gap-2">
-                <ScanLine className="size-5 text-tertiary" />
-                <h2 className="font-bold text-content">Check-in gần nhất (20 lần)</h2>
+              <div className="mb-4 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <History className="size-5 text-slate-400" />
+                  <h2 className="font-bold text-content text-base">Lịch sử check-in gần nhất (20 lượt)</h2>
+                </div>
+                <span className="text-xs text-slate-400 font-mono">Đồng bộ tự động</span>
               </div>
-              <div className="w-full max-w-full min-w-0 overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
+              <div className="w-full max-w-full min-w-0 overflow-hidden rounded-xl border border-white/10 [html.light_&]:border-slate-200 bg-[#121b33] [html.light_&]:bg-white">
                 <div className="w-full overflow-x-auto">
-                  <table className="w-full min-w-[650px] text-sm">
-                    <thead className="border-b border-white/10 bg-[#172242] text-xs font-bold uppercase tracking-wider text-white">
+                  <table className="w-full min-w-[650px] text-xs">
+                    <thead className="border-b border-white/10 [html.light_&]:border-slate-200 bg-[#172242] [html.light_&]:bg-slate-100 text-slate-400 font-bold uppercase tracking-wider">
                       <tr>
-                        <th className="px-3.5 py-3 text-left font-bold uppercase tracking-wider text-white whitespace-nowrap">Người tham dự</th>
-                        <th className="px-3.5 py-3 text-left font-bold uppercase tracking-wider text-white whitespace-nowrap">Loại vé</th>
-                        <th className="px-3.5 py-3 text-left font-bold uppercase tracking-wider text-white whitespace-nowrap">Phiên</th>
-                        <th className="px-3.5 py-3 text-left font-bold uppercase tracking-wider text-white whitespace-nowrap">Thời gian</th>
+                        <th className="px-4 py-3 text-left">Người tham dự</th>
+                        <th className="px-4 py-3 text-left">Hạng vé</th>
+                        <th className="px-4 py-3 text-left">Phiên diễn</th>
+                        <th className="px-4 py-3 text-right">Thời gian check-in</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-white/5 font-medium text-slate-300">
+                    <tbody className="divide-y divide-white/5 font-medium text-slate-300 [html.light_&]:text-slate-700">
                       {recentCheckins.map((c, i) => (
-                        <tr key={`${c.ticket_code}-${i}`} className="hover:bg-white/[0.02] transition-colors">
-                          <td className="px-4 py-3.5">
-                            <p className="text-sm font-semibold text-content">{c.attendee_name || '—'}</p>
-                            <p className="text-xs text-subtle">{c.attendee_email}</p>
+                        <tr
+                          key={`${c.ticket_code}-${i}`}
+                          className="hover:bg-white/[0.02] [html.light_&]:hover:bg-slate-50 transition-colors"
+                        >
+                          <td className="px-4 py-3">
+                            <p className="font-bold text-white [html.light_&]:text-[#0D1B2A]">
+                              {c.attendee_name || '—'}
+                            </p>
+                            <p className="text-[11px] text-slate-400">{c.attendee_email}</p>
                           </td>
-                          <td className="px-4 py-3.5">
+                          <td className="px-4 py-3">
                             <Badge tone="blue">{c.ticket_type_name}</Badge>
                           </td>
-                          <td className="px-4 py-3.5 text-subtle text-sm">
-                            {c.session_name || '—'}
-                          </td>
-                          <td className="px-4 py-3.5">
-                            <span className="flex items-center gap-1 text-xs text-subtle">
-                              <Clock className="size-3" />
+                          <td className="px-4 py-3 text-slate-300">{c.session_name || '—'}</td>
+                          <td className="px-4 py-3 text-right">
+                            <span className="inline-flex items-center gap-1.5 text-slate-300 font-mono">
+                              <Clock className="size-3 text-slate-400" />
                               {fmtDateTime(c.checked_in_at)}
                             </span>
                           </td>
@@ -343,14 +294,19 @@ export function OrganizerCheckinDashboardPage() {
             </OrganizerPanel>
           )}
 
+          {/* Empty state when 0 total tickets sold */}
           {overall.total_tickets === 0 && (
             <OrganizerPanel className="py-14 text-center">
-              <XCircle className="mx-auto size-10 text-subtle" />
-              <p className="mt-3 font-bold text-content">Sự kiện này chưa có vé nào được bán.</p>
-              <p className="mt-1 text-sm text-subtle">Dữ liệu check-in sẽ xuất hiện khi có đơn hàng được thanh toán.</p>
+              <div className="mx-auto grid size-14 place-items-center rounded-2xl border border-[#C99A47]/30 bg-[#C99A47]/10 text-[#E6C17A] shadow-[0_0_20px_rgba(201,154,71,0.15)] mb-3">
+                <TicketCheck className="size-6 text-[#E6C17A]" />
+              </div>
+              <h3 className="text-base font-bold text-content">Sự kiện này chưa có vé nào được bán</h3>
+              <p className="mt-1 text-sm text-subtle">
+                Dữ liệu check-in sẽ xuất hiện tự động khi có đơn hàng được thanh toán thành công.
+              </p>
             </OrganizerPanel>
           )}
-        </>
+        </div>
       ) : null}
     </OrganizerPage>
   )

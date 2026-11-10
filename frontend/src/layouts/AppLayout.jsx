@@ -15,52 +15,103 @@ import { ProfileAvatar } from '@/pages/shared/ProfileAvatar.jsx'
 import { CustomerAiAssistantWidget } from '@/components/ai/CustomerAiAssistantWidget.jsx'
 import { ActiveHoldFloatingBar } from '@/components/ActiveHoldFloatingBar.jsx'
 import { CosmicStarryBackground } from '@/components/CosmicStarryBackground.jsx'
+import { LanguageSwitcher } from '@/i18n/LanguageSwitcher.jsx'
+import { useLanguage } from '@/i18n/LanguageContext'
 import logoSrc from '@/assets/eventhub-logo.png'
 
-const centerNavItems = [
-  ['Khám phá sự kiện', '/events', false],
-  ['Sự kiện yêu thích', '/favorites', true],
-  ['Vé của tôi', '/my-tickets', true],
-  ['Phản hồi', '/feedback', true],
-]
+function getCenterNavItems(isEnglish) {
+  return isEnglish
+    ? [
+        ['Explore Events', '/events', false],
+        ['Favorites', '/favorites', true],
+        ['My Tickets', '/my-tickets', true],
+        ['Feedback', '/feedback', true],
+      ]
+    : [
+        ['Khám phá sự kiện', '/events', false],
+        ['Sự kiện yêu thích', '/favorites', true],
+        ['Vé của tôi', '/my-tickets', true],
+        ['Đánh giá', '/feedback', true],
+      ]
+}
 
-const footerSections = [
-  {
-    title: 'Về nền tảng chúng tôi',
-    links: [
-      { label: 'Chính sách hệ thống', to: '/policies?policy_type=SYSTEM_POLICY' },
-      { label: 'Bảo mật thông tin cá nhân', to: '/policies?policy_type=PRIVACY_POLICY' },
-      { label: 'Chính sách sử dụng AI', to: '/policies?policy_type=AI_POLICY' },
-      { label: 'Khiếu nại và tranh chấp', to: '/policies?policy_type=COMPLAINT_POLICY' },
-    ],
-  },
-  {
-    title: 'Dành cho Khách hàng',
-    links: [
-      { label: 'Điều khoản dành cho Khách hàng', to: '/policies?policy_type=TERMS_CUSTOMER' },
-      { label: 'Chính sách vé', to: '/policies?policy_type=TICKET_POLICY' },
-      { label: 'Thanh toán', to: '/policies?policy_type=PAYMENT_POLICY' },
-      { label: 'Bảo mật thanh toán', to: '/policies?policy_type=PAYMENT_SECURITY_POLICY' },
-      { label: 'Hoàn tiền', to: '/policies?policy_type=REFUND_POLICY' },
-    ],
-  },
-  {
-    title: 'Dành cho BTC',
-    links: [
-      { label: 'Điều khoản dành cho Nhà tổ chức', to: '/policies?policy_type=TERMS_ORGANIZER' },
-      { label: 'Chính sách sự kiện', to: '/policies?policy_type=EVENT_POLICY' },
-      { label: 'Gói dịch vụ Organizer', to: '/policies?policy_type=SUBSCRIPTION_POLICY' },
-      { label: 'Phí nền tảng', to: '/policies?policy_type=FEE_POLICY' },
-    ],
-  },
-  {
-    title: 'Dành cho Nhân sự',
-    links: [
-      { label: 'Điều khoản dành cho Nhân sự', to: '/policies?policy_type=TERMS_STAFF' },
-      { label: 'Soát vé và chống vé giả', to: '/policies?policy_type=CHECKIN_POLICY' },
-    ],
-  },
-]
+function getFooterSections(isEnglish) {
+  return isEnglish
+    ? [
+        {
+          title: 'About Our Platform',
+          links: [
+            { label: 'System Policy', to: '/policies?policy_type=SYSTEM_POLICY' },
+            { label: 'Privacy Policy', to: '/policies?policy_type=PRIVACY_POLICY' },
+            { label: 'AI Usage Policy', to: '/policies?policy_type=AI_POLICY' },
+            { label: 'Complaints & Disputes', to: '/policies?policy_type=COMPLAINT_POLICY' },
+          ],
+        },
+        {
+          title: 'For Customers',
+          links: [
+            { label: 'Customer Terms', to: '/policies?policy_type=TERMS_CUSTOMER' },
+            { label: 'Ticket Policy', to: '/policies?policy_type=TICKET_POLICY' },
+            { label: 'Payment Policy', to: '/policies?policy_type=PAYMENT_POLICY' },
+            { label: 'Payment Security', to: '/policies?policy_type=PAYMENT_SECURITY_POLICY' },
+            { label: 'Refund Policy', to: '/policies?policy_type=REFUND_POLICY' },
+          ],
+        },
+        {
+          title: 'For Organizers',
+          links: [
+            { label: 'Organizer Terms', to: '/policies?policy_type=TERMS_ORGANIZER' },
+            { label: 'Event Policy', to: '/policies?policy_type=EVENT_POLICY' },
+            { label: 'Subscription Plans', to: '/policies?policy_type=SUBSCRIPTION_POLICY' },
+            { label: 'Platform Fees', to: '/policies?policy_type=FEE_POLICY' },
+          ],
+        },
+        {
+          title: 'For Staff',
+          links: [
+            { label: 'Staff Terms', to: '/policies?policy_type=TERMS_STAFF' },
+            { label: 'Check-in & Anti-fraud', to: '/policies?policy_type=CHECKIN_POLICY' },
+          ],
+        },
+      ]
+    : [
+        {
+          title: 'Về nền tảng chúng tôi',
+          links: [
+            { label: 'Chính sách hệ thống', to: '/policies?policy_type=SYSTEM_POLICY' },
+            { label: 'Bảo mật thông tin cá nhân', to: '/policies?policy_type=PRIVACY_POLICY' },
+            { label: 'Chính sách sử dụng AI', to: '/policies?policy_type=AI_POLICY' },
+            { label: 'Khiếu nại và tranh chấp', to: '/policies?policy_type=COMPLAINT_POLICY' },
+          ],
+        },
+        {
+          title: 'Dành cho Khách hàng',
+          links: [
+            { label: 'Điều khoản dành cho Khách hàng', to: '/policies?policy_type=TERMS_CUSTOMER' },
+            { label: 'Chính sách vé', to: '/policies?policy_type=TICKET_POLICY' },
+            { label: 'Thanh toán', to: '/policies?policy_type=PAYMENT_POLICY' },
+            { label: 'Bảo mật thanh toán', to: '/policies?policy_type=PAYMENT_SECURITY_POLICY' },
+            { label: 'Hoàn tiền', to: '/policies?policy_type=REFUND_POLICY' },
+          ],
+        },
+        {
+          title: 'Dành cho BTC',
+          links: [
+            { label: 'Điều khoản dành cho Nhà tổ chức', to: '/policies?policy_type=TERMS_ORGANIZER' },
+            { label: 'Chính sách sự kiện', to: '/policies?policy_type=EVENT_POLICY' },
+            { label: 'Gói dịch vụ Organizer', to: '/policies?policy_type=SUBSCRIPTION_POLICY' },
+            { label: 'Phí nền tảng', to: '/policies?policy_type=FEE_POLICY' },
+          ],
+        },
+        {
+          title: 'Dành cho Nhân sự',
+          links: [
+            { label: 'Điều khoản dành cho Nhân sự', to: '/policies?policy_type=TERMS_STAFF' },
+            { label: 'Soát vé và chống vé giả', to: '/policies?policy_type=CHECKIN_POLICY' },
+          ],
+        },
+      ]
+}
 
 const navLinkClass = ({ isActive }) =>
   `relative z-10 px-3 py-2 text-sm font-bold transition ${isActive ? 'text-[#E6C17A]' : 'text-subtle hover:text-[#E6C17A]'
@@ -109,6 +160,9 @@ function dedupeNavNotifications(items) {
 }
 
 export function AppLayout() {
+  const { isEnglish, t } = useLanguage()
+  const centerNavItems = getCenterNavItems(isEnglish)
+  const currentFooterSections = getFooterSections(isEnglish)
   const queryClient = useQueryClient()
   const [loggedIn, setLoggedIn] = useState(() => isAuthenticated())
   const [currentUser, setCurrentUser] = useState(() => (isAuthenticated() ? getStoredUser() : null))
@@ -152,7 +206,11 @@ export function AppLayout() {
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
+    document.addEventListener('touchstart', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('touchstart', handleClickOutside)
+    }
   }, [])
 
   const logout = () => {
@@ -170,7 +228,7 @@ export function AppLayout() {
   const notificationsQuery = useQuery({
     queryKey: ['notifications', 'nav'],
     queryFn: () => fetchNotifications({ limit: 5 }),
-    enabled: loggedIn && !hasAdminRole,
+    enabled: loggedIn,
   })
 
   const staffEventsQuery = useQuery({
@@ -304,7 +362,6 @@ export function AppLayout() {
             />
             {centerNavItems.map(([label, to, requiresAuth]) => {
               if (requiresAuth && !loggedIn) return null;
-              if (requiresAuth && hasAdminRole) return null;
               return (
                 <NavLink
                   key={label}
@@ -320,18 +377,19 @@ export function AppLayout() {
 
           {!loggedIn ? (
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+              <LanguageSwitcher theme="dark" />
               <NavLink
                 to="/login"
                 className="rounded-full border border-[#C99A47]/50 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-extrabold text-[#E6C17A] transition hover:border-[#E6C17A] hover:bg-[#C99A47] hover:text-[#0D1B2A] active:scale-95"
               >
-                Đăng nhập
+                {isEnglish ? 'Sign In' : 'Đăng nhập'}
               </NavLink>
               <NavLink
                 to="/register"
                 className="btn-led-border active:scale-95 text-xs sm:text-sm"
               >
                 <span className="btn-led-inner !px-3 sm:!px-5 !py-1.5 sm:!py-2 !text-xs sm:!text-sm">
-                  Đăng ký
+                  {isEnglish ? 'Sign Up' : 'Đăng ký'}
                 </span>
               </NavLink>
             </div>
@@ -343,7 +401,7 @@ export function AppLayout() {
                   reloadDocument
                   className="hidden rounded-full border border-[#C99A47]/40 px-4 py-2 text-sm font-extrabold text-[#E6C17A] transition hover:border-[#E6C17A] hover:bg-[#C99A47] hover:text-[#081126] sm:inline-flex"
                 >
-                  Trang quản trị
+                  {isEnglish ? 'Admin Portal' : 'Trang quản trị'}
                 </NavLink>
               )}
               {canOpenOrganizerPortal && (
@@ -351,7 +409,7 @@ export function AppLayout() {
                   to="/organizer"
                   className="hidden rounded-full border border-[#C99A47]/40 px-4 py-2 text-sm font-extrabold text-[#E6C17A] transition hover:border-[#E6C17A] hover:bg-[#C99A47] hover:text-[#081126] sm:inline-flex"
                 >
-                  Trang tổ chức
+                  {isEnglish ? 'Organizer Portal' : 'Trang tổ chức'}
                 </NavLink>
               )}
               {canOpenStaffPortal && (
@@ -359,9 +417,10 @@ export function AppLayout() {
                   to="/staff"
                   className="hidden rounded-full border border-[#C99A47]/40 px-4 py-2 text-sm font-extrabold text-[#E6C17A] transition hover:border-[#E6C17A] hover:bg-[#C99A47] hover:text-[#081126] sm:inline-flex"
                 >
-                  Trang nhân sự
+                  {isEnglish ? 'Staff Portal' : 'Trang nhân sự'}
                 </NavLink>
               )}
+              <LanguageSwitcher theme="dark" />
               <button
                 type="button"
                 className="relative grid size-10 place-items-center rounded-full text-subtle hover:bg-panel-soft hover:text-[#E6C17A]"
@@ -369,7 +428,7 @@ export function AppLayout() {
                   setNotificationOpen((value) => !value)
                   setOpen(false)
                 }}
-                aria-label="Thông báo"
+                aria-label={isEnglish ? 'Notifications' : 'Thông báo'}
                 aria-expanded={notificationOpen}
               >
                 <Bell className="size-5" />
@@ -385,13 +444,13 @@ export function AppLayout() {
                   setOpen((value) => !value)
                   setNotificationOpen(false)
                 }}
-                aria-label="Mở menu tài khoản"
+                aria-label={isEnglish ? 'Open account menu' : 'Mở menu tài khoản'}
                 aria-expanded={open}
               >
                 <ProfileAvatar
                   sources={currentUser?.avatar_url}
-                  name={currentUser?.full_name || currentUser?.email || 'Tài khoản'}
-                  alt="Ảnh đại diện tài khoản"
+                  name={currentUser?.full_name || currentUser?.email || (isEnglish ? 'Account' : 'Tài khoản')}
+                  alt={isEnglish ? 'Account avatar' : 'Ảnh đại diện tài khoản'}
                   className="size-full"
                   fallbackClassName="bg-transparent text-[#081126] ring-0"
                   fallback="TK"
@@ -399,17 +458,26 @@ export function AppLayout() {
               </button>
               {notificationOpen && (
                 <div className="fixed sm:absolute inset-x-3 sm:inset-x-auto sm:right-12 top-20 sm:top-full mt-0 sm:mt-4 w-auto sm:w-[360px] overflow-hidden rounded-2xl border border-border-soft bg-slate-950 shadow-2xl z-50">
-                  <div className="flex items-center justify-between border-b border-border-soft px-4 py-3">
-                    <div>
-                      <p className="font-display text-lg font-bold text-white">Thông báo</p>
-                      <p className="text-xs text-muted">{unreadCount} chưa đọc</p>
+                  <div className="flex items-center justify-between border-b border-white/10 bg-[#0f1b33] px-4 py-3.5 shadow-sm">
+                    <div className="flex items-center gap-2.5">
+                      <div className="grid size-8 place-items-center rounded-xl shrink-0 bg-[#E6C17A]/15 text-[#E6C17A] border border-[#E6C17A]/20">
+                        <Bell className="size-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm sm:text-base font-black tracking-tight text-white">
+                          {isEnglish ? 'Notifications' : 'Thông báo'}
+                        </h4>
+                        <p className="text-xs font-medium text-slate-400">
+                          {unreadCount > 0 ? (isEnglish ? `${unreadCount} unread` : `${unreadCount} chưa đọc`) : (isEnglish ? 'All notifications read' : 'Đã đọc tất cả thông báo')}
+                        </p>
+                      </div>
                     </div>
                     {navNotifications.length > 0 && (
                       <button
                         type="button"
                         onClick={() => markAllMutation.mutate()}
-                        className="grid size-9 place-items-center rounded-full text-subtle hover:bg-panel-soft hover:text-[#E6C17A]"
-                        title="Đánh dấu tất cả đã đọc"
+                        className="grid size-8 place-items-center rounded-full text-subtle hover:bg-white/10 hover:text-[#E6C17A] transition"
+                        title={isEnglish ? 'Mark all as read' : 'Đánh dấu tất cả đã đọc'}
                       >
                         <CheckCheck className="size-4" />
                       </button>
@@ -417,10 +485,10 @@ export function AppLayout() {
                   </div>
                   <div className="max-h-96 overflow-y-auto">
                     {notificationsQuery.isLoading && (
-                      <p className="px-4 py-5 text-sm text-muted">Đang tải thông báo...</p>
+                      <p className="px-4 py-5 text-sm text-muted">{isEnglish ? 'Loading notifications...' : 'Đang tải thông báo...'}</p>
                     )}
                     {!notificationsQuery.isLoading && navNotifications.length === 0 && (
-                      <p className="px-4 py-5 text-sm text-muted">Bạn chưa có thông báo nào.</p>
+                      <p className="px-4 py-5 text-sm text-muted">{isEnglish ? 'You have no notifications.' : 'Bạn chưa có thông báo nào.'}</p>
                     )}
                     {navNotifications.map((notification) => (
                       <button
@@ -449,7 +517,7 @@ export function AppLayout() {
                     onClick={() => setNotificationOpen(false)}
                     className="block border-t border-border-soft px-4 py-3 text-center text-sm font-bold text-[#E6C17A] hover:bg-panel-soft"
                   >
-                    Xem tất cả
+                    {isEnglish ? 'View all' : 'Xem tất cả'}
                   </Link>
                 </div>
               )}
@@ -461,7 +529,7 @@ export function AppLayout() {
                       to={hasAdminRole ? "/admin/profile" : "/profile"}
                       onClick={() => setOpen(false)}
                     >
-                      Hồ sơ cá nhân
+                      {isEnglish ? 'Personal Profile' : 'Hồ sơ cá nhân'}
                     </NavLink>
                   </div>
 
@@ -472,7 +540,7 @@ export function AppLayout() {
                         to="/organizer-request"
                         onClick={() => setOpen(false)}
                       >
-                        Đăng ký làm Ban Tổ Chức
+                        {isEnglish ? 'Register as Organizer' : 'Đăng ký làm Ban Tổ Chức'}
                       </NavLink>
                     )}
                   </div>
@@ -482,7 +550,7 @@ export function AppLayout() {
                       className="block w-full px-4 py-2 text-left text-sm font-semibold text-error hover:bg-error/10"
                       onClick={logout}
                     >
-                      Đăng xuất
+                      {isEnglish ? 'Log Out' : 'Đăng xuất'}
                     </button>
                   </div>
                 </div>
@@ -525,15 +593,16 @@ export function AppLayout() {
               className="h-14 sm:h-16 w-auto object-contain mix-blend-screen"
             />
             <p className="mt-4 max-w-sm text-sm leading-6 text-subtle">
-              Nền tảng khám phá sự kiện, đặt vé, quản lý vận hành và soát vé bằng mã QR
-              và hỗ trợ ban tổ chức bằng AI.
+              {isEnglish
+                ? 'Platform for discovering events, booking tickets, managing event operations and check-in with QR codes, enhanced with AI for organizers.'
+                : 'Nền tảng khám phá sự kiện, đặt vé, quản lý vận hành và soát vé bằng mã QR và hỗ trợ ban tổ chức bằng AI.'}
             </p>
             <p className="mt-6 text-xs text-neutral">
-              © 2026 EventHub. Bảo lưu mọi quyền.
+              {isEnglish ? '© 2026 EventHub. All rights reserved.' : '© 2026 EventHub. Bảo lưu mọi quyền.'}
             </p>
           </div>
           <div className="grid grid-cols-2 gap-6 lg:grid-cols-4">
-            {footerSections.map(({ title, links }) => (
+            {currentFooterSections.map(({ title, links }) => (
               <div key={title} className="space-y-3">
                 <h3 className="text-sm font-bold text-white">{title}</h3>
                 {links.map((link) => (
@@ -568,7 +637,7 @@ export function AppLayout() {
             {({ isActive }) => (
               <>
                 <Home className={`size-5 transition-transform ${isActive ? 'scale-110 drop-shadow-[0_0_8px_rgba(230,193,122,0.6)] text-[#E6C17A]' : ''}`} />
-                <span className="text-[10px] mt-1 font-semibold leading-none">Trang chủ</span>
+                <span className="text-[10px] mt-1 font-semibold leading-none">{isEnglish ? 'Home' : 'Trang chủ'}</span>
               </>
             )}
           </NavLink>
@@ -584,7 +653,7 @@ export function AppLayout() {
             {({ isActive }) => (
               <>
                 <Compass className={`size-5 transition-transform ${isActive ? 'scale-110 drop-shadow-[0_0_8px_rgba(230,193,122,0.6)] text-[#E6C17A]' : ''}`} />
-                <span className="text-[10px] mt-1 font-semibold leading-none">Khám phá</span>
+                <span className="text-[10px] mt-1 font-semibold leading-none">{isEnglish ? 'Explore' : 'Khám phá'}</span>
               </>
             )}
           </NavLink>
@@ -600,7 +669,7 @@ export function AppLayout() {
             {({ isActive }) => (
               <>
                 <Ticket className={`size-5 transition-transform ${isActive ? 'scale-110 drop-shadow-[0_0_8px_rgba(230,193,122,0.6)] text-[#E6C17A]' : ''}`} />
-                <span className="text-[10px] mt-1 font-semibold leading-none">Vé của tôi</span>
+                <span className="text-[10px] mt-1 font-semibold leading-none">{isEnglish ? 'My Tickets' : 'Vé của tôi'}</span>
               </>
             )}
           </NavLink>
@@ -616,7 +685,7 @@ export function AppLayout() {
             {({ isActive }) => (
               <>
                 <Heart className={`size-5 transition-transform ${isActive ? 'scale-110 drop-shadow-[0_0_8px_rgba(230,193,122,0.6)] text-[#E6C17A]' : ''}`} />
-                <span className="text-[10px] mt-1 font-semibold leading-none">Yêu thích</span>
+                <span className="text-[10px] mt-1 font-semibold leading-none">{isEnglish ? 'Favorites' : 'Yêu thích'}</span>
               </>
             )}
           </NavLink>
@@ -632,7 +701,7 @@ export function AppLayout() {
             {({ isActive }) => (
               <>
                 <User className={`size-5 transition-transform ${isActive ? 'scale-110 drop-shadow-[0_0_8px_rgba(230,193,122,0.6)] text-[#E6C17A]' : ''}`} />
-                <span className="text-[10px] mt-1 font-semibold leading-none">{loggedIn ? 'Tôi' : 'Tài khoản'}</span>
+                <span className="text-[10px] mt-1 font-semibold leading-none">{loggedIn ? (isEnglish ? 'Profile' : 'Tôi') : (isEnglish ? 'Account' : 'Tài khoản')}</span>
               </>
             )}
           </NavLink>

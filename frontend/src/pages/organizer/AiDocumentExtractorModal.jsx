@@ -409,21 +409,13 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
   return (
     <>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
-        <div className={`relative w-full ${extractedResult ? 'max-w-[560px] sm:max-w-[600px]' : 'max-w-[460px] sm:max-w-[480px]'} bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[88vh] transition-all duration-300`}>
+        <div className={`relative w-full ${extractedResult ? 'max-w-[560px] sm:max-w-[600px]' : 'max-w-[520px] sm:max-w-[540px]'} bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[88vh] transition-all duration-300`}>
           {/* Header */}
-          <div className="px-5 py-3.5 border-b border-neutral-800 flex items-center justify-between bg-gradient-to-r from-neutral-900 via-neutral-900 to-indigo-950/30">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-violet-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/25 shrink-0">
-                <Sparkles className="w-4 h-4 animate-pulse" />
-              </div>
+          <div className="px-5 py-3.5 border-b border-neutral-800 flex items-center justify-between bg-neutral-900">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <Sparkles className="w-5 h-5 text-[#E6C17A] shrink-0" />
               <div className="min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="text-sm sm:text-base font-bold text-white tracking-tight">Tạo sự kiện bằng AI</h3>
-                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
-                    <Sparkles className="w-2.5 h-2.5 text-indigo-400" />
-                    <span>Trích xuất thông minh</span>
-                  </span>
-                </div>
+                <h3 className="text-sm sm:text-base font-bold text-white tracking-tight">Tạo sự kiện bằng AI</h3>
                 <p className="text-xs text-neutral-400 mt-0.5 truncate">
                   Tự động đọc kịch bản, lịch trình, địa điểm & hạng vé
                 </p>
@@ -969,30 +961,30 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
             {!isProcessing && !extractedResult && (
               <div className="space-y-3.5 animate-in fade-in duration-200">
                 {/* Tab selector */}
-                <div className="flex items-center gap-1 p-1 bg-neutral-950/90 rounded-xl border border-neutral-800">
+                <div className="flex items-center gap-1.5 p-1 bg-neutral-950/90 rounded-xl border border-neutral-800/80">
                   <button
                     type="button"
                     onClick={() => setActiveTab('file')}
-                    className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    className={`flex-1 flex items-center justify-center gap-2 py-2 px-2.5 sm:px-3 rounded-lg text-xs transition-all cursor-pointer whitespace-nowrap ${
                       activeTab === 'file'
-                        ? 'bg-neutral-800 text-white shadow-sm border border-neutral-700/60'
-                        : 'text-neutral-400 hover:text-white hover:bg-neutral-900/50'
+                        ? 'border border-[#C99A47] bg-[#C99A47]/15 text-[#E6C17A] shadow-[0_0_12px_rgba(201,154,71,0.2)] font-bold'
+                        : 'border border-transparent text-neutral-400 hover:text-[#E6C17A] hover:bg-[#C99A47]/5 hover:border-[#C99A47]/30 font-medium'
                     }`}
                   >
-                    <FileUp className="w-4 h-4 text-indigo-400" />
-                    <span>Tải file tài liệu</span>
+                    <FileUp className={`w-4 h-4 shrink-0 ${activeTab === 'file' ? 'text-[#E6C17A]' : 'text-neutral-400'}`} />
+                    <span className="whitespace-nowrap">Tải file tài liệu</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setActiveTab('text')}
-                    className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    className={`flex-1 flex items-center justify-center gap-2 py-2 px-2.5 sm:px-3 rounded-lg text-xs transition-all cursor-pointer whitespace-nowrap ${
                       activeTab === 'text'
-                        ? 'bg-neutral-800 text-white shadow-md border border-neutral-700/60'
-                        : 'text-neutral-400 hover:text-white hover:bg-neutral-900/50'
+                        ? 'border border-[#C99A47] bg-[#C99A47]/15 text-[#E6C17A] shadow-[0_0_12px_rgba(201,154,71,0.2)] font-bold'
+                        : 'border border-transparent text-neutral-400 hover:text-[#E6C17A] hover:bg-[#C99A47]/5 hover:border-[#C99A47]/30 font-medium'
                     }`}
                   >
-                    <FileText className="w-4 h-4 text-violet-400" />
-                    <span>Dán nội dung kịch bản</span>
+                    <FileText className={`w-4 h-4 shrink-0 ${activeTab === 'text' ? 'text-[#E6C17A]' : 'text-neutral-400'}`} />
+                    <span className="whitespace-nowrap">Dán nội dung kịch bản</span>
                   </button>
                 </div>
 
@@ -1028,15 +1020,15 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
                         onClick={() => fileInputRef.current?.click()}
                         className={`border-2 border-dashed rounded-2xl py-7 px-4 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-200 group ${
                           isDragging
-                            ? 'border-indigo-500 bg-indigo-500/10 scale-[1.01]'
-                            : 'border-neutral-700/80 hover:border-indigo-500/60 bg-gradient-to-b from-neutral-950/60 to-neutral-900/30 hover:bg-neutral-900/50'
+                            ? 'border-[#C99A47] bg-[#C99A47]/10 scale-[1.01]'
+                            : 'border-neutral-700/80 hover:border-[#C99A47]/60 bg-gradient-to-b from-neutral-950/60 to-neutral-900/30 hover:bg-neutral-900/50'
                         }`}
                       >
-                        <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center mb-2.5 transition-all shadow-inner group-hover:scale-105 group-hover:bg-indigo-500/20">
+                        <div className="w-12 h-12 rounded-2xl bg-[#C99A47]/10 border border-[#C99A47]/20 text-[#E6C17A] flex items-center justify-center mb-2.5 transition-all shadow-inner group-hover:scale-105 group-hover:bg-[#C99A47]/20">
                           <Upload className="w-5 h-5 transition-transform group-hover:-translate-y-0.5" />
                         </div>
                         <p className="text-xs sm:text-sm font-semibold text-white mb-1.5">
-                          Kéo thả file vào đây hoặc <span className="text-indigo-400 hover:text-indigo-300 underline underline-offset-4 decoration-indigo-400/40 font-bold">duyệt từ máy</span>
+                          Kéo thả file vào đây hoặc <span className="text-[#E6C17A] hover:text-[#FFF6DC] underline underline-offset-4 decoration-[#C99A47]/40 font-bold">duyệt từ máy</span>
                         </p>
                         <div className="flex items-center gap-1.5 text-[11px] text-neutral-400 flex-wrap justify-center mt-0.5">
                           <span>Hỗ trợ:</span>
@@ -1049,7 +1041,7 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
                     ) : (
                       <div className="p-3.5 rounded-xl bg-neutral-950 border border-neutral-800 flex items-center justify-between shadow-sm">
                         <div className="flex items-center gap-3 overflow-hidden">
-                          <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/25 text-indigo-400 flex items-center justify-center flex-shrink-0">
+                          <div className="w-10 h-10 rounded-xl bg-[#C99A47]/10 border border-[#C99A47]/25 text-[#E6C17A] flex items-center justify-center flex-shrink-0">
                             <FileText className="w-5 h-5" />
                           </div>
                           <div className="overflow-hidden">
@@ -1085,7 +1077,7 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
                       value={rawText}
                       onChange={(e) => setRawText(e.target.value)}
                       placeholder="Dán nội dung kế hoạch sự kiện, kịch bản chương trình, thông cáo báo chí hoặc ghi chú chi tiết vào đây..."
-                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 transition-all resize-none custom-scrollbar leading-relaxed"
+                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-[#C99A47] focus:ring-1 focus:ring-[#C99A47]/30 transition-all resize-none custom-scrollbar leading-relaxed"
                     />
                     <div className="flex items-center justify-between text-[11px] text-neutral-400 mt-1 px-1">
                       <span>Tối thiểu 20 ký tự để AI có đủ dữ kiện phân tích</span>
@@ -1104,20 +1096,20 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
                     value={userNote}
                     onChange={(e) => setUserNote(e.target.value)}
                     placeholder="Ví dụ: Ưu tiên sự kiện bắt đầu lúc 19:00, địa điểm tại TP.HCM..."
-                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 transition-all"
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-[#C99A47] focus:ring-1 focus:ring-[#C99A47]/30 transition-all"
                   />
                 </div>
 
-                {/* Combined Compact Disclaimer & Security Banner */}
-                <div className="p-3 bg-neutral-950/80 rounded-xl border border-neutral-800/80 space-y-1.5 text-[11px]">
-                  <div className="flex items-center gap-2 text-amber-300/95 font-medium">
-                    <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                    <span><strong>Lưu ý:</strong> Đây là AI nên có thể có sai sót, vui lòng kiểm tra lại thông tin.</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-neutral-400 border-t border-neutral-800/60 pt-1.5">
-                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                    <span>Dữ liệu xử lý an toàn nội bộ trên máy chủ và <strong className="text-neutral-300">không tự động gửi duyệt sự kiện</strong>.</span>
-                  </div>
+                {/* 1. Thông tin bảo mật an toàn (tách riêng khung) */}
+                <div className="flex items-center gap-2.5 p-2.5 bg-neutral-950/80 rounded-xl border border-neutral-800/80 text-[11px] text-neutral-400">
+                  <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>Dữ liệu xử lý an toàn nội bộ trên máy chủ và <strong className="text-neutral-300">không tự động gửi duyệt sự kiện</strong>.</span>
+                </div>
+
+                {/* 2. Câu lưu ý đưa xuống dưới cùng */}
+                <div className="flex items-center gap-2 px-1 text-[11px] text-amber-300/95 font-medium">
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <span><strong>Lưu ý:</strong> Đây là AI nên có thể có sai sót, vui lòng kiểm tra lại thông tin.</span>
                 </div>
               </div>
             )}
@@ -1130,7 +1122,7 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
                 <button
                   type="button"
                   onClick={handleReset}
-                  className="px-3.5 py-2 text-xs font-semibold text-neutral-400 hover:text-white transition-colors flex items-center gap-1.5 cursor-pointer rounded-xl hover:bg-neutral-800/60"
+                  className="px-3.5 py-2 text-xs font-bold text-neutral-300 hover:text-white transition-all flex items-center gap-1.5 cursor-pointer rounded-xl border border-neutral-700/80 bg-neutral-800/40 hover:bg-neutral-800 hover:border-neutral-600 active:scale-95"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
                   <span>Chọn tài liệu khác</span>
@@ -1139,11 +1131,11 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
                   type="button"
                   disabled={isUploadingPermit || isUploadingPolicy}
                   onClick={handleApplyToDraft}
-                  className="px-4 sm:px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:from-neutral-800 disabled:to-neutral-800 disabled:text-neutral-500 text-white text-xs font-semibold shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/35 flex items-center gap-2 transition-all cursor-pointer disabled:cursor-not-allowed"
+                  className="px-4 sm:px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] hover:brightness-110 active:scale-95 disabled:from-neutral-800 disabled:to-neutral-800 disabled:text-neutral-500 text-[#0D1B2A] text-xs font-bold shadow-lg shadow-[#C99A47]/20 flex items-center gap-2 transition-all cursor-pointer disabled:cursor-not-allowed"
                 >
                   {isUploadingPermit || isUploadingPolicy ? (
                     <>
-                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <div className="w-3.5 h-3.5 border-2 border-[#0D1B2A] border-t-transparent rounded-full animate-spin" />
                       <span>Đang tải tệp lên...</span>
                     </>
                   ) : (
@@ -1155,12 +1147,12 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
                 </button>
               </>
             ) : (
-              <>
+              <div className="flex items-center justify-end gap-3 w-full">
                 <button
                   type="button"
                   onClick={onClose}
                   disabled={isProcessing}
-                  className="px-4 py-2 text-xs font-semibold text-neutral-400 hover:text-white transition-colors disabled:opacity-40 cursor-pointer rounded-xl hover:bg-neutral-800/60"
+                  className="px-4 py-2.5 text-xs font-bold text-neutral-300 hover:text-white rounded-xl border border-neutral-700/80 bg-neutral-800/40 hover:bg-neutral-800 hover:border-neutral-600 transition-all disabled:opacity-40 cursor-pointer active:scale-95"
                 >
                   Hủy bỏ
                 </button>
@@ -1168,21 +1160,25 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
                   type="button"
                   onClick={handleStartExtraction}
                   disabled={isProcessing || (activeTab === 'file' && !selectedFile) || (activeTab === 'text' && !rawText.trim())}
-                  className="px-4 sm:px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:from-neutral-800 disabled:to-neutral-800 disabled:text-neutral-500 text-white text-xs font-semibold shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/35 flex items-center gap-2 transition-all cursor-pointer disabled:cursor-not-allowed"
+                  className={`px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
+                    isProcessing || (activeTab === 'file' && !selectedFile) || (activeTab === 'text' && !rawText.trim())
+                      ? 'bg-neutral-800 border border-neutral-700/50 text-neutral-500 cursor-not-allowed shadow-none'
+                      : 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] border border-[#E6C17A]/40 shadow-lg shadow-[#C99A47]/25 hover:brightness-110 active:scale-95 cursor-pointer'
+                  }`}
                 >
                   {isProcessing ? (
                     <>
-                      <Loader2 className="w-4 h-4 animate-spin text-indigo-300" />
+                      <Loader2 className="w-4 h-4 animate-spin text-inherit" />
                       <span>Đang bóc tách dữ liệu...</span>
                     </>
                   ) : (
                     <>
-                      <Sparkles className="w-4 h-4" />
+                      <Sparkles className="w-4 h-4 text-inherit" />
                       <span>Bắt đầu trích xuất bằng AI</span>
                     </>
                   )}
                 </button>
-              </>
+              </div>
             )}
           </div>
         </div>

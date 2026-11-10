@@ -172,6 +172,32 @@ describe('EventHub Business Rules Specification (v3.2) - Core Domain Rules', () 
       });
       expect(finalStatus).toBe('ON_SALE');
     });
+
+    it('should allow adding event-wide block even when specific ticket block already exists', () => {
+      // 1. Add specific ticket block
+      const add1 = addSalesBlock([], {
+        reason: 'ORGANIZER_PAUSE',
+        source: 'ORGANIZER',
+        createdBy: 'usr-1',
+        metadata: { scope: 'SPECIFIC', ticket_type_id: 'tt-1', ticket_type_name: 'VIP' },
+      });
+      expect(add1.isChanged).toBe(true);
+      expect(add1.updatedBlocks).toHaveLength(1);
+      // Specific block alone does NOT pause the entire event
+      expect(computeSalesStatus({ status: 'PUBLISHED', salesBlocks: add1.updatedBlocks })).toBe('ON_SALE');
+
+      // 2. Add event-wide block
+      const add2 = addSalesBlock(add1.updatedBlocks, {
+        reason: 'ORGANIZER_PAUSE',
+        source: 'ORGANIZER',
+        createdBy: 'usr-1',
+        metadata: { scope: 'ALL', reason: 'Tạm dừng toàn bộ' },
+      });
+      expect(add2.isChanged).toBe(true);
+      expect(add2.updatedBlocks).toHaveLength(2);
+      // Event-wide block transitions event to PAUSED
+      expect(computeSalesStatus({ status: 'PUBLISHED', salesBlocks: add2.updatedBlocks })).toBe('PAUSED');
+    });
   });
 
   describe('Rule 3: Append-Only Immutable Audit Trail (Section 15.10 & G5)', () => {

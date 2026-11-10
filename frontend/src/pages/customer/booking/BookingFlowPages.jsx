@@ -29,6 +29,7 @@ import { QRCodeImage } from '@/components/QRCodeImage.jsx'
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { cn } from '@/lib/utils.js'
 import { generateRefundPolicyLines } from '@/utils/refundPolicy.js'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
 import {
   clearBookingDraft,
   formatCountdown,
@@ -39,10 +40,10 @@ import {
   secondsLeft,
 } from '@/utils/bookingDraft.js'
 
-function formatPrice(value) {
+function formatPrice(value, isEnglish = (typeof document !== 'undefined' && document.documentElement.lang === 'en')) {
   const number = Number(value)
-  if (!Number.isFinite(number) || number === 0) return 'Miễn phí'
-  return `${number.toLocaleString('vi-VN')} \u0111`
+  if (!Number.isFinite(number) || number === 0) return isEnglish ? 'Free' : 'Miễn phí'
+  return `${number.toLocaleString(isEnglish ? 'en-US' : 'vi-VN')} ${isEnglish ? 'VND' : '₫'}`
 }
 
 function formatFileSize(bytes) {
@@ -62,25 +63,25 @@ function ticketAvailability(ticketType) {
   return { available, total }
 }
 
-function formatPauseReasonSuffix(reason) {
+function formatPauseReasonSuffix(reason, isEnglish = (typeof document !== 'undefined' && document.documentElement.lang === 'en')) {
   if (!reason) return ''
   const str = String(reason).trim()
   const SYSTEM_CODES = ['ORGANIZER_PAUSE', 'HIDE', 'SUSPENDED', 'ADMIN_PAUSE', 'REFUND_OVERDUE', 'CANCELLATION_REQUESTED', 'CANCELLING']
   if (!str || SYSTEM_CODES.includes(str)) return ''
-  return ` (Lý do: ${str})`
+  return isEnglish ? ` (Reason: ${str})` : ` (Lý do: ${str})`
 }
 
-function formatDateTime(value) {
-  if (!value) return 'Chưa cập nhật'
+function formatDateTime(value, isEnglish = (typeof document !== 'undefined' && document.documentElement.lang === 'en')) {
+  if (!value) return isEnglish ? 'Updating' : 'Chưa cập nhật'
   try {
     const d = new Date(value)
-    if (isNaN(d.getTime())) return 'Chưa cập nhật'
-    return new Intl.DateTimeFormat('vi-VN', {
+    if (isNaN(d.getTime())) return isEnglish ? 'Updating' : 'Chưa cập nhật'
+    return new Intl.DateTimeFormat(isEnglish ? 'en-US' : 'vi-VN', {
       dateStyle: 'medium',
       timeStyle: 'short',
     }).format(d)
   } catch {
-    return 'Chưa cập nhật'
+    return isEnglish ? 'Updating' : 'Chưa cập nhật'
   }
 }
 
@@ -209,7 +210,7 @@ function buildSeatLayout(seats, seatMap) {
   const stagePosition = config.stagePosition || seatMap?.stage_position
   const stage = stagePosition && stagePosition !== 'HIDDEN' ? {
     position: stagePosition,
-    label: config.stageLabel || 'SÂN KHẤU',
+    label: config.stageLabel || (typeof document !== 'undefined' && document.documentElement.lang === 'en' ? 'STAGE' : 'SÂN KHẤU'),
     x: Number(config.stageX ?? seatMap?.custom_stage_x ?? 0),
     y: Number(config.stageY ?? seatMap?.custom_stage_y ?? 0),
     w: Number(config.stageWidth ?? seatMap?.custom_stage_width ?? 900),
@@ -456,6 +457,7 @@ export function BookingTicketsPage() {
 }
 
 export function BookingSeatsPage() {
+  const { isEnglish, t } = useLanguage()
   const location = useLocation()
   const navigate = useNavigate()
   const toast = useToast()
@@ -471,7 +473,7 @@ export function BookingSeatsPage() {
   })
 
   const activeEventBlocks = (Array.isArray(eventDetail?.sales_blocks) ? eventDetail.sales_blocks : []).filter(
-    (b) => !b.released_at && !(b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id)
+    (b) => !b.released_at && !(b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id) && !(b.metadata?.scope === 'SEATS')
   )
   const isPaused = Boolean(
     (eventDetail?.is_paused && activeEventBlocks.length > 0) ||
@@ -663,6 +665,12 @@ export function BookingSeatsPage() {
     })[0] || ''
   }, [hasSeatMap, seatData, seatingRules, selectedSeatIds])
 
+  const eventRequireAttendeeInfo = Boolean(
+    eventDetail?.require_attendee_info ??
+    cart?.requireAttendeeInfo ??
+    cart?.require_attendee_info
+  )
+
   const displayCart = cart ? {
     ...cart,
     selectedSession: session,
@@ -670,6 +678,8 @@ export function BookingSeatsPage() {
     availableTicketTypes: displayTicketTypes,
     items: displayItems,
     hasSeatMap,
+    requireAttendeeInfo: eventRequireAttendeeInfo,
+    require_attendee_info: eventRequireAttendeeInfo,
   } : cart
 
   useEffect(() => {
@@ -713,6 +723,14 @@ export function BookingSeatsPage() {
   if (!cart || !session) return <NavigateBackToEvents />
 
   const continueFlow = async () => {
+    const holdExpiresAtRaw = cart?.holdExpiresAt || cart?.hold_expires_at
+    if (holdExpiresAtRaw && secondsLeft(holdExpiresAtRaw) <= 0) {
+      clearBookingDraft(cart?.eventId)
+      toast.error('Thời gian giữ vé (15 phút) đã hết hạn. Đơn đặt vé đã bị hủy.')
+      navigate('/', { replace: true })
+      return
+    }
+
     if (isPaused) {
       toast.error('Sự kiện đang tạm dừng bán vé. Hiện tại không thể tiếp tục đặt vé.')
       return
@@ -934,6 +952,9 @@ export function BookingSeatsPage() {
                 cart={displayCart}
                 maxTicketsAllowed={maxTicketsAllowed}
                 onUpdateQuantity={updateUnseatedQuantity}
+                isPaused={isPaused}
+                pausedTicketTypeIds={pausedTicketTypeIds}
+                eventDetail={eventDetail}
               />
             )
           ) : (
@@ -945,10 +966,11 @@ export function BookingSeatsPage() {
                   <div className="mb-3 sm:mb-5 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-muted">
                     <Legend color="bg-primary" label={'Đang chọn'} />
                     <Legend color="bg-panel-soft" label={'Còn trống'} />
+                    <Legend color="border border-amber-500/60 bg-amber-950/70" label={'Tạm dừng bán'} />
                     <Legend color="bg-slate-700" label={'Đã giữ/bán'} />
                   </div>
-                  <div className="relative rounded-xl bg-surface/60 p-2 sm:p-4 border border-white/5 w-full max-w-full overflow-hidden">
-                    <div ref={seatMapViewportRef} className="min-w-0 w-full overflow-auto touch-pan-x touch-pan-y no-scrollbar">
+                  <div className="rounded-xl bg-surface/60 border border-white/10 w-full max-w-full overflow-hidden flex flex-col">
+                    <div ref={seatMapViewportRef} className="min-w-0 w-full overflow-auto p-2 sm:p-4 touch-pan-x touch-pan-y no-scrollbar">
                       <SeatMapCanvas
                         seats={seatsQuery.data?.seats || []}
                         ticketTypes={ticketTypes}
@@ -971,45 +993,48 @@ export function BookingSeatsPage() {
                         }}
                       />
                     </div>
-                    <div className="absolute bottom-3 right-3 flex flex-col items-center gap-1.5 z-10 bg-slate-950/85 p-1 rounded-full border border-white/10 backdrop-blur-md shadow-lg">
-                      <button
-                        type="button"
-                        onClick={() => setSeatZoom((value) => clamp(Number((value + 0.1).toFixed(2)), 0.35, 1.6))}
-                        className="grid size-7 sm:size-8 place-items-center rounded-full border border-primary bg-background/90 text-primary shadow-md shadow-slate-950/20 transition hover:bg-primary hover:text-slate-950 disabled:cursor-not-allowed disabled:border-slate-600 disabled:text-slate-600"
-                        disabled={seatZoom >= 1.6}
-                        title={'Phóng to để xem chi tiết số ghế'}
-                      >
-                        <Plus className="size-3.5 sm:size-4" />
-                      </button>
-                      <span className="text-[10px] font-black text-primary/90 text-center select-none py-0.5" title="Độ phóng đại">
-                        {Math.round(seatZoom * 100)}%
-                      </span>
-                      <button
-                        type="button"
-                        onClick={fitSeatMapToViewport}
-                        className="grid size-7 sm:size-8 place-items-center rounded-full border border-primary bg-background/90 text-primary shadow-md shadow-slate-950/20 transition hover:bg-primary hover:text-slate-950"
-                        title={'Vừa khung (xem tổng quan)'}
-                      >
-                        <RefreshCw className="size-3 sm:size-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setSeatZoom((value) => clamp(Number((value - 0.1).toFixed(2)), 0.35, 1.6))}
-                        className="grid size-7 sm:size-8 place-items-center rounded-full border border-primary bg-background/90 text-primary shadow-md shadow-slate-950/20 transition hover:bg-primary hover:text-slate-950 disabled:cursor-not-allowed disabled:border-slate-600 disabled:text-slate-600"
-                        disabled={seatZoom <= 0.35}
-                        title={'Thu nhỏ'}
-                      >
-                        <Minus className="size-3.5 sm:size-4" />
-                      </button>
+
+                    {/* Bottom Control Bar inside Frame - Completely separated from the seat grid */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 px-3 sm:px-4 py-2 sm:py-2.5 border-t border-white/10 bg-white/[0.02]">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs sm:text-sm text-muted">
+                        <span>
+                          Đã chọn <span className="font-bold text-primary">{selectedSeatIds.length}</span>/{maxTicketsAllowed} ghế
+                        </span>
+                        <span className="text-[11px] sm:text-xs text-subtle">
+                          (Tối đa {maxTicketsAllowed} vé/ghế mỗi lần đặt)
+                        </span>
+                      </div>
+
+                      {/* 3 Zoom buttons with blue border, no outer frame wrapper, no percentage */}
+                      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setSeatZoom((value) => clamp(Number((value + 0.1).toFixed(2)), 0.35, 1.6))}
+                          className="grid size-7 sm:size-8 place-items-center rounded-full border border-primary bg-primary/5 text-primary hover:bg-primary hover:text-slate-950 active:scale-95 transition cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed disabled:border-slate-600 disabled:text-slate-600"
+                          disabled={seatZoom >= 1.6}
+                          title="Phóng to để xem chi tiết số ghế"
+                        >
+                          <Plus className="size-3.5 sm:size-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={fitSeatMapToViewport}
+                          className="grid size-7 sm:size-8 place-items-center rounded-full border border-primary bg-primary/5 text-primary hover:bg-primary hover:text-slate-950 active:scale-95 transition cursor-pointer"
+                          title="Vừa khung (xem tổng quan)"
+                        >
+                          <RefreshCw className="size-3 sm:size-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSeatZoom((value) => clamp(Number((value - 0.1).toFixed(2)), 0.35, 1.6))}
+                          className="grid size-7 sm:size-8 place-items-center rounded-full border border-primary bg-primary/5 text-primary hover:bg-primary hover:text-slate-950 active:scale-95 transition cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed disabled:border-slate-600 disabled:text-slate-600"
+                          disabled={seatZoom <= 0.35}
+                          title="Thu nhỏ"
+                        >
+                          <Minus className="size-3.5 sm:size-4" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                  <div className="mt-3 sm:mt-4 flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm text-muted">
-                    <p>
-                      Đã chọn <span className="font-bold text-primary">{selectedSeatIds.length}</span>/{maxTicketsAllowed} ghế
-                    </p>
-                    <span className="text-[11px] sm:text-xs text-subtle">
-                      (Tối đa {maxTicketsAllowed} vé/ghế mỗi lần đặt)
-                    </span>
                   </div>
                 </>
               ) : null}
@@ -1072,6 +1097,7 @@ export function BookingSeatsPage() {
 }
 
 export function BookingAttendeesPage() {
+  const { isEnglish, t } = useLanguage()
   const location = useLocation()
   const navigate = useNavigate()
   const toast = useToast()
@@ -1085,7 +1111,7 @@ export function BookingAttendeesPage() {
   })
 
   const activeEventBlocks = (Array.isArray(eventDetail?.sales_blocks) ? eventDetail.sales_blocks : []).filter(
-    (b) => !b.released_at && !(b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id)
+    (b) => !b.released_at && !(b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id) && !(b.metadata?.scope === 'SEATS')
   )
   const isPaused = Boolean(
     (eventDetail?.is_paused && activeEventBlocks.length > 0) ||
@@ -1111,6 +1137,17 @@ export function BookingAttendeesPage() {
   )
 
   const attendeeSlots = useMemo(() => expandAttendeeSlots(cart), [cart])
+  const expiredHandledRef = useRef(false)
+
+  useEffect(() => {
+    if (!cart?.items?.length && !expiredHandledRef.current) {
+      expiredHandledRef.current = true
+      clearBookingDraft(cart?.eventId)
+      toast.error('Thời gian giữ vé (15 phút) đã hết hạn. Đơn đặt vé đã bị hủy.')
+      navigate('/', { replace: true })
+    }
+  }, [cart?.items?.length, cart?.eventId, navigate, toast])
+
   const [buyer, setBuyer] = useState(() => ({
     name: cart?.buyer?.name || '',
     email: cart?.buyer?.email || '',
@@ -1224,7 +1261,14 @@ export function BookingAttendeesPage() {
     saveBookingDraft(updatedCart)
   }, [buyer, attendees, collectAttendees, cart])
 
-  if (!cart?.items?.length) return <NavigateBackToEvents />
+  if (!cart?.items?.length) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
+        <Loader2 className="size-8 text-primary animate-spin mb-3" />
+        <p className="text-slate-300 text-sm">Thời gian giữ vé đã hết hạn. Đang chuyển hướng về trang chủ...</p>
+      </div>
+    )
+  }
 
   const showFormError = (message) => {
     toast.error(message)
@@ -1385,6 +1429,7 @@ export function BookingAttendeesPage() {
 }
 
 export function BookingReviewPage() {
+  const { isEnglish, t } = useLanguage()
   const location = useLocation()
   const navigate = useNavigate()
   const toast = useToast()
@@ -1394,6 +1439,16 @@ export function BookingReviewPage() {
   const [promoInput, setPromoInput] = useState(cart?.promoCode || '')
   const [voucherOpen, setVoucherOpen] = useState(false)
   const [checkingAvailability, setCheckingAvailability] = useState(false)
+  const expiredHandledRef = useRef(false)
+
+  useEffect(() => {
+    if (!cart?.items?.length && !expiredHandledRef.current) {
+      expiredHandledRef.current = true
+      clearBookingDraft(cart?.eventId)
+      toast.error('Thời gian giữ vé (15 phút) đã hết hạn. Đơn đặt vé đã bị hủy.')
+      navigate('/', { replace: true })
+    }
+  }, [cart?.items?.length, cart?.eventId, navigate, toast])
 
   const { data: eventDetail } = useQuery({
     queryKey: ['booking-review-event-detail', cart?.eventId],
@@ -1403,7 +1458,7 @@ export function BookingReviewPage() {
   })
 
   const activeEventBlocks = (Array.isArray(eventDetail?.sales_blocks) ? eventDetail.sales_blocks : []).filter(
-    (b) => !b.released_at && !(b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id)
+    (b) => !b.released_at && !(b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id) && !(b.metadata?.scope === 'SEATS')
   )
   const isPaused = Boolean(
     (eventDetail?.is_paused && activeEventBlocks.length > 0) ||
@@ -1526,11 +1581,26 @@ export function BookingReviewPage() {
 
   const [termsAccepted, setTermsAccepted] = useState(() => Boolean(cart?.eventTermsAccepted))
 
-  if (!cart?.items?.length) return <NavigateBackToEvents />
+  if (!cart?.items?.length) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
+        <Loader2 className="size-8 text-primary animate-spin mb-3" />
+        <p className="text-slate-300 text-sm">Thời gian giữ vé đã hết hạn. Đang chuyển hướng về trang chủ...</p>
+      </div>
+    )
+  }
 
   const collectAttendees = requiresAttendeeInfo(cart)
 
   const continueFlow = async () => {
+    const holdExpiresAtRaw = cart?.holdExpiresAt || cart?.hold_expires_at
+    if (holdExpiresAtRaw && secondsLeft(holdExpiresAtRaw) <= 0) {
+      clearBookingDraft(cart?.eventId)
+      toast.error('Thời gian giữ vé (15 phút) đã hết hạn. Đơn đặt vé đã bị hủy.')
+      navigate('/', { replace: true })
+      return
+    }
+
     if (isPaused) {
       toast.error('Sự kiện đang tạm dừng bán vé. Hiện tại không thể tiếp tục thanh toán.')
       return
@@ -1562,17 +1632,63 @@ export function BookingReviewPage() {
         navigate('/booking/seats', { state: { cart: nextCart } })
         return
       }
+
+      if (nextCart.orderId) {
+        try {
+          const status = await fetchOrderStatus(nextCart.orderId)
+          if (status?.order?.status === 'PENDING' && status?.payment) {
+            navigate(`/booking/payment?orderId=${nextCart.orderId}`, {
+              state: { cart: nextCart, checkout: status },
+            })
+            return
+          }
+        } catch (_) {}
+      }
+
+      const idempotencyKey =
+        nextCart?.idempotencyKey ||
+        (typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `idemp_${Date.now()}_${Math.random().toString(36).slice(2)}`)
+
+      const checkoutData = await checkoutOrder({
+        event_id: nextCart.eventId,
+        buyer_name: nextCart.buyer?.name || '',
+        buyer_email: nextCart.buyer?.email || '',
+        buyer_phone: nextCart.buyer?.phone || null,
+        promo_code: nextCart.promoCode?.trim() || null,
+        event_terms_accepted: Boolean(nextCart.eventTermsAccepted),
+        attendees: buildAttendeesPayload(nextCart),
+        items: nextCart.items.map((item) => ({
+          ticket_type_id: item.ticketType.id,
+          quantity: item.quantity,
+          session_seat_ids: item.sessionSeatIds || [],
+        })),
+        idempotency_key: idempotencyKey,
+      }, { idempotencyKey })
+
+      if (checkoutData.is_completed || checkoutData.order?.status === 'CONFIRMED' || !checkoutData.requires_payment) {
+        toast.success('Đặt vé thành công! Vé của bạn đã sẵn sàng.')
+        clearBookingDraft()
+        navigate('/my-tickets', { replace: true })
+        return
+      }
+
+      toast.success('Đã tạo thanh toán PayOS. Vui lòng hoàn tất thanh toán trong thời gian giữ vé.')
       const paymentCart = {
         ...nextCart,
+        orderId: checkoutData.order?.id,
+        holdExpiresAt: checkoutData.order?.expired_at || nextCart?.holdExpiresAt,
         currentStep: 4,
-        currentPath: '/booking/payment',
+        currentPath: `/booking/payment?orderId=${checkoutData.order?.id || ''}`,
       }
       saveBookingDraft(paymentCart)
-      navigate('/booking/payment', { state: { cart: paymentCart } })
+      navigate(`/booking/payment?orderId=${checkoutData.order.id}`, {
+        state: { cart: paymentCart, checkout: checkoutData },
+      })
     } catch (err) {
-      const message = getApiMessage(err, 'Không thể kiểm tra tình trạng vé/ghế. Vui lòng thử lại.')
+      const message = getApiMessage(err, 'Không thể tạo đơn hàng thanh toán. Vui lòng thử lại.')
       toast.error(message)
-      navigate('/booking/seats', { state: { cart: nextCart } })
     } finally {
       setCheckingAvailability(false)
     }
@@ -1719,15 +1835,17 @@ export function BookingReviewPage() {
                     </div>
 
                     <div className="space-y-1.5 text-xs sm:text-sm text-slate-300">
-                      {generateRefundPolicyLines(effectiveRefundPolicy).map((line, idx) => (
-                        <div key={idx} className="flex items-start gap-2">
-                          <span
-                            className={`mt-1.5 size-1.5 shrink-0 rounded-full ${hasRefundPolicy ? 'bg-cyan-400' : 'bg-slate-500'
-                              }`}
-                          />
-                          <span className="leading-relaxed">{line}</span>
-                        </div>
-                      ))}
+                      {generateRefundPolicyLines(effectiveRefundPolicy)
+                        .filter((line) => !line.startsWith('* Ghi chú'))
+                        .map((line, idx) => (
+                          <div key={idx} className="flex items-start gap-2">
+                            <span
+                              className={`mt-1.5 size-1.5 shrink-0 rounded-full ${hasRefundPolicy ? 'bg-cyan-400' : 'bg-slate-500'
+                                }`}
+                            />
+                            <span className="leading-relaxed">{line.replace(/^[•*]\s*/, '')}</span>
+                          </div>
+                        ))}
                     </div>
 
                     {effectiveRefundPolicy.refund_notes && (
@@ -1784,7 +1902,15 @@ export function BookingReviewPage() {
         <OrderCard
           cart={{ ...cart, promoCode, promo: selectedPromo }}
           setCart={setCart}
-          cta={isPaused ? 'Tạm dừng bán vé' : (payableTotal({ ...cart, promoCode, promo: selectedPromo }) === 0 ? 'Xác nhận đặt vé miễn phí' : 'Xác nhận và thanh toán')}
+          cta={
+            isPaused
+              ? 'Tạm dừng bán vé'
+              : checkingAvailability
+                ? 'Đang tạo thanh toán...'
+                : payableTotal({ ...cart, promoCode, promo: selectedPromo }) === 0
+                  ? 'Xác nhận đặt vé miễn phí'
+                  : 'Xác nhận và thanh toán'
+          }
           onClick={continueFlow}
           disabled={isPaused || checkingAvailability}
           isPaused={isPaused}
@@ -1816,6 +1942,7 @@ export function BookingReviewPage() {
 }
 
 export function BookingPaymentPage() {
+  const { isEnglish, t } = useLanguage()
   const toast = useToast()
   const location = useLocation()
   const navigate = useNavigate()
@@ -1825,7 +1952,14 @@ export function BookingPaymentPage() {
   const [checkout, setCheckout] = useState(location.state?.checkout || null)
   const checkoutStartedRef = useRef(Boolean(location.state?.checkout || existingOrderId))
   const paymentSuccessHandledRef = useRef(false)
+  const expiredHandledRef = useRef(false)
+  const [tick, setTick] = useState(0)
   const orderId = existingOrderId || checkout?.order?.id
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setTick((v) => v + 1), 1000)
+    return () => window.clearInterval(timer)
+  }, [])
 
   useEffect(() => {
     if (!cart?.items?.length) return
@@ -1900,8 +2034,10 @@ export function BookingPaymentPage() {
       : undefined,
     refetchInterval: (query) => {
       const status = query.state.data?.order?.status
-      return status === 'PENDING' ? 5000 : false
+      return status === 'PENDING' ? 3000 : false
     },
+    refetchIntervalInBackground: true,
+    refetchOnWindowFocus: true,
   })
 
   const payment = statusQuery.data?.payment || checkout?.payment
@@ -1915,13 +2051,60 @@ export function BookingPaymentPage() {
   }, [statusQuery.error, statusQuery.isError, toast])
 
   useEffect(() => {
-    if (order?.status !== 'PAID' || paymentSuccessHandledRef.current) return
-
-    paymentSuccessHandledRef.current = true
-    clearBookingDraft()
-    toast.success('Thanh toán thành công. Vé của bạn đã sẵn sàng!')
-    navigate('/my-tickets', { replace: true })
+    const status = order?.status
+    if ((status === 'PAID' || status === 'CONFIRMED') && !paymentSuccessHandledRef.current) {
+      paymentSuccessHandledRef.current = true
+      clearBookingDraft()
+      toast.success('Thanh toán thành công. Vé của bạn đã sẵn sàng!')
+      navigate('/my-tickets', { replace: true })
+    }
   }, [navigate, order?.status, toast])
+
+  // Handle order status expired or order countdown expired
+  useEffect(() => {
+    if (!order) return
+    const isOrderExpired =
+      ['EXPIRED', 'CANCELLED', 'FAILED'].includes(order.status) ||
+      (order.expired_at && secondsLeft(order.expired_at) <= 0)
+
+    if (isOrderExpired && !expiredHandledRef.current && !paymentSuccessHandledRef.current) {
+      expiredHandledRef.current = true
+      clearBookingDraft(order.event_id || cart?.eventId)
+      toast.error('Thời gian giữ vé (15 phút) đã hết hạn. Đơn đặt vé đã bị hủy.')
+      navigate('/', { replace: true })
+    }
+  }, [order?.status, order?.expired_at, order?.event_id, cart?.eventId, navigate, toast, tick])
+
+  // Handle reload when hold expired and no active order
+  useEffect(() => {
+    if (!cart?.items?.length && !orderId && !expiredHandledRef.current) {
+      expiredHandledRef.current = true
+      clearBookingDraft(cart?.eventId)
+      toast.error('Thời gian giữ vé (15 phút) đã hết hạn. Đơn đặt vé đã bị hủy.')
+      navigate('/', { replace: true })
+    }
+  }, [cart?.items?.length, orderId, cart?.eventId, navigate, toast])
+
+  // Handle draft hold expiration
+  useEffect(() => {
+    const holdExpiresAtRaw = cart?.holdExpiresAt || cart?.hold_expires_at
+    if (holdExpiresAtRaw && secondsLeft(holdExpiresAtRaw) <= 0 && !expiredHandledRef.current) {
+      expiredHandledRef.current = true
+      clearBookingDraft(cart?.eventId)
+      toast.error('Thời gian giữ vé (15 phút) đã hết hạn. Đơn đặt vé đã bị hủy.')
+      navigate('/', { replace: true })
+    }
+  }, [cart?.holdExpiresAt, cart?.hold_expires_at, cart?.eventId, navigate, toast, tick])
+
+  // Handle order query error (e.g. 404 expired / deleted order)
+  useEffect(() => {
+    if (statusQuery.isError && !expiredHandledRef.current) {
+      expiredHandledRef.current = true
+      clearBookingDraft(cart?.eventId)
+      toast.error('Thời gian giữ vé (15 phút) đã hết hạn. Đơn đặt vé đã bị hủy.')
+      navigate('/', { replace: true })
+    }
+  }, [statusQuery.isError, cart?.eventId, navigate, toast])
 
   useEffect(() => {
     if (!cart?.items?.length || orderId || checkoutMutation.isPending || checkoutStartedRef.current) return
@@ -1954,52 +2137,108 @@ export function BookingPaymentPage() {
     })
   }, [cart, checkoutMutation, orderId])
 
-  if (!cart?.items?.length) return <NavigateBackToEvents />
+  const isOrderExpired = Boolean(
+    order &&
+    (['EXPIRED', 'CANCELLED', 'FAILED'].includes(order.status) ||
+      (order.expired_at && secondsLeft(order.expired_at) <= 0))
+  )
+
+  if ((!cart?.items?.length && !orderId) || isOrderExpired) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
+        <Loader2 className="size-8 text-rose-500 animate-spin mb-3" />
+        <p className="text-slate-300 text-sm">Thời gian giữ vé đã hết hạn. Đang chuyển hướng về trang chủ...</p>
+      </div>
+    )
+  }
 
   return (
     <BookingShell step={4} cart={cart}>
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] items-start w-full max-w-full">
         <section className="space-y-4 sm:space-y-5 min-w-0 w-full max-w-full">
           <Panel>
-            {checkoutMutation.isPending && (
-              <p className="text-muted">
-                {Number(cart?.totalAmount ?? 0) === 0
-                  ? 'Đang xác nhận đặt vé miễn phí...'
-                  : 'Đang giữ vé và tạo thanh toán PayOS...'}
-              </p>
+            {!payment && !checkoutMutation.isError && (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <Loader2 className="size-8 text-primary animate-spin mb-2" />
+                <p className="text-white font-medium text-xs">Đang tải thông tin thanh toán...</p>
+              </div>
+            )}
+            {checkoutMutation.isError && !payment && (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <AlertCircle className="size-10 text-error mb-3" />
+                <p className="text-error font-bold mb-1">Không thể tạo thanh toán</p>
+                <p className="text-sm text-muted mb-4 max-w-sm">{getApiMessage(checkoutMutation.error)}</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    checkoutStartedRef.current = false
+                    checkoutMutation.mutate({
+                      event_id: cart.eventId,
+                      buyer_name: cart.buyer?.name || '',
+                      buyer_email: cart.buyer?.email || '',
+                      buyer_phone: cart.buyer?.phone || null,
+                      promo_code: cart.promoCode?.trim() || null,
+                      event_terms_accepted: Boolean(cart.eventTermsAccepted),
+                      attendees: buildAttendeesPayload(cart),
+                      items: cart.items.map((item) => ({
+                        ticket_type_id: item.ticketType.id,
+                        quantity: item.quantity,
+                        session_seat_ids: item.sessionSeatIds || [],
+                      })),
+                    })
+                  }}
+                  className="btn-gold-primary px-6 py-2.5 text-sm font-bold shadow-lg"
+                >
+                  Thử lại
+                </button>
+              </div>
             )}
             {payment && (
               <div className="text-center">
-                <p className="text-sm font-bold uppercase tracking-widest text-muted">{'S\u1ed1 ti\u1ec1n c\u1ea7n thanh to\u00e1n'}</p>
+                <p className="text-sm font-bold uppercase tracking-widest text-slate-400">{'Số tiền cần thanh toán'}</p>
                 <p className="mt-2 font-display text-4xl font-extrabold text-white">{formatPrice(order.total_amount)}</p>
+
+                {/* QR code container */}
                 {payment.qr_code ? (
-                  <div className="mx-auto mt-6 w-fit rounded-lg bg-white p-4">
+                  <div className="mx-auto mt-6 w-fit rounded-2xl bg-white p-4.5 shadow-xl border border-white/10">
                     <QRCodeImage text={payment.qr_code} alt="QR PayOS" size={224} className="size-56" />
                   </div>
                 ) : (
                   <div className="mx-auto mt-6 grid size-56 place-items-center rounded-lg border border-dashed border-border-soft text-sm text-muted">
-                    {'QR s\u1ebd hi\u1ec3n th\u1ecb khi PayOS tr\u1ea3 d\u1eef li\u1ec7u.'}
+                    {'QR sẽ hiển thị khi PayOS trả dữ liệu.'}
                   </div>
                 )}
-                {payment.checkout_url && (
-                  <a
-                    href={payment.checkout_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-6 inline-flex items-center justify-center gap-2 btn-gold-primary px-6 py-3 text-sm font-bold shadow-lg"
-                  >
-                    {'M\u1edf trang PayOS'}
-                    <ExternalLink className="size-4" />
-                  </a>
-                )}
-                <button
-                  type="button"
-                  onClick={() => statusQuery.refetch()}
-                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-md border border-border-soft py-3 text-sm font-bold text-white hover:border-primary hover:text-primary"
-                >
-                  <RefreshCw className="size-4" />
-                  {'Ki\u1ec3m tra tr\u1ea1ng th\u00e1i'}
-                </button>
+
+                {/* Live Transaction Status */}
+                <div className="mt-6 rounded-2xl border border-white/10 bg-[#121c38]/90 p-4 backdrop-blur-md shadow-inner text-center">
+                  <div className="flex items-center justify-center gap-2.5">
+                    <span className="relative flex size-2.5">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                      <span className="relative inline-flex size-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
+                    </span>
+                    <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">
+                      Đang chờ nhận tiền...
+                    </span>
+                  </div>
+
+                  <p className="mt-2 text-xs text-slate-300">
+                    Mở ứng dụng ngân hàng hoặc ví điện tử bất kỳ để quét mã VietQR ở trên.
+                  </p>
+
+                  {payment.checkout_url && (
+                    <div className="mt-3.5 pt-3 border-t border-white/5 flex justify-center">
+                      <a
+                        href={payment.checkout_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 px-4 py-2 text-xs font-semibold text-slate-200 hover:text-white transition"
+                      >
+                        <span>Hoặc mở cổng thanh toán PayOS</span>
+                        <ExternalLink className="size-3.5 text-[#C99A47]" />
+                      </a>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </Panel>
@@ -2018,8 +2257,11 @@ export function BookingPaymentPage() {
 }
 
 function BookingShell({ step, cart, children }) {
+  const { isEnglish, t } = useLanguage()
   const isUnseated = cart?.hasSeatMap === false
-  const labels = [isUnseated ? 'Chọn vé' : 'Ghế', 'Thông tin', 'Kiểm tra', 'Thanh toán']
+  const labels = isEnglish
+    ? [isUnseated ? 'Select Tickets' : 'Seats', 'Info', 'Review', 'Payment']
+    : [isUnseated ? 'Chọn vé' : 'Ghế', 'Thông tin', 'Kiểm tra', 'Thanh toán']
   const stepPaths = {
     1: '/booking/seats',
     2: '/booking/attendees',
@@ -2049,7 +2291,7 @@ function BookingShell({ step, cart, children }) {
   )
 
   const holdExpiresAt =
-    hasSeatsHeld && holdExpiresAtRaw && secondsLeft(holdExpiresAtRaw) > 0
+    hasSeatsHeld && holdExpiresAtRaw
       ? holdExpiresAtRaw
       : step >= 2 && !holdExpiresAtRaw
         ? new Date(Date.now() + 15 * 60 * 1000).toISOString()
@@ -2077,7 +2319,7 @@ function BookingShell({ step, cart, children }) {
     expiredHandledRef.current = true
 
     clearBookingDraft(cart?.eventId)
-    toast.warning('Thời gian giữ vé (15 phút) đã hết. Bạn vui lòng chọn lại ghế/vé.')
+    toast.warning(isEnglish ? 'Ticket reservation timer (15 minutes) has expired. Please reselect your seats/tickets.' : 'Thời gian giữ vé (15 phút) đã hết. Bạn vui lòng chọn lại ghế/vé.')
     navigate('/booking/seats', {
       replace: true,
       state: {
@@ -2092,7 +2334,7 @@ function BookingShell({ step, cart, children }) {
         },
       },
     })
-  }, [holdExpiresAt, tick, navigate, toast, cart])
+  }, [holdExpiresAt, tick, navigate, toast, cart, isEnglish])
 
   const goBackStep = () => {
     const previousPathByStep = {
@@ -2118,12 +2360,19 @@ function BookingShell({ step, cart, children }) {
     window.history.back()
   }
 
-  const stepBackLabel = {
-    1: 'Quay lại chi tiết sự kiện',
-    2: isUnseated ? 'Quay về bước 1: Chọn vé' : 'Quay về bước 1: Chọn ghế',
-    3: 'Quay về bước 2: Thông tin',
-    4: 'Quay về bước 3: Kiểm tra đơn',
-  }[step] || 'Quay về bước trước'
+  const stepBackLabel = isEnglish
+    ? {
+        1: 'Back to Event Details',
+        2: isUnseated ? 'Back to Step 1: Select Tickets' : 'Back to Step 1: Select Seats',
+        3: 'Back to Step 2: Information',
+        4: 'Back to Step 3: Order Review',
+      }[step] || 'Back to Previous Step'
+    : {
+        1: 'Quay lại chi tiết sự kiện',
+        2: isUnseated ? 'Quay về bước 1: Chọn vé' : 'Quay về bước 1: Chọn ghế',
+        3: 'Quay về bước 2: Thông tin',
+        4: 'Quay về bước 3: Kiểm tra đơn',
+      }[step] || 'Quay về bước trước'
 
   return (
     <div className="min-h-0 bg-transparent text-content pt-4 sm:pt-8 pb-20 sm:pb-12 w-full max-w-full overflow-x-hidden">
@@ -2195,7 +2444,7 @@ function BookingShell({ step, cart, children }) {
           <div className="mb-3.5 sm:mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 rounded-xl sm:rounded-2xl border border-primary/25 bg-slate-900/70 p-3 sm:p-5 shadow-xl backdrop-blur-md">
             <div className="min-w-0 flex-1">
               <span className="text-[10px] font-black uppercase tracking-widest text-primary">
-                Sự kiện đang đặt vé
+                {isEnglish ? 'Booking for Event' : 'Sự kiện đang đặt vé'}
               </span>
               <h2 className="mt-1 font-display text-lg sm:text-2xl font-black text-white drop-shadow-sm line-clamp-2">
                 {cart.eventTitle}
@@ -2228,6 +2477,7 @@ function OrderCard({
   promoProps,
   isPaused = false,
 }) {
+  const { isEnglish, t } = useLanguage()
   const [cancelOpen, setCancelOpen] = useState(false)
   const [resetOpen, setResetOpen] = useState(false)
 
@@ -2266,14 +2516,14 @@ function OrderCard({
     <aside className="glass-panel relative overflow-hidden h-fit rounded-2xl sm:rounded-[24px] border-primary/20 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)] p-4 sm:p-7 lg:sticky lg:top-32">
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_var(--color-primary)_0%,_transparent_60%)] opacity-10" />
       <div className="mb-5 flex items-center justify-between gap-2 flex-nowrap">
-        <h2 className="font-display text-lg sm:text-xl font-black text-white whitespace-nowrap">{'Thông tin đặt vé'}</h2>
+        <h2 className="font-display text-lg sm:text-xl font-black text-white whitespace-nowrap">{isEnglish ? 'Booking Information' : 'Thông tin đặt vé'}</h2>
         <button
           type="button"
           onClick={() => onReset ? setResetOpen(true) : setCancelOpen(true)}
           disabled={Boolean(onReset) && resetDisabled}
           className="text-xs sm:text-sm font-bold text-[#E6C17A] hover:text-[#F3D8A5] transition whitespace-nowrap shrink-0 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
         >
-          {'Chọn lại vé'}
+          {isEnglish ? 'Reselect Tickets' : 'Chọn lại vé'}
         </button>
       </div>
       <div className="space-y-3 border-y border-border-soft py-4">
@@ -2291,26 +2541,26 @@ function OrderCard({
                   <p className={qty > 0 ? 'font-semibold text-white' : 'font-semibold text-slate-400'}>{ticket.name}</p>
                   {qty > 0 ? (
                     <p className="text-white font-medium text-xs sm:text-sm">
-                      {formatPrice(ticket.price)} {'\u00d7'} {String(qty).padStart(2, '0')}
+                      {formatPrice(ticket.price, isEnglish)} {'\u00d7'} {String(qty).padStart(2, '0')}
                     </p>
                   ) : (
-                    <p className="text-slate-500">{formatPrice(ticket.price)} / {'vé'}</p>
+                    <p className="text-slate-500">{formatPrice(ticket.price, isEnglish)} {isEnglish ? '/ ticket' : '/ vé'}</p>
                   )}
                   {ticket.seatLabels?.length > 0 && (
                     <p className="mt-2 inline-flex max-w-full rounded-md border border-primary/30 bg-primary/10 px-2 py-1 text-xs font-bold text-primary">
-                      {'Ghế'}: <span className="ml-1 truncate">{ticket.seatLabels.join(', ')}</span>
+                      {isEnglish ? 'Seat' : 'Ghế'}: <span className="ml-1 truncate">{ticket.seatLabels.join(', ')}</span>
                     </p>
                   )}
                 </div>
               </div>
               <p className={qty > 0 ? 'font-bold text-white' : 'font-bold text-slate-500'}>
-                {qty > 0 ? formatPrice(ticket.price * qty) : '-'}
+                {qty > 0 ? formatPrice(ticket.price * qty, isEnglish) : '-'}
               </p>
             </div>
           )
         })}
         {itemsToRender.length === 0 && (
-          <p className="py-2 text-center text-xs text-muted">{'Chưa có vé nào được chọn'}</p>
+          <p className="py-2 text-center text-xs text-muted">{isEnglish ? 'No tickets selected yet' : 'Chưa có vé nào được chọn'}</p>
         )}
       </div>
 
@@ -2318,7 +2568,7 @@ function OrderCard({
         <div className="mt-4 space-y-2.5">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm sm:text-base font-bold text-white flex items-center gap-1.5">
-              <Tag className="size-4 text-primary" /> Mã ưu đãi
+              <Tag className="size-4 text-primary" /> {isEnglish ? 'Promo Code' : 'Mã ưu đãi'}
             </span>
             {promoProps.onOpenVoucher && (
               <button
@@ -2326,7 +2576,7 @@ function OrderCard({
                 onClick={promoProps.onOpenVoucher}
                 className="text-xs sm:text-sm font-bold text-white hover:text-slate-200 transition cursor-pointer"
               >
-                Chọn voucher
+                {isEnglish ? 'Select Voucher' : 'Chọn voucher'}
               </button>
             )}
           </div>
@@ -2340,7 +2590,7 @@ function OrderCard({
                 onClick={promoProps.onRemove}
                 className="text-xs font-semibold text-rose-400 hover:text-rose-300 ml-2 shrink-0 cursor-pointer"
               >
-                Hủy
+                {isEnglish ? 'Remove' : 'Hủy'}
               </button>
             </div>
           ) : (
@@ -2355,7 +2605,7 @@ function OrderCard({
                     promoProps.onApply(promoProps.promoInput)
                   }
                 }}
-                placeholder="Nhập mã..."
+                placeholder={isEnglish ? 'Enter code...' : 'Nhập mã...'}
                 className="h-9 min-w-0 flex-1 rounded-lg border border-white/10 bg-slate-950/60 px-3 font-mono text-xs text-white uppercase outline-none focus:border-primary"
               />
               <button
@@ -2364,28 +2614,28 @@ function OrderCard({
                 disabled={!promoProps.promoInput?.trim()}
                 className="rounded-lg bg-primary/20 px-3 text-xs font-bold text-primary hover:bg-primary/30 border border-primary/40 disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
               >
-                Áp dụng
+                {isEnglish ? 'Apply' : 'Áp dụng'}
               </button>
             </div>
           )}
         </div>
       ) : cart?.promoCode ? (
         <div className="mt-4 rounded-md border border-primary/30 bg-primary/10 p-3 text-sm text-primary">
-          {'Mã khuyến mãi'}: {cart.promoCode}
+          {isEnglish ? 'Promo Code' : 'Mã khuyến mãi'}: {cart.promoCode}
         </div>
       ) : null}
 
-      <Line label={`Tổng cộng ${(cart?.items || []).reduce((sum, item) => sum + item.quantity, 0)} vé`} value={formatPrice(cartTotal(cart))} large />
+      <Line label={isEnglish ? `Total ${(cart?.items || []).reduce((sum, item) => sum + item.quantity, 0)} tickets` : `Tổng cộng ${(cart?.items || []).reduce((sum, item) => sum + item.quantity, 0)} vé`} value={formatPrice(cartTotal(cart), isEnglish)} large />
       {promoDiscount(cart) > 0 && (
-        <Line label={'Giảm giá'} value={`-${formatPrice(promoDiscount(cart))}`} tone="discount" />
+        <Line label={isEnglish ? 'Discount' : 'Giảm giá'} value={`-${formatPrice(promoDiscount(cart), isEnglish)}`} tone="discount" />
       )}
       {promoDiscount(cart) > 0 && (
-        <Line label={'Tổng thanh toán'} value={formatPrice(payableTotal(cart))} large />
+        <Line label={isEnglish ? 'Total Payment' : 'Tổng thanh toán'} value={formatPrice(payableTotal(cart), isEnglish)} large />
       )}
       {isPaused && (
         <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200 flex items-start gap-2">
           <AlertTriangle className="size-4 shrink-0 text-amber-400 mt-0.5" />
-          <span>Sự kiện đang tạm dừng bán vé. Quý khách không thể tiếp tục đặt vé.</span>
+          <span>{isEnglish ? 'Ticket sales currently paused. You cannot proceed to book tickets.' : 'Sự kiện đang tạm dừng bán vé. Quý khách không thể tiếp tục đặt vé.'}</span>
         </div>
       )}
 
@@ -2401,18 +2651,27 @@ function OrderCard({
               : 'btn-gold-primary cursor-pointer disabled:cursor-not-allowed disabled:opacity-50'
           )}
         >
-          {isPaused ? 'Tạm dừng bán vé' : cta}
+          {isPaused ? (
+            isEnglish ? 'Sales Paused' : 'Tạm dừng bán vé'
+          ) : (
+            <span className="flex items-center justify-center gap-2">
+              {disabled && (String(cta).includes('Đang chờ') || String(cta).includes('Waiting')) && (
+                <Loader2 className="size-4.5 animate-spin text-[#0D1B2A]" />
+              )}
+              {t(cta)}
+            </span>
+          )}
         </button>
         <button
           type="button"
           onClick={() => setCancelOpen(true)}
           className="w-full rounded-full border border-white/10 bg-transparent py-2.5 text-xs font-bold text-slate-400 transition hover:border-error/40 hover:bg-error/10 hover:text-error cursor-pointer"
         >
-          {'Hủy đặt vé'}
+          {isEnglish ? 'Cancel Booking' : 'Hủy đặt vé'}
         </button>
       </div>
       <p className="mt-6 flex items-center justify-center gap-2 text-xs font-medium text-slate-500">
-        <ShieldCheck className="size-4" /> {'Thanh to\u00e1n an toàn qua PayOS'}
+        <ShieldCheck className="size-4" /> {isEnglish ? 'Secure payment via PayOS' : 'Thanh toán an toàn qua PayOS'}
       </p>
 
       {cancelOpen && (
@@ -2543,19 +2802,19 @@ function PromoSection({
   )
 }
 
-function formatDateOnly(value) {
-  if (!value) return 'Chưa cập nhật'
-  return new Intl.DateTimeFormat('vi-VN').format(new Date(value))
+function formatDateOnly(value, isEnglish = (typeof document !== 'undefined' && document.documentElement.lang === 'en')) {
+  if (!value) return isEnglish ? 'Updating' : 'Chưa cập nhật'
+  return new Intl.DateTimeFormat(isEnglish ? 'en-US' : 'vi-VN').format(new Date(value))
 }
 
-function formatPromoTitle(promo) {
+function formatPromoTitle(promo, isEnglish = (typeof document !== 'undefined' && document.documentElement.lang === 'en')) {
   if (promo.discount_type === 'PERCENTAGE') {
     const cap = promo.max_discount !== null && promo.max_discount !== undefined
-      ? `, tối đa ${formatPrice(promo.max_discount)}`
+      ? (isEnglish ? `, max ${formatPrice(promo.max_discount, isEnglish)}` : `, tối đa ${formatPrice(promo.max_discount, isEnglish)}`)
       : ''
-    return `Giảm ${Number(promo.discount_value || 0)}%${cap}`
+    return isEnglish ? `${Number(promo.discount_value || 0)}% off${cap}` : `Giảm ${Number(promo.discount_value || 0)}%${cap}`
   }
-  return `Giảm ${formatPrice(promo.discount_value || 0)}`
+  return isEnglish ? `${formatPrice(promo.discount_value || 0, isEnglish)} off` : `Giảm ${formatPrice(promo.discount_value || 0, isEnglish)}`
 }
 
 function isPromoUsable(promo, subtotal) {
@@ -2675,23 +2934,24 @@ function OrganizerVoucherModal({ promoCode, setPromoCode, selectedPromo, setSele
 }
 
 function CancelBookingModal({ onStay, onCancel }) {
+  const { isEnglish } = useLanguage()
   return createPortal(
     <div className="fixed inset-0 z-[100] grid place-items-center bg-black/70 p-4 backdrop-blur-sm" onMouseDown={(event) => event.target === event.currentTarget && onStay()}>
       <section role="alertdialog" aria-modal="true" aria-labelledby="cancel-booking-title" className="w-full max-w-md rounded-2xl border border-white/10 bg-slate-900 p-6 text-white shadow-[0_24px_80px_rgba(0,0,0,0.8)]">
         <div className="flex items-start gap-4">
           <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-error/15"><AlertTriangle className="size-5 text-error" /></span>
           <div>
-            <h2 id="cancel-booking-title" className="font-display text-xl font-extrabold">{'H\u1ee7y \u0111\u01a1n h\u00e0ng?'}</h2>
-            <p className="mt-1 text-sm text-slate-400">{'B\u1ea1n c\u00f3 ch\u1eafc ch\u1eafn mu\u1ed1n ti\u1ebfp t\u1ee5c?'}</p>
+            <h2 id="cancel-booking-title" className="font-display text-xl font-extrabold">{isEnglish ? 'Cancel booking?' : 'Hủy đơn hàng?'}</h2>
+            <p className="mt-1 text-sm text-slate-400">{isEnglish ? 'Are you sure you want to proceed?' : 'Bạn có chắc chắn muốn tiếp tục?'}</p>
           </div>
         </div>
         <ul className="mt-5 space-y-2 rounded-xl border border-error/20 bg-error/5 p-4 text-sm text-slate-300">
-          <li className="flex gap-2"><span className="text-error">&bull;</span><span>{'B\u1ea1n s\u1ebd m\u1ea5t v\u1ecb tr\u00ed m\u00ecnh \u0111\u00e3 l\u1ef1a ch\u1ecdn.'}</span></li>
-          <li className="flex gap-2"><span className="text-error">&bull;</span><span>{'\u0110\u01a1n h\u00e0ng \u0111ang thanh to\u00e1n c\u00f3 th\u1ec3 b\u1ecb h\u1ee7y.'}</span></li>
+          <li className="flex gap-2"><span className="text-error">&bull;</span><span>{isEnglish ? 'You will lose your selected seats/tickets.' : 'Bạn sẽ mất vị trí mình đã lựa chọn.'}</span></li>
+          <li className="flex gap-2"><span className="text-error">&bull;</span><span>{isEnglish ? 'The pending order will be cancelled.' : 'Đơn hàng đang thanh toán có thể bị hủy.'}</span></li>
         </ul>
         <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-          <button type="button" onClick={onStay} className="rounded-xl border border-white/10 px-5 py-2.5 font-bold text-slate-300 transition hover:bg-slate-800 hover:text-white">{'Ở lại'}</button>
-          <button type="button" onClick={onCancel} className="rounded-xl bg-error px-5 py-2.5 font-bold text-white transition hover:bg-error/90">{'Hủy đơn'}</button>
+          <button type="button" onClick={onStay} className="rounded-xl border border-white/10 px-5 py-2.5 font-bold text-slate-300 transition hover:bg-slate-800 hover:text-white">{isEnglish ? 'Stay' : 'Ở lại'}</button>
+          <button type="button" onClick={onCancel} className="rounded-xl bg-error px-5 py-2.5 font-bold text-white transition hover:bg-error/90">{isEnglish ? 'Cancel Order' : 'Hủy đơn'}</button>
         </div>
       </section>
     </div>,
@@ -2700,22 +2960,23 @@ function CancelBookingModal({ onStay, onCancel }) {
 }
 
 function ResetSelectionModal({ onStay, onReset }) {
+  const { isEnglish } = useLanguage()
   return createPortal(
     <div className="fixed inset-0 z-[100] grid place-items-center bg-black/70 p-4 backdrop-blur-sm" onMouseDown={(event) => event.target === event.currentTarget && onStay()}>
       <section role="alertdialog" aria-modal="true" aria-labelledby="reset-selection-title" className="w-full max-w-md rounded-2xl border border-white/10 bg-slate-900 p-6 text-white shadow-[0_24px_80px_rgba(0,0,0,0.8)]">
         <div className="flex items-start gap-4">
           <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary/15"><RefreshCw className="size-5 text-primary" /></span>
           <div>
-            <h2 id="reset-selection-title" className="font-display text-xl font-extrabold">Bạn muốn chọn lại vé?</h2>
-            <p className="mt-1 text-sm text-slate-400">Các vé bạn đang chọn sẽ được xóa để bạn chọn lại từ đầu.</p>
+            <h2 id="reset-selection-title" className="font-display text-xl font-extrabold">{isEnglish ? 'Reselect tickets?' : 'Bạn muốn chọn lại vé?'}</h2>
+            <p className="mt-1 text-sm text-slate-400">{isEnglish ? 'Currently selected tickets will be cleared so you can reselect from scratch.' : 'Các vé bạn đang chọn sẽ được xóa để bạn chọn lại từ đầu.'}</p>
           </div>
         </div>
         <p className="mt-5 rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm text-slate-300">
-          Ghế và số lượng vé đã chọn sẽ được xóa. Bạn vẫn ở trang này và có thể chọn vé mới ngay.
+          {isEnglish ? 'Seats and ticket quantities will be cleared. You can select new tickets right away.' : 'Ghế và số lượng vé đã chọn sẽ được xóa. Bạn vẫn ở trang này và có thể chọn vé mới ngay.'}
         </p>
         <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-          <button type="button" onClick={onStay} className="rounded-xl border border-white/10 px-5 py-2.5 font-bold text-slate-300 transition hover:bg-slate-800 hover:text-white">Giữ vé đã chọn</button>
-          <button type="button" onClick={onReset} className="cosmic-btn-primary px-5 py-2.5 font-bold">Chọn lại từ đầu</button>
+          <button type="button" onClick={onStay} className="rounded-xl border border-white/10 px-5 py-2.5 font-bold text-slate-300 transition hover:bg-slate-800 hover:text-white">{isEnglish ? 'Keep Selection' : 'Giữ vé đã chọn'}</button>
+          <button type="button" onClick={onReset} className="cosmic-btn-primary px-5 py-2.5 font-bold">{isEnglish ? 'Reselect' : 'Chọn lại từ đầu'}</button>
         </div>
       </section>
     </div>,
@@ -2831,6 +3092,9 @@ function UnseatedTicketSelection({
   cart,
   maxTicketsAllowed,
   onUpdateQuantity,
+  isPaused = false,
+  pausedTicketTypeIds = new Set(),
+  eventDetail = null,
 }) {
   const currentTotalTickets = (cart?.items || []).reduce(
     (sum, item) => sum + Number(item.quantity || 0),
@@ -2852,10 +3116,13 @@ function UnseatedTicketSelection({
       ) : (
         <div className="divide-y divide-dashed divide-white/15">
           {ticketTypes.map((ticketType) => {
-            const isSpecificPaused = Array.isArray(eventDetail?.sales_blocks) && eventDetail.sales_blocks.some(
-              (b) => !b.released_at && b.metadata?.scope === 'SPECIFIC' && String(b.metadata?.ticket_type_id) === String(ticketType.id)
+            const isSpecificPaused = Boolean(
+              (pausedTicketTypeIds && pausedTicketTypeIds.has(String(ticketType.id))) ||
+              (Array.isArray(eventDetail?.sales_blocks) && eventDetail.sales_blocks.some(
+                (b) => !b.released_at && b.metadata?.scope === 'SPECIFIC' && String(b.metadata?.ticket_type_id) === String(ticketType.id)
+              ))
             )
-            const isTicketPaused = isPaused || isSpecificPaused
+            const isTicketPaused = Boolean(isPaused || isSpecificPaused)
             const item = (cart?.items || []).find(
               (i) => String(i.ticketType?.id) === String(ticketType.id),
             )
@@ -2974,7 +3241,8 @@ function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat, onSe
     const labelLen = seatLabel.length
     const fontSize = labelLen <= 2 ? '9.5px' : labelLen === 3 ? '8px' : '7px'
     const letterSpacing = labelLen >= 3 ? '-0.04em' : '-0.01em'
-    const title = `${seatLabel}${ticketType ? ` · ${ticketType.name}` : ''}${seat.zone?.name ? ` · ${seat.zone.name}` : ''}${isTicketTypePaused ? ' (Hạng vé đang tạm dừng bán)' : disabled ? ' (Đã giữ/bán)' : ''}`
+    const isBlocked = seat.status === 'BLOCKED'
+    const title = `${seatLabel}${ticketType ? ` · ${ticketType.name}` : ''}${seat.zone?.name ? ` · ${seat.zone.name}` : ''}${isTicketTypePaused ? ' (Hạng vé đang tạm dừng bán)' : isBlocked ? ' (Vị trí tạm dừng bán)' : disabled ? ' (Đã giữ/bán)' : ''}`
     const zoneColor = seat.zone?.color || seat.seat_type?.color
 
     return (
@@ -2992,9 +3260,11 @@ function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat, onSe
             ? 'border-[#38bdf8] bg-gradient-to-b from-[#38bdf8] to-[#0284c7] text-[#030712] font-black shadow-[0_0_12px_rgba(56,189,248,0.5)] z-10 scale-[1.05]'
             : isTicketTypePaused
               ? 'cursor-not-allowed border-amber-900/50 bg-amber-950/30 text-amber-500/50 opacity-60'
-              : disabled
-                ? 'cursor-not-allowed border-slate-800 bg-slate-800/80 text-slate-500'
-                : 'border-white/15 bg-slate-900/90 text-slate-200 hover:border-primary hover:text-white hover:bg-slate-800 hover:scale-[1.06] hover:shadow-[0_0_8px_rgba(6,182,212,0.3)]'
+              : isBlocked
+                ? 'cursor-not-allowed border-amber-900/60 bg-amber-950/40 text-amber-500/70 opacity-60'
+                : disabled
+                  ? 'cursor-not-allowed border-slate-800 bg-slate-800/80 text-slate-500'
+                  : 'border-white/15 bg-slate-900/90 text-slate-200 hover:border-primary hover:text-white hover:bg-slate-800 hover:scale-[1.06] hover:shadow-[0_0_8px_rgba(6,182,212,0.3)]'
         }`}
       >
         {showSeatNumber ? (
@@ -3202,22 +3472,37 @@ function expandAttendeeSlots(cart) {
 }
 
 function buildAttendeesPayload(cart) {
-  if (!requiresAttendeeInfo(cart)) return []
-  return expandAttendeeSlots(cart).map((slot) => ({
-    ticket_type_id: slot.ticketTypeId,
-    session_seat_id: slot.sessionSeatId,
-    name: cart.attendees?.[slot.id]?.name || '',
-    email: cart.attendees?.[slot.id]?.email || '',
-  }))
+  return expandAttendeeSlots(cart).map((slot, index) => {
+    const attendee = cart.attendees?.[slot.id]
+    const name = (attendee?.name || (index === 0 ? cart.buyer?.name : '') || cart.buyer?.name || '').trim()
+    const email = (attendee?.email || (index === 0 ? cart.buyer?.email : '') || cart.buyer?.email || '').trim()
+    return {
+      ticket_type_id: slot.ticketTypeId,
+      session_seat_id: slot.sessionSeatId,
+      name,
+      email,
+    }
+  })
 }
 
 function NavigateBackToEvents() {
+  const navigate = useNavigate()
+  const toast = useToast()
+  const redirectedRef = useRef(false)
+
+  useEffect(() => {
+    if (!redirectedRef.current) {
+      redirectedRef.current = true
+      clearBookingDraft()
+      toast.error('Thời gian giữ vé (15 phút) đã hết hạn. Đơn đặt vé đã bị hủy.')
+      navigate('/', { replace: true })
+    }
+  }, [navigate, toast])
+
   return (
-    <div className="mx-auto max-w-lg px-4 py-16 text-center">
-      <p className="text-muted">{'Kh\u00f4ng t\u00ecm th\u1ea5y th\u00f4ng tin \u0111\u1eb7t v\u00e9.'}</p>
-      <Link to="/events" className="mt-4 inline-block font-bold text-primary">
-        {'Ch\u1ecdn s\u1ef1 ki\u1ec7n'}
-      </Link>
+    <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
+      <Loader2 className="size-8 text-rose-500 animate-spin mb-3" />
+      <p className="text-slate-300 text-sm">{'Thời gian giữ vé đã hết hạn. Đang chuyển hướng về trang chủ...'}</p>
     </div>
   )
 }

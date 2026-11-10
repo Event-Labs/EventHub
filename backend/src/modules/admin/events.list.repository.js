@@ -11,6 +11,13 @@ const REAL_STATUS_FILTERS = new Set([
 
 function buildWhere(upper) {
   switch (upper) {
+    case 'ALL':
+      return {
+        listClause:  `e.deleted_at IS NULL`,
+        countClause: `e.deleted_at IS NULL`,
+        listArgs:  [],
+        countArgs: [],
+      };
     case 'REJECTED':
       return {
         listClause:  `e.deleted_at IS NULL AND e.status = 'HIDDEN' AND e.approval_status = 'REJECTED'`,
@@ -35,8 +42,8 @@ function buildWhere(upper) {
       };
     case 'PENDING_REVIEW':
       return {
-        listClause:  `e.deleted_at IS NULL AND (e.status = 'PENDING_REVIEW' OR e.pending_revision IS NOT NULL OR (e.cancel_request IS NOT NULL AND e.cancel_request->>'status' = 'PENDING')) AND COALESCE(e.display_state, 'VISIBLE') != 'SUSPENDED_BY_ADMIN'`,
-        countClause: `e.deleted_at IS NULL AND (e.status = 'PENDING_REVIEW' OR e.pending_revision IS NOT NULL OR (e.cancel_request IS NOT NULL AND e.cancel_request->>'status' = 'PENDING')) AND COALESCE(e.display_state, 'VISIBLE') != 'SUSPENDED_BY_ADMIN'`,
+        listClause:  `e.deleted_at IS NULL AND (e.status = 'PENDING_REVIEW' OR e.pending_revision IS NOT NULL) AND (e.cancel_request IS NULL OR e.cancel_request->>'status' != 'PENDING') AND COALESCE(e.display_state, 'VISIBLE') != 'SUSPENDED_BY_ADMIN'`,
+        countClause: `e.deleted_at IS NULL AND (e.status = 'PENDING_REVIEW' OR e.pending_revision IS NOT NULL) AND (e.cancel_request IS NULL OR e.cancel_request->>'status' != 'PENDING') AND COALESCE(e.display_state, 'VISIBLE') != 'SUSPENDED_BY_ADMIN'`,
         listArgs:  [],
         countArgs: [],
       };
@@ -45,6 +52,28 @@ function buildWhere(upper) {
       return {
         listClause:  `e.deleted_at IS NULL AND (e.cancel_request IS NOT NULL AND e.cancel_request->>'status' = 'PENDING')`,
         countClause: `e.deleted_at IS NULL AND (e.cancel_request IS NOT NULL AND e.cancel_request->>'status' = 'PENDING')`,
+        listArgs:  [],
+        countArgs: [],
+      };
+    case 'CANCEL_ALL':
+      return {
+        listClause:  `e.deleted_at IS NULL AND (e.cancel_request IS NOT NULL OR e.status = 'CANCELLED')`,
+        countClause: `e.deleted_at IS NULL AND (e.cancel_request IS NOT NULL OR e.status = 'CANCELLED')`,
+        listArgs:  [],
+        countArgs: [],
+      };
+    case 'CANCELLED':
+    case 'CANCEL_APPROVED':
+      return {
+        listClause:  `e.deleted_at IS NULL AND (e.status = 'CANCELLED' OR (e.cancel_request IS NOT NULL AND e.cancel_request->>'status' = 'APPROVED'))`,
+        countClause: `e.deleted_at IS NULL AND (e.status = 'CANCELLED' OR (e.cancel_request IS NOT NULL AND e.cancel_request->>'status' = 'APPROVED'))`,
+        listArgs:  [],
+        countArgs: [],
+      };
+    case 'CANCEL_REJECTED':
+      return {
+        listClause:  `e.deleted_at IS NULL AND (e.cancel_request IS NOT NULL AND e.cancel_request->>'status' = 'REJECTED')`,
+        countClause: `e.deleted_at IS NULL AND (e.cancel_request IS NOT NULL AND e.cancel_request->>'status' = 'REJECTED')`,
         listArgs:  [],
         countArgs: [],
       };
@@ -102,14 +131,35 @@ class EventsListAdminRepository {
         c.name AS category_name,
         COALESCE(o.organization_name, ou.full_name) AS organizer_name,
         ou.email AS organizer_email,
+        COALESCE(org_sub.priority_support, false) AS is_priority_support,
+        org_sub.plan_name AS organizer_plan_name,
         COALESCE(session_summary.items, '[]'::json) AS sessions,
         COALESCE(ticket_summary.items, '[]'::json) AS ticket_types,
         e.review_note,
-        e.reviewed_at
+        e.reviewed_at,
+        GREATEST(
+          e.created_at,
+          COALESCE(NULLIF(e.cancel_request->>'requested_at', '')::timestamptz, e.created_at),
+          COALESCE(NULLIF(e.pending_revision->>'submitted_at', '')::timestamptz, e.created_at)
+        ) AS request_date
       FROM events e
       JOIN organizers o ON o.id = e.organizer_id
       LEFT JOIN users ou ON ou.id = o.user_id
       LEFT JOIN event_categories c ON c.id = e.category_id
+      LEFT JOIN LATERAL (
+        SELECT
+          s.name AS plan_name,
+          COALESCE(s.priority_support, false) AS priority_support
+        FROM organizer_subscriptions os
+        JOIN subscriptions s ON os.subscription_id = s.id
+        WHERE os.organizer_id = e.organizer_id
+          AND os.status = 'ACTIVE'
+          AND os.start_date <= now()
+          AND os.end_date >= now()
+          AND s.deleted_at IS NULL
+        ORDER BY s.priority_support DESC, os.start_date DESC
+        LIMIT 1
+      ) org_sub ON true
       LEFT JOIN LATERAL (
         SELECT json_agg(
           json_build_object(
@@ -167,7 +217,13 @@ class EventsListAdminRepository {
         ) sold ON true
       ) ticket_summary ON true
       WHERE ${listClause}
-      ORDER BY e.created_at DESC
+      ORDER BY
+        COALESCE(org_sub.priority_support, false) DESC,
+        GREATEST(
+          e.created_at,
+          COALESCE(NULLIF(e.cancel_request->>'requested_at', '')::timestamptz, e.created_at),
+          COALESCE(NULLIF(e.pending_revision->>'submitted_at', '')::timestamptz, e.created_at)
+        ) DESC
       LIMIT $1 OFFSET $2
     `;
 
