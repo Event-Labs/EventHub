@@ -899,25 +899,55 @@ class OrganizerEventsRepository {
     const { rows } = await db.query(
       `
       SELECT
-        COALESCE(COUNT(DISTINCT o.id) FILTER (WHERE o.status = 'PAID'), 0)::int AS paid_orders_count,
-        COALESCE(COUNT(DISTINCT o.id) FILTER (WHERE o.status = 'PENDING' AND o.expired_at > now()), 0)::int AS pending_orders_count,
-        COALESCE(SUM(o.total_amount) FILTER (WHERE o.status = 'PAID'), 0)::numeric AS total_paid_amount,
-        COALESCE(COUNT(DISTINCT t.id) FILTER (WHERE t.status IN ('VALID', 'USED', 'REFUND_REQUESTED')), 0)::int AS issued_tickets_count,
-        COALESCE((
-          SELECT COUNT(DISTINCT th.id)
+        (
+          SELECT COALESCE(COUNT(DISTINCT o.id) FILTER (WHERE o.status = 'PAID'), 0)::int
+          FROM orders o
+          WHERE o.id IN (
+            SELECT oi.order_id
+            FROM order_items oi
+            JOIN ticket_types tt ON tt.id = oi.ticket_type_id
+            JOIN event_sessions es ON es.id = tt.event_session_id
+            WHERE es.event_id = e.id
+          )
+        ) AS paid_orders_count,
+        (
+          SELECT COALESCE(COUNT(DISTINCT o.id) FILTER (WHERE o.status = 'PENDING' AND o.expired_at > now()), 0)::int
+          FROM orders o
+          WHERE o.id IN (
+            SELECT oi.order_id
+            FROM order_items oi
+            JOIN ticket_types tt ON tt.id = oi.ticket_type_id
+            JOIN event_sessions es ON es.id = tt.event_session_id
+            WHERE es.event_id = e.id
+          )
+        ) AS pending_orders_count,
+        (
+          SELECT COALESCE(SUM(o.total_amount) FILTER (WHERE o.status = 'PAID'), 0)::numeric
+          FROM orders o
+          WHERE o.id IN (
+            SELECT oi.order_id
+            FROM order_items oi
+            JOIN ticket_types tt ON tt.id = oi.ticket_type_id
+            JOIN event_sessions es ON es.id = tt.event_session_id
+            WHERE es.event_id = e.id
+          )
+        ) AS total_paid_amount,
+        (
+          SELECT COALESCE(COUNT(DISTINCT t.id) FILTER (WHERE t.status IN ('VALID', 'USED', 'REFUND_REQUESTED')), 0)::int
+          FROM tickets t
+          JOIN ticket_types tt ON tt.id = t.ticket_type_id
+          JOIN event_sessions es ON es.id = tt.event_session_id
+          WHERE es.event_id = e.id
+        ) AS issued_tickets_count,
+        (
+          SELECT COALESCE(COUNT(DISTINCT th.id), 0)::int
           FROM ticket_holds th
           JOIN ticket_types tt ON tt.id = th.ticket_type_id
           JOIN event_sessions es ON es.id = tt.event_session_id
           WHERE es.event_id = e.id AND th.status = 'ACTIVE' AND th.expires_at > now()
-        ), 0)::int AS active_holds_count
+        ) AS active_holds_count
       FROM events e
-      LEFT JOIN event_sessions es ON es.event_id = e.id
-      LEFT JOIN ticket_types tt ON tt.event_session_id = es.id
-      LEFT JOIN order_items oi ON oi.ticket_type_id = tt.id
-      LEFT JOIN orders o ON o.id = oi.order_id
-      LEFT JOIN tickets t ON t.ticket_type_id = tt.id
       WHERE e.id = $1
-      GROUP BY e.id
       `,
       [eventId],
     );

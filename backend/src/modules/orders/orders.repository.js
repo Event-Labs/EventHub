@@ -2328,7 +2328,7 @@ class OrdersRepository {
           )
           SELECT
             $1, $2, $3, $4,
-            $5, 'EVENT_CANCELLED', 'APPROVED', 'ORGANIZER_MANUAL',
+            $5, 'Sự kiện bị hủy', 'APPROVED', 'ORGANIZER_MANUAL',
             $6, $7, now() + interval '7 days',
             $8, $9, $10, $11,
             now(), now(), now()

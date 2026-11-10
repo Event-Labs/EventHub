@@ -19,7 +19,6 @@ import {
   ShieldAlert,
   Trash2,
   X,
-  Sparkles,
 } from 'lucide-react'
 import {
   Badge,
@@ -102,9 +101,6 @@ export function getPrimaryEventStatus(event, organizerPlan = null) {
 
   // 10. Chờ duyệt (Sự kiện mới gửi Admin xét duyệt)
   if (event.status === 'PENDING_REVIEW') {
-    if (organizerPlan?.priority_support) {
-      return { key: 'PENDING_REVIEW', label: 'Chờ duyệt (Ưu tiên)', tone: 'amber', isPriority: true }
-    }
     return { key: 'PENDING_REVIEW', label: 'Chờ duyệt', tone: 'amber' }
   }
 
@@ -1015,8 +1011,7 @@ export function OrganizerEventsPage() {
                 const statusInfo = getPrimaryEventStatus(event, organizerPlan)
                 return (
                   <div key="status" className="flex items-center">
-                    <Badge tone={statusInfo.tone} className={statusInfo.isPriority ? 'inline-flex items-center gap-1 shadow-sm' : ''}>
-                      {statusInfo.isPriority && <Sparkles className="size-3 text-amber-300 shrink-0" />}
+                    <Badge tone={statusInfo.tone}>
                       {statusInfo.label}
                     </Badge>
                   </div>
