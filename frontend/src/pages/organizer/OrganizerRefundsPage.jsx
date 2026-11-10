@@ -14,6 +14,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { OrganizerPage, StatusBadge, TableActionButton } from './OrganizerComponents.jsx'
 import { fetchOrganizerRefundRequests, batchProcessOrganizerRefunds } from '@/services/refunds.js'
+import { formatRefundReason } from '@/utils/refundPolicy.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { CosmicSelect } from '@/components/CosmicSelect.jsx'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
@@ -139,6 +140,7 @@ export function OrganizerRefundsPage() {
       const buyerEmail = (item.customer?.email || item.order?.buyer_email || '').toLowerCase()
       const eventTitle = (item.event?.title || '').toLowerCase()
       const reason = (item.reason || '').toLowerCase()
+      const formattedReason = formatRefundReason(item.reason).toLowerCase()
 
       return (
         ticketCode.includes(query) ||
@@ -146,7 +148,8 @@ export function OrganizerRefundsPage() {
         buyerName.includes(query) ||
         buyerEmail.includes(query) ||
         eventTitle.includes(query) ||
-        reason.includes(query)
+        reason.includes(query) ||
+        formattedReason.includes(query)
       )
     })
   }, [rawList, selectedStatus, selectedEventId, searchQuery])

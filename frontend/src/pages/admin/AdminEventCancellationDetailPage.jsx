@@ -17,7 +17,7 @@ import {
   X,
   Check,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 
 import {
@@ -264,20 +264,64 @@ export function AdminEventCancellationDetailPage() {
   }
 
   const totalRefundAmount =
-    cancelRequest?.total_refund_amount ??
-    event.total_paid_amount ??
-    0
+    (isPending
+      ? (event.total_paid_amount ?? cancelRequest?.total_refund_amount)
+      : (cancelRequest?.total_refund_amount ?? event.total_paid_amount)) ?? 0
   const affectedOrdersCount =
-    cancelRequest?.affected_orders_count ??
-    event.paid_orders_count ??
-    0
+    (isPending
+      ? (event.paid_orders_count ?? cancelRequest?.affected_orders_count)
+      : (cancelRequest?.affected_orders_count ?? event.paid_orders_count)) ?? 0
   const affectedTicketsCount =
-    cancelRequest?.affected_tickets_count ??
-    event.issued_tickets_count ??
-    0
+    (isPending
+      ? (event.issued_tickets_count ?? cancelRequest?.affected_tickets_count)
+      : (cancelRequest?.affected_tickets_count ?? event.issued_tickets_count)) ?? 0
 
   const sessions = event.sessions || []
   const ticketTypes = event.ticket_types || []
+
+  const sessionsWithTickets = useMemo(() => {
+    if (!sessions || sessions.length === 0) {
+      if (!ticketTypes || ticketTypes.length === 0) return []
+      return [{
+        session: { id: 'default', session_name: 'Toàn bộ sự kiện' },
+        sessionIndex: 1,
+        tickets: ticketTypes,
+        totalSold: ticketTypes.reduce((acc, t) => acc + Number(t.sold_quantity || 0), 0),
+        totalCapacity: ticketTypes.reduce((acc, t) => acc + Number(t.quantity || 0), 0),
+      }]
+    }
+
+    const matchedTicketIds = new Set()
+    const grouped = sessions.map((sess, idx) => {
+      const tickets = ticketTypes.filter((tt) => {
+        const matches = String(tt.event_session_id) === String(sess.id)
+        if (matches) matchedTicketIds.add(tt.id)
+        return matches
+      })
+      const totalSold = tickets.reduce((acc, t) => acc + Number(t.sold_quantity || 0), 0)
+      const totalCapacity = tickets.reduce((acc, t) => acc + Number(t.quantity || 0), 0)
+      return {
+        session: sess,
+        sessionIndex: idx + 1,
+        tickets,
+        totalSold,
+        totalCapacity,
+      }
+    })
+
+    const unmappedTickets = ticketTypes.filter((tt) => !matchedTicketIds.has(tt.id))
+    if (unmappedTickets.length > 0) {
+      grouped.push({
+        session: { id: 'unmapped', session_name: 'Vé chung / Chưa phân phiên' },
+        sessionIndex: grouped.length + 1,
+        tickets: unmappedTickets,
+        totalSold: unmappedTickets.reduce((acc, t) => acc + Number(t.sold_quantity || 0), 0),
+        totalCapacity: unmappedTickets.reduce((acc, t) => acc + Number(t.quantity || 0), 0),
+      })
+    }
+
+    return grouped
+  }, [sessions, ticketTypes])
 
   return (
     <div className="space-y-6">
@@ -490,33 +534,107 @@ export function AdminEventCancellationDetailPage() {
               </div>
             </div>
 
-            {/* Danh sách Loại vé & Đã bán */}
-            {ticketTypes.length > 0 && (
+            {/* Danh sách Loại vé & Đã bán phân chia theo từng Phiên */}
+            {sessionsWithTickets.length > 0 && (
               <div>
-                <h4 className="text-xs font-semibold text-slate-400 mb-2">
-                  Cơ cấu loại vé ({ticketTypes.length})
+                <h4 className="text-xs font-semibold text-slate-400 mb-2.5 flex items-center justify-between">
+                  <span>Cơ cấu loại vé theo phiên ({ticketTypes.length} loại vé)</span>
                 </h4>
-                <div className="overflow-x-auto rounded-xl border border-white/10 bg-[#080f24]">
-                  <table className="w-full text-left text-xs">
-                    <thead className="border-b border-white/10 bg-white/[0.03] text-slate-400 font-semibold">
-                      <tr>
-                        <th className="py-2.5 px-3">Loại vé</th>
-                        <th className="py-2.5 px-3">Giá vé</th>
-                        <th className="py-2.5 px-3">Đã bán / Tổng vé</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/5 text-slate-300">
-                      {ticketTypes.map((tt, idx) => (
-                        <tr key={tt.id || idx}>
-                          <td className="py-2 px-3 font-medium text-white">{tt.name}</td>
-                          <td className="py-2 px-3 text-slate-200">{formatCurrency(tt.price)}</td>
-                          <td className="py-2 px-3">
-                            <span className="font-semibold text-white">{tt.sold_quantity ?? 0}</span> / {tt.quantity?.toLocaleString() ?? '—'}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="space-y-3">
+                  {sessionsWithTickets.map((group) => (
+                    <div
+                      key={group.session.id || group.sessionIndex}
+                      className="rounded-xl border border-white/10 bg-[#080f24] overflow-hidden"
+                    >
+                      {/* Tiêu đề phiên */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-white/[0.02] p-3 text-xs">
+                        <div>
+                          <p className="font-semibold text-white flex items-center gap-1.5">
+                            <Calendar className="size-3.5 text-indigo-400" />
+                            {group.session.session_name || `Phiên #${group.sessionIndex}`}
+                          </p>
+                          {(group.session.start_time || group.session.end_time) && (
+                            <p className="text-[11px] text-slate-400 mt-0.5">
+                              {formatDate(group.session.start_time)} – {formatDate(group.session.end_time)}
+                            </p>
+                          )}
+                        </div>
+                        <span
+                          className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold border ${
+                            group.totalSold > 0
+                              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
+                              : 'border-white/10 bg-white/5 text-slate-400'
+                          }`}
+                        >
+                          Đã bán: <span className="font-bold text-white">{group.totalSold}</span> / {group.totalCapacity?.toLocaleString() ?? 0} vé
+                        </span>
+                      </div>
+
+                      {/* Bảng vé thuộc phiên */}
+                      {group.tickets.length > 0 ? (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left text-xs">
+                            <thead className="border-b border-white/5 bg-white/[0.01] text-[11px] text-slate-400 font-semibold">
+                              <tr>
+                                <th className="py-2 px-3">Loại vé</th>
+                                <th className="py-2 px-3">Giá vé</th>
+                                <th className="py-2 px-3">Đã bán / Tổng vé</th>
+                                <th className="py-2 px-3 text-right">Tổng tiền vé đã bán</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5 text-slate-300">
+                              {group.tickets.map((tt, tIdx) => {
+                                const sold = Number(tt.sold_quantity || 0)
+                                const total = Number(tt.quantity || 0)
+                                const price = Number(tt.price || 0)
+                                const soldRevenue = sold * price
+                                return (
+                                  <tr key={tt.id || tIdx} className="hover:bg-white/[0.01] transition-colors">
+                                    <td className="py-2.5 px-3">
+                                      <p className="font-medium text-white">{tt.name}</p>
+                                      {tt.description && (
+                                        <p className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">{tt.description}</p>
+                                      )}
+                                    </td>
+                                    <td className="py-2.5 px-3 font-medium text-slate-200">
+                                      {formatCurrency(price)}
+                                    </td>
+                                    <td className="py-2.5 px-3">
+                                      <span
+                                        className={`font-bold ${
+                                          sold > 0 ? 'text-emerald-400' : 'text-slate-400'
+                                        }`}
+                                      >
+                                        {sold.toLocaleString()}
+                                      </span>
+                                      {' / '}
+                                      <span className="text-slate-300">{total > 0 ? total.toLocaleString() : '—'}</span>
+                                      {total > 0 && (
+                                        <span className="ml-2 text-[10px] text-slate-400">
+                                          ({Math.round((sold / total) * 100)}%)
+                                        </span>
+                                      )}
+                                    </td>
+                                    <td className="py-2.5 px-3 text-right font-medium text-slate-200">
+                                      {soldRevenue > 0 ? (
+                                        <span className="text-emerald-400 font-semibold">{formatCurrency(soldRevenue)}</span>
+                                      ) : (
+                                        <span className="text-slate-500">0 đ</span>
+                                      )}
+                                    </td>
+                                  </tr>
+                                )
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <div className="p-3 text-center text-xs text-slate-500">
+                          Chưa có loại vé nào cho phiên này.
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
             )}

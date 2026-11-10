@@ -500,31 +500,72 @@ function SeatMapPreviewModal({ open, seatMapId, onClose, onEdit }) {
                     </g>
                   )}
 
-                  {/* Standing Areas (Vùng đứng không ghế) Rendering */}
+                  {/* Standing Areas (Vùng đứng không ghế & Khối hình) Rendering */}
                   {standingAreas.map((area, idx) => {
-                    const { id, name, capacity, color, x, y, w, h, rotation } = area
+                    const { id, name, capacity, color, x, y, w, h, rotation, shape = 'RECTANGLE' } = area
                     const fillColor = color || '#EF4444'
+                    const isTriangle = shape === 'TRIANGLE'
+                    const tPts = isTriangle && Array.isArray(area.trianglePoints) && area.trianglePoints.length === 3
+                      ? area.trianglePoints
+                      : [{ x: 0.5, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }]
+                    const p0 = { x: x + w * tPts[0].x, y: y + h * tPts[0].y }
+                    const p1 = { x: x + w * tPts[1].x, y: y + h * tPts[1].y }
+                    const p2 = { x: x + w * tPts[2].x, y: y + h * tPts[2].y }
+                    const cx = isTriangle ? (p0.x + p1.x + p2.x) / 3 : x + w / 2
+                    const cy = isTriangle ? (p0.y + p1.y + p2.y) / 3 : y + h / 2
 
                     return (
                       <g
                         key={id || idx}
                         transform={rotation ? `rotate(${rotation}, ${x + w / 2}, ${y + h / 2})` : undefined}
                       >
-                        <rect
-                          x={x}
-                          y={y}
-                          width={w}
-                          height={h}
-                          rx={12}
-                          fill={fillColor}
-                          fillOpacity={isLightCanvas ? 0.35 : 0.25}
-                          stroke={fillColor}
-                          strokeWidth={2}
-                          strokeDasharray="6 4"
-                        />
+                        {isTriangle ? (
+                          <polygon
+                            points={`${p0.x},${p0.y} ${p1.x},${p1.y} ${p2.x},${p2.y}`}
+                            fill={fillColor}
+                            fillOpacity={isLightCanvas ? 0.35 : 0.25}
+                            stroke={fillColor}
+                            strokeWidth={2}
+                            strokeDasharray="6 4"
+                          />
+                        ) : shape === 'CIRCLE' ? (
+                          <ellipse
+                            cx={x + w / 2}
+                            cy={y + h / 2}
+                            rx={w / 2}
+                            ry={h / 2}
+                            fill={fillColor}
+                            fillOpacity={isLightCanvas ? 0.35 : 0.25}
+                            stroke={fillColor}
+                            strokeWidth={2}
+                            strokeDasharray="6 4"
+                          />
+                        ) : shape === 'DIAMOND' ? (
+                          <polygon
+                            points={`${x + w / 2},${y} ${x + w},${y + h / 2} ${x + w / 2},${y + h} ${x},${y + h / 2}`}
+                            fill={fillColor}
+                            fillOpacity={isLightCanvas ? 0.35 : 0.25}
+                            stroke={fillColor}
+                            strokeWidth={2}
+                            strokeDasharray="6 4"
+                          />
+                        ) : (
+                          <rect
+                            x={x}
+                            y={y}
+                            width={w}
+                            height={h}
+                            rx={12}
+                            fill={fillColor}
+                            fillOpacity={isLightCanvas ? 0.35 : 0.25}
+                            stroke={fillColor}
+                            strokeWidth={2}
+                            strokeDasharray="6 4"
+                          />
+                        )}
                         <text
-                          x={x + w / 2}
-                          y={y + h / 2 - 6}
+                          x={cx}
+                          y={cy - 6}
                           textAnchor="middle"
                           fill={isLightCanvas ? '#0F172A' : 'white'}
                           fontSize={13}

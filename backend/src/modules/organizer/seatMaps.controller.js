@@ -51,6 +51,17 @@ class SeatMapsController {
       next(err);
     }
   };
+
+  generateFromImage = async (req, res, next) => {
+    try {
+      const file = req.file || req.files?.image?.[0] || req.files?.file?.[0];
+      const data = await seatMapsService.generateSeatMapFromImage(file);
+      res.status(200).json(ApiResponse.success(data, 'Đã phân tích và tạo sơ đồ ghế bằng AI thành công.'));
+    } catch (err) {
+      console.error('[SeatMapsController.generateFromImage Error]:', err);
+      next(err);
+    }
+  };
 }
 
 module.exports = new SeatMapsController();

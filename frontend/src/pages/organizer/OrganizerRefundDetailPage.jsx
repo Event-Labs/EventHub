@@ -40,6 +40,7 @@ import { useLanguage } from '@/i18n/LanguageContext.jsx'
 import { translatePhrase } from '@/i18n/phraseDictionary.js'
 import { renderCosmicTitle } from '@/lib/formatTitle.jsx'
 import { StatusBadge } from '@/components/StatusBadge.jsx'
+import { formatRefundReason } from '@/utils/refundPolicy.js'
 
 const getAutoLocale = () =>
   ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
@@ -1420,7 +1421,7 @@ export function OrganizerRefundDetailPage() {
             {/* Refund Reason */}
             <div className="rounded-xl border border-white/5 bg-[#121c33] p-3.5 space-y-1 text-xs [html.light_&]:border-[#C99A47]/20 [html.light_&]:bg-[#FDFBF7] [html.light_&]:shadow-sm">
               <span className="text-slate-400 [html.light_&]:text-[#536b88]">Lý do yêu cầu:</span>
-              <p className="font-semibold text-slate-200 [html.light_&]:text-[#1B365D] break-words">{item.reason}</p>
+              <p className="font-semibold text-slate-200 [html.light_&]:text-[#1B365D] break-words">{formatRefundReason(item.reason)}</p>
             </div>
 
             {/* Information Header / Tóm tắt tính toán */}

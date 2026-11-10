@@ -134,3 +134,44 @@ export function generateRefundPolicyLines(policy, locale = (typeof document !== 
 export function generateRefundPolicyText(policy, locale) {
   return generateRefundPolicyLines(policy, locale).join('\n')
 }
+
+/**
+ * Maps raw refund reason codes to user-friendly human-readable Vietnamese/English text
+ * @param {string} reason
+ * @param {string} [locale]
+ * @returns {string}
+ */
+export function formatRefundReason(
+  reason,
+  locale = (typeof document !== 'undefined' && document.documentElement.lang === 'en' ? 'en' : 'vi')
+) {
+  if (!reason) return ''
+  const isEn = locale === 'en'
+
+  const REASON_MAP = {
+    EVENT_CANCELLED: isEn ? 'Event cancelled' : 'Sự kiện bị hủy',
+    EVENT_POSTPONED: isEn ? 'Event postponed / rescheduled' : 'Sự kiện bị hoãn / đổi lịch',
+    FORCE_MAJEURE: isEn ? 'Force majeure' : 'Trường hợp bất khả kháng',
+    ORGANIZER_REASON: isEn ? 'Organizer reason' : 'Lý do từ Ban tổ chức',
+    ORG_VOLUNTARY: isEn ? 'Organizer voluntary cancellation' : 'Ban tổ chức chủ động hủy',
+    ADMIN_FORCED: isEn ? 'Event cancelled by administrator' : 'Quản trị viên hủy sự kiện',
+    CUSTOMER_CANCEL: isEn ? 'Customer requested refund' : 'Khách hàng yêu cầu hoàn vé',
+    ORG_REQUEST: isEn ? 'Cancelled upon organizer request' : 'Hủy theo yêu cầu của Ban tổ chức',
+  }
+
+  const trimmed = String(reason).trim()
+  const upper = trimmed.toUpperCase()
+
+  if (REASON_MAP[upper]) {
+    return REASON_MAP[upper]
+  }
+
+  for (const [code, label] of Object.entries(REASON_MAP)) {
+    if (upper.startsWith(code)) {
+      return trimmed.replace(new RegExp(`^${code}[:\\s-]*`, 'i'), `${label}: `).trim()
+    }
+  }
+
+  return reason
+}
+

@@ -149,6 +149,14 @@ function uniqueEvents(...groups) {
   return Array.from(unique.values())
 }
 
+function sortEventsByPriorityAndTime(events = []) {
+  return [...events].sort((a, b) => {
+    const pDiff = Number(Boolean(b?.is_priority_support)) - Number(Boolean(a?.is_priority_support))
+    if (pDiff !== 0) return pDiff
+    return new Date(a?.start_time || 0) - new Date(b?.start_time || 0)
+  })
+}
+
 export function HomePage() {
   const { isEnglish, t } = useLanguage()
   const toast = useToast()
@@ -160,22 +168,22 @@ export function HomePage() {
 
   const featuredQuery = useQuery({
     queryKey: ['home-events', 'featured'],
-    queryFn: () => fetchEvents({ limit: 10, sort_by: 'created_at', sort_order: 'desc' }),
+    queryFn: () => fetchEvents({ limit: 10, sort_by: 'start_time', sort_order: 'asc', upcoming_only: true }),
   })
 
   const upcomingQuery = useQuery({
     queryKey: ['home-events', 'upcoming'],
-    queryFn: () => fetchEvents({ limit: 8, sort_by: 'start_time', sort_order: 'asc' }),
+    queryFn: () => fetchEvents({ limit: 8, sort_by: 'start_time', sort_order: 'asc', upcoming_only: true }),
   })
 
   const trendingQuery = useQuery({
     queryKey: ['home-events', 'trending'],
-    queryFn: () => fetchEvents({ limit: 24, sort_by: 'updated_at', sort_order: 'desc' }),
+    queryFn: () => fetchEvents({ limit: 24, sort_by: 'start_time', sort_order: 'asc', upcoming_only: true }),
   })
 
   const timelineQuery = useQuery({
     queryKey: ['home-events', 'timeline'],
-    queryFn: () => fetchEvents({ limit: 24, sort_by: 'start_time', sort_order: 'asc' }),
+    queryFn: () => fetchEvents({ limit: 24, sort_by: 'start_time', sort_order: 'asc', upcoming_only: true }),
   })
 
   const pastEventsQuery = useQuery({
@@ -214,19 +222,19 @@ export function HomePage() {
   })
 
   const featuredEvents = useMemo(
-    () => featuredQuery.data?.items || [],
+    () => sortEventsByPriorityAndTime(featuredQuery.data?.items || []),
     [featuredQuery.data?.items],
   )
   const upcomingEvents = useMemo(
-    () => upcomingQuery.data?.items || [],
+    () => sortEventsByPriorityAndTime(upcomingQuery.data?.items || []),
     [upcomingQuery.data?.items],
   )
   const trendingEvents = useMemo(
-    () => trendingQuery.data?.items || [],
+    () => sortEventsByPriorityAndTime(trendingQuery.data?.items || []),
     [trendingQuery.data?.items],
   )
   const timelineEvents = useMemo(
-    () => timelineQuery.data?.items || [],
+    () => sortEventsByPriorityAndTime(timelineQuery.data?.items || []),
     [timelineQuery.data?.items],
   )
   const pastEvents = useMemo(
@@ -235,15 +243,15 @@ export function HomePage() {
   )
   const categories = categoriesQuery.data || []
   const heroEvents = useMemo(() => {
-    return uniqueEvents(featuredEvents, upcomingEvents, timelineEvents)
+    const list = uniqueEvents(featuredEvents, upcomingEvents, timelineEvents)
       .filter((event) => getEventTimeState(event, timelineNow) !== 'expired')
-      .slice(0, 10)
-  }, [featuredEvents, timelineEvents, timelineNow, upcomingEvents, pastEvents])
+    return sortEventsByPriorityAndTime(list).slice(0, 10)
+  }, [featuredEvents, timelineEvents, timelineNow, upcomingEvents])
 
   const trendingThisWeekEvents = useMemo(() => {
-    return uniqueEvents(trendingEvents, timelineEvents, upcomingEvents, featuredEvents)
+    const list = uniqueEvents(trendingEvents, timelineEvents, upcomingEvents, featuredEvents)
       .filter((event) => isActiveEventInWeek(event, timelineNow))
-      .slice(0, 4)
+    return sortEventsByPriorityAndTime(list).slice(0, 4)
   }, [featuredEvents, timelineEvents, timelineNow, trendingEvents, upcomingEvents])
 
   const homeTimeline = useMemo(() => {
@@ -251,18 +259,21 @@ export function HomePage() {
     return {
       ongoing: events
         .filter((event) => getEventTimeState(event, timelineNow) === 'ongoing')
-        .sort((a, b) => new Date(a.end_time || a.start_time || 0) - new Date(b.end_time || b.start_time || 0))
+        .sort((a, b) => {
+          const pDiff = Number(Boolean(b.is_priority_support)) - Number(Boolean(a.is_priority_support))
+          if (pDiff !== 0) return pDiff
+          return new Date(a.end_time || a.start_time || 0) - new Date(b.end_time || b.start_time || 0)
+        })
         .slice(0, 4),
-      upcoming: events
-        .filter((event) => getEventTimeState(event, timelineNow) === 'upcoming')
-        .sort((a, b) => new Date(a.start_time || 0) - new Date(b.start_time || 0))
-        .slice(0, 4),
+      upcoming: sortEventsByPriorityAndTime(
+        events.filter((event) => getEventTimeState(event, timelineNow) === 'upcoming')
+      ).slice(0, 4),
       expired: events
         .filter((event) => getEventTimeState(event, timelineNow) === 'expired' && isRecentlyExpiredEvent(event, timelineNow))
         .sort((a, b) => new Date(b.end_time || b.start_time || 0) - new Date(a.end_time || a.start_time || 0))
         .slice(0, 4),
     }
-  }, [featuredEvents, timelineEvents, timelineNow, upcomingEvents])
+  }, [featuredEvents, timelineEvents, timelineNow, upcomingEvents, pastEvents])
 
 
   const handleSearch = (event) => {

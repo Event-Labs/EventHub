@@ -76,6 +76,8 @@ function mapCard(row) {
           avatar_url: row.organizer_avatar_url || null,
         }
       : null,
+    is_priority_support: Boolean(row.is_priority_support),
+    organizer_plan_name: row.organizer_plan_name || null,
     min_price: minPrice,
     max_price: maxPrice,
     price_range: { min: minPrice, max: maxPrice },

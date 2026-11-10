@@ -1377,7 +1377,7 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest, onPayoutSub
             <div className="flex justify-between items-start gap-4 border-b border-white/5 pb-2.5">
               <span className="text-slate-400 font-medium shrink-0">{isEnglish ? 'Refund Reason:' : 'Lý do hoàn tiền:'}</span>
               <span className="font-semibold text-white text-right break-words">
-                {refundRequest?.reason || (isEnglish ? 'Per event refund policy' : 'Theo chính sách hoàn vé sự kiện')}
+                {formatRefundReason(refundRequest?.reason, isEnglish ? 'en' : 'vi') || (isEnglish ? 'Per event refund policy' : 'Theo chính sách hoàn vé sự kiện')}
               </span>
             </div>
 
