@@ -3360,31 +3360,42 @@ function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat, onSe
             </span>
           </div>
         )}
-        {metrics.standingAreas.map((area, index) => (
-          <button
-            key={area.id || index}
-            type={'button'}
-            title={area.name}
-            aria-label={area.name}
-            style={{
-              position: 'absolute',
-              left: area.x,
-              top: area.y,
-              width: area.w,
-              height: area.h,
-              color: '#ffffff',
-              background: `color-mix(in srgb, ${area.color || '#EF4444'} 25%, transparent)`,
-              borderColor: area.color || '#EF4444',
-              borderStyle: 'dashed',
-              transform: area.rotation ? `rotate(${area.rotation}deg)` : undefined,
-            }}
-            className={'flex flex-col items-center justify-center rounded-xl border-2 text-xs font-extrabold text-white shadow-lg'}
-            onClick={() => onSelectStandingArea?.(area, index)}
-          >
-            <span>{area.name}</span>
-            <span className={'mt-1 text-[10px] font-semibold text-white/85'}>Sức chứa: {area.capacity || 0} người</span>
-          </button>
-        ))}
+        {metrics.standingAreas.map((area, index) => {
+          const isTriangle = area.shape === 'TRIANGLE'
+          const tPts = isTriangle && Array.isArray(area.trianglePoints) && area.trianglePoints.length === 3
+            ? area.trianglePoints
+            : [{ x: 0.5, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }]
+          const clipPath = isTriangle
+            ? `polygon(${tPts[0].x * 100}% ${tPts[0].y * 100}%, ${tPts[1].x * 100}% ${tPts[1].y * 100}%, ${tPts[2].x * 100}% ${tPts[2].y * 100}%)`
+            : undefined
+
+          return (
+            <button
+              key={area.id || index}
+              type={'button'}
+              title={area.name}
+              aria-label={area.name}
+              style={{
+                position: 'absolute',
+                left: area.x,
+                top: area.y,
+                width: area.w,
+                height: area.h,
+                color: '#ffffff',
+                background: `color-mix(in srgb, ${area.color || '#EF4444'} 25%, transparent)`,
+                borderColor: area.color || '#EF4444',
+                borderStyle: isTriangle ? 'none' : 'dashed',
+                clipPath,
+                transform: area.rotation ? `rotate(${area.rotation}deg)` : undefined,
+              }}
+              className={'flex flex-col items-center justify-center rounded-xl border-2 text-xs font-extrabold text-white shadow-lg'}
+              onClick={() => onSelectStandingArea?.(area, index)}
+            >
+              <span>{area.name}</span>
+              <span className={'mt-1 text-[10px] font-semibold text-white/85'}>Sức chứa: {area.capacity || 0} người</span>
+            </button>
+          )
+        })}
         {metrics.auxiliaryElements.map((element, index) => (
           <div
             key={element.id || `aux-${index}`}
