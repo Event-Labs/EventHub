@@ -10,6 +10,7 @@ import {
   YAxis,
 } from 'recharts'
 import { BarChart3, Clock, Table2 } from 'lucide-react'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
 
 const getAutoLocale = () =>
   ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
@@ -30,6 +31,7 @@ function fmtDate(iso) {
 }
 
 function CustomSessionTooltip({ active, payload }) {
+  const { isEnglish } = useLanguage()
   if (!active || !payload || !payload.length) return null
   const d = payload[0]?.payload
   if (!d) return null
@@ -54,23 +56,23 @@ function CustomSessionTooltip({ active, payload }) {
         <div className="flex items-center justify-between gap-4">
           <span className="flex items-center gap-1.5 text-slate-300">
             <span className="size-2 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]" />
-            Đã check-in:
+            {isEnglish ? 'Checked In:' : 'Đã check-in:'}
           </span>
-          <strong className="text-emerald-400 font-mono font-bold">{checked} vé</strong>
+          <strong className="text-emerald-400 font-mono font-bold">{checked} {isEnglish ? 'tickets' : 'vé'}</strong>
         </div>
         <div className="flex items-center justify-between gap-4">
           <span className="flex items-center gap-1.5 text-slate-300">
             <span className="size-2 rounded-full bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.5)]" />
-            Chưa check-in:
+            {isEnglish ? 'Not Checked In:' : 'Chưa check-in:'}
           </span>
-          <strong className="text-amber-400 font-mono font-bold">{notChecked} vé</strong>
+          <strong className="text-amber-400 font-mono font-bold">{notChecked} {isEnglish ? 'tickets' : 'vé'}</strong>
         </div>
         <div className="flex items-center justify-between gap-4 pt-1.5 border-t border-white/10">
-          <span className="text-slate-400">Tổng vé:</span>
+          <span className="text-slate-400">{isEnglish ? 'Total Tickets:' : 'Tổng vé:'}</span>
           <span className="text-white font-mono font-bold">{total}</span>
         </div>
         <div className="flex items-center justify-between gap-4">
-          <span className="text-slate-400">Tỷ lệ tham dự:</span>
+          <span className="text-slate-400">{isEnglish ? 'Attendance Rate:' : 'Tỷ lệ tham dự:'}</span>
           <span className="text-cyan-400 font-mono font-bold text-xs">{rate}%</span>
         </div>
       </div>
@@ -79,6 +81,7 @@ function CustomSessionTooltip({ active, payload }) {
 }
 
 export function SessionStackedBarChart({ data = [] }) {
+  const { isEnglish } = useLanguage()
   const [viewMode, setViewMode] = useState('chart')
 
   // Chronologically sort sessions by start_time ASC
@@ -94,7 +97,7 @@ export function SessionStackedBarChart({ data = [] }) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center text-slate-400">
         <Clock className="size-8 opacity-40 mb-2" />
-        <p className="text-sm">Chưa có dữ liệu phiên cho sự kiện này.</p>
+        <p className="text-sm">{isEnglish ? 'No session data for this event.' : 'Chưa có dữ liệu phiên cho sự kiện này.'}</p>
       </div>
     )
   }
@@ -109,11 +112,11 @@ export function SessionStackedBarChart({ data = [] }) {
         <div className="flex items-center gap-4 text-xs font-semibold">
           <span className="flex items-center gap-1.5 text-slate-300 [html.light_&]:text-[#1B365D]">
             <span className="size-2.5 rounded-full bg-[#10B981] shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-            Đã check-in
+            {isEnglish ? 'Checked In' : 'Đã check-in'}
           </span>
           <span className="flex items-center gap-1.5 text-slate-300 [html.light_&]:text-[#1B365D]">
             <span className="size-2.5 rounded-full bg-[#F59E0B] shadow-[0_0_8px_rgba(245,158,11,0.5)]" />
-            Chưa check-in
+            {isEnglish ? 'Not Checked In' : 'Chưa check-in'}
           </span>
         </div>
 
@@ -128,7 +131,7 @@ export function SessionStackedBarChart({ data = [] }) {
             }`}
           >
             <BarChart3 className="size-3.5" />
-            Biểu đồ
+            {isEnglish ? 'Chart' : 'Biểu đồ'}
           </button>
           <button
             type="button"
@@ -140,7 +143,7 @@ export function SessionStackedBarChart({ data = [] }) {
             }`}
           >
             <Table2 className="size-3.5" />
-            Bảng
+            {isEnglish ? 'Table' : 'Bảng'}
           </button>
         </div>
       </div>
@@ -179,7 +182,7 @@ export function SessionStackedBarChart({ data = [] }) {
                 />
                 <Bar
                   dataKey="checked_in"
-                  name="Đã check-in"
+                  name={isEnglish ? 'Checked In' : 'Đã check-in'}
                   fill="#10B981"
                   stackId="sessionStack"
                   radius={[0, 0, 0, 0]}
@@ -187,7 +190,7 @@ export function SessionStackedBarChart({ data = [] }) {
                 />
                 <Bar
                   dataKey="valid"
-                  name="Chưa check-in"
+                  name={isEnglish ? 'Not Checked In' : 'Chưa check-in'}
                   fill="#F59E0B"
                   stackId="sessionStack"
                   radius={[0, 4, 4, 0]}
@@ -203,11 +206,11 @@ export function SessionStackedBarChart({ data = [] }) {
           <table className="w-full text-left text-xs">
             <thead className="border-b border-white/10 [html.light_&]:border-slate-200 bg-white/[0.02] text-slate-400 font-bold uppercase tracking-wider">
               <tr>
-                <th className="px-3.5 py-2.5">Phiên diễn</th>
-                <th className="px-3 py-2.5 text-right">Tổng vé</th>
-                <th className="px-3 py-2.5 text-right">Đã check-in</th>
-                <th className="px-3 py-2.5 text-right">Chưa check-in</th>
-                <th className="px-3 py-2.5 text-right">Tỷ lệ</th>
+                <th className="px-3.5 py-2.5">{isEnglish ? 'Session' : 'Phiên diễn'}</th>
+                <th className="px-3 py-2.5 text-right">{isEnglish ? 'Total Tickets' : 'Tổng vé'}</th>
+                <th className="px-3 py-2.5 text-right">{isEnglish ? 'Checked In' : 'Đã check-in'}</th>
+                <th className="px-3 py-2.5 text-right">{isEnglish ? 'Not Checked In' : 'Chưa check-in'}</th>
+                <th className="px-3 py-2.5 text-right">{isEnglish ? 'Rate' : 'Tỷ lệ'}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5 font-medium">

@@ -79,7 +79,8 @@ export function OrganizerTable({ headers, rows, minWidth = 'min-w-full' }) {
                 const label = isObj ? header.label : header
                 const isCenter = isObj
                   ? header.align === 'center'
-                  : ['Số sự kiện', 'Người đăng ký', 'Thao tác', 'Hành động'].includes(label)
+                  : ['Số sự kiện', 'Người đăng ký', 'Thao tác', 'Hành động', 'Trạng thái', 'Status', 'TRẠNG THÁI', 'STATUS'].includes(label) ||
+                    (typeof label === 'string' && ['trạng thái', 'status'].includes(label.trim().toLowerCase()))
 
                 return (
                   <th
@@ -107,7 +108,8 @@ export function OrganizerTable({ headers, rows, minWidth = 'min-w-full' }) {
                   const label = isObj ? header.label : header
                   const isCenter = isObj
                     ? header.align === 'center'
-                    : ['Số sự kiện', 'Người đăng ký', 'Thao tác', 'Hành động'].includes(label)
+                    : ['Số sự kiện', 'Người đăng ký', 'Thao tác', 'Hành động', 'Trạng thái', 'Status', 'TRẠNG THÁI', 'STATUS'].includes(label) ||
+                      (typeof label === 'string' && ['trạng thái', 'status'].includes(label.trim().toLowerCase()))
 
                   return (
                     <td

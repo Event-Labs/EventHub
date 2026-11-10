@@ -1,3 +1,5 @@
+import { EVENT_SYSTEM_TRANSLATIONS, translateAddress } from './eventTranslations.js'
+
 /**
  * Comprehensive Vietnamese to English UI phrase dictionary.
  * Used for instant bidirectional phrase lookup and automatic translation.
@@ -482,6 +484,61 @@ export const VI_TO_EN = {
   "Đã duyệt": "Approved",
   "Đã từ chối": "Rejected",
   "Chờ duyệt": "Pending Review",
+  "Chờ duyệt (Ưu tiên)": "Pending Review (Priority)",
+  "Mô tả chi tiết về sự kiện...": "Detailed description of the event...",
+  "Mô tả chi tiết...": "Detailed description...",
+  "Mô tả chính sách hoàn tiền...": "Refund policy description...",
+  "Mô tả lý do...": "Describe reason...",
+  "Mô tả ngắn gọn về sự kiện...": "Brief description of the event...",
+  "Mô tả quyền lợi vé...": "Ticket benefits description...",
+  "Nếu không nhập, hệ thống sẽ sử dụng email đăng nhập của bạn.": "If left blank, the system will use your login email.",
+  "Nghề nghiệp / Lĩnh vực hoạt động": "Occupation / Industry",
+  "Nhập câu hỏi...": "Enter question...",
+  "Nhập email hoặc số điện thoại...": "Enter email or phone number...",
+  "Nhập email nhân sự cần phân công...": "Enter staff email to assign...",
+  "Nhập email...": "Enter email...",
+  "Nhập giá tiền...": "Enter price...",
+  "Nhập lại mật khẩu": "Re-enter password",
+  "Nhập lý do từ chối...": "Enter reason for rejection...",
+  "Nhập mã giảm giá...": "Enter promo code...",
+  "Nhập mã sự kiện...": "Enter event code...",
+  "Nhập mật khẩu mới (tối thiểu 6 ký tự)": "Enter new password (at least 6 characters)",
+  "Nhập số lượng vé...": "Enter ticket quantity...",
+  "Nhập tên danh mục...": "Enter category name...",
+  "Nhập tên sự kiện...": "Enter event name...",
+  "Nhập tên vé...": "Enter ticket name...",
+  "Nhập từ khóa tìm kiếm...": "Enter search keyword...",
+  "Nội dung thông báo gửi đến người tham gia...": "Announcement content sent to attendees...",
+  "Số điện thoại người mua...": "Buyer phone number...",
+  "Số lượng vé...": "Ticket quantity...",
+  "Tìm kiếm theo mã đơn hàng, tên hoặc email khách hàng...": "Search by order code, customer name or email...",
+  "Tìm kiếm theo mã vé, số điện thoại hoặc email...": "Search by ticket code, phone number or email...",
+  "Tìm kiếm theo tên sự kiện, địa điểm...": "Search by event name, venue...",
+  "Tìm theo mã đơn, tên, email, SĐT khách hàng...": "Search by order code, name, email, customer phone...",
+  "Tìm theo mã hoặc tên sự kiện...": "Search by event code or name...",
+  "Tìm theo mã vé, tên người mua...": "Search by ticket code, buyer name...",
+  "Tìm theo tên danh mục...": "Search by category name...",
+  "Ví dụ: Ban Quản trị EventHub đồng thuận với lý do hủy sự kiện. Tiến trình hoàn tiền sẽ được khởi tạo...": "For example: EventHub Board agrees with cancellation reason. Refund process will be initiated...",
+  "Ví dụ: Kiểm tra số lượng vé, bảo trì thông tin, giữ chỗ nội bộ...": "For example: Check ticket count, update information, reserve internal seats...",
+  "Ví dụ: Lý do hủy chưa rõ ràng hoặc hồ sơ giải trình chưa đầy đủ...": "For example: Cancellation reason unclear or explanation documents incomplete...",
+  "Tìm mã vé, khách hàng, sự kiện, BTC...": "Search ticket code, customer, event, organizer...",
+  "Nhập mô tả các đặc quyền, quà tặng, vị trí chỗ ngồi...": "Enter description of perks, gifts, seating position...",
+  "VD: Sân vận động Mỹ Đình, GEM Center...": "e.g.: My Dinh Stadium, GEM Center...",
+  "Nhập địa chỉ cụ thể: Số nhà, tên đường, phường/xã, quận/huyện...": "Enter specific address: House number, street, ward, district...",
+  "Chọn tỉnh/thành": "Select province/city",
+  "Chọn quận/huyện": "Select district",
+  "Chọn phường/xã": "Select ward",
+  "VD: Hội trường lớn, Phòng Ballroom A...": "e.g.: Grand Hall, Ballroom A...",
+  "Nhập tên phiên... (VD: Khai mạc, Buổi sáng, Workshop AI)": "Enter session name... (e.g.: Opening, Morning, AI Workshop)",
+  "Nhập tên đợt bán vé... (VD: Early Bird, Vé đợt 1, Mở bán chính thức)": "Enter sales wave name... (e.g.: Early Bird, Wave 1, Official Sale)",
+  "Tìm tên sự kiện hoặc thể loại...": "Search event name or category...",
+  "Tìm mã vé, tên, email...": "Search ticket code, name, email...",
+  "Chờ duyệt (ưu tiên)": "Pending Review (Priority)",
+  "CHỜ DUYỆT (ƯU TIÊN)": "PENDING REVIEW (PRIORITY)",
+  "chờ duyệt (ưu tiên)": "pending review (priority)",
+  "Ưu tiên duyệt": "Priority Review",
+  "Ban tổ chức có hỗ trợ ưu tiên": "Organizer has priority support",
+  "(Hàng đợi ưu tiên cao của hệ thống)": "(System high priority queue)",
   "Cần sửa đổi": "Needs Revision",
   "Đã xuất bản": "Published",
   "Bản nháp": "Draft",
@@ -4053,7 +4110,8 @@ export const VI_TO_EN = {
   "Chủ đề / Tên ý tưởng sự kiện": "Theme/Name of the event idea",
   "Click khối để sửa tên trực tiếp · Giữ": "Click block to edit name directly · Hold",
   "Cung cấp mã số thuế cá nhân để thuận tiện cho việc xuất hóa đơn và đối soát tài chính.": "Provide personal tax code to facilitate invoicing and financial control.",
-  "Customer sẽ nhận thông báo kèm cổng và khu vực phân công. Sau khi chấp nhận, họ được gán role STAFF cho sự kiện này.": "Customer will receive a notification with the assigned port and area. Once accepted, they are assigned the STAFF role for this event.",
+  "Customer sẽ nhận thông báo kèm cổng và khu vực phân công. Sau khi chấp nhận, họ được gán role STAFF cho sự kiện này.": "Customer will receive a notification with the assigned gate and area. Once accepted, they are assigned the STAFF role for this event.",
+  "Khách hàng sẽ nhận thông báo kèm cổng và khu vực phân công. Sau khi chấp nhận, họ sẽ được gán vai trò nhân viên cho sự kiện này.": "Customer will receive a notification with the assigned gate and area. Once accepted, they are assigned the STAFF role for this event.",
   "Cài đặt Hệ thống AI Tự động Duyệt & Cảnh báo": "Install Auto Browsing & Alerts AI System",
   "Cài đặt bộ khóa Kênh chi riêng và làm theo các bước hướng dẫn bên dưới để kích hoạt dịch vụ trên payOS": "Install the Private Spend Channel key set and follow the instructions below to activate the service on payOS",
   "Có khiếu nại chưa nhận": "There are complaints that have not been received",
@@ -4621,7 +4679,263 @@ export const VI_TO_EN = {
   "Thành công": "Success",
   "Thất bại": "Failed",
   "Cảnh báo": "Warning",
+  "Âm nhạc & Biểu diễn": "Music & Performing Arts",
+  "Lễ hội & Văn hóa": "Festivals & Culture",
+  "Hội thảo & Giáo dục": "Workshops & Education",
+  "Kinh doanh & Công nghệ": "Business & Technology",
+  "Thể thao": "Sports",
+  "Âm nhạc": "Music",
+  "Biểu diễn": "Performing Arts",
+  "Lễ hội": "Festivals",
+  "Văn hóa": "Culture",
+  "Hội thảo": "Workshops",
+  "Giáo dục": "Education",
+  "Kinh doanh": "Business",
+  "Công nghệ": "Technology",
+  "Nghệ thuật & Sân khấu": "Arts & Theater",
+  "Ẩm thực & Đồ uống": "Food & Beverage",
+  "Du lịch & Trải nghiệm": "Travel & Experiences",
+  "Sức khỏe & Đời sống": "Health & Living",
+  "Thời trang & Phong cách": "Fashion & Style",
+  "Gia đình & Thiếu nhi": "Family & Kids",
+  "Thiếu nhi": "Kids",
+  "âm nhạc & biểu diễn": "Music & Performing Arts",
+  "lễ hội & văn hóa": "Festivals & Culture",
+  "hội thảo & giáo dục": "Workshops & Education",
+  "kinh doanh & công nghệ": "Business & Technology",
+  "thể thao": "Sports",
+  "Nhấn vào đây để chọn ghế trên sơ đồ": "Click here to select seats on the map",
+  "Đã hết hạn giữ vé": "Hold expired",
+  "Thời gian giữ vé (15 phút) cho đề xuất này đã hết hạn. Vui lòng chat để chọn lại vé mới.": "Ticket hold time (15 minutes) for this suggestion has expired. Please chat to select tickets again.",
+  "Thời gian giữ vé đã hết hạn": "Ticket hold time has expired",
+  "Đổi hàng ghế khác": "Change to another seat row",
+  "Đổi loại vé / số lượng": "Change ticket tier / quantity",
+  "Nhấn vào đây để xem lại & xác nhận vé": "Click here to review & confirm tickets",
+  "_Đã dừng phản hồi theo yêu cầu của bạn._": "_Response stopped per your request._",
+  "Xin lỗi, kết nối mạng tạm thời bị gián đoạn. Bạn vui lòng kiểm tra kết nối internet và thử lại nhé.": "Sorry, network connection is temporarily interrupted. Please check your internet connection and try again.",
+  "Tôi muốn tự chọn trên sơ đồ": "I want to choose on the map myself",
+  "Xác nhận & Đi tới Thanh toán": "Confirm & Proceed to Payment",
+  "Đổi sự kiện khác": "Change to another event",
+  "Suất diễn:": "Showtime:",
+  "Địa điểm:": "Venue:",
+  "Tổng thanh toán:": "Total payment:",
+  "Tạm giữ chỗ": "Hold reserved",
+  "Sẵn sàng đặt": "Ready to book",
+  "Không có giải trình chi tiết": "No detailed explanation",
+  "Nội dung thông báo sẽ hiển thị tại đây": "Notification content will appear here",
+  "Các giao dịch thanh toán hoặc giữ chỗ đang diễn ra sẽ không bị ảnh hưởng. Người mua mới sẽ thấy trạng thái \"Tạm dừng bán\" đối với loại vé hoặc vị trí ghế đã chọn.": "Ongoing payments or reservations will not be affected. New buyers will see \"Sales Paused\" status for the selected ticket tier or seat position.",
+  "Các giao dịch thanh toán hoặc giữ chỗ đang diễn ra sẽ không bị ảnh hưởng. Người mua mới sẽ thấy trạng thái &quot;Tạm dừng bán&quot; đối với loại vé hoặc vị trí ghế đã chọn.": "Ongoing payments or reservations will not be affected. New buyers will see \"Sales Paused\" status for the selected ticket tier or seat position.",
+  "Các loại vé và ghế còn số lượng sẽ ngay lập tức mở cho khách hàng đặt mua.": "Available ticket tiers and seats will immediately open for customer booking.",
+
+  // System Toast and API Error Message Translations
+  "Tài khoản email chưa được xác thực": "Email account has not been verified",
+  "Tài khoản email chưa được xác thực.": "Email account has not been verified.",
+  "Mật khẩu phải có ít nhất 8 ký tự": "Password must be at least 8 characters",
+  "Email này đã được sử dụng": "This email is already in use",
+  "Địa chỉ email không hợp lệ": "Invalid email address",
+  "Họ và tên là bắt buộc": "Full name is required",
+  "Mật khẩu phải chứa ít nhất 1 chữ hoa": "Password must contain at least 1 uppercase letter",
+  "Mật khẩu phải chứa ít nhất 1 ký tự đặc biệt": "Password must contain at least 1 special character",
+  "Mật khẩu phải chứa ít nhất 1 chữ số": "Password must contain at least 1 number",
+  "Email hoặc mật khẩu không chính xác": "Incorrect email or password",
+  "Tài khoản của bạn đã bị khóa": "Your account has been locked",
+  "Xác thực tài khoản Google không hợp lệ": "Invalid Google account verification",
+  "Đăng nhập Google thất bại": "Google sign-in failed",
+  "Phiên đăng nhập không hợp lệ hoặc đã hết hạn": "Login session is invalid or has expired",
+  "Không tìm thấy thông tin tài khoản": "Account information not found",
+  "Yêu cầu đặt lại mật khẩu không hợp lệ hoặc đã hết hạn": "Password reset request is invalid or has expired",
+  "Yêu cầu xác thực tài khoản không hợp lệ hoặc đã hết hạn": "Account verification request is invalid or has expired",
+  "Chưa có thông tin lần đổi mật khẩu gần nhất": "No record of recent password change",
+  "Bắt buộc nhập mật khẩu hiện tại": "Current password is required",
+  "Mật khẩu hiện tại không chính xác": "Current password is incorrect",
+  "Mật khẩu mới không được trùng với mật khẩu cũ": "New password cannot be the same as old password",
+  "Mật khẩu mới phải có ít nhất 6 ký tự": "New password must be at least 6 characters",
+  "Số điện thoại không đúng định dạng Việt Nam. Vui lòng nhập theo dạng 09xxxxxxxx hoặc +849xxxxxxxx.": "Invalid Vietnam phone number format. Please enter as 09xxxxxxxx or +849xxxxxxxx.",
+  "Thời gian giữ vé (15 phút) đã hết hạn. Đơn đặt vé đã bị hủy.": "Ticket hold time (15 minutes) has expired. Booking order was cancelled.",
+  "Thời gian giữ vé (15 phút) cho đề xuất này đã hết hạn. Vui lòng chat để chọn lại vé mới.": "Ticket hold time (15 minutes) for this suggestion has expired. Please chat to select tickets again.",
+  "Thời gian giữ đơn hàng đã hết.": "Order hold time has expired.",
+  "Ghế đã được người khác đặt sau khi hết hạn giữ chỗ.": "Seat was booked by another user after hold time expired.",
+  "Vui lòng đăng nhập để xem đơn hàng.": "Please sign in to view orders.",
+  "Vui lòng đăng nhập để xem vé.": "Please sign in to view tickets.",
+  "Vui lòng đăng nhập để tra cứu hoàn tiền.": "Please sign in to look up refunds.",
+  "Thất bại: Thiếu eventId. Bạn PHẢI gọi searchEvents để tìm chính xác ID sự kiện trước.": "Failed: Missing eventId. Please search for the event first.",
+  "Thất bại: Thiếu tham số eventId. Bạn PHẢI gọi getEventDetails trước.": "Failed: Missing eventId parameter. Please get event details first.",
+  "Dịch vụ Ollama hiện không phản hồi (offline)": "Ollama service is currently offline",
+  "AI không trả về JSON hợp lệ:": "AI did not return valid JSON:",
+  "Tiến trình quét AI đã được dừng theo yêu cầu của bạn.": "AI scan was stopped at your request.",
+  "Tiến trình quét AI đã bị hủy theo yêu cầu của quản trị viên.": "AI scan was cancelled by admin request.",
+  "Tiến trình quét AI đã bị dừng theo yêu cầu của quản trị viên.": "AI scan was stopped by admin request.",
+  "Hiện tại không có tiến trình quét AI nào đang chạy.": "No AI scan process is currently running.",
+  "Gói dịch vụ hiện tại không hỗ trợ sơ đồ ghế. Vui lòng nâng cấp gói để sử dụng tính năng này.": "Current plan does not support seat maps. Please upgrade your plan to use this feature.",
+  "Gói dịch vụ hiện tại không hỗ trợ tính năng Tạo sự kiện bằng AI. Vui lòng nâng cấp gói để sử dụng.": "Current plan does not support AI Event Creation. Please upgrade your plan to use this feature.",
+  "Gói dịch vụ hiện tại không hỗ trợ tính năng xuất danh sách người tham dự. Vui lòng nâng cấp gói để sử dụng.": "Current plan does not support attendee list export. Please upgrade your plan to use this feature.",
+  "Gói dịch vụ hiện tại không hỗ trợ Cố vấn & Báo cáo doanh thu AI. Vui lòng nâng cấp gói để sử dụng.": "Current plan does not support AI Advisor & Revenue Reports. Please upgrade your plan to use this feature.",
+  "Tính năng so sánh dữ liệu chỉ dành cho gói nâng cao. Vui lòng nâng cấp gói để sử dụng.": "Data comparison feature is only available for higher-tier plans. Please upgrade your plan to use this feature.",
+  "Đã từ chối yêu cầu hủy sự kiện. Trạng thái sự kiện được chuyển về Tạm dừng bán vé.": "Event cancellation request rejected. Status changed to Sales Paused.",
+  "Không thể hoàn tác yêu cầu hủy sự kiện.": "Cannot undo event cancellation request.",
+  "Quyết định kiểm duyệt phải là APPROVE hoặc REJECT": "Review decision must be APPROVE or REJECT",
+  "Điều khoản kiểm duyệt không tồn tại": "Review criterion does not exist",
+  "Không tìm thấy organizer.": "Organizer not found.",
+  "Trạng thái organizer không hợp lệ.": "Invalid organizer status.",
+  "Dữ liệu ảnh không hợp lệ.": "Invalid image data.",
+  "Không tìm thấy thông tin Ban tổ chức hợp lệ.": "Valid organizer information not found.",
+  "Sự kiện không tồn tại hoặc bạn không có quyền thao tác.": "Event does not exist or you do not have permission.",
+  "Sự kiện đã hủy không có thao tác Ẩn/Hiện.": "Cancelled events do not support Hide/Show actions.",
+  "Sự kiện đã hủy không thể hiển thị lại.": "Cancelled events cannot be shown again.",
+  "Sự kiện bị đình chỉ bởi Quản trị viên, Ban tổ chức không thể tự mở lại.": "Event was suspended by Admin; Organizer cannot reopen it.",
+  "Sự kiện đã ẩn quá 30 ngày, cần Quản trị viên xét duyệt lại trước khi hiển thị.": "Event has been hidden for over 30 days and requires Admin review before being made visible.",
+  "Sự kiện đã hiển thị và mở bán trở lại.": "Event is now visible and ticket sales have resumed.",
+  "Đã mở bán vé trở lại.": "Ticket sales have resumed.",
+  "Sự kiện không tồn tại": "Event does not exist",
+  "Sự kiện không tồn tại.": "Event does not exist.",
+  "Sự kiện đã có yêu cầu hủy đang chờ Quản trị viên xét duyệt.": "Event already has a cancellation request pending Admin review.",
+  "Không tìm thấy yêu cầu hủy đang chờ phê duyệt.": "No pending cancellation request found.",
+  "Không tìm thấy yêu cầu hủy đang chờ phê duyệt để rút lại.": "No pending cancellation request found to withdraw.",
+  "Không có yêu cầu hủy cưỡng chế đang chờ xác nhận.": "No forced cancellation request pending confirmation.",
+  "Không tìm thấy bản sửa đổi nào đang chờ duyệt cho sự kiện này.": "No pending revision found for this event.",
+  "Thông tin vé không hợp lệ.": "Invalid ticket information.",
+  "Sự kiện đang bị đình chỉ bởi Quản trị viên.": "Event is suspended by Admin.",
+  "Số ghế đã chọn không khớp với số lượng vé.": "Number of selected seats does not match ticket quantity.",
+  "Rất tiếc, ghế bạn chọn vừa có người đặt. Vui lòng chọn ghế khác.": "Sorry, your selected seat was just booked. Please select another seat.",
+  "Không tìm thấy sự kiện.": "Event not found.",
+  "Vui lòng nhập nội dung phản hồi.": "Please enter feedback content.",
+  "Nội dung phản hồi không hợp lệ.": "Invalid feedback content.",
+  "Không tìm thấy hồ sơ organizer hoặc tài khoản chưa hoạt động.": "Organizer profile not found or inactive.",
+  "Không tìm thấy sự kiện hoặc sự kiện không thuộc organizer này.": "Event not found or does not belong to this organizer.",
+  "Không thể mời chủ sự kiện làm staff của chính sự kiện này.": "Cannot invite the event organizer as staff for this event.",
+  "Không thể mời tài khoản organizer làm staff sự kiện.": "Cannot invite an organizer account as event staff.",
+  "Không thể mời tài khoản admin làm staff sự kiện.": "Cannot invite an admin account as event staff.",
+  "User đã là staff của sự kiện này.": "User is already a staff member of this event.",
+  "Đã có lời mời đang chờ xử lý cho email này.": "An invitation is already pending for this email.",
+  "Một hoặc nhiều phiên sự kiện đã chọn không hợp lệ hoặc không thuộc sự kiện này.": "One or more selected sessions are invalid or do not belong to this event.",
+  "Không tìm thấy phân công nhân sự cho sự kiện này.": "No staff assignment found for this event.",
+  "Không tìm thấy phân công staff cho sự kiện này.": "No staff assignment found for this event.",
+  "Không tìm thấy lời mời nhân sự.": "Staff invitation not found.",
+  "Không tìm thấy người dùng.": "User not found.",
+  "Không tìm thấy lời mời staff.": "Staff invitation not found.",
+  "Lời mời này đã được phản hồi trước đó.": "This invitation has already been answered.",
+  "Lời mời staff đã hết hạn.": "Staff invitation has expired.",
+  "Bạn đã nhận lời mời thành công. Cổng nhân sự đã sẵn sàng cho bạn.": "You have accepted the invitation. Staff portal is ready for you.",
+  "Khóa Idempotency không thuộc về tài khoản này.": "Idempotency key does not belong to this account.",
+  "Idempotency key đã được sử dụng với sự kiện khác.": "Idempotency key was used with another event.",
+  "Idempotency key đã được sử dụng với mã giảm giá khác.": "Idempotency key was used with another promo code.",
+  "Idempotency key đã được sử dụng với danh sách vé khác.": "Idempotency key was used with a different ticket list.",
+  "Idempotency key đã được sử dụng với số lượng vé khác.": "Idempotency key was used with a different ticket quantity.",
+  "Bạn cần đồng ý với điều khoản của sự kiện trước khi thanh toán.": "You must agree to event terms before payment.",
+  "Vui lòng nhập đủ thông tin người tham dự cho từng vé.": "Please enter attendee information for each ticket.",
+  "Không tìm thấy tài khoản nhân sự.": "Staff account not found.",
+  "Bạn không được phân công quản lý sự kiện này.": "You are not assigned to manage this event.",
+  "Sự kiện hiện không khả dụng để cấp vé mời.": "Event is currently unavailable for complimentary tickets.",
+  "Một số ghế đã chọn không tồn tại.": "Some selected seats do not exist.",
+  "Một số ghế đã chọn đã được đặt hoặc không khả dụng.": "Some selected seats are already booked or unavailable.",
+  "Sự kiện hiện không khả dụng để book vé trực tiếp.": "Event is currently unavailable for direct booking.",
+  "Loại vé không thuộc sự kiện này.": "Ticket tier does not belong to this event.",
+  "Suất diễn hiện không khả dụng để đặt vé.": "Session is currently unavailable for booking.",
+  "Book vé trực tiếp hiện chưa hỗ trợ loại vé chọn ghế.": "Direct booking does not support assigned seats yet.",
+  "Số lượng vé còn lại không đủ.": "Remaining ticket quantity is insufficient.",
+  "Không tìm thấy booking trực tiếp.": "Direct booking not found.",
+  "Không tìm thấy booking trực tiếp đang chờ thanh toán.": "Direct booking awaiting payment not found.",
+  "Không tìm thấy giao dịch đang chờ thanh toán.": "Transaction awaiting payment not found.",
+  "Số tiền thanh toán không hợp lệ.": "Invalid payment amount.",
+  "Không thể xác nhận đơn hàng.": "Cannot confirm order.",
+  "Sự kiện hoặc loại vé đã chọn đang tạm dừng bán.": "The event or selected ticket tier is currently paused.",
+  "Vé miễn phí yêu cầu đăng nhập tài khoản.": "Free tickets require signing in.",
+  "Giá vé không hợp lệ.": "Invalid ticket price.",
+  "Mã khuyến mãi không hợp lệ cho đơn hàng này.": "Promo code is invalid for this order.",
+  "Đơn hàng có số tiền phải thanh toán lớn hơn 0.": "Order has a payable amount greater than 0.",
+  "Một hoặc nhiều ghế đã chọn không hợp lệ.": "One or more selected seats are invalid.",
+  "Thông tin người tham dự không khớp với số lượng vé.": "Attendee information does not match ticket quantity.",
+  "Tính năng cấp vé mời nhân sự hiện đang tạm đóng.": "Complimentary ticket feature is currently closed.",
+  "File không hợp lệ hoặc rỗng": "File is invalid or empty",
+  "Thư viện pdf-parse không khả dụng": "pdf-parse library is unavailable",
+  "Định dạng file không được hỗ trợ. Vui lòng tải file PDF, Word (.docx) hoặc Text (.txt)": "Unsupported file format. Please upload PDF, Word (.docx) or Text (.txt)",
+  "Tài liệu quá ngắn hoặc không chứa nội dung văn bản có thể đọc được": "Document is too short or contains no readable text",
+  "Tài liệu được cung cấp là đề thi / câu hỏi trắc nghiệm / tài liệu học tập, không phải kế hoạch hoặc thông tin về sự kiện. Vui lòng kiểm tra và tải lên tài liệu sự kiện hợp lệ.": "The uploaded document appears to be an exam or study material, not an event plan. Please upload a valid event document.",
+  "Không tìm thấy thông tin Ban tổ chức.": "Organizer information not found.",
+  "Cấu hình quy tắc hoàn vé không hợp lệ": "Invalid refund rule configuration",
+  "Thời gian bắt đầu sự kiện không được ở trong quá khứ.": "Event start time cannot be in the past.",
+  "Thời gian check-in không hợp lệ.": "Invalid check-in time.",
+  "Thời gian check-in không được ở trong quá khứ.": "Check-in time cannot be in the past.",
+  "Thời gian check-in phải trước hoặc bằng thời gian bắt đầu sự kiện.": "Check-in time must be on or before event start time.",
+  "Xung đột phiên bản khi cập nhật. Dữ liệu đã thay đổi bởi phiên làm việc khác.": "Version conflict. Data was modified by another session.",
+  "Sự kiện đang bị đình chỉ bởi Quản trị viên, không thể chỉnh sửa.": "Event is suspended by Admin and cannot be edited.",
+  "Đã có một yêu cầu xét duyệt đang mở cho sự kiện này.": "A review request is already open for this event.",
+  "Yêu cầu Critical Change đã được gửi và đang chờ Quản trị viên xét duyệt.": "Critical Change request submitted and pending Admin review.",
+  "Đã có một Revision đang mở cho sự kiện này.": "A Revision is already open for this event.",
+  "Thay đổi lớn đã được gửi tới Quản trị viên xét duyệt. Bản sự kiện đang chạy được giữ nguyên.": "Major changes submitted for Admin review. The live event remains unchanged.",
+  "Bạn cần cấu hình kênh thanh toán PayOS trước khi mở bán vé cho sự kiện này.": "You need to configure PayOS payment channel before opening ticket sales.",
+  "Không thể xuất bản sự kiện này": "Cannot publish this event",
+  "Không thể hủy sự kiện này": "Cannot cancel this event",
+  "Chỉ có thể xóa sự kiện ở trạng thái bản nháp.": "Only draft events can be deleted.",
+  "Không thể xóa bản nháp sự kiện này": "Cannot delete this event draft",
+  "Chủ đề hoặc tên ý tưởng sự kiện là bắt buộc": "Event theme or idea title is required",
+  "Vui lòng nhập tên sơ đồ.": "Please enter seat map name.",
+  "Sơ đồ cần có ít nhất một ghế ngồi hoặc một vùng đứng.": "Seat map must have at least one seat or standing area.",
+  "Sơ đồ ghế đang được sử dụng bởi một hoặc nhiều phiên sự kiện, không thể xóa.": "Seat map is currently used by one or more sessions and cannot be deleted.",
+  "Venue đang được sử dụng bởi sự kiện active": "Venue is currently in use by an active event",
+  "Không thể giải mã thông tin xác thực": "Cannot decrypt credentials",
+  "API Key không hợp lệ": "Invalid API Key",
+  "Checksum Key không hợp lệ": "Invalid Checksum Key",
+  "Số tài khoản ngân hàng là bắt buộc": "Bank account number is required",
+  "Số tài khoản ngân hàng không hợp lệ (4-30 ký tự chữ hoặc số)": "Invalid bank account number (4-30 alphanumeric characters)",
+  "Vui lòng hoàn tất cài đặt Kênh thu trước khi cấu hình Kênh chi.": "Please complete Collection Channel setup before configuring Payout Channel.",
+  "Vui lòng nhập đủ Client ID, API Key và Checksum Key cho Kênh chi.": "Please provide Client ID, API Key and Checksum Key for Payout Channel.",
+  "API Key và Checksum Key của Kênh chi phải được nhập cùng nhau.": "Payout API Key and Checksum Key must be provided together.",
+  "API Key Kênh chi không hợp lệ": "Invalid Payout API Key",
+  "Checksum Key Kênh chi không hợp lệ": "Invalid Payout Checksum Key",
+  "Thông tin kết nối Kênh chi chưa đầy đủ. Vui lòng kiểm tra lại.": "Payout connection information is incomplete. Please check again.",
+  "Kết nối Kênh chi PayOS thành công (Chế độ mô phỏng). Kênh chi đã sẵn sàng.": "PayOS Payout connected successfully (Simulation Mode). Payout channel is ready.",
+  "Hết thời gian kết nối đến cổng PayOS (Timeout). Vui lòng thử lại sau.": "PayOS gateway connection timed out. Please try again later.",
+  "Số CCCD không trùng khớp với hồ sơ thẩm định": "National ID does not match verification profile",
+  "Họ và tên không trùng khớp với hồ sơ thẩm định": "Full name does not match verification profile",
+  "Chưa cấu hình proxy chi tiền (PAYOS_STATIC_PROXY_URL hoặc PAYOS_EXPECTED_EGRESS_IP)": "Payout proxy not configured",
+  "Tất cả các sự kiện được chọn phải thuộc quyền sở hữu của nhà tổ chức.": "All selected events must belong to the organizer.",
+  "Vui lòng chọn ít nhất một sự kiện cho chương trình khuyến mãi.": "Please select at least one event for the promotion.",
+  "Không tìm thấy thông tin đơn thanh toán PayOS ban đầu của đơn hàng.": "Original PayOS payment order not found.",
+  "Ban tổ chức chưa cấu hình hoặc thiếu thông tin kết nối cổng thanh toán PayOS.": "Organizer has not configured or is missing PayOS gateway connection.",
+  "Ban tổ chức chưa cấu hình Checksum Key của Kênh chi. Vui lòng vào Cài đặt thanh toán để cập nhật.": "Organizer has not configured Payout Checksum Key. Please update in Payment Settings.",
+  "Số tiền hoàn phải lớn hơn 0.": "Refund amount must be greater than 0.",
+  "Chưa cấu hình Gateway IP tĩnh chuyên dụng cho Ban tổ chức": "Dedicated static Gateway IP not configured for Organizer",
+  "Khách hàng chưa cung cấp số tài khoản ngân hàng để thực hiện hoàn tiền tự động qua PayOS. Vui lòng chuyển khoản thủ công cho khách hàng.": "Customer has not provided a bank account for automatic PayOS refund. Please transfer manually.",
+  "Thiếu mã yêu cầu hoàn tiền.": "Missing refund request ID.",
+  "Vui lòng cung cấp đầy đủ thông tin: Ngân hàng, Số tài khoản và Tên chủ tài khoản.": "Please provide full bank details: Bank, Account Number, and Account Holder Name.",
+  "Tôi muốn đổi ghế khác": "I want to change to another seat",
+  "Mua nhầm vé (Ghi chú: Tôi muốn đổi ghế khác)": "Purchased wrong ticket (Note: I want to change to another seat)",
+  "Không tìm thấy yêu cầu hoàn tiền.": "Refund request not found.",
+  "Yêu cầu hoàn tiền đã gửi lệnh chi hoặc đã hoàn tất, không thể thay đổi thông tin.": "Refund request has been disbursed or completed; details cannot be changed.",
+  "Danh sách mã hoàn tiền không được rỗng.": "Refund ID list cannot be empty.",
+  "Quyết định không hợp lệ (APPROVE hoặc REJECT)": "Invalid decision (APPROVE or REJECT)",
+  "Vui lòng chọn ít nhất một yêu cầu hoàn tiền để xử lý.": "Please select at least one refund request to process.",
+  "Bạn không có quyền xem yêu cầu hoàn tiền này.": "You do not have permission to view this refund request.",
+  "Yêu cầu hoàn tiền không thuộc sự kiện của bạn.": "Refund request does not belong to your event.",
+  "Hành động xử lý không hợp lệ (APPROVE, REJECT, REFUND).": "Invalid action (APPROVE, REJECT, REFUND).",
+  "Lỗi xử lý yêu cầu": "Error processing request",
+  "Vui lòng cung cấp mã đơn hàng (order_id) hoặc mã vé (ticket_id)": "Please provide order ID or ticket ID",
+  "Vui lòng nhập lý do cụ thể khi chọn \"Khác\".": "Please specify reason when selecting 'Other'.",
+  "Hành động không hợp lệ (APPROVE, REJECT, REFUND)": "Invalid action (APPROVE, REJECT, REFUND)",
+  "Vui lòng chọn lý do từ chối yêu cầu hoàn tiền.": "Please select reason for rejecting refund request.",
+  "Vui lòng nhập ghi chú khi chọn lý do từ chối là \"Khác\".": "Please enter note when rejection reason is 'Other'.",
+  "Vé không tồn tại": "Ticket does not exist",
+  "Bạn không có quyền thực hiện thao tác với vé này": "You do not have permission to perform actions on this ticket",
+  "Vé đã được hủy trước đó": "Ticket was cancelled previously",
+  "Vé đã được check-in, không thể hủy": "Ticket was already checked in and cannot be cancelled",
+  "Không thể cập nhật trạng thái vé": "Cannot update ticket status",
+  "QR không đúng định dạng vé EventHub.": "QR is not a valid EventHub ticket format.",
+  "QR không khớp sự kiện của vé.": "QR does not match the event for this ticket.",
+  "QR không khớp phiên của vé.": "QR does not match the session for this ticket.",
+  "Nhân sự không có quyền xem vé này.": "Staff does not have permission to view this ticket.",
+  "QR không hợp lệ.": "Invalid QR code.",
+  "Staff không có quyền check-in vé này.": "Staff does not have permission to check in this ticket.",
+  "Nhân viên không được phân công cho sự kiện này.": "Staff is not assigned to this event.",
+  "Sự kiện hoặc suất diễn đã bị hủy.": "Event or session has been cancelled.",
+  "Vé đang trong tiến trình hoàn tiền, không được phép check-in.": "Ticket is undergoing refund and cannot be checked in.",
+  "Vé chưa được thanh toán hoặc đơn hàng không hợp lệ.": "Ticket is unpaid or order is invalid.",
+  "Vé đã hết hạn.": "Ticket has expired.",
+  "lúc": "at",
 }
+
+// Merge complete system event and venue translations
+Object.assign(VI_TO_EN, EVENT_SYSTEM_TRANSLATIONS)
 
 // Build reverse dictionary for reverting to Vietnamese
 export const EN_TO_VI = Object.fromEntries(
@@ -4648,9 +4962,15 @@ export function translatePhrase(text, targetLocale) {
       return text.replace(trimmed, VI_TO_EN[trimmed])
     }
 
+    // Normalized whitespace & non-breaking spaces (\u00A0, &nbsp;)
+    const normalized = trimmed.replace(/\u00A0/g, ' ').replace(/\s+/g, ' ')
+    if (VI_TO_EN[normalized]) {
+      return text.replace(trimmed, VI_TO_EN[normalized])
+    }
+
     // Trailing colon match (e.g. "Khoảng thời gian:" -> "Time Range:")
-    if (trimmed.endsWith(':')) {
-      const stem = trimmed.slice(0, -1).trim()
+    if (normalized.endsWith(':')) {
+      const stem = normalized.slice(0, -1).trim()
       if (VI_TO_EN[stem]) {
         return text.replace(trimmed, `${VI_TO_EN[stem]}:`)
       }
@@ -4661,23 +4981,31 @@ export function translatePhrase(text, targetLocale) {
     }
 
     // Trailing question mark match (e.g. "Xóa sự kiện?" -> "Delete event?")
-    if (trimmed.endsWith('?')) {
-      const stem = trimmed.slice(0, -1).trim()
+    if (normalized.endsWith('?')) {
+      const stem = normalized.slice(0, -1).trim()
       if (VI_TO_EN[stem]) {
         return text.replace(trimmed, `${VI_TO_EN[stem]}?`)
       }
     }
 
     // Parentheses match (e.g. "(Không giới hạn)" -> "(Unlimited)")
-    if (trimmed.startsWith('(') && trimmed.endsWith(')')) {
-      const inner = trimmed.slice(1, -1).trim()
+    if (normalized.startsWith('(') && normalized.endsWith(')')) {
+      const inner = normalized.slice(1, -1).trim()
       if (VI_TO_EN[inner]) {
         return text.replace(trimmed, `(${VI_TO_EN[inner]})`)
       }
     }
 
+    // Quotes match (e.g. "\"CON QUỶ RỐI 2\"" -> "\"Puppet Demon 2\"")
+    if ((normalized.startsWith('"') && normalized.endsWith('"')) || (normalized.startsWith('“') && normalized.endsWith('”'))) {
+      const inner = normalized.slice(1, -1).trim()
+      if (VI_TO_EN[inner]) {
+        return text.replace(trimmed, `"${VI_TO_EN[inner]}"`)
+      }
+    }
+
     // Case-insensitive match
-    const lower = trimmed.toLowerCase()
+    const lower = normalized.toLowerCase()
     if (LOWERCASE_MAP.has(lower)) {
       return text.replace(trimmed, LOWERCASE_MAP.get(lower))
     }
@@ -4704,6 +5032,25 @@ export function translateComposite(text, locale) {
   if (VI_TO_EN[trimmed]) {
     return res.replace(trimmed, VI_TO_EN[trimmed])
   }
+
+  // Address and venue translation
+  if (/(?:Hẻm|Đường|Phường|Quận|Huyện|Thị\s*xã|Thành\s*phố|TP\.?|Lầu|Tầng|Khu\s*phố|Việt\s*Nam)/i.test(res) ||
+      /(?:Lá Nhà Garden|Garden Art|Sân khấu|Nhà hát|Cung Điền Kinh|APEC|Trưng Vương|Trần Hữu Trang|IDECAF)/i.test(res)) {
+    const translatedAddr = translateAddress(res)
+    if (translatedAddr && translatedAddr !== res) {
+      return translatedAddr
+    }
+  }
+
+  // Zone / Area replacement (e.g. "Khu A" -> "Zone A", "Khu VIP" -> "VIP Zone")
+  res = res.replace(/(^|[^\p{L}\p{N}])Khu\s+([A-Za-z0-9]+)(?=[^\p{L}\p{N}]|$)/gui, (m, p1, p2) => `${p1}Zone ${p2}`)
+
+  // Date and Time range prefixes
+  res = res.replace(/Ngày\s+diễn\s+ra:\s*/gi, 'Event Date: ')
+  res = res.replace(/Cập\s+nhật\s+lần\s+cuối:\s*/gi, 'Last updated: ')
+  res = res.replace(/Bắt\s+đầu:\s*/gi, 'Start: ')
+  res = res.replace(/Kết\s+thúc:\s*/gi, 'End: ')
+  res = res.replace(/Thời\s+gian:\s*/gi, 'Time: ')
 
   // Composite event and date patterns
   const DAY_MAP = {
@@ -4805,5 +5152,82 @@ export function translateComposite(text, locale) {
   res = res.replace(/0\s*\(Không giới hạn\)/gi, '0 (Unlimited)')
   res = res.replace(/Điền 0 nếu là gói dịch vụ miễn phí/gi, 'Enter 0 if this is a free plan')
 
-  return res
+  
+  // Dynamic toast and notification template replacements
+  res = res.replace(/^Mã OTP đã được gửi đến (.*?)\.?$/gi, 'An OTP code has been sent to $1.')
+  res = res.replace(/^Hệ thống AI đã tự động phê duyệt sự kiện (.*?)\.?$/gi, 'AI system automatically approved event $1.')
+  res = res.replace(/^Hệ thống AI đã tự động từ chối sự kiện (.*?)\.?$/gi, 'AI system automatically rejected event $1.')
+  res = res.replace(/^Đã hoàn tất quét review trước cho (.*?)\. Kết quả đã sẵn sàng để Admin kiểm tra\.?$/gi, 'Completed pre-review scan for $1. Results ready for Admin review.')
+  res = res.replace(/^AI đã thẩm định (.*?): Cần Admin xem xét thêm \(Needs Review\)\.?$/gi, 'AI evaluated $1: Needs Admin review.')
+  res = res.replace(/^Đã đình chỉ sự kiện "(.*?)"\.?$/gi, 'Suspended event "$1".')
+  res = res.replace(/^Đã gỡ đình chỉ sự kiện "(.*?)"\.?$/gi, 'Unsuspended event "$1".')
+  res = res.replace(/^Hạng vé "(.*?)" đang tạm dừng bán\. Vui lòng chọn ghế khác\.?$/gi, 'Ticket tier "$1" is paused. Please select another seat.')
+  res = res.replace(/^Khu vực "(.*?)" đang tạm dừng bán\.?$/gi, 'Area "$1" is paused.')
+  res = res.replace(/^Bạn chỉ được chọn tối đa (\d+) ghế trong một lần đặt\.?$/gi, 'You can only select up to $1 seats per booking.')
+  res = res.replace(/^Bạn chỉ được mua tối đa (\d+) vé trong một lần đặt\.?$/gi, 'You can only buy up to $1 tickets per booking.')
+  res = res.replace(/^Đơn hàng cần tối thiểu (.*?) để áp dụng mã này\.?$/gi, 'Order requires a minimum of $1 to apply this code.')
+  res = res.replace(/^Đã áp dụng mã giảm giá (.*?)[!.]?$/gi, 'Discount code $1 applied!')
+  res = res.replace(/^Đã lưu mã khuyến mãi:\s*(.*?)\.\s*Hệ thống sẽ đối soát khi thanh toán\.?$/gi, 'Promo code $1 saved. It will be verified at checkout.')
+  res = res.replace(/^Sự kiện "(.*?)" đã được xuất bản thành công\.?$/gi, 'Event "$1" was published successfully.')
+  res = res.replace(/^Sự kiện "(.*?)" đã được hủy thành công\.?$/gi, 'Event "$1" was cancelled successfully.')
+  res = res.replace(/^Đã gửi yêu cầu hủy sự kiện "(.*?)" lên Admin phê duyệt\.?$/gi, 'Submitted cancellation request for event "$1" for Admin approval.')
+  res = res.replace(/^Đã hoàn tác yêu cầu hủy sự kiện "(.*?)"\.?$/gi, 'Withdrawn cancellation request for event "$1".')
+  res = res.replace(/^Đã hoàn tác yêu cầu hủy sự kiện "(.*?)"\. Sự kiện đã mở bán lại bình thường\.?$/gi, 'Withdrawn cancellation request for event "$1". Ticket sales resumed normally.')
+  res = res.replace(/^Đã mở hiển thị lại sự kiện "(.*?)"\.?$/gi, 'Event "$1" is now visible again.')
+  res = res.replace(/^Đã ẩn sự kiện "(.*?)" khỏi tìm kiếm và trang chủ\.?$/gi, 'Event "$1" hidden from search and home page.')
+  res = res.replace(/^Đã mở bán lại vé cho "(.*?)"\.?$/gi, 'Ticket sales resumed for "$1".')
+  res = res.replace(/^Đã tạm dừng bán vé cho "(.*?)"\.?$/gi, 'Paused ticket sales for "$1".')
+  res = res.replace(/^Đã xóa vĩnh viễn bản nháp "(.*?)"\.?$/gi, 'Permanently deleted draft "$1".')
+  res = res.replace(/^Đã sao chép (.*?)!$/gi, 'Copied $1!')
+  res = res.replace(/^Đã sao chép (.*?)$/gi, 'Copied $1')
+  res = res.replace(/^Hoàn tiền vé thành công$/gi, 'Ticket Refund Successful')
+  res = res.replace(/^Yêu cầu hoàn tiền vé ([^\s]+) đã hoàn tất\.\s*Số tiền:\s*(.*?)\.?$/gi, 'Refund request for ticket $1 has been completed. Amount: $2.')
+  res = res.replace(/^Nhắc lịch:\s*"(.*?)"\s*sắp diễn ra trong 2 giờ tới!?$/gi, 'Reminder: "$1" is starting in the next 2 hours!')
+  res = res.replace(/^Nhắc lịch:\s*"(.*?)"\s*diễn ra trong 24 giờ tới\s*\((.*?)\)$/gi, (m, ev, dt) => {
+    let transDt = dt
+      .replace(/Thứ Hai/gi, 'Monday')
+      .replace(/Thứ Ba/gi, 'Tuesday')
+      .replace(/Thứ Tư/gi, 'Wednesday')
+      .replace(/Thứ Năm/gi, 'Thursday')
+      .replace(/Thứ Sáu/gi, 'Friday')
+      .replace(/Thứ Bảy/gi, 'Saturday')
+      .replace(/Chủ Nhật/gi, 'Sunday')
+    return `Reminder: "${ev}" takes place in the next 24 hours (${transDt})`
+  })
+  res = res.replace(/^Sự kiện "(.*?)" sẽ bắt đầu lúc (.*?),\s*([^\.]+?)(?:\s+tại\s+([^\.]+?)|(?:\s*\(Trực tuyến\)))?\.\s*Hãy chuẩn bị vé điện tử để check-in đúng giờ\.?$/gi, (m, ev, tm, dt, vn) => {
+    let transDt = dt
+      .replace(/Thứ Hai/gi, 'Monday')
+      .replace(/Thứ Ba/gi, 'Tuesday')
+      .replace(/Thứ Tư/gi, 'Wednesday')
+      .replace(/Thứ Năm/gi, 'Thursday')
+      .replace(/Thứ Sáu/gi, 'Friday')
+      .replace(/Thứ Bảy/gi, 'Saturday')
+      .replace(/Chủ Nhật/gi, 'Sunday')
+    const venuePart = vn ? ` at ${vn}` : (m.includes('Trực tuyến') ? ' (Online)' : '')
+    return `Event "${ev}" will start at ${tm}, ${transDt}${venuePart}. Please have your e-ticket ready for on-time check-in.`
+  })
+  res = res.replace(/^Đã gửi thông báo thành công tới (\d+) người tham dự!$/gi, 'Notification successfully sent to $1 attendees!')
+  res = res.replace(/^Đã xuất vé và gửi email tới (.*?)\.?$/gi, 'Tickets issued and email sent to $1.')
+  res = res.replace(/^Hoàn tiền thành công toàn bộ (\d+) yêu cầu qua PayOS!$/gi, 'Successfully refunded all $1 requests via PayOS!')
+  res = res.replace(/^Đã hoàn tiền (\d+)\/(\d+) yêu cầu qua PayOS\.?$/gi, 'Refunded $1/$2 requests via PayOS.')
+  res = res.replace(/^(\d+) yêu cầu lỗi:\s*(.*?)$/gi, '$1 failed requests: $2')
+  res = res.replace(/^Hoàn tiền thất bại:\s*(.*?)$/gi, 'Refund failed: $1')
+  res = res.replace(/^Thao tác thất bại:\s*(.*?)$/gi, 'Action failed: $1')
+  res = res.replace(/^Đã mở bán lại cho (\d+) vị trí ghế đã chọn\.?$/gi, 'Resumed sales for $1 selected seats.')
+  res = res.replace(/^Đã tạm dừng bán vé cho (\d+) vị trí ghế đã chọn\.?$/gi, 'Paused sales for $1 selected seats.')
+  res = res.replace(/^Đã tải lên thành công (\d+) giấy phép \(PDF\)!?$/gi, 'Successfully uploaded $1 permits (PDF)!')
+  res = res.replace(/^Đã tải lên thành công (\d+) tài liệu pháp lý!?$/gi, 'Successfully uploaded $1 legal documents!')
+  res = res.replace(/^Đã cập nhật địa điểm "(.*?)"!$/gi, 'Updated venue "$1"!')
+  res = res.replace(/^Đã cập nhật địa điểm "(.*?)" vào thông tin sự kiện!$/gi, 'Updated venue "$1" in event details!')
+  res = res.replace(/^Đã tạo sơ đồ ghế và cập nhật địa điểm "(.*?)"!$/gi, 'Created seat map and updated venue "$1"!')
+  res = res.replace(/^File "(.*?)" vượt quá dung lượng tối đa 10MB$/gi, 'File "$1" exceeds maximum size of 10MB')
+  res = res.replace(/^(.*?)\s*\((?:Ghi chú|Note):\s*(.*?)\)$/i, (m, mainPart, notePart) => {
+    const trimmedMain = mainPart.trim()
+    const transMain = VI_TO_EN[trimmedMain] || translateComposite(trimmedMain, 'en') || trimmedMain
+    const trimmedNote = notePart.trim()
+    const transNote = VI_TO_EN[trimmedNote] || trimmedNote
+    return `${transMain} (Note: ${transNote})`
+  })
+
+return res
 }

@@ -19,6 +19,8 @@ import {
 } from './OrganizerComponents.jsx'
 import { CosmicSelect } from '@/components/CosmicSelect.jsx'
 import { OrganizerEventPicker } from './OrganizerEventPicker.jsx'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
+import { translatePhrase } from '@/i18n/phraseDictionary.js'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -104,6 +106,7 @@ function formatDateTime(dateStr) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export function OrganizerOrdersPage() {
+  const { isEnglish } = useLanguage()
   const [orders, setOrders] = useState([])
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, total_pages: 1 })
   const [events, setEvents] = useState([])
@@ -248,7 +251,7 @@ export function OrganizerOrdersPage() {
                   <th className="px-3 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap">Sự kiện</th>
                   <th className="w-14 px-2 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap text-center">Số vé</th>
                   <th className="px-3 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap text-right">Tổng tiền</th>
-                  <th className="px-3 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap !text-left" style={{ textAlign: 'left' }}>Trạng thái</th>
+                  <th className="px-3 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap text-center">Trạng thái</th>
                   <th className="px-3 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap text-center">Ngày đặt</th>
                   <th className="w-14 px-3 py-3 font-bold uppercase tracking-wider text-white whitespace-nowrap text-center">Thao tác</th>
                 </tr>
@@ -271,8 +274,8 @@ export function OrganizerOrdersPage() {
                       </div>
                     </td>
                     <td className="max-w-[160px] xl:max-w-[200px] px-3 py-3">
-                      <p className="truncate text-sm font-bold text-white" title={order.event_title}>
-                        {order.event_title}
+                      <p className="truncate text-sm font-bold text-white" title={isEnglish ? (translatePhrase(order.event_title, 'en') || order.event_title) : order.event_title}>
+                        {isEnglish ? (translatePhrase(order.event_title, 'en') || order.event_title) : order.event_title}
                       </p>
                     </td>
                     <td className="w-14 px-2 py-3 text-center text-sm font-semibold text-content whitespace-nowrap">
@@ -281,8 +284,8 @@ export function OrganizerOrdersPage() {
                     <td className="px-3 py-3 text-right font-mono font-bold text-primary text-sm whitespace-nowrap">
                       {formatCurrency(order.total_amount)}
                     </td>
-                    <td className="px-3 py-3 !text-left whitespace-nowrap" style={{ textAlign: 'left' }}>
-                      <div className="flex items-center justify-start text-left">
+                    <td className="px-3 py-3 text-center whitespace-nowrap">
+                      <div className="flex items-center justify-center">
                         <StatusBadge
                           status={order.status}
                           label={STATUS_LABEL[order.status]}
@@ -429,8 +432,8 @@ function OrderDetailModal({ orderId, onClose }) {
                       tone={STATUS_TONE[order.status]}
                     />
                   </DetailRow>
-                  <DetailRow label="Sự kiện">
-                    <span className="font-bold text-white text-base leading-snug">{order.event_title}</span>
+                  <DetailRow label={isEnglish ? 'Event' : 'Sự kiện'}>
+                    <span className="font-bold text-white text-base leading-snug">{isEnglish ? (translatePhrase(order.event_title, 'en') || order.event_title) : order.event_title}</span>
                   </DetailRow>
                   <DetailRow label="Ngày đặt">
                     <span className="text-slate-200 font-medium">{formatDateTime(order.created_at)}</span>

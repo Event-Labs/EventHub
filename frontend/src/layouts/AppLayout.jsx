@@ -125,8 +125,8 @@ function isStaffInvitationStoreNotification(notification) {
   return notification.title === 'STAFF_INVITATION'
 }
 
-function getNotificationDisplay(notification) {
-  return formatNotificationDisplay(notification)
+function getNotificationDisplay(notification, isEnglish = false) {
+  return formatNotificationDisplay(notification, isEnglish)
 }
 
 function getNotificationTarget(notification) {
@@ -505,8 +505,8 @@ export function AppLayout() {
                         <div className="flex items-start gap-3">
                           {!notification.is_read && <span className="mt-2 size-2 rounded-full bg-gradient-to-r from-[#C99A47] to-[#E6C17A]" />}
                           <div className="min-w-0 flex-1">
-                            <p className="line-clamp-1 text-sm font-bold text-white">{getNotificationDisplay(notification).title}</p>
-                            <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted">{getNotificationDisplay(notification).content}</p>
+                            <p className="line-clamp-1 text-sm font-bold text-white">{getNotificationDisplay(notification, isEnglish).title}</p>
+                            <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted">{getNotificationDisplay(notification, isEnglish).content}</p>
                           </div>
                         </div>
                       </button>

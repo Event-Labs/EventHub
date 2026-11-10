@@ -27,6 +27,9 @@ import {
   TableActionButton,
 } from './OrganizerComponents.jsx'
 import { EventActionsDropdown } from './EventActionsDropdown.jsx'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
+import { getCategoryName } from '@/i18n/categoryNames.js'
+import { translatePhrase } from '@/i18n/phraseDictionary.js'
 import { CosmicSelect } from '@/components/CosmicSelect.jsx'
 import { ToggleSalesConfirmModal } from './OrganizerEventModals.jsx'
 import {
@@ -46,43 +49,43 @@ import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { fetchCurrentPlan } from '@/services/subscriptions.js'
 
-export function getPrimaryEventStatus(event, organizerPlan = null) {
-  if (!event) return { key: 'UNKNOWN', label: 'Không xác định', tone: 'slate' }
+export function getPrimaryEventStatus(event, organizerPlan = null, isEnglish = false) {
+  if (!event) return { key: 'UNKNOWN', label: isEnglish ? 'Unknown' : 'Không xác định', tone: 'slate' }
 
   // 1. Đã hủy (Cao nhất)
   if (event.status === 'CANCELLED') {
-    return { key: 'CANCELLED', label: 'Đã hủy', tone: 'red' }
+    return { key: 'CANCELLED', label: isEnglish ? 'Cancelled' : 'Đã hủy', tone: 'red' }
   }
 
   // 2. Chờ duyệt hủy
   if (event.cancel_request?.status === 'PENDING') {
-    return { key: 'CANCEL_REQUESTED', label: 'Chờ duyệt hủy', tone: 'red' }
+    return { key: 'CANCEL_REQUESTED', label: isEnglish ? 'Pending Cancellation' : 'Chờ duyệt hủy', tone: 'red' }
   }
 
   // 3. Bị đình chỉ bởi Admin
   if (event.display_state === 'SUSPENDED_BY_ADMIN') {
-    return { key: 'SUSPENDED', label: 'Bị đình chỉ', tone: 'red' }
+    return { key: 'SUSPENDED', label: isEnglish ? 'Suspended' : 'Bị đình chỉ', tone: 'red' }
   }
 
   // 4. Đã kết thúc (quá thời gian sự kiện hoặc trạng thái COMPLETED)
   const ended = isEventEnded(event)
   if (ended || (event.status === 'COMPLETED' && event.approval_status !== 'APPROVED')) {
-    return { key: 'COMPLETED', label: 'Đã kết thúc', tone: 'purple' }
+    return { key: 'COMPLETED', label: isEnglish ? 'Ended' : 'Đã kết thúc', tone: 'purple' }
   }
 
   // 5. Đã ẩn (BTC chủ động ẩn sự kiện)
   if (event.display_state === 'HIDDEN_BY_ORGANIZER' || event.status === 'HIDDEN') {
-    return { key: 'HIDDEN', label: 'Đã ẩn', tone: 'neutral' }
+    return { key: 'HIDDEN', label: isEnglish ? 'Hidden' : 'Đã ẩn', tone: 'neutral' }
   }
 
   // 6. Tạm dừng bán vé
   if (event.sales_status === 'PAUSED') {
-    return { key: 'PAUSED', label: 'Tạm dừng bán', tone: 'orange' }
+    return { key: 'PAUSED', label: isEnglish ? 'Paused Sales' : 'Tạm dừng bán', tone: 'orange' }
   }
 
   // 7. Sửa đổi chờ duyệt
   if (event.pending_revision && event.pending_revision.status === 'SUBMITTED') {
-    return { key: 'REVISION_PENDING', label: 'Sửa đổi chờ duyệt', tone: 'amber' }
+    return { key: 'REVISION_PENDING', label: isEnglish ? 'Pending Revision' : 'Sửa đổi chờ duyệt', tone: 'amber' }
   }
 
   // 8. Đã duyệt (Chờ BTC bấm xuất bản)
@@ -91,22 +94,34 @@ export function getPrimaryEventStatus(event, organizerPlan = null) {
     event.status === 'APPROVED'
   )
   if (isApprovedAwaitingPublish) {
-    return { key: 'APPROVED', label: 'Chờ xuất bản', tone: 'cyan' }
+    return { key: 'APPROVED', label: isEnglish ? 'Awaiting Publish' : 'Chờ xuất bản', tone: 'cyan' }
   }
 
   // 9. Đang bán vé (Sự kiện công khai, mở bán vé bình thường)
   if (event.status === 'PUBLISHED') {
-    return { key: 'ON_SALE', label: 'Đang bán vé', tone: 'green' }
+    return { key: 'ON_SALE', label: isEnglish ? 'Selling Tickets' : 'Đang bán vé', tone: 'green' }
   }
 
   // 10. Chờ duyệt (Sự kiện mới gửi Admin xét duyệt)
   if (event.status === 'PENDING_REVIEW') {
-    return { key: 'PENDING_REVIEW', label: 'Chờ duyệt', tone: 'amber' }
+    if (organizerPlan?.priority_support) {
+      return {
+        key: 'PENDING_REVIEW',
+        label: isEnglish ? 'Pending Review (Priority)' : 'Chờ duyệt (Ưu tiên)',
+        tone: 'amber',
+        isPriority: true,
+      }
+    }
+    return {
+      key: 'PENDING_REVIEW',
+      label: isEnglish ? 'Pending Review' : 'Chờ duyệt',
+      tone: 'amber',
+    }
   }
 
   // 11. Bản nháp
   if (event.status === 'DRAFT') {
-    return { key: 'DRAFT', label: 'Bản nháp', tone: 'slate' }
+    return { key: 'DRAFT', label: isEnglish ? 'Draft' : 'Bản nháp', tone: 'slate' }
   }
 
   return { key: event.status, label: event.status, tone: 'slate' }
@@ -164,9 +179,9 @@ function PublishConfirmModal({ event, onConfirm, onClose, loading }) {
 
         {/* Event info */}
         <div className="mt-4 rounded-xl border border-white/10 bg-[#121c38] p-4">
-          <p className="text-base font-bold text-white">{event.title}</p>
+          <p className="text-base font-bold text-white">{isEnglish ? (translatePhrase(event.title, 'en') || event.title) : event.title}</p>
           <p className="mt-1 text-xs text-slate-300">
-            Ngày diễn ra: {formatEventDate(event.start_time)}
+            {isEnglish ? 'Event Date: ' : 'Ngày diễn ra: '}{formatEventDate(event.start_time)}
           </p>
         </div>
 
@@ -264,11 +279,11 @@ function CancelOrRequestCancelModal({ event, onConfirm, onClose, loading, error 
 
         {/* Event info */}
         <div className="mt-4 rounded-xl border border-white/10 bg-[#121c38] p-4">
-          <p className="text-base font-bold text-white">{event.title}</p>
+          <p className="text-base font-bold text-white">{isEnglish ? (translatePhrase(event.title, 'en') || event.title) : event.title}</p>
           <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-300">
-            <span>Ngày diễn ra: {formatEventDate(event.start_time)}</span>
+            <span>{isEnglish ? 'Event Date: ' : 'Ngày diễn ra: '}{formatEventDate(event.start_time)}</span>
             <span>•</span>
-            <span>Đơn đã thanh toán: <strong className={hasPaidOrders ? 'text-amber-400 font-bold' : 'text-slate-400'}>{event.paid_orders_count || 0} đơn</strong></span>
+            <span>{isEnglish ? 'Paid orders: ' : 'Đơn đã thanh toán: '}<strong className={hasPaidOrders ? 'text-amber-400 font-bold' : 'text-slate-400'}>{event.paid_orders_count || 0} {isEnglish ? 'orders' : 'đơn'}</strong></span>
           </div>
         </div>
 
@@ -452,9 +467,9 @@ function ToggleHideConfirmModal({ event, onConfirm, onClose, loading }) {
 
         {/* Event info */}
         <div className="mt-4 rounded-xl border border-white/10 bg-[#121c38] p-4">
-          <p className="text-base font-bold text-white">{event.title}</p>
+          <p className="text-base font-bold text-white">{isEnglish ? (translatePhrase(event.title, 'en') || event.title) : event.title}</p>
           <p className="mt-1 text-xs text-slate-300">
-            Ngày diễn ra: {formatEventDate(event.start_time)}
+            {isEnglish ? 'Event Date: ' : 'Ngày diễn ra: '}{formatEventDate(event.start_time)}
           </p>
         </div>
 
@@ -539,12 +554,12 @@ function DeleteDraftConfirmModal({ event, onConfirm, onClose, loading }) {
 
         {/* Event info */}
         <div className="mt-4 rounded-xl border border-border-soft/40 bg-panel-soft p-4">
-          <p className="text-sm font-semibold text-content">{event.title}</p>
+          <p className="text-sm font-semibold text-content">{isEnglish ? (translatePhrase(event.title, 'en') || event.title) : event.title}</p>
           <p className="mt-1 text-xs text-subtle">
-            Ngày diễn ra: {formatEventDate(event.start_time)}
+            {isEnglish ? 'Event Date: ' : 'Ngày diễn ra: '}{formatEventDate(event.start_time)}
           </p>
           <div className="mt-2">
-            <Badge tone="gray">Bản nháp</Badge>
+            <Badge tone="gray">{isEnglish ? 'Draft' : 'Bản nháp'}</Badge>
           </div>
         </div>
 
@@ -592,6 +607,7 @@ function DeleteDraftConfirmModal({ event, onConfirm, onClose, loading }) {
 // Main Page
 // ---------------------------------------------------------------------------
 export function OrganizerEventsPage() {
+  const { isEnglish } = useLanguage()
   const toast = useToast()
   const location = useLocation()
   const navigate = useNavigate()
@@ -810,13 +826,13 @@ export function OrganizerEventsPage() {
     try {
       if (payload.action === 'RESUME_TICKET_TYPE' && payload.ticketTypeId) {
         await resumeSalesOrganizerEvent(salesTarget.id, { ticketTypeId: payload.ticketTypeId })
-        toast.success(`Đã mở bán lại cho hạng vé "${payload.ticketTypeName || 'đã chọn'}".`)
+        toast.success(isEnglish ? `Ticket sales resumed for tier "${payload.ticketTypeName || 'selected'}".` : `Đã mở bán lại cho hạng vé "${payload.ticketTypeName || 'đã chọn'}".`)
       } else if (payload.action === 'RESUME_ALL_TICKETS') {
         const ticketTypeIds = Array.isArray(payload.ticketTypeIds) && payload.ticketTypeIds.length > 0
           ? payload.ticketTypeIds
           : undefined
         await resumeSalesOrganizerEvent(salesTarget.id, ticketTypeIds ? { ticketTypeIds } : {})
-        toast.success('Đã mở bán lại cho tất cả các hạng vé đã chọn.')
+        toast.success(isEnglish ? 'Ticket sales resumed for all selected tiers.' : 'Đã mở bán lại cho tất cả các hạng vé đã chọn.')
       } else if (payload.scope === 'SPECIFIC' && (payload.ticketTypeIds?.length || payload.ticketTypeId)) {
         const ticketTypeIds = payload.ticketTypeIds || [payload.ticketTypeId]
         await pauseSalesOrganizerEvent(salesTarget.id, {
@@ -827,7 +843,9 @@ export function OrganizerEventsPage() {
           reason: payload.reason,
         })
         const count = ticketTypeIds.length
-        toast.info(count > 1 ? `Đã tạm dừng bán vé cho ${count} loại vé đã chọn.` : `Đã tạm dừng bán vé cho hạng vé "${payload.ticketTypeName || 'đã chọn'}".`)
+        toast.info(count > 1
+          ? (isEnglish ? `Paused sales for ${count} selected ticket tiers.` : `Đã tạm dừng bán vé cho ${count} loại vé đã chọn.`)
+          : (isEnglish ? `Paused sales for tier "${payload.ticketTypeName || 'selected'}".` : `Đã tạm dừng bán vé cho hạng vé "${payload.ticketTypeName || 'đã chọn'}".`))
       } else if (payload.scope === 'SEATS') {
         if (payload.action === 'RESUME_SEATS') {
           await resumeSalesOrganizerEvent(salesTarget.id, {
@@ -923,10 +941,24 @@ export function OrganizerEventsPage() {
     }
   }, [totalPages, page])
 
+  const statusFilterOptions = useMemo(() => [
+    { value: '', label: isEnglish ? 'All Statuses' : 'Tất cả trạng thái' },
+    { value: 'ON_SALE', label: isEnglish ? 'Selling Tickets' : 'Đang bán vé' },
+    { value: 'PAUSED', label: isEnglish ? 'Paused Sales' : 'Tạm dừng bán' },
+    { value: 'HIDDEN', label: isEnglish ? 'Hidden' : 'Đã ẩn' },
+    { value: 'APPROVED', label: isEnglish ? 'Awaiting Publish' : 'Chờ xuất bản' },
+    { value: 'PENDING_REVIEW', label: isEnglish ? 'Pending Review' : 'Chờ duyệt' },
+    { value: 'REVISION_PENDING', label: isEnglish ? 'Pending Revision' : 'Sửa đổi chờ duyệt' },
+    { value: 'DRAFT', label: isEnglish ? 'Draft' : 'Bản nháp' },
+    { value: 'COMPLETED', label: isEnglish ? 'Ended' : 'Đã kết thúc' },
+    { value: 'CANCEL_REQUESTED', label: isEnglish ? 'Pending Cancellation' : 'Chờ duyệt hủy' },
+    { value: 'CANCELLED', label: isEnglish ? 'Cancelled' : 'Đã hủy' },
+  ], [isEnglish])
+
   return (
     <OrganizerPage
-      title="Quản lý Sự kiện"
-      action="Tạo sự kiện"
+      title={isEnglish ? 'Event Management' : 'Quản lý Sự kiện'}
+      action={isEnglish ? 'Create Event' : 'Tạo sự kiện'}
       actionTo="/organizer/events/create"
     >
       <div className="mb-5">
@@ -935,7 +967,7 @@ export function OrganizerEventsPage() {
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-white" />
             <input
               className="h-10 w-full rounded-xl border border-white/15 bg-[#0d172e] pl-10 pr-8 text-sm font-normal text-white outline-none placeholder:text-white/50 focus:border-primary focus:ring-2 focus:ring-primary/15"
-              placeholder="Tìm theo tên sự kiện..."
+              placeholder={isEnglish ? 'Search by event name...' : 'Tìm theo tên sự kiện...'}
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value)
@@ -950,7 +982,7 @@ export function OrganizerEventsPage() {
                   setSearch('')
                   setPage(1)
                 }}
-                title="Xóa tìm kiếm"
+                title={isEnglish ? 'Clear search' : 'Xóa tìm kiếm'}
               >
                 <X className="size-4" />
               </button>
@@ -962,7 +994,7 @@ export function OrganizerEventsPage() {
               setStatusFilter(val)
               setPage(1)
             }}
-            options={EVENT_STATUS_FILTERS}
+            options={statusFilterOptions}
             minWidth="min-w-[170px]"
           />
         </div>
@@ -976,13 +1008,13 @@ export function OrganizerEventsPage() {
         <div className="rounded-2xl border border-dashed border-border-soft/40 py-16 text-center text-sm text-subtle flex flex-col items-center justify-center gap-4">
           <p>
             {events.length
-              ? 'Không có sự kiện phù hợp bộ lọc.'
-              : 'Chưa có sự kiện nào. Nhấn "Tạo sự kiện" để bắt đầu.'}
+              ? (isEnglish ? 'No events matching filter.' : 'Không có sự kiện phù hợp bộ lọc.')
+              : (isEnglish ? 'No events yet. Click "Create Event" to get started.' : 'Chưa có sự kiện nào. Nhấn "Tạo sự kiện" để bắt đầu.')}
           </p>
           {!events.length && (
             <Link to="/organizer/events/create" className="org-btn-primary">
               <Plus className="size-4" />
-              Tạo sự kiện
+              {isEnglish ? 'Create Event' : 'Tạo sự kiện'}
             </Link>
           )}
         </div>
@@ -1001,16 +1033,16 @@ export function OrganizerEventsPage() {
                   </span>
                 )}
                 <div className="min-w-0">
-                  <span className="font-bold text-[13px] text-white block hover:text-primary transition leading-snug">{event.title}</span>
+                  <span className="font-bold text-[13px] text-white block hover:text-primary transition leading-snug">{isEnglish ? (translatePhrase(event.title, 'en') || event.title) : event.title}</span>
                 </div>
               </div>,
 
               <span key="date" className="whitespace-nowrap">{formatEventDate(event.start_time)}</span>,
 
               (() => {
-                const statusInfo = getPrimaryEventStatus(event, organizerPlan)
+                const statusInfo = getPrimaryEventStatus(event, organizerPlan, isEnglish)
                 return (
-                  <div key="status" className="flex items-center">
+                  <div key="status" className="flex items-center justify-center">
                     <Badge tone={statusInfo.tone}>
                       {statusInfo.label}
                     </Badge>
@@ -1018,7 +1050,7 @@ export function OrganizerEventsPage() {
                 )
               })(),
 
-              <span key="cat" className="whitespace-nowrap">{event.category_name || '—'}</span>,
+              <span key="cat" className="whitespace-nowrap">{getCategoryName(event.category_name, isEnglish) || '—'}</span>,
 
               <span key="updated" className="whitespace-nowrap">{formatEventDate(event.updated_at)}</span>,
 
@@ -1026,7 +1058,7 @@ export function OrganizerEventsPage() {
               <div key="actions" className="flex items-center justify-center gap-1.5 whitespace-nowrap">
                 <TableActionButton
                   to={`/organizer/events/${event.id}`}
-                  title="Xem chi tiết"
+                  title={isEnglish ? 'View details' : 'Xem chi tiết'}
                   icon={Eye}
                   tone="default"
                 />
@@ -1047,7 +1079,9 @@ export function OrganizerEventsPage() {
           {totalPages > 1 && (
             <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3 px-2 py-3 border-t border-white/5">
               <span className="text-xs text-subtle font-medium">
-                Hiển thị {(page - 1) * PAGE_SIZE + 1} - {Math.min(page * PAGE_SIZE, filtered.length)} trong tổng số {filtered.length} sự kiện
+                {isEnglish
+                  ? `Showing ${(page - 1) * PAGE_SIZE + 1} - ${Math.min(page * PAGE_SIZE, filtered.length)} of ${filtered.length} events`
+                  : `Hiển thị ${(page - 1) * PAGE_SIZE + 1} - ${Math.min(page * PAGE_SIZE, filtered.length)} trong tổng số ${filtered.length} sự kiện`}
               </span>
               <div className="flex items-center gap-1.5">
                 <button
@@ -1055,7 +1089,7 @@ export function OrganizerEventsPage() {
                   className="grid size-8 place-items-center rounded-xl border border-border-soft/40 text-subtle bg-panel-soft hover:border-tertiary hover:text-tertiary disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
                   disabled={page <= 1}
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  title="Trang trước"
+                  title={isEnglish ? 'Previous page' : 'Trang trước'}
                 >
                   <ChevronLeft className="size-4" />
                 </button>
@@ -1077,7 +1111,7 @@ export function OrganizerEventsPage() {
                   className="grid size-8 place-items-center rounded-xl border border-border-soft/40 text-subtle bg-panel-soft hover:border-tertiary hover:text-tertiary disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
                   disabled={page >= totalPages}
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  title="Trang kế tiếp"
+                  title={isEnglish ? 'Next page' : 'Trang kế tiếp'}
                 >
                   <ChevronRight className="size-4" />
                 </button>

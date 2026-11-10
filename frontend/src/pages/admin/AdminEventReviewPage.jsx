@@ -52,6 +52,9 @@ import { useToast } from '@/providers/ToastProvider.jsx'
 import { Badge, ImagePlaceholder, Page, Panel, Table, TableActionButton } from './AdminComponents.jsx'
 import { AdminReviewCriteriaModal } from './AdminReviewCriteriaModal.jsx'
 import { AdminSuspendModal } from './AdminSuspendModal.jsx'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
+import { cleanAndFormatVenue } from '@/i18n/eventTranslations.js'
+import { translatePhrase } from '@/i18n/phraseDictionary.js'
 
 // ---------------------------------------------------------------------------
 // Config
@@ -152,6 +155,7 @@ function formatDate(value) {
 // Main Page
 // ---------------------------------------------------------------------------
 export function AdminEventReviewPage() {
+  const { isEnglish } = useLanguage()
   const toast = useToast()
   const queryClient = useQueryClient()
   const navigate = useNavigate()
@@ -732,8 +736,8 @@ export function AdminEventReviewPage() {
                 /* Event name */
                 <div key="name">
                   <div className="flex items-center gap-1.5">
-                    <p className="max-w-[200px] truncate font-semibold text-content" title={event.title}>
-                      {event.title}
+                    <p className="max-w-[200px] truncate font-semibold text-content" title={isEnglish ? (translatePhrase(event.title, 'en') || event.title) : event.title}>
+                      {isEnglish ? (translatePhrase(event.title, 'en') || event.title) : event.title}
                     </p>
                     {event.is_priority_support && (
                       <span title={`Sự kiện thuộc Ban tổ chức có Hỗ trợ ưu tiên (${event.organizer_plan_name || 'Gói cao cấp'})`} className="cursor-help inline-flex items-center">
@@ -956,6 +960,9 @@ function EventReviewModal({
   onUnhide,
   onClose,
 }) {
+  const { isEnglish } = useLanguage()
+  const eventTitle = isEnglish ? (translatePhrase(event.title, 'en') || event.title) : event.title
+  const shortDesc = isEnglish ? (translatePhrase(event.short_description, 'en') || event.short_description) : event.short_description
   const isPending = event.status === 'PENDING_REVIEW'
   const isPublished = event.status === 'PUBLISHED'
   const isHiddenApproved = event.status === 'HIDDEN' && event.approval_status === 'APPROVED'
@@ -1036,13 +1043,13 @@ function EventReviewModal({
       <Panel className="max-h-[90vh] w-full max-w-5xl overflow-y-auto border-border-soft/60">
         {/* Header */}
         <h3 className="font-display text-2xl font-extrabold text-content leading-tight">
-          {event.title}
+          {eventTitle}
         </h3>
         <p className="mt-1 text-sm text-subtle">
           Organizer: <span className="font-semibold text-content">{event.organizer_name}</span>
         </p>
         <p className="text-sm text-subtle">
-          Ngày diễn ra:{' '}
+          {isEnglish ? 'Date:' : 'Ngày diễn ra:'}{' '}
           <span className="font-semibold text-content">
             {formatDate(event.start_time)}
             {event.end_time && event.end_time !== event.start_time
@@ -1057,22 +1064,22 @@ function EventReviewModal({
           <div className="mt-4 overflow-hidden rounded-xl border border-border-soft/40 bg-black/20">
             <img
               src={event.thumbnail_url}
-              alt={event.title}
+              alt={eventTitle}
               className="max-h-[420px] w-full object-contain"
             />
           </div>
         )}
 
         <div className="mt-5 grid gap-3 md:grid-cols-3">
-          <DetailBlock icon={Tag} label="Danh mục" value={event.category_name || 'Chưa phân loại'} />
-          <DetailBlock icon={Ticket} label="Số loại vé" value={`${groupedReviewTickets.length} loại vé`} />
-          <DetailBlock icon={MapPin} label="Số phiên" value={`${event.sessions?.length || 0} phiên`} />
+          <DetailBlock icon={Tag} label={isEnglish ? 'Category' : 'Danh mục'} value={event.category_name || (isEnglish ? 'Uncategorized' : 'Chưa phân loại')} />
+          <DetailBlock icon={Ticket} label={isEnglish ? 'Ticket Tiers' : 'Số loại vé'} value={`${groupedReviewTickets.length} ${isEnglish ? 'ticket types' : 'loại vé'}`} />
+          <DetailBlock icon={MapPin} label={isEnglish ? 'Sessions' : 'Số phiên'} value={`${event.sessions?.length || 0} ${isEnglish ? 'sessions' : 'phiên'}`} />
         </div>
 
-        {(event.short_description || event.description) && (
+        {(shortDesc || event.description) && (
           <div className="mt-5 rounded-xl border border-border-soft/30 bg-panel-soft/50 p-4">
-            <p className="text-xs font-bold uppercase text-muted">Mô tả sự kiện</p>
-            {event.short_description && <p className="mt-2 text-sm font-semibold text-content">{event.short_description}</p>}
+            <p className="text-xs font-bold uppercase text-muted">{isEnglish ? 'Event Description' : 'Mô tả sự kiện'}</p>
+            {shortDesc && <p className="mt-2 text-sm font-semibold text-content">{shortDesc}</p>}
             {event.description && (
               <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-subtle">
                 {stripHtml(event.description)}
@@ -1083,10 +1090,10 @@ function EventReviewModal({
 
         <div className="mt-5 grid gap-4 lg:grid-cols-2">
           <div className="rounded-xl border border-border-soft/30 bg-panel-soft/40 p-4">
-            <p className="text-xs font-bold uppercase text-muted">Lịch diễn và địa điểm</p>
+            <p className="text-xs font-bold uppercase text-muted">{isEnglish ? 'Schedule & Venue' : 'Lịch diễn và địa điểm'}</p>
             <div className="mt-3 space-y-3">
               {(event.sessions || []).length === 0 ? (
-                <p className="text-sm text-subtle">Chưa có session.</p>
+                <p className="text-sm text-subtle">{isEnglish ? 'No sessions.' : 'Chưa có session.'}</p>
               ) : (
                 event.sessions.map((session) => (
                   <div key={session.id} className="rounded-lg border border-border-soft/20 bg-surface/50 p-3 text-sm">
@@ -1094,14 +1101,14 @@ function EventReviewModal({
                       {session.session_name
                         ? (/^phiên\s*\d+/i.test(session.session_name)
                             ? session.session_name
-                            : `Phiên ${event.sessions.indexOf(session) + 1}: ${session.session_name}`)
-                        : `Phiên ${event.sessions.indexOf(session) + 1}`}
+                            : (isEnglish ? `Session ${event.sessions.indexOf(session) + 1}: ${session.session_name}` : `Phiên ${event.sessions.indexOf(session) + 1}: ${session.session_name}`))
+                        : (isEnglish ? `Session ${event.sessions.indexOf(session) + 1}` : `Phiên ${event.sessions.indexOf(session) + 1}`)}
                     </p>
                     <p className="mt-1 text-subtle">{formatDateTime(session.start_time)} - {formatDateTime(session.end_time)}</p>
                     <p className="mt-1 text-subtle">
-                      {[session.venue_name, session.address_line, session.city].filter(Boolean).join(', ') || 'Chưa cập nhật địa điểm'}
+                      {cleanAndFormatVenue(session, isEnglish) || (isEnglish ? 'Venue TBD' : 'Chưa cập nhật địa điểm')}
                     </p>
-                    {session.seat_map_id && <p className="mt-1 text-xs font-bold text-tertiary">Có sơ đồ ghế</p>}
+                    {session.seat_map_id && <p className="mt-1 text-xs font-bold text-tertiary">{isEnglish ? 'Seat map available' : 'Có sơ đồ ghế'}</p>}
                   </div>
                 ))
               )}

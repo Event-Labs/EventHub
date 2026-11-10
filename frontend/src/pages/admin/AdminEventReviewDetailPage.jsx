@@ -57,6 +57,9 @@ import {
 } from '@/services/adminEvents.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
+import { translatePhrase } from '@/i18n/phraseDictionary.js'
+import { cleanAndFormatVenue, translateEventHtmlDescription } from '@/i18n/eventTranslations.js'
 import { Page, Panel, Badge, StatusBadge, ImagePlaceholder } from './AdminComponents.jsx'
 import { AdminReviewCriteriaModal } from './AdminReviewCriteriaModal.jsx'
 import { AdminSuspendModal } from './AdminSuspendModal.jsx'
@@ -1033,6 +1036,7 @@ function parseAiReviewData(aiData) {
 // Main Component
 // ---------------------------------------------------------------------------
 export function AdminEventReviewDetailPage() {
+  const { isEnglish } = useLanguage()
   const { eventId } = useParams()
   const navigate = useNavigate()
   const toast = useToast()
@@ -1784,7 +1788,7 @@ export function AdminEventReviewDetailPage() {
             <ArrowLeft className="size-4 sm:size-5" />
           </button>
           <h1 className="font-display text-base sm:text-xl font-black text-white drop-shadow-sm line-clamp-2 max-w-2xl">
-            {event.title}
+            {isEnglish ? (translatePhrase(event.title, 'en') || event.title) : event.title}
           </h1>
           {event.status === 'CANCELLED' ? (
             <Badge tone="red">Đã hủy</Badge>
@@ -1891,13 +1895,13 @@ export function AdminEventReviewDetailPage() {
                 <div>
                   <span className="text-slate-400 font-medium">Phương thức hoàn tiền:</span>{' '}
                   <strong className="text-white">
-                    {event.cancel_request.refund_mode === 'MODE_A' ? 'Tự động qua payOS' : 'Chuyển khoản thủ công VietQR'}
+                    {event.cancel_request.refund_mode === 'MODE_A' ? (isEnglish ? 'Automatic via payOS' : 'Tự động qua payOS') : (isEnglish ? 'Manual transfer VietQR' : 'Chuyển khoản thủ công VietQR')}
                   </strong>
                 </div>
                 <div className="md:col-span-2">
-                  <span className="text-slate-400 font-medium">Giải trình:</span>
+                  <span className="text-slate-400 font-medium">{isEnglish ? 'Explanation:' : 'Giải trình:'}</span>
                   <p className="mt-1 text-slate-300 bg-white/[0.03] p-2 rounded border border-white/5 italic">
-                    "{event.cancel_request.reason_note || event.cancel_request.note || event.cancel_request.reason || 'Không có giải trình chi tiết'}"
+                    "{event.cancel_request.reason_note || event.cancel_request.note || event.cancel_request.reason || (isEnglish ? 'No detailed explanation' : 'Không có giải trình chi tiết')}"
                   </p>
                 </div>
               </div>
@@ -2121,11 +2125,11 @@ export function AdminEventReviewDetailPage() {
 
 
               <h2 className="mb-2 font-display text-3xl font-black tracking-tight text-white drop-shadow-md">
-                {typeof event.title === 'string' ? event.title : 'Chi tiết sự kiện'}
+                {typeof event.title === 'string' ? (isEnglish ? (translatePhrase(event.title, 'en') || event.title) : event.title) : (isEnglish ? 'Event Details' : 'Chi tiết sự kiện')}
               </h2>
               {event.short_description && (
                 <p className="mb-8 text-base font-medium text-slate-400">
-                  {typeof event.short_description === 'string' ? event.short_description : ''}
+                  {typeof event.short_description === 'string' ? (isEnglish ? (translatePhrase(event.short_description, 'en') || event.short_description) : event.short_description) : ''}
                 </p>
               )}
 
@@ -2136,13 +2140,13 @@ export function AdminEventReviewDetailPage() {
                   </div>
                   <div>
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
-                      Thời gian
+                      {isEnglish ? 'Time' : 'Thời gian'}
                     </p>
                     <p className="mt-1 text-sm font-bold text-white">
-                      Bắt đầu: <span className="font-semibold text-slate-300">{formatDate(event.start_time)}</span>
+                      {isEnglish ? 'Start:' : 'Bắt đầu:'} <span className="font-semibold text-slate-300">{formatDate(event.start_time)}</span>
                     </p>
                     <p className="text-sm font-bold text-white">
-                      Kết thúc: <span className="font-semibold text-slate-300">{formatDate(event.end_time)}</span>
+                      {isEnglish ? 'End:' : 'Kết thúc:'} <span className="font-semibold text-slate-300">{formatDate(event.end_time)}</span>
                     </p>
                   </div>
                 </div>
@@ -2152,10 +2156,10 @@ export function AdminEventReviewDetailPage() {
                     </div>
                     <div>
                       <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
-                        Địa điểm
+                        {isEnglish ? 'Location' : 'Địa điểm'}
                       </p>
                       <p className="mt-1 text-sm font-medium text-slate-300">
-                        {event.venue?.name || event.location_name || 'Địa điểm trực tiếp'}
+                        {cleanAndFormatVenue(event.venue || event.location_name || (isEnglish ? 'In-person venue' : 'Địa điểm trực tiếp'), isEnglish)}
                       </p>
                     </div>
                   </div>
@@ -2163,12 +2167,12 @@ export function AdminEventReviewDetailPage() {
 
               <div className="mb-10">
                 <h3 className="mb-5 font-display text-lg font-black text-white drop-shadow-sm">
-                  Mô tả chi tiết
+                  {isEnglish ? 'Detailed Description' : 'Mô tả chi tiết'}
                 </h3>
                 {event.description ? (
                   <div
                     className="prose prose-sm prose-invert max-w-none text-slate-300 break-words [&_*]:max-w-full [&_table]:block [&_table]:overflow-x-auto"
-                    dangerouslySetInnerHTML={{ __html: typeof event.description === 'string' ? event.description : '' }}
+                    dangerouslySetInnerHTML={{ __html: translateEventHtmlDescription(typeof event.description === 'string' ? event.description : '', isEnglish) }}
                   />
                 ) : (
                   <p className="text-sm italic text-slate-500">Không có mô tả.</p>

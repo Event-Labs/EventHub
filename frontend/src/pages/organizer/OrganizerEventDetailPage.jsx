@@ -52,15 +52,27 @@ import {
     DeleteDraftConfirmModal,
 } from './OrganizerEventModals.jsx'
 import { EventActionsDropdown } from './EventActionsDropdown.jsx'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
+import { translatePhrase } from '@/i18n/phraseDictionary.js'
+import { cleanAndFormatVenue, translateEventHtmlDescription } from '@/i18n/eventTranslations.js'
 import '@/components/RichTextEditor.css'
 
-const STATUS_LABELS = {
+const STATUS_LABELS_VI = {
     DRAFT: 'Bản nháp',
     PENDING_REVIEW: 'Chờ duyệt',
     PUBLISHED: 'Đã xuất bản',
     HIDDEN: 'Đã ẩn',
     CANCELLED: 'Đã hủy',
     COMPLETED: 'Đã kết thúc',
+}
+
+const STATUS_LABELS_EN = {
+    DRAFT: 'Draft',
+    PENDING_REVIEW: 'Pending Review',
+    PUBLISHED: 'Published',
+    HIDDEN: 'Hidden',
+    CANCELLED: 'Cancelled',
+    COMPLETED: 'Completed',
 }
 
 const STATUS_TONES = {
@@ -73,6 +85,7 @@ const STATUS_TONES = {
 }
 
 function DemandPredictionCard({ eventId }) {
+    const { isEnglish } = useLanguage()
     const [prediction, setPrediction] = useState(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(null)
@@ -98,7 +111,7 @@ function DemandPredictionCard({ eventId }) {
             <OrganizerPanel>
                 <div className="flex items-center gap-2 mb-3">
                     <Sparkles className="size-5 text-primary" />
-                    <h3 className="font-bold text-content">AI Dự báo nhu cầu</h3>
+                    <h3 className="font-bold text-content">{isEnglish ? 'AI Demand Prediction' : 'AI Dự báo nhu cầu'}</h3>
                 </div>
                 <div className="animate-pulse space-y-2">
                     <div className="h-8 w-3/4 rounded bg-panel-soft" />
@@ -124,13 +137,17 @@ function DemandPredictionCard({ eventId }) {
     const demandBg = isHigh
         ? 'bg-green-500/10 border-green-500/20'
         : sellOutPct >= 40 ? 'bg-yellow-500/10 border-yellow-500/20' : 'bg-orange-500/10 border-orange-500/20'
-    const demandLabel = isHigh ? 'Nhu cầu cao' : sellOutPct >= 40 ? 'Nhu cầu trung bình' : 'Nhu cầu thấp'
+    const demandLabel = isHigh
+        ? (isEnglish ? 'High Demand' : 'Nhu cầu cao')
+        : sellOutPct >= 40
+            ? (isEnglish ? 'Medium Demand' : 'Nhu cầu trung bình')
+            : (isEnglish ? 'Low Demand' : 'Nhu cầu thấp')
 
     return (
         <OrganizerPanel>
             <div className="flex items-center gap-2 mb-4">
                 <Sparkles className="size-5 text-primary" />
-                <h3 className="font-bold text-content">AI Dự báo nhu cầu</h3>
+                <h3 className="font-bold text-content">{isEnglish ? 'AI Demand Prediction' : 'AI Dự báo nhu cầu'}</h3>
                 <span className="ml-auto text-xs text-subtle">{prediction.model_version}</span>
             </div>
 
@@ -139,7 +156,7 @@ function DemandPredictionCard({ eventId }) {
                 <DemandIcon className={`size-6 ${demandColor}`} />
                 <div>
                     <p className={`font-bold ${demandColor}`}>{demandLabel}</p>
-                    <p className="text-xs text-subtle">Dự báo từ AI EventHub</p>
+                    <p className="text-xs text-subtle">{isEnglish ? 'Forecast by EventHub AI' : 'Dự báo từ AI EventHub'}</p>
                 </div>
             </div>
 
@@ -147,18 +164,18 @@ function DemandPredictionCard({ eventId }) {
             <div className="mt-4 grid grid-cols-2 gap-3">
                 <div className="rounded-xl bg-panel-soft p-3 text-center">
                     <p className="text-2xl font-extrabold text-content">{score}%</p>
-                    <p className="text-xs text-subtle mt-1">Điểm nhu cầu</p>
+                    <p className="text-xs text-subtle mt-1">{isEnglish ? 'Demand Score' : 'Điểm nhu cầu'}</p>
                 </div>
                 <div className="rounded-xl bg-panel-soft p-3 text-center">
                     <p className="text-2xl font-extrabold text-content">{sellOutPct}%</p>
-                    <p className="text-xs text-subtle mt-1">Xác suất hết vé</p>
+                    <p className="text-xs text-subtle mt-1">{isEnglish ? 'Sell-out Probability' : 'Xác suất hết vé'}</p>
                 </div>
             </div>
 
             {/* Progress bar */}
             <div className="mt-4">
                 <div className="flex justify-between text-xs text-subtle mb-1">
-                    <span>Xác suất hết vé</span>
+                    <span>{isEnglish ? 'Sell-out Probability' : 'Xác suất hết vé'}</span>
                     <span>{sellOutPct}%</span>
                 </div>
                 <div className="h-2 w-full overflow-hidden rounded-full bg-panel-soft">
@@ -170,13 +187,16 @@ function DemandPredictionCard({ eventId }) {
             </div>
 
             <p className="mt-3 text-xs text-subtle">
-                * Dự báo dựa trên mô hình AI được training từ dữ liệu lịch sử EventHub.
+                {isEnglish
+                    ? '* Predictions are based on AI models trained from EventHub historical data.'
+                    : '* Dự báo dựa trên mô hình AI được training từ dữ liệu lịch sử EventHub.'}
             </p>
         </OrganizerPanel>
     )
 }
 
 export function OrganizerEventDetailPage() {
+    const { isEnglish } = useLanguage()
     const { eventId } = useParams()
     const navigate = useNavigate()
     const toast = useToast()
@@ -284,13 +304,13 @@ export function OrganizerEventDetailPage() {
         try {
             if (payload.action === 'RESUME_TICKET_TYPE' && payload.ticketTypeId) {
                 await resumeSalesOrganizerEvent(salesTarget.id, { ticketTypeId: payload.ticketTypeId })
-                toast.success(`Đã mở bán lại vé cho hạng vé "${payload.ticketTypeName || 'đã chọn'}".`)
+                toast.success(isEnglish ? `Ticket sales resumed for tier "${payload.ticketTypeName || 'selected'}".` : `Đã mở bán lại vé cho hạng vé "${payload.ticketTypeName || 'đã chọn'}".`)
             } else if (payload.action === 'RESUME_ALL_TICKETS') {
                 const ticketTypeIds = Array.isArray(payload.ticketTypeIds) && payload.ticketTypeIds.length > 0
                     ? payload.ticketTypeIds
                     : undefined
                 await resumeSalesOrganizerEvent(salesTarget.id, ticketTypeIds ? { ticketTypeIds } : {})
-                toast.success('Đã mở bán lại cho tất cả các hạng vé đã chọn.')
+                toast.success(isEnglish ? 'Ticket sales resumed for all selected tiers.' : 'Đã mở bán lại cho tất cả các hạng vé đã chọn.')
             } else if (payload.scope === 'SPECIFIC' && (payload.ticketTypeIds?.length || payload.ticketTypeId)) {
                 const ticketTypeIds = payload.ticketTypeIds || [payload.ticketTypeId]
                 await pauseSalesOrganizerEvent(salesTarget.id, {
@@ -301,7 +321,9 @@ export function OrganizerEventDetailPage() {
                     reason: payload.reason,
                 })
                 const count = ticketTypeIds.length
-                toast.info(count > 1 ? `Đã tạm dừng bán vé cho ${count} loại vé đã chọn.` : `Đã tạm dừng bán vé cho hạng vé "${payload.ticketTypeName || 'đã chọn'}".`)
+                toast.info(count > 1
+                    ? (isEnglish ? `Paused sales for ${count} selected ticket tiers.` : `Đã tạm dừng bán vé cho ${count} loại vé đã chọn.`)
+                    : (isEnglish ? `Paused sales for tier "${payload.ticketTypeName || 'selected'}".` : `Đã tạm dừng bán vé cho hạng vé "${payload.ticketTypeName || 'đã chọn'}".`))
             } else if (payload.scope === 'SEATS') {
                 if (payload.action === 'RESUME_SEATS') {
                     await resumeSalesOrganizerEvent(salesTarget.id, {
@@ -465,9 +487,9 @@ export function OrganizerEventDetailPage() {
 
     return (
         <OrganizerPage
-            title="Chi tiết sự kiện"
+            title={isEnglish ? 'Event Details' : 'Chi tiết sự kiện'}
             backLink="/organizer/events"
-            backLabel="Quay lại"
+            backLabel={isEnglish ? 'Back' : 'Quay lại'}
             action={(
                 <div className="flex flex-wrap items-center gap-2.5">
                     {canEdit && (
@@ -476,7 +498,7 @@ export function OrganizerEventDetailPage() {
                             className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-3.5 text-xs font-black text-[#0D1B2A] shadow-md shadow-[#C99A47]/30 transition hover:brightness-110 active:scale-95"
                         >
                             <Pencil className="size-3.5" />
-                            Chỉnh sửa sự kiện
+                            {isEnglish ? 'Edit Event' : 'Chỉnh sửa sự kiện'}
                         </Link>
                     )}
                     {isCancelPending ? (
@@ -484,16 +506,16 @@ export function OrganizerEventDetailPage() {
                             type="button"
                             onClick={() => openWithdrawModal(event)}
                             className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-amber-500/40 bg-amber-500/15 px-3.5 text-xs font-bold text-amber-300 shadow-md transition hover:bg-amber-500/25 hover:border-amber-500/70 active:scale-95"
-                            title="Hoàn tác yêu cầu hủy sự kiện"
+                            title={isEnglish ? 'Undo cancellation request' : 'Hoàn tác yêu cầu hủy sự kiện'}
                         >
                             <RotateCcw className="size-3.5" />
-                            Hoàn tác yêu cầu hủy
+                            {isEnglish ? 'Undo cancellation' : 'Hoàn tác yêu cầu hủy'}
                         </button>
                     ) : (
                         <EventActionsDropdown
                             event={event}
                             variant="button"
-                            label="Tác vụ"
+                            label={isEnglish ? 'Actions' : 'Tác vụ'}
                             includeEdit={false}
                             onToggleHide={openHideModal}
                             onToggleSales={openSalesModal}
@@ -520,23 +542,23 @@ export function OrganizerEventDetailPage() {
                             )}
                             <div className="absolute left-4 top-4">
                                 <Badge tone={event.status === 'COMPLETED' && event.approval_status === 'APPROVED' ? 'green' : (STATUS_TONES[event.status] || 'gray')}>
-                                    {event.status === 'COMPLETED' && event.approval_status === 'APPROVED' ? 'Đã duyệt' : (STATUS_LABELS[event.status] || event.status)}
+                                    {event.status === 'COMPLETED' && event.approval_status === 'APPROVED' ? (isEnglish ? 'Approved' : 'Đã duyệt') : ((isEnglish ? STATUS_LABELS_EN : STATUS_LABELS_VI)[event.status] || event.status)}
                                 </Badge>
                             </div>
                         </div>
 
                         <div className="p-6">
-                            <h2 className="text-2xl font-extrabold text-content">{event.title}</h2>
+                            <h2 className="text-2xl font-extrabold text-content">{isEnglish ? (translatePhrase(event.title, 'en') || event.title) : event.title}</h2>
                             <div className="mt-4 grid gap-4 sm:grid-cols-2">
                                 <div className="flex items-start gap-3">
                                     <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-panel-soft">
                                         <Clock className="size-5 text-subtle" />
                                     </div>
                                     <div>
-                                        <p className="text-xs uppercase tracking-wider text-subtle">Thời gian</p>
+                                        <p className="text-xs uppercase tracking-wider text-subtle">{isEnglish ? 'Time' : 'Thời gian'}</p>
                                         <p className="mt-1 text-sm font-semibold text-content">{formatDate(event.start_time)}</p>
                                         {event.end_time && (
-                                            <p className="text-sm font-semibold text-content">đến {formatDate(event.end_time)}</p>
+                                            <p className="text-sm font-semibold text-content">{isEnglish ? 'to ' : 'đến '}{formatDate(event.end_time)}</p>
                                         )}
                                     </div>
                                 </div>
@@ -546,12 +568,12 @@ export function OrganizerEventDetailPage() {
                                         <MapPin className="size-5 text-subtle" />
                                     </div>
                                     <div>
-                                        <p className="text-xs uppercase tracking-wider text-subtle">Địa điểm</p>
+                                        <p className="text-xs uppercase tracking-wider text-subtle">{isEnglish ? 'Location' : 'Địa điểm'}</p>
                                         <p className="mt-1 text-sm font-semibold text-content">
-                                            {event.venue_name || 'Đang cập nhật'}
+                                            {cleanAndFormatVenue(event.venue_name || event.venue, isEnglish) || (isEnglish ? 'Updating' : 'Đang cập nhật')}
                                         </p>
                                         {event.address && (
-                                            <p className="text-sm font-semibold text-content">{event.address}</p>
+                                            <p className="text-sm font-semibold text-content">{cleanAndFormatVenue(event.address, isEnglish)}</p>
                                         )}
                                     </div>
                                 </div>
@@ -559,7 +581,7 @@ export function OrganizerEventDetailPage() {
 
                             {event.description && (
                                 <div className="mt-6 border-t border-border-soft/30 pt-6">
-                                    <h3 className="mb-3 text-sm font-bold text-content">Mô tả sự kiện</h3>
+                                    <h3 className="mb-3 text-sm font-bold text-content">{isEnglish ? 'Event Description' : 'Mô tả sự kiện'}</h3>
 
                                     <div className="relative">
                                         <div
@@ -568,7 +590,7 @@ export function OrganizerEventDetailPage() {
                                                     ? 'overflow-visible'
                                                     : 'max-h-56 overflow-hidden'
                                             }`}
-                                            dangerouslySetInnerHTML={{ __html: event.description }}
+                                            dangerouslySetInnerHTML={{ __html: translateEventHtmlDescription(event.description, isEnglish) }}
                                         />
 
                                         {!isDescriptionExpanded && event.description.length > 250 && (
@@ -609,7 +631,7 @@ export function OrganizerEventDetailPage() {
                 <div className="flex flex-col gap-6">
                     <StatCard
                         icon={Wallet}
-                        label="Tổng doanh thu"
+                        label={isEnglish ? 'Total Revenue' : 'Tổng doanh thu'}
                         value={formatCurrency(
                             revenueStats?.by_event?.[0]?.gross_revenue ||
                             revenueStats?.overall?.gross_revenue || 0
@@ -620,9 +642,9 @@ export function OrganizerEventDetailPage() {
 
                     <StatCard
                         icon={Users}
-                        label="Đã check-in"
+                        label={isEnglish ? 'Checked In' : 'Đã check-in'}
                         value={`${checkinStats?.overall?.checked_in || 0} / ${checkinStats?.overall?.total_tickets || 0}`}
-                        sub="Khách tham dự"
+                        sub={isEnglish ? 'Attendees' : 'Khách tham dự'}
                         accentColor="text-primary"
                         accentBg="bg-primary/15"
                     />
@@ -632,7 +654,7 @@ export function OrganizerEventDetailPage() {
 
                     <OrganizerPanel>
                         <h3 className="font-bold text-content flex items-center gap-2">
-                            <Ticket className="size-5 text-tertiary" /> Phân bổ hạng vé
+                            <Ticket className="size-5 text-tertiary" /> {isEnglish ? 'Ticket Tiers Allocation' : 'Phân bổ hạng vé'}
                         </h3>
                         <div className="mt-4 space-y-3">
                             {event.sessions?.slice(0, 5).map((session) => (
@@ -649,7 +671,7 @@ export function OrganizerEventDetailPage() {
                                                         <span className="text-subtle">{tt.name}</span>
                                                         {isTtPaused && (
                                                             <span className="rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-bold text-amber-400">
-                                                                Tạm dừng bán
+                                                                {isEnglish ? 'Sales Paused' : 'Tạm dừng bán'}
                                                             </span>
                                                         )}
                                                     </div>
@@ -658,13 +680,13 @@ export function OrganizerEventDetailPage() {
                                             )
                                         })}
                                         {(!session.ticket_types || session.ticket_types.length === 0) && (
-                                            <p className="text-subtle italic">Chưa có hạng vé</p>
+                                            <p className="text-subtle italic">{isEnglish ? 'No ticket tiers' : 'Chưa có hạng vé'}</p>
                                         )}
                                     </div>
                                 </div>
                             ))}
                             {(!event.sessions || event.sessions.length === 0) && (
-                                <p className="text-sm text-subtle text-center py-4">Chưa có phiên sự kiện</p>
+                                <p className="text-sm text-subtle text-center py-4">{isEnglish ? 'No event sessions' : 'Chưa có phiên sự kiện'}</p>
                             )}
                         </div>
                     </OrganizerPanel>
@@ -674,13 +696,13 @@ export function OrganizerEventDetailPage() {
                             to={`/organizer/orders?eventId=${event.id}`}
                             className="flex items-center justify-center gap-2 rounded-xl border border-[#C99A47]/50 text-[#E6C17A] hover:bg-[#C99A47]/10 transition px-4 py-2 font-bold text-xs"
                         >
-                            Xem đơn hàng
+                            {isEnglish ? 'View Orders' : 'Xem đơn hàng'}
                         </Link>
                         <Link
                             to={`/organizer/attendees?eventId=${event.id}`}
                             className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] hover:brightness-110 transition px-4 py-2 font-bold text-xs shadow-sm"
                         >
-                            Danh sách khách
+                            {isEnglish ? 'Attendee List' : 'Danh sách khách'}
                         </Link>
                     </div>
                 </div>
