@@ -37,7 +37,7 @@ export function LanguageSwitcher({ theme = 'dark', className = '' }) {
     setIsOpen(false)
   }
 
-  const currentLabel = isVietnamese ? 'Tiếng Việt' : 'English'
+  const currentLabel = isVietnamese ? 'VIE' : 'ENG'
 
   return (
     <div ref={containerRef} className="relative inline-block text-left select-none">
@@ -46,8 +46,8 @@ export function LanguageSwitcher({ theme = 'dark', className = '' }) {
         onClick={() => setIsOpen((prev) => !prev)}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
-        title={isVietnamese ? 'Ngôn ngữ: Tiếng Việt' : 'Language: English'}
-        className={`group relative flex items-center justify-between gap-2 rounded-full border px-3 sm:px-3.5 text-xs sm:text-sm font-bold tracking-normal transition-all duration-200 cursor-pointer ${
+        title={isVietnamese ? 'Ngôn ngữ: Tiếng Việt (VIE)' : 'Language: English (ENG)'}
+        className={`group relative flex items-center justify-between gap-1.5 sm:gap-2 rounded-full border px-2.5 sm:px-3 text-xs sm:text-sm font-bold tracking-normal transition-all duration-200 cursor-pointer ${
           isLight
             ? 'border-[#C99A47]/45 bg-white/85 text-[#0D1B2A] hover:border-[#C99A47] hover:bg-white hover:shadow-[0_0_12px_rgba(201,154,71,0.25)]'
             : 'border-[#C99A47]/50 bg-[#081126]/85 text-white hover:border-[#E6C17A] hover:bg-[#0c1a3b] hover:text-[#E6C17A] hover:shadow-[0_0_16px_rgba(201,154,71,0.3)]'
@@ -58,7 +58,7 @@ export function LanguageSwitcher({ theme = 'dark', className = '' }) {
             isLight ? 'text-[#C99A47]' : 'text-[#E6C17A]'
           }`}
         />
-        <span className="whitespace-nowrap font-bold text-xs sm:text-sm leading-tight">
+        <span className="whitespace-nowrap font-bold text-xs sm:text-sm tracking-wide leading-tight">
           {currentLabel}
         </span>
         <ChevronDown

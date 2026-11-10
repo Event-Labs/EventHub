@@ -27,6 +27,8 @@ import {
 } from '@/services/adminEvents.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
+import { translatePhrase } from '@/i18n/phraseDictionary.js'
 
 const getAutoLocale = () =>
   ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
@@ -143,6 +145,7 @@ function ConfirmModal({
 }
 
 export function AdminEventCancellationDetailPage() {
+  const { isEnglish } = useLanguage()
   const { eventId } = useParams()
   const navigate = useNavigate()
   const toast = useToast()
@@ -290,12 +293,12 @@ export function AdminEventCancellationDetailPage() {
           </Link>
           <div>
             <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
-              <span className="font-semibold text-red-400">Duyệt yêu cầu hủy sự kiện</span>
+              <span className="font-semibold text-red-400">{isEnglish ? 'Review Event Cancellation Request' : 'Duyệt yêu cầu hủy sự kiện'}</span>
               <span>•</span>
               <span>{event.slug}</span>
             </div>
             <h1 className="text-xl font-bold text-white mt-0.5">
-              {event.title}
+              {isEnglish ? (translatePhrase(event.title, 'en') || event.title) : event.title}
             </h1>
           </div>
         </div>
@@ -748,7 +751,7 @@ export function AdminEventCancellationDetailPage() {
             ? 'Chấp thuận hủy sự kiện và khởi tạo tiến trình hoàn tiền cho người mua.'
             : 'Bác bỏ yêu cầu hủy từ Ban tổ chức và giữ trạng thái tạm dừng bán vé.'
         }
-        eventTitle={event.title}
+        eventTitle={isEnglish ? (translatePhrase(event.title, 'en') || event.title) : event.title}
         description={
           decision === 'APPROVE'
             ? 'Bạn có chắc chắn muốn phê duyệt hủy sự kiện này? Hành động này sẽ đóng bán vé vĩnh viễn, hủy vé đã xuất và tạo phiếu hoàn tiền cho các đơn hàng đã thanh toán.'

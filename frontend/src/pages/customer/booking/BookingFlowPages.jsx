@@ -30,6 +30,8 @@ import { useToast } from '@/providers/ToastProvider.jsx'
 import { cn } from '@/lib/utils.js'
 import { generateRefundPolicyLines } from '@/utils/refundPolicy.js'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
+import { translatePhrase } from '@/i18n/phraseDictionary.js'
+import { cleanAndFormatVenue } from '@/i18n/eventTranslations.js'
 import {
   clearBookingDraft,
   formatCountdown,
@@ -1712,25 +1714,25 @@ export function BookingReviewPage() {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] items-start w-full max-w-full">
         <section className="space-y-4 sm:space-y-5 min-w-0 w-full max-w-full">
           <Panel>
-            <h2 className="mb-4 font-display text-xl font-bold text-white">{'Thông tin sự kiện'}</h2>
+            <h2 className="mb-4 font-display text-xl font-bold text-white">{isEnglish ? 'Event Information' : 'Thông tin sự kiện'}</h2>
             <div className="grid gap-3 text-sm text-muted md:grid-cols-2">
-              <InfoLine label={'Sự kiện'} value={cart.eventTitle} />
-              <InfoLine label={'Thời gian'} value={`${formatDateTime(cart.eventStartTime)} - ${formatDateTime(cart.eventEndTime)}`} />
-              <InfoLine label={'Địa điểm'} value={cart.venueSummary || 'Đang cập nhật'} wide />
+              <InfoLine label={isEnglish ? 'Event' : 'Sự kiện'} value={isEnglish ? (translatePhrase(cart.eventTitle, 'en') || cart.eventTitle) : cart.eventTitle} />
+              <InfoLine label={isEnglish ? 'Date & Time' : 'Thời gian'} value={`${formatDateTime(cart.eventStartTime, isEnglish)} - ${formatDateTime(cart.eventEndTime, isEnglish)}`} />
+              <InfoLine label={isEnglish ? 'Venue' : 'Địa điểm'} value={isEnglish ? (translatePhrase(cart.venueSummary, 'en') || cart.venueSummary) : (cart.venueSummary || 'Đang cập nhật')} wide />
             </div>
           </Panel>
           <Panel>
-            <h2 className="mb-4 font-display text-xl font-bold text-white">{'Thông tin vé'}</h2>
+            <h2 className="mb-4 font-display text-xl font-bold text-white">{isEnglish ? 'Ticket Information' : 'Thông tin vé'}</h2>
             <div className="space-y-3">
               {cart.items.map((item) => (
                 <div key={item.ticketType.id} className="rounded-md bg-panel-soft p-4">
                   <div className="flex justify-between gap-4">
                     <div>
-                      <p className="font-bold text-white">{item.ticketType.name}</p>
-                      <p className="mt-1 text-sm text-muted">{'Số lượng'}: {item.quantity}</p>
+                      <p className="font-bold text-white">{isEnglish ? (translatePhrase(item.ticketType.name, 'en') || item.ticketType.name) : item.ticketType.name}</p>
+                      <p className="mt-1 text-sm text-muted">{isEnglish ? 'Quantity' : 'Số lượng'}: {item.quantity}</p>
                     </div>
                     <p className="font-bold text-primary">
-                      {formatPrice(Number(item.ticketType.price || 0) * item.quantity)}
+                      {formatPrice(Number(item.ticketType.price || 0) * item.quantity, isEnglish)}
                     </p>
                   </div>
                 </div>
@@ -2205,40 +2207,24 @@ export function BookingPaymentPage() {
                   </div>
                 ) : (
                   <div className="mx-auto mt-6 grid size-56 place-items-center rounded-lg border border-dashed border-border-soft text-sm text-muted">
-                    {'QR sẽ hiển thị khi PayOS trả dữ liệu.'}
+                    {isEnglish ? 'QR code will appear when PayOS responds.' : 'QR sẽ hiển thị khi PayOS trả dữ liệu.'}
                   </div>
                 )}
 
-                {/* Live Transaction Status */}
-                <div className="mt-6 rounded-2xl border border-white/10 bg-[#121c38]/90 p-4 backdrop-blur-md shadow-inner text-center">
-                  <div className="flex items-center justify-center gap-2.5">
-                    <span className="relative flex size-2.5">
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                      <span className="relative inline-flex size-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
-                    </span>
-                    <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">
-                      Đang chờ nhận tiền...
-                    </span>
+                {/* Button mở cổng thanh toán PayOS (bo góc tròn, không khung bọc) */}
+                {payment.checkout_url && (
+                  <div className="mt-6 flex justify-center">
+                    <a
+                      href={payment.checkout_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center justify-center gap-2 rounded-full bg-white/5 hover:bg-white/10 border border-white/15 px-6 py-2.5 text-xs sm:text-sm font-semibold text-slate-200 hover:text-white hover:border-[#C99A47]/60 hover:shadow-[0_0_16px_rgba(201,154,71,0.25)] transition-all cursor-pointer"
+                    >
+                      <span>{isEnglish ? 'Open PayOS Payment Page' : 'Mở cổng thanh toán PayOS'}</span>
+                      <ExternalLink className="size-3.5 sm:size-4 text-[#E6C17A]" />
+                    </a>
                   </div>
-
-                  <p className="mt-2 text-xs text-slate-300">
-                    Mở ứng dụng ngân hàng hoặc ví điện tử bất kỳ để quét mã VietQR ở trên.
-                  </p>
-
-                  {payment.checkout_url && (
-                    <div className="mt-3.5 pt-3 border-t border-white/5 flex justify-center">
-                      <a
-                        href={payment.checkout_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 px-4 py-2 text-xs font-semibold text-slate-200 hover:text-white transition"
-                      >
-                        <span>Hoặc mở cổng thanh toán PayOS</span>
-                        <ExternalLink className="size-3.5 text-[#C99A47]" />
-                      </a>
-                    </div>
-                  )}
-                </div>
+                )}
               </div>
             )}
           </Panel>
@@ -2417,7 +2403,7 @@ function BookingShell({ step, cart, children }) {
                     className={`text-[10px] sm:text-sm font-bold transition-colors whitespace-nowrap ${active
                       ? 'text-white drop-shadow-md'
                       : done
-                        ? 'text-[#E6C17A] group-hover:underline'
+                        ? 'text-[#E6C17A] group-hover:text-[#F3D8A5]'
                         : 'text-slate-500'
                       }`}
                   >
@@ -2447,7 +2433,7 @@ function BookingShell({ step, cart, children }) {
                 {isEnglish ? 'Booking for Event' : 'Sự kiện đang đặt vé'}
               </span>
               <h2 className="mt-1 font-display text-lg sm:text-2xl font-black text-white drop-shadow-sm line-clamp-2">
-                {cart.eventTitle}
+                {isEnglish ? (translatePhrase(cart.eventTitle, 'en') || cart.eventTitle) : cart.eventTitle}
               </h2>
             </div>
             {holdExpiresAt && secondsLeft(holdExpiresAt) > 0 && (
@@ -2491,7 +2477,7 @@ function OrderCard({
   const itemsToRender = (hideUnselectedTickets || visibleTicketTypes.length === 0) && selectedItems.length > 0
     ? selectedItems.map((item) => ({
       id: item.ticketType?.id || item.sessionSeatIds?.[0] || String(Math.random()),
-      name: item.ticketType?.name || 'Vé',
+      name: isEnglish ? (translatePhrase(item.ticketType?.name, 'en') || item.ticketType?.name) : (item.ticketType?.name || 'Vé'),
       price: Number(item.ticketType?.price || 0),
       qty: Number(item.quantity || 0),
       color: ticketTypeColor(item.ticketType, colorByTicketTypeId),
@@ -2503,7 +2489,7 @@ function OrderCard({
       const qty = Number(item?.quantity || 0)
       return {
         id: ticketType.id,
-        name: ticketType.name,
+        name: isEnglish ? (translatePhrase(ticketType.name, 'en') || ticketType.name) : (ticketType.name || 'Vé'),
         price: Number(ticketType.price || 0),
         qty,
         color: ticketTypeColor(ticketType, colorByTicketTypeId),
@@ -2513,15 +2499,15 @@ function OrderCard({
     })
 
   return (
-    <aside className="glass-panel relative overflow-hidden h-fit rounded-2xl sm:rounded-[24px] border-primary/20 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)] p-4 sm:p-7 lg:sticky lg:top-32">
+    <aside className="glass-panel relative overflow-hidden h-fit rounded-2xl sm:rounded-[24px] border-primary/20 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)] p-4 sm:p-6 lg:sticky lg:top-32">
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_var(--color-primary)_0%,_transparent_60%)] opacity-10" />
-      <div className="mb-5 flex items-center justify-between gap-2 flex-nowrap">
-        <h2 className="font-display text-lg sm:text-xl font-black text-white whitespace-nowrap">{isEnglish ? 'Booking Information' : 'Thông tin đặt vé'}</h2>
+      <div className="mb-4 sm:mb-5 flex flex-wrap items-center justify-between gap-x-2.5 gap-y-1">
+        <h2 className="font-display text-base sm:text-lg font-black tracking-tight text-white">{isEnglish ? 'Booking Information' : 'Thông tin đặt vé'}</h2>
         <button
           type="button"
           onClick={() => onReset ? setResetOpen(true) : setCancelOpen(true)}
           disabled={Boolean(onReset) && resetDisabled}
-          className="text-xs sm:text-sm font-bold text-[#E6C17A] hover:text-[#F3D8A5] transition whitespace-nowrap shrink-0 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+          className="text-xs font-bold text-[#E6C17A] hover:text-[#F3D8A5] transition whitespace-nowrap shrink-0 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
         >
           {isEnglish ? 'Reselect Tickets' : 'Chọn lại vé'}
         </button>
@@ -3029,21 +3015,25 @@ function Input({ label, value, onChange, type = 'text', placeholder, required = 
 }
 
 function StandingQuantityModal({ ticketType, quantity, onDecrease, onIncrease, onClose }) {
+  const { isEnglish } = useLanguage()
   const availability = ticketAvailability(ticketType)
 
   return createPortal(
     <div className={'fixed inset-0 z-50 grid place-items-center bg-black/70 p-4'} onClick={onClose}>
       <div className={'w-full max-w-md rounded-xl border border-border-soft bg-panel p-6 shadow-2xl'} onClick={(event) => event.stopPropagation()}>
         <div className={'flex items-start justify-between gap-4'}>
-          <div><p className={'text-xs font-bold uppercase text-tertiary'}>{'Khu vực đứng'}</p><h3 className={'mt-1 text-xl font-bold text-white'}>{ticketType.name}</h3></div>
+          <div>
+            <p className={'text-xs font-bold uppercase text-tertiary'}>{isEnglish ? 'Standing Area' : 'Khu vực đứng'}</p>
+            <h3 className={'mt-1 text-xl font-bold text-white'}>{isEnglish ? (translatePhrase(ticketType.name, 'en') || ticketType.name) : ticketType.name}</h3>
+          </div>
           <button type={'button'} onClick={onClose} className={'text-muted hover:text-white'}><X className={'size-5'} /></button>
         </div>
-        <p className={'mt-4 whitespace-pre-line text-sm leading-6 text-muted'}>{ticketType.description || 'Khu vực đứng, không có ghế ngồi cố định.'}</p>
+        <p className={'mt-4 whitespace-pre-line text-sm leading-6 text-muted'}>{ticketType.description || (isEnglish ? 'Standing area, no assigned seats.' : 'Khu vực đứng, không có ghế ngồi cố định.')}</p>
         <p className={'mt-3 text-sm font-bold text-success'}>
-          Còn lại: {availability.available}/{availability.total} vé
+          {isEnglish ? `Remaining: ${availability.available}/${availability.total} tickets` : `Còn lại: ${availability.available}/${availability.total} vé`}
         </p>
         <div className={'mt-5 flex items-center justify-between gap-4'}>
-          <p className={'font-bold text-primary'}>{formatPrice(ticketType.price)} / vé</p>
+          <p className={'font-bold text-primary'}>{formatPrice(ticketType.price, isEnglish)} / {isEnglish ? 'ticket' : 'vé'}</p>
           <QuantityStepper quantity={quantity} onDecrease={onDecrease} onIncrease={onIncrease} />
         </div>
         <button
@@ -3051,7 +3041,7 @@ function StandingQuantityModal({ ticketType, quantity, onDecrease, onIncrease, o
           onClick={onClose}
           className={'mt-6 w-full rounded-md bg-tertiary py-3 font-bold text-white shadow-lg shadow-tertiary/30 transition duration-200 hover:-translate-y-0.5 hover:bg-orange-500 hover:shadow-xl hover:shadow-tertiary/40 active:translate-y-0'}
         >
-          {'Xong'}
+          {isEnglish ? 'Done' : 'Xong'}
         </button>
       </div>
     </div>,
@@ -3190,6 +3180,7 @@ function UnseatedTicketSelection({
 }
 
 function UnseatedTicketRow({ ticketType, quantity, onDecrease, onIncrease }) {
+  const { isEnglish } = useLanguage()
   const availability = ticketAvailability(ticketType)
 
   return (
@@ -3199,13 +3190,13 @@ function UnseatedTicketRow({ ticketType, quantity, onDecrease, onIncrease }) {
       }`}>
       <div className={'flex items-start justify-between gap-4'}>
         <div>
-          <p className={'font-bold text-white'}>{ticketType.name}</p>
+          <p className={'font-bold text-white'}>{isEnglish ? (translatePhrase(ticketType.name, 'en') || ticketType.name) : ticketType.name}</p>
           <p className={'mt-1 text-sm text-muted'}>{ticketType.description}</p>
           <p className={'mt-2 text-sm font-bold text-success'}>
-            Còn lại: {availability.available}/{availability.total} vé
+            {isEnglish ? `Remaining: ${availability.available}/${availability.total} tickets` : `Còn lại: ${availability.available}/${availability.total} vé`}
           </p>
         </div>
-        <p className={'font-bold text-primary'}>{formatPrice(ticketType.price)}</p>
+        <p className={'font-bold text-primary'}>{formatPrice(ticketType.price, isEnglish)}</p>
       </div>
       <QuantityStepper className={'mt-4 justify-end'} quantity={quantity} onDecrease={onDecrease} onIncrease={onIncrease} />
     </div>
@@ -3221,6 +3212,7 @@ function stageShapeStyle(shape) {
 }
 
 function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat, onSelectStandingArea, seatZoom, colsCount, seatMap, invalidSeatId, pausedTicketTypeIds }) {
+  const { isEnglish } = useLanguage()
   const metrics = seatMapMetrics(seats, seatMap)
   const renderSeat = (seat, style = {}) => {
     const selected = selectedSeatIds.includes(seat.session_seat_id)
@@ -3242,7 +3234,9 @@ function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat, onSe
     const fontSize = labelLen <= 2 ? '9.5px' : labelLen === 3 ? '8px' : '7px'
     const letterSpacing = labelLen >= 3 ? '-0.04em' : '-0.01em'
     const isBlocked = seat.status === 'BLOCKED'
-    const title = `${seatLabel}${ticketType ? ` · ${ticketType.name}` : ''}${seat.zone?.name ? ` · ${seat.zone.name}` : ''}${isTicketTypePaused ? ' (Hạng vé đang tạm dừng bán)' : isBlocked ? ' (Vị trí tạm dừng bán)' : disabled ? ' (Đã giữ/bán)' : ''}`
+    const tName = ticketType ? (isEnglish ? (translatePhrase(ticketType.name, 'en') || ticketType.name) : ticketType.name) : ''
+    const zName = seat.zone?.name ? (isEnglish ? (translatePhrase(seat.zone.name, 'en') || seat.zone.name) : seat.zone.name) : ''
+    const title = `${seatLabel}${tName ? ` · ${tName}` : ''}${zName ? ` · ${zName}` : ''}${isTicketTypePaused ? (isEnglish ? ' (Ticket tier sale paused)' : ' (Hạng vé đang tạm dừng bán)') : isBlocked ? (isEnglish ? ' (Seat temporarily blocked)' : ' (Vị trí tạm dừng bán)') : disabled ? (isEnglish ? ' (Reserved/Sold)' : ' (Đã giữ/bán)') : ''}`
     const zoneColor = seat.zone?.color || seat.seat_type?.color
 
     return (

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   BookOpen,
@@ -23,6 +23,7 @@ import {
 } from '@/services/platformFinance.js'
 import { renderCosmicTitle } from '@/lib/formatTitle.jsx'
 import staticPoliciesData from './platformPoliciesData.json'
+import staticPoliciesDataEn from './platformPoliciesDataEn.json'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
 
 // Category groupings matching the Footer navigation
@@ -139,9 +140,10 @@ export function PlatformPoliciesPage({ audience = 'public' }) {
   // Merge static fallback policies with live API policies
   const policiesMap = useMemo(() => {
     const map = new Map()
+    const sourceData = isEnglish ? staticPoliciesDataEn : staticPoliciesData
 
     // 1. Populate with static fallback first
-    for (const item of staticPoliciesData) {
+    for (const item of sourceData) {
       map.set(item.policy_type, {
         id: item.policy_type,
         policy_type: item.policy_type,
@@ -162,9 +164,9 @@ export function PlatformPoliciesPage({ audience = 'public' }) {
       map.set(item.policy_type, {
         ...existing,
         ...item,
-        title: item.title || existing.title,
-        description: item.description || existing.description,
-        markdown: item.config?.content_markdown || existing.markdown || '',
+        title: isEnglish ? (existing.title || item.title) : (item.title || existing.title),
+        description: isEnglish ? (existing.description || item.description) : (item.description || existing.description),
+        markdown: isEnglish ? (existing.markdown || item.config?.content_markdown || '') : (item.config?.content_markdown || existing.markdown || ''),
         file_url: doc?.file_url || existing.file_url || '',
         file_name: doc?.file_name || doc?.title || existing.file_name || '',
         effective_from: item.effective_from || existing.effective_from,
@@ -172,7 +174,7 @@ export function PlatformPoliciesPage({ audience = 'public' }) {
     }
 
     return map
-  }, [policiesQuery.data])
+  }, [policiesQuery.data, isEnglish])
 
   const activePolicy = useMemo(() => {
     return (
@@ -182,16 +184,22 @@ export function PlatformPoliciesPage({ audience = 'public' }) {
     )
   }, [policiesMap, activeType])
 
+  const policyContentRef = useRef(null)
+
   // Select a policy
   const handleSelectPolicy = (type) => {
     setSearchParams({ policy_type: type })
     setViewMode('text')
-    window.scrollTo({ top: 120, behavior: 'smooth' })
+    if (policyContentRef.current) {
+      policyContentRef.current.scrollTop = 0
+    }
   }
 
-  // Scroll to top on mount or when active policy changes
+  // Scroll to top of content reader when active policy changes
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    if (policyContentRef.current) {
+      policyContentRef.current.scrollTop = 0
+    }
   }, [activeType])
 
   // If audience is organizer, filter groups to relevant BTC policies
@@ -201,39 +209,44 @@ export function PlatformPoliciesPage({ audience = 'public' }) {
   }, [audience, policyGroups])
 
   return (
-    <div className={`force-dark mx-auto max-w-7xl px-3.5 sm:px-6 lg:px-8 pb-16 ${audience === 'organizer' ? 'pt-2' : 'pt-2 sm:pt-4'}`}>
+    <div className={`force-dark mx-auto max-w-7xl px-3.5 sm:px-6 lg:px-8 ${audience === 'organizer' ? 'pt-2 pb-4' : 'pt-2 sm:pt-4 pb-12'}`}>
       {/* Page Header */}
-      <div className="mb-4 sm:mb-6 text-center sm:text-left">
-        <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-bold text-[#E6C17A] mb-2 sm:mb-3 shadow-[0_0_15px_rgba(201,154,71,0.2)]">
-          <Sparkles className="size-3.5" />
-          <span>{isEnglish ? 'EventHub Terms & Platform Policy Center' : 'Trung tâm Điều khoản & Chính sách Nền tảng EventHub'}</span>
-        </div>
+      <div className="mb-4 sm:mb-5 text-center sm:text-left">
         <h1 className="font-display text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight">
           {renderCosmicTitle(isEnglish ? 'EventHub Policies & Terms' : 'Chính sách & Quy định EventHub')}
         </h1>
-        <p className="mt-1.5 sm:mt-2 text-xs sm:text-sm lg:text-base text-slate-400 max-w-3xl">
-          {isEnglish
-            ? 'A comprehensive compilation of legal regulations, terms of service, customer protection guidelines, organizer rules, and operational security standards on the platform.'
-            : 'Tổng hợp các quy định pháp lý, điều khoản sử dụng, chính sách bảo vệ quyền lợi khách hàng, nhà tổ chức và chuẩn mực bảo mật vận hành trên nền tảng.'}
-        </p>
       </div>
 
       {/* Main Layout: 2-columns (Sidebar Navigation + Policy Reader) */}
-      <div className="grid grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)] gap-6 items-start">
+      <div
+        className={`grid grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)] gap-6 items-stretch ${
+          audience === 'organizer'
+            ? 'lg:h-[calc(100vh-185px)] lg:min-h-[580px]'
+            : 'lg:h-[calc(100vh-210px)] lg:min-h-[620px]'
+        }`}
+      >
         {/* Navigation Sidebar */}
-        <aside className="space-y-4 lg:sticky lg:top-28">
+        <aside
+          className={`space-y-4 flex flex-col h-full ${
+            visibleGroups.length > 1
+              ? 'overflow-y-auto pr-1.5 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.15)_transparent]'
+              : 'overflow-hidden'
+          }`}
+        >
           {visibleGroups.map((group) => {
             const GroupIcon = group.icon
             return (
               <div
                 key={group.key}
-                className="rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-xl p-3 sm:p-4 shadow-[0_8px_30px_rgba(0,0,0,0.35)]"
+                className={`rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-xl p-3 sm:p-4 shadow-[0_8px_30px_rgba(0,0,0,0.35)] flex flex-col ${
+                  visibleGroups.length === 1 ? 'h-full' : 'shrink-0'
+                }`}
               >
-                <div className="flex items-center gap-2 px-2 pb-2.5 mb-1.5 border-b border-white/5 text-xs font-extrabold uppercase tracking-wider text-slate-300">
+                <div className="flex items-center gap-2 px-2 pb-2.5 mb-1.5 border-b border-white/5 text-xs font-extrabold uppercase tracking-wider text-slate-300 shrink-0">
                   <GroupIcon className="size-4 text-[#E6C17A]" />
                   <span>{group.title}</span>
                 </div>
-                <div className="space-y-1">
+                <div className="space-y-1 overflow-y-auto flex-1 pr-1 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.15)_transparent]">
                   {group.types.map((type) => {
                     const policy = policiesMap.get(type)
                     const isSelected = activePolicy?.policy_type === type
@@ -256,17 +269,30 @@ export function PlatformPoliciesPage({ audience = 'public' }) {
                     )
                   })}
                 </div>
+
+                {visibleGroups.length === 1 && (
+                  <div className="mt-auto pt-3 border-t border-white/5 shrink-0">
+                    <div className="rounded-xl bg-white/[0.03] border border-white/5 p-3 text-[11px] text-slate-400 leading-relaxed flex items-start gap-2">
+                      <Shield className="size-3.5 text-[#E6C17A] shrink-0 mt-0.5" />
+                      <span>
+                        {isEnglish
+                          ? 'All policies are officially issued by EventHub and apply to all organizers on the platform.'
+                          : 'Tất cả các điều khoản được ban hành chính thức bởi EventHub và áp dụng cho toàn bộ BTC.'}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
             )
           })}
         </aside>
 
         {/* Policy Content Viewer */}
-        <main className="rounded-2xl border border-white/10 bg-slate-900/70 backdrop-blur-2xl p-5 sm:p-8 shadow-[0_12px_40px_rgba(0,0,0,0.45)]">
+        <main className="rounded-2xl border border-white/10 bg-slate-900/70 backdrop-blur-2xl p-5 sm:p-7 shadow-[0_12px_40px_rgba(0,0,0,0.45)] flex flex-col h-full overflow-hidden">
           {activePolicy ? (
-            <div>
+            <div className="flex flex-col h-full overflow-hidden">
               {/* Policy Header Bar */}
-              <div className="flex flex-col gap-4 pb-6 border-b border-white/10 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex flex-col gap-4 pb-4 border-b border-white/10 sm:flex-row sm:items-start sm:justify-between shrink-0">
                 <div>
                   <div className="flex flex-wrap items-center gap-2 mb-2">
                     <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-0.5 text-[11px] font-bold text-[#E6C17A]">
@@ -282,12 +308,12 @@ export function PlatformPoliciesPage({ audience = 'public' }) {
                   </div>
 
                   <h2 className="font-display text-xl sm:text-2xl font-black text-white leading-snug">
-                    {t(activePolicy.title)}
+                    {activePolicy.title}
                   </h2>
 
                   {activePolicy.description && (
                     <p className="mt-2 text-xs sm:text-sm text-slate-400 leading-relaxed max-w-2xl">
-                      {t(activePolicy.description)}
+                      {activePolicy.description}
                     </p>
                   )}
                 </div>
@@ -339,8 +365,8 @@ export function PlatformPoliciesPage({ audience = 'public' }) {
 
               {/* View Mode: PDF Frame or Formatted Text */}
               {viewMode === 'pdf' && activePolicy.file_url ? (
-                <div className="mt-6 space-y-4">
-                  <div className="flex items-center justify-between rounded-xl bg-amber-500/10 border border-amber-500/20 px-4 py-2.5 text-xs text-[#E6C17A]">
+                <div className="mt-4 flex flex-col flex-1 min-h-0 space-y-3">
+                  <div className="flex items-center justify-between rounded-xl bg-amber-500/10 border border-amber-500/20 px-4 py-2 text-xs text-[#E6C17A] shrink-0">
                     <span className="flex items-center gap-2 font-medium">
                       <FileText className="size-4 shrink-0" />
                       {isEnglish ? 'Original document:' : 'Tài liệu gốc:'} {activePolicy.file_name || `${activePolicy.policy_type}.pdf`}
@@ -354,17 +380,20 @@ export function PlatformPoliciesPage({ audience = 'public' }) {
                       {isEnglish ? 'Download / View separate' : 'Tải / Xem riêng'}
                     </a>
                   </div>
-                  <div className="overflow-hidden rounded-xl border border-white/10 bg-[#1a1e29] shadow-inner">
+                  <div className="flex-1 min-h-0 overflow-hidden rounded-xl border border-white/10 bg-[#1a1e29] shadow-inner">
                     <iframe
                       title={activePolicy.title}
                       src={`${activePolicy.file_url}#toolbar=1&navpanes=1&view=FitH`}
-                      className="h-[75vh] min-h-[580px] w-full bg-[#1a1e29]"
+                      className="h-full w-full bg-[#1a1e29]"
                     />
                   </div>
                 </div>
               ) : (
                 /* Formatted Text Reader */
-                <div className="mt-6">
+                <div
+                  ref={policyContentRef}
+                  className="mt-5 flex-1 min-h-0 overflow-y-auto pr-3 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.15)_transparent]"
+                >
                   {activePolicy.markdown ? (
                     <PolicyMarkdownViewer content={activePolicy.markdown} />
                   ) : (
@@ -383,7 +412,7 @@ export function PlatformPoliciesPage({ audience = 'public' }) {
                           style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)' }}
                         >
                           <FileDown className="size-4" />
-                          Xem toàn bộ tài liệu PDF
+                          {isEnglish ? 'View full PDF document' : 'Xem toàn bộ tài liệu PDF'}
                         </a>
                       )}
                     </div>
@@ -394,7 +423,7 @@ export function PlatformPoliciesPage({ audience = 'public' }) {
           ) : (
             <div className="py-16 text-center text-slate-400">
               <HelpCircle className="size-10 mx-auto text-slate-500 mb-3" />
-              <p className="text-sm font-semibold">Vui lòng chọn một điều khoản từ danh sách bên trái.</p>
+              <p className="text-sm font-semibold">{isEnglish ? 'Please select a policy from the list on the left.' : 'Vui lòng chọn một điều khoản từ danh sách bên trái.'}</p>
             </div>
           )}
         </main>

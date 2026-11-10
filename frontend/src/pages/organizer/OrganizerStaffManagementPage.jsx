@@ -31,9 +31,13 @@ import { Badge, OrganizerPage, OrganizerPanel, StatCard, TableActionButton } fro
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { OrganizerEventPicker } from './OrganizerEventPicker.jsx'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
 
-const GATE_SUGGESTIONS = ['Cổng A', 'Cổng B', 'Cổng C', 'Cổng VIP', 'Cổng chính', 'Cổng phụ', 'Tất cả cổng']
-const ZONE_SUGGESTIONS = ['Khu VIP', 'Khán đài A', 'Khán đài B', 'Khu đứng GA', 'Tầng 1', 'Tầng 2', 'Khu sân khấu', 'Toàn bộ sự kiện']
+const GATE_SUGGESTIONS_VI = ['Cổng A', 'Cổng B', 'Cổng C', 'Cổng VIP', 'Cổng chính', 'Cổng phụ', 'Tất cả cổng']
+const GATE_SUGGESTIONS_EN = ['Gate A', 'Gate B', 'Gate C', 'VIP Gate', 'Main Gate', 'Side Gate', 'All Gates']
+
+const ZONE_SUGGESTIONS_VI = ['Khu VIP', 'Khán đài A', 'Khán đài B', 'Khu đứng GA', 'Tầng 1', 'Tầng 2', 'Khu sân khấu', 'Toàn bộ sự kiện']
+const ZONE_SUGGESTIONS_EN = ['VIP Area', 'Stand A', 'Stand B', 'GA Standing Area', '1st Floor', '2nd Floor', 'Stage Area', 'Entire Event']
 
 function isApprovedOrPublishedEvent(event) {
   if (!event) return false
@@ -53,21 +57,15 @@ function isStaffManageableEvent(event) {
   return new Date(effectiveEnd).getTime() >= Date.now()
 }
 
-const getAutoLocale = () =>
-  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
-   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
-    ? 'en-US'
-    : 'vi-VN'
-
-function formatSessionTime(startTime, endTime) {
+function formatSessionTime(startTime, endTime, isEn = false) {
   if (!startTime) return ''
-  const isEn = getAutoLocale() === 'en-US'
+  const locale = isEn ? 'en-US' : 'vi-VN'
   const start = new Date(startTime)
-  const dateStr = start.toLocaleDateString(getAutoLocale(), { day: '2-digit', month: isEn ? 'short' : '2-digit', year: 'numeric' })
-  const timeStart = start.toLocaleTimeString(getAutoLocale(), { hour: '2-digit', minute: '2-digit', hour12: false })
+  const dateStr = start.toLocaleDateString(locale, { day: '2-digit', month: isEn ? 'short' : '2-digit', year: 'numeric' })
+  const timeStart = start.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', hour12: false })
   if (!endTime) return `${timeStart}, ${dateStr}`
   const end = new Date(endTime)
-  const timeEnd = end.toLocaleTimeString(getAutoLocale(), { hour: '2-digit', minute: '2-digit', hour12: false })
+  const timeEnd = end.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', hour12: false })
   return `${timeStart} - ${timeEnd}, ${dateStr}`
 }
 
@@ -606,6 +604,7 @@ export function OrganizerStaffManagementPage() {
 // ─── Edit Staff Modal ─────────────────────────────────────────────────────────
 
 function EditStaffModal({ staff, eventId, eventSessions = [], onClose, onUpdated }) {
+  const { isEnglish } = useLanguage()
   const toast = useToast()
   const initialSessionIds = useMemo(() => {
     if (Array.isArray(staff.session_ids) && staff.session_ids.length > 0) {
@@ -654,24 +653,27 @@ function EditStaffModal({ staff, eventId, eventSessions = [], onClose, onUpdated
         <div className="flex items-center justify-between border-b border-white/10 bg-[#111c3a] px-6 py-4 shrink-0">
           <div className="flex items-center gap-2 font-black text-white text-lg">
             <Edit2 className="size-5 text-primary" />
-            Chỉnh sửa phân công: {staff.staff_name}
+            {isEnglish ? `Edit Assignment: ${staff.staff_name}` : `Chỉnh sửa phân công: ${staff.staff_name}`}
           </div>
           <button
+            type="button"
             className="grid size-8 place-items-center rounded-full text-slate-400 hover:bg-white/10 hover:text-white transition-colors"
             onClick={onClose}
+            title={isEnglish ? 'Close' : 'Đóng'}
           >
             <X className="size-5" />
           </button>
         </div>
 
-        <form className="min-w-0 px-6 py-5 overflow-y-auto" onSubmit={handleSubmit}>
-          <div className="grid gap-4">
+        <form className="flex flex-1 flex-col overflow-hidden min-h-0" onSubmit={handleSubmit}>
+          <div className="flex-1 overflow-y-auto px-6 py-5 min-w-0">
+            <div className="grid gap-4">
             {/* Role */}
             <label className="grid gap-1.5 text-sm font-bold text-white">
-              Vai trò nhân sự
+              {isEnglish ? 'Staff Role' : 'Vai trò nhân sự'}
               <input
                 className="h-10 rounded-xl border border-white/15 bg-[#0d172e] px-3 text-sm text-white outline-none focus:border-primary placeholder:text-white/50"
-                placeholder="VD: Check-in, Hỗ trợ khách, Bán vé tại chỗ..."
+                placeholder={isEnglish ? 'For example: Check-in, Support, Onsite sales...' : 'VD: Check-in, Hỗ trợ khách, Bán vé tại chỗ...'}
                 value={form.staff_role}
                 onChange={(e) => setForm((f) => ({ ...f, staff_role: e.target.value }))}
                 disabled={saving}
@@ -682,10 +684,9 @@ function EditStaffModal({ staff, eventId, eventSessions = [], onClose, onUpdated
             <div className="space-y-2">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <label className="text-sm font-bold text-white flex items-center gap-1.5">
-                  <Clock className="size-4 text-cyan-400" />
-                  Phiên sự kiện phân công
+                  {isEnglish ? 'Event Session' : 'Phiên sự kiện phân công'}
                   <span className="text-xs font-normal text-slate-400">
-                    (chọn nhiều phiên hoặc toàn bộ sự kiện)
+                    {isEnglish ? '(select multiple sessions or entire event)' : '(chọn nhiều phiên hoặc toàn bộ sự kiện)'}
                   </span>
                 </label>
                 {eventSessions.length > 0 && (
@@ -699,7 +700,7 @@ function EditStaffModal({ staff, eventId, eventSessions = [], onClose, onUpdated
                           : 'border border-white/10 bg-[#0d172e]/60 text-slate-300 hover:border-cyan-400/40 hover:text-white'
                       }`}
                     >
-                      Toàn bộ sự kiện
+                      {isEnglish ? 'Entire event' : 'Toàn bộ sự kiện'}
                     </button>
                     <button
                       type="button"
@@ -719,8 +720,8 @@ function EditStaffModal({ staff, eventId, eventSessions = [], onClose, onUpdated
                       }`}
                     >
                       {form.session_ids.length === eventSessions.length && eventSessions.length > 0
-                        ? 'Bỏ chọn tất cả'
-                        : `Chọn tất cả (${eventSessions.length})`}
+                        ? (isEnglish ? 'Deselect all' : 'Bỏ chọn tất cả')
+                        : (isEnglish ? `Select all (${eventSessions.length})` : `Chọn tất cả (${eventSessions.length})`)}
                     </button>
                   </div>
                 )}
@@ -728,13 +729,15 @@ function EditStaffModal({ staff, eventId, eventSessions = [], onClose, onUpdated
 
               {eventSessions.length === 0 ? (
                 <div className="rounded-xl border border-white/10 bg-[#0d172e] px-3.5 py-2.5 text-xs text-slate-400">
-                  Sự kiện này không chia phiên làm việc (mặc định áp dụng cho toàn bộ sự kiện).
+                  {isEnglish
+                    ? 'This event does not have working sessions (applies to the entire event by default).'
+                    : 'Sự kiện này không chia phiên làm việc (mặc định áp dụng cho toàn bộ sự kiện).'}
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
                   {eventSessions.map((sess, idx) => {
                     const isSelected = form.session_ids.includes(sess.id)
-                    const timeStr = formatSessionTime(sess.start_time, sess.end_time)
+                    const timeStr = formatSessionTime(sess.start_time, sess.end_time, isEnglish)
                     return (
                       <button
                         key={sess.id}
@@ -765,7 +768,7 @@ function EditStaffModal({ staff, eventId, eventSessions = [], onClose, onUpdated
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-xs font-bold leading-tight text-white truncate">
-                            {sess.session_name || `Phiên ${idx + 1}`}
+                            {sess.session_name || (isEnglish ? `Session ${idx + 1}` : `Phiên ${idx + 1}`)}
                           </p>
                           {timeStr && (
                             <p className="text-[11px] text-slate-400 mt-1 leading-tight">
@@ -778,92 +781,92 @@ function EditStaffModal({ staff, eventId, eventSessions = [], onClose, onUpdated
                   })}
                 </div>
               )}
-
-              {eventSessions.length > 0 && (
-                <p className="text-xs text-slate-400 flex items-center gap-1.5">
-                  <span className="inline-block size-1.5 rounded-full bg-cyan-400" />
-                  {form.session_ids.length === 0 ? (
-                    <span className="text-cyan-300 font-medium">Toàn bộ sự kiện (nhân sự phụ trách tất cả các phiên)</span>
-                  ) : (
-                    <span className="text-cyan-300 font-medium">
-                      Đã chọn {form.session_ids.length} / {eventSessions.length} phiên làm việc
-                    </span>
-                  )}
-                </p>
-              )}
             </div>
 
             {/* Gate & Zone */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="grid gap-1.5 text-sm font-bold text-white">
-                  Cổng check-in / phân công
+                  {isEnglish ? 'Check-in / assignment gate' : 'Cổng check-in / phân công'}
                   <input
                     className="h-10 rounded-xl border border-white/15 bg-[#0d172e] px-3 text-sm text-white outline-none focus:border-primary placeholder:text-white/50"
-                    placeholder="VD: Cổng A, Cổng VIP... (để trống nếu phụ trách tất cả)"
+                    placeholder={isEnglish ? 'For example: Gate A, VIP Gate... (leave blank for all gates)' : 'VD: Cổng A, Cổng VIP... (để trống nếu phụ trách tất cả)'}
                     value={form.gate}
                     onChange={(e) => setForm((f) => ({ ...f, gate: e.target.value }))}
                     disabled={saving}
                   />
                 </label>
                 <div className="flex flex-wrap gap-1.5">
-                  {GATE_SUGGESTIONS.map((suggestion) => (
-                    <button
-                      key={suggestion}
-                      type="button"
-                      className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors ${
-                        form.gate === suggestion
-                          ? 'border-primary bg-primary/20 text-primary font-bold'
-                          : 'border-white/15 bg-[#0d172e]/60 text-slate-300 hover:border-primary/40 hover:text-white'
-                      }`}
-                      onClick={() => setForm((f) => ({ ...f, gate: suggestion === 'Tất cả cổng' ? '' : suggestion }))}
-                    >
-                      {suggestion}
-                    </button>
-                  ))}
+                  {(isEnglish ? GATE_SUGGESTIONS_EN : GATE_SUGGESTIONS_VI).map((suggestion, idx) => {
+                    const isAllOption = idx === (isEnglish ? GATE_SUGGESTIONS_EN : GATE_SUGGESTIONS_VI).length - 1
+                    const isSelected = isAllOption
+                      ? !form.gate
+                      : form.gate === suggestion || form.gate === GATE_SUGGESTIONS_VI[idx] || form.gate === GATE_SUGGESTIONS_EN[idx]
+                    return (
+                      <button
+                        key={suggestion}
+                        type="button"
+                        className={`rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-colors cursor-pointer ${
+                          isSelected
+                            ? 'border-primary bg-primary/20 text-primary font-bold shadow-sm shadow-primary/20'
+                            : 'border-white/15 bg-[#0d172e]/60 text-slate-300 hover:border-primary/40 hover:text-white'
+                        }`}
+                        onClick={() => setForm((f) => ({ ...f, gate: isAllOption ? '' : suggestion }))}
+                      >
+                        {suggestion}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
 
               <div className="space-y-2">
                 <label className="grid gap-1.5 text-sm font-bold text-white">
-                  Khu vực làm việc trong sự kiện
+                  {isEnglish ? 'Working area during the event' : 'Khu vực làm việc trong sự kiện'}
                   <input
                     className="h-10 rounded-xl border border-white/15 bg-[#0d172e] px-3 text-sm text-white outline-none focus:border-primary placeholder:text-white/50"
-                    placeholder="VD: Khu VIP, Khán đài A..."
+                    placeholder={isEnglish ? 'For example: VIP area, Stand A...' : 'VD: Khu VIP, Khán đài A...'}
                     value={form.zone}
                     onChange={(e) => setForm((f) => ({ ...f, zone: e.target.value }))}
                     disabled={saving}
                   />
                 </label>
                 <div className="flex flex-wrap gap-1.5">
-                  {ZONE_SUGGESTIONS.map((suggestion) => (
-                    <button
-                      key={suggestion}
-                      type="button"
-                      className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors ${
-                        form.zone === suggestion
-                          ? 'border-amber-500 bg-amber-500/20 text-amber-400 font-bold'
-                          : 'border-white/15 bg-[#0d172e]/60 text-slate-300 hover:border-amber-500/40 hover:text-white'
-                      }`}
-                      onClick={() => setForm((f) => ({ ...f, zone: suggestion === 'Toàn bộ sự kiện' ? '' : suggestion }))}
-                    >
-                      {suggestion}
-                    </button>
-                  ))}
+                  {(isEnglish ? ZONE_SUGGESTIONS_EN : ZONE_SUGGESTIONS_VI).map((suggestion, idx) => {
+                    const isAllOption = idx === (isEnglish ? ZONE_SUGGESTIONS_EN : ZONE_SUGGESTIONS_VI).length - 1
+                    const isSelected = isAllOption
+                      ? !form.zone
+                      : form.zone === suggestion || form.zone === ZONE_SUGGESTIONS_VI[idx] || form.zone === ZONE_SUGGESTIONS_EN[idx]
+                    return (
+                      <button
+                        key={suggestion}
+                        type="button"
+                        className={`rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-colors cursor-pointer ${
+                          isSelected
+                            ? 'border-amber-500 bg-amber-500/20 text-amber-400 font-bold shadow-sm shadow-amber-500/20'
+                            : 'border-white/15 bg-[#0d172e]/60 text-slate-300 hover:border-amber-500/40 hover:text-white'
+                        }`}
+                        onClick={() => setForm((f) => ({ ...f, zone: isAllOption ? '' : suggestion }))}
+                      >
+                        {suggestion}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
             </div>
           </div>
+        </div>
 
-          <div className="mt-6 flex justify-end gap-3">
+          <div className="flex justify-end gap-3 border-t border-border-soft/20 px-6 py-4 bg-panel-soft/30 shrink-0">
             <button type="button" className="org-btn-secondary px-5" onClick={onClose} disabled={saving}>
-              Hủy
+              {isEnglish ? 'Cancel' : 'Hủy'}
             </button>
             <button type="submit" className="org-btn-primary px-5" disabled={saving}>
               {saving ? (
-                <><Loader2 className="size-4 animate-spin" /> Đang lưu...</>
+                <><Loader2 className="size-4 animate-spin" /> {isEnglish ? 'Saving...' : 'Đang lưu...'}</>
               ) : (
-                'Lưu thay đổi'
+                isEnglish ? 'Save Changes' : 'Lưu thay đổi'
               )}
             </button>
           </div>
@@ -884,6 +887,7 @@ function InviteStaffModal({
   onClose,
   onInvited,
 }) {
+  const { isEnglish } = useLanguage()
   const toast = useToast()
   const initialEventId = events.some((event) => event.id === selectedEventId)
     ? selectedEventId
@@ -955,16 +959,19 @@ function InviteStaffModal({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/10 bg-[#111c3a] px-6 py-4 shrink-0">
           <div className="flex items-center gap-2 font-black text-white text-lg">
-            Mời nhân sự
+            {isEnglish ? 'Invite Staff' : 'Mời nhân sự'}
           </div>
           <button
+            type="button"
             className="grid size-8 place-items-center rounded-full text-slate-400 hover:bg-white/10 hover:text-white transition-colors"
             onClick={onClose}
+            title={isEnglish ? 'Close' : 'Đóng'}
           >
             <X className="size-5" />
           </button>
         </div>
-        <form className="min-w-0 px-6 py-5 overflow-y-auto" onSubmit={handleSubmit}>
+        <form className="flex flex-1 flex-col overflow-hidden min-h-0" onSubmit={handleSubmit}>
+          <div className="flex-1 overflow-y-auto px-6 py-5 min-w-0">
           {limitReached && (
             <div className="mb-4 rounded-xl border border-warning/30 bg-warning/10 px-4 py-2 text-sm font-semibold text-warning">
               Gói {subscriptionName} đã đạt giới hạn {perEventLimit} staff/sự kiện.
@@ -980,7 +987,7 @@ function InviteStaffModal({
           <div className="grid gap-4">
             {/* Event */}
             <label className="grid min-w-0 gap-1.5 text-sm font-bold text-white">
-              Sự kiện
+              {isEnglish ? 'Event' : 'Sự kiện'}
               <select
                 className="h-10 min-w-0 w-full truncate rounded-xl border border-white/15 bg-[#0d172e] px-3 pr-9 text-sm font-medium text-white shadow-sm outline-none focus:border-primary"
                 title={events.find((ev) => ev.id === form.event_id)?.title || ''}
@@ -989,7 +996,9 @@ function InviteStaffModal({
                 required
                 disabled={events.length === 0}
               >
-                <option value="" className="bg-[#0b1329] text-white">Chọn sự kiện...</option>
+                <option value="" className="bg-[#0b1329] text-white">
+                  {isEnglish ? 'Select event...' : 'Chọn sự kiện...'}
+                </option>
                 {events.filter(isApprovedOrPublishedEvent).map((ev) => (
                   <option key={ev.id} value={ev.id} className="bg-[#0b1329] text-white">{ev.title}</option>
                 ))}
@@ -1000,10 +1009,9 @@ function InviteStaffModal({
             <div className="space-y-2">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <label className="text-sm font-bold text-white flex items-center gap-1.5">
-                  <Clock className="size-4 text-cyan-400" />
-                  Phiên sự kiện
+                  {isEnglish ? 'Event Session' : 'Phiên sự kiện'}
                   <span className="text-xs font-normal text-slate-400">
-                    (chọn nhiều phiên hoặc toàn bộ sự kiện)
+                    {isEnglish ? '(select multiple sessions or entire event)' : '(chọn nhiều phiên hoặc toàn bộ sự kiện)'}
                   </span>
                 </label>
                 {eventSessions.length > 0 && (
@@ -1017,7 +1025,7 @@ function InviteStaffModal({
                           : 'border border-white/10 bg-[#0d172e]/60 text-slate-300 hover:border-cyan-400/40 hover:text-white'
                       }`}
                     >
-                      Toàn bộ sự kiện
+                      {isEnglish ? 'Entire event' : 'Toàn bộ sự kiện'}
                     </button>
                     <button
                       type="button"
@@ -1037,8 +1045,8 @@ function InviteStaffModal({
                       }`}
                     >
                       {form.session_ids.length === eventSessions.length && eventSessions.length > 0
-                        ? 'Bỏ chọn tất cả'
-                        : `Chọn tất cả (${eventSessions.length})`}
+                        ? (isEnglish ? 'Deselect all' : 'Bỏ chọn tất cả')
+                        : (isEnglish ? `Select all (${eventSessions.length})` : `Chọn tất cả (${eventSessions.length})`)}
                     </button>
                   </div>
                 )}
@@ -1046,13 +1054,15 @@ function InviteStaffModal({
 
               {eventSessions.length === 0 ? (
                 <div className="rounded-xl border border-white/10 bg-[#0d172e] px-3.5 py-2.5 text-xs text-slate-400">
-                  Sự kiện này không chia phiên làm việc (mặc định áp dụng cho toàn bộ sự kiện).
+                  {isEnglish
+                    ? 'This event does not have working sessions (applies to the entire event by default).'
+                    : 'Sự kiện này không chia phiên làm việc (mặc định áp dụng cho toàn bộ sự kiện).'}
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-52 overflow-y-auto pr-1">
                   {eventSessions.map((sess, idx) => {
                     const isSelected = form.session_ids.includes(sess.id)
-                    const timeStr = formatSessionTime(sess.start_time, sess.end_time)
+                    const timeStr = formatSessionTime(sess.start_time, sess.end_time, isEnglish)
                     return (
                       <button
                         key={sess.id}
@@ -1083,7 +1093,7 @@ function InviteStaffModal({
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-xs font-bold leading-tight text-white truncate">
-                            {sess.session_name || `Phiên ${idx + 1}`}
+                            {sess.session_name || (isEnglish ? `Session ${idx + 1}` : `Phiên ${idx + 1}`)}
                           </p>
                           {timeStr && (
                             <p className="text-[11px] text-slate-400 mt-1 leading-tight">
@@ -1096,32 +1106,19 @@ function InviteStaffModal({
                   })}
                 </div>
               )}
-
-              {eventSessions.length > 0 && (
-                <p className="text-xs text-slate-400 flex items-center gap-1.5">
-                  <span className="inline-block size-1.5 rounded-full bg-cyan-400" />
-                  {form.session_ids.length === 0 ? (
-                    <span className="text-cyan-300 font-medium">Toàn bộ sự kiện (nhân sự phụ trách tất cả các phiên)</span>
-                  ) : (
-                    <span className="text-cyan-300 font-medium">
-                      Đã chọn {form.session_ids.length} / {eventSessions.length} phiên làm việc
-                    </span>
-                  )}
-                </p>
-              )}
             </div>
 
             {/* Email & Role in 2 columns */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Email with autocomplete */}
               <label className="grid gap-1.5 text-sm font-bold text-white">
-                Email tài khoản customer
+                {isEnglish ? 'Customer account email' : 'Email tài khoản khách hàng'}
                 <div className="relative">
                   <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-white/50" />
                   <input
                     type="search"
                     className="h-10 w-full rounded-xl border border-white/15 bg-[#0d172e] pl-9 pr-3 text-sm font-normal text-white outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 placeholder:text-white/50"
-                    placeholder="Tìm tên hoặc email..."
+                    placeholder={isEnglish ? 'Find name or email...' : 'Tìm tên hoặc email...'}
                     value={candidateSearch}
                     onChange={(e) => {
                       setCandidateSearch(e.target.value)
@@ -1150,10 +1147,10 @@ function InviteStaffModal({
 
               {/* Role */}
               <label className="grid gap-1.5 text-sm font-bold text-white">
-                Vai trò
+                {isEnglish ? 'Role' : 'Vai trò'}
                 <input
                   className="h-10 rounded-xl border border-white/15 bg-[#0d172e] px-3 text-sm text-white outline-none focus:border-primary placeholder:text-white/50"
-                  placeholder="VD: Check-in, Hỗ trợ khách, Bán vé tại chỗ..."
+                  placeholder={isEnglish ? 'For example: Check-in, Support, Onsite sales...' : 'VD: Check-in, Hỗ trợ khách, Bán vé tại chỗ...'}
                   value={form.staff_role}
                   onChange={(e) => setForm((f) => ({ ...f, staff_role: e.target.value }))}
                   disabled={saving}
@@ -1166,10 +1163,10 @@ function InviteStaffModal({
               {/* Gate column */}
               <div className="space-y-2">
                 <label className="grid gap-1.5 text-sm font-bold text-white">
-                  Cổng check-in / phân công
+                  {isEnglish ? 'Check-in / assignment gate' : 'Cổng check-in / phân công'}
                   <input
                     className="h-10 rounded-xl border border-white/15 bg-[#0d172e] px-3 text-sm text-white outline-none focus:border-primary placeholder:text-white/50"
-                    placeholder="VD: Cổng A, Cổng VIP, Cổng chính... (để trống nếu phụ trách tất cả)"
+                    placeholder={isEnglish ? 'For example: Gate A, VIP Gate, Main Gate... (leave blank for all gates)' : 'VD: Cổng A, Cổng VIP, Cổng chính... (để trống nếu phụ trách tất cả)'}
                     value={form.gate}
                     onChange={(e) => setForm((f) => ({ ...f, gate: e.target.value }))}
                     disabled={saving}
@@ -1177,29 +1174,36 @@ function InviteStaffModal({
                 </label>
                 {/* Quick suggestions for gate */}
                 <div className="flex flex-wrap gap-1.5">
-                  {GATE_SUGGESTIONS.map((suggestion) => (
-                    <button
-                      key={suggestion}
-                      type="button"
-                      className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors ${form.gate === suggestion
-                        ? 'border-primary bg-primary/20 text-primary font-bold'
-                        : 'border-white/15 bg-[#0d172e]/60 text-slate-300 hover:border-primary/40 hover:text-white'
+                  {(isEnglish ? GATE_SUGGESTIONS_EN : GATE_SUGGESTIONS_VI).map((suggestion, idx) => {
+                    const isAllOption = idx === (isEnglish ? GATE_SUGGESTIONS_EN : GATE_SUGGESTIONS_VI).length - 1
+                    const isSelected = isAllOption
+                      ? !form.gate
+                      : form.gate === suggestion || form.gate === GATE_SUGGESTIONS_VI[idx] || form.gate === GATE_SUGGESTIONS_EN[idx]
+                    return (
+                      <button
+                        key={suggestion}
+                        type="button"
+                        className={`rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-colors cursor-pointer ${
+                          isSelected
+                            ? 'border-primary bg-primary/20 text-primary font-bold shadow-sm shadow-primary/20'
+                            : 'border-white/15 bg-[#0d172e]/60 text-slate-300 hover:border-primary/40 hover:text-white'
                         }`}
-                      onClick={() => setForm((f) => ({ ...f, gate: suggestion === 'Tất cả cổng' ? '' : suggestion }))}
-                    >
-                      {suggestion}
-                    </button>
-                  ))}
+                        onClick={() => setForm((f) => ({ ...f, gate: isAllOption ? '' : suggestion }))}
+                      >
+                        {suggestion}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
 
               {/* Zone column */}
               <div className="space-y-2">
                 <label className="grid gap-1.5 text-sm font-bold text-white">
-                  Khu vực làm việc trong sự kiện
+                  {isEnglish ? 'Working area during the event' : 'Khu vực làm việc trong sự kiện'}
                   <input
                     className="h-10 rounded-xl border border-white/15 bg-[#0d172e] px-3 text-sm text-white outline-none focus:border-primary placeholder:text-white/50"
-                    placeholder="VD: Khu VIP, Khán đài A, Khu đứng GA, Tầng 1..."
+                    placeholder={isEnglish ? 'For example: VIP area, Stand A, GA standing area, 1st floor...' : 'VD: Khu VIP, Khán đài A, Khu đứng GA, Tầng 1...'}
                     value={form.zone}
                     onChange={(e) => setForm((f) => ({ ...f, zone: e.target.value }))}
                     disabled={saving}
@@ -1207,31 +1211,41 @@ function InviteStaffModal({
                 </label>
                 {/* Quick suggestions for zone */}
                 <div className="flex flex-wrap gap-1.5">
-                  {ZONE_SUGGESTIONS.map((suggestion) => (
-                    <button
-                      key={suggestion}
-                      type="button"
-                      className={`rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors ${form.zone === suggestion
-                        ? 'border-amber-500 bg-amber-500/20 text-amber-400 font-bold'
-                        : 'border-white/15 bg-[#0d172e]/60 text-slate-300 hover:border-amber-500/40 hover:text-white'
+                  {(isEnglish ? ZONE_SUGGESTIONS_EN : ZONE_SUGGESTIONS_VI).map((suggestion, idx) => {
+                    const isAllOption = idx === (isEnglish ? ZONE_SUGGESTIONS_EN : ZONE_SUGGESTIONS_VI).length - 1
+                    const isSelected = isAllOption
+                      ? !form.zone
+                      : form.zone === suggestion || form.zone === ZONE_SUGGESTIONS_VI[idx] || form.zone === ZONE_SUGGESTIONS_EN[idx]
+                    return (
+                      <button
+                        key={suggestion}
+                        type="button"
+                        className={`rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-colors cursor-pointer ${
+                          isSelected
+                            ? 'border-amber-500 bg-amber-500/20 text-amber-400 font-bold shadow-sm shadow-amber-500/20'
+                            : 'border-white/15 bg-[#0d172e]/60 text-slate-300 hover:border-amber-500/40 hover:text-white'
                         }`}
-                      onClick={() => setForm((f) => ({ ...f, zone: suggestion === 'Toàn bộ sự kiện' ? '' : suggestion }))}
-                    >
-                      {suggestion}
-                    </button>
-                  ))}
+                        onClick={() => setForm((f) => ({ ...f, zone: isAllOption ? '' : suggestion }))}
+                      >
+                        {suggestion}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
             </div>
           </div>
 
-          <p className="mt-3 text-xs leading-5 text-muted">
-            Customer sẽ nhận thông báo kèm cổng và khu vực phân công. Sau khi chấp nhận, họ được gán role STAFF cho sự kiện này.
-          </p>
+            <p className="mt-3 text-xs leading-5 text-muted">
+              {isEnglish
+                ? 'Customer will receive a notification with the assigned gate and area. Once accepted, they are assigned the STAFF role for this event.'
+                : 'Khách hàng sẽ nhận thông báo kèm cổng và khu vực phân công. Sau khi chấp nhận, họ sẽ được gán vai trò nhân viên cho sự kiện này.'}
+            </p>
+          </div>
 
-          <div className="mt-5 flex justify-end gap-3">
+          <div className="flex justify-end gap-3 border-t border-border-soft/20 px-6 py-4 bg-panel-soft/30 shrink-0">
             <button type="button" className="org-btn-secondary" onClick={onClose} disabled={saving}>
-              Hủy
+              {isEnglish ? 'Cancel' : 'Hủy'}
             </button>
             <button
               type="submit"
@@ -1239,9 +1253,9 @@ function InviteStaffModal({
               disabled={saving || limitReached || events.length === 0 || !form.email.trim() || !form.event_id}
             >
               {saving ? (
-                <><Loader2 className="size-4 animate-spin" /> Đang gửi...</>
+                <><Loader2 className="size-4 animate-spin" /> {isEnglish ? 'Sending...' : 'Đang gửi...'}</>
               ) : (
-                <> Gửi lời mời</>
+                isEnglish ? 'Send Invitation' : 'Gửi lời mời'
               )}
             </button>
           </div>
@@ -1254,6 +1268,7 @@ function InviteStaffModal({
 // ─── Confirm Dialog ───────────────────────────────────────────────────────────
 
 function ConfirmDialog({ title, message, confirmLabel, danger, loading, onConfirm, onCancel }) {
+  const { isEnglish } = useLanguage()
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div className="w-full max-w-sm rounded-2xl bg-[#0b1329] border border-white/15 p-6 shadow-2xl shadow-black/90 text-white">
@@ -1261,7 +1276,7 @@ function ConfirmDialog({ title, message, confirmLabel, danger, loading, onConfir
         <p className="mt-2 text-sm text-subtle">{message}</p>
         <div className="mt-5 flex justify-end gap-3">
           <button className="org-btn-secondary px-6" onClick={onCancel} disabled={loading}>
-            Hủy
+            {isEnglish ? 'Cancel' : 'Hủy'}
           </button>
           <button
             className={`inline-flex items-center justify-center gap-2 rounded-full px-6 py-2.5 text-sm font-bold transition-all ${danger

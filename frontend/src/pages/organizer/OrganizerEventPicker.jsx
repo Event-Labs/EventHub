@@ -10,7 +10,8 @@ import {
 } from 'lucide-react'
 import { getEventOperationalStatus } from './eventStatusUtil.js'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
-import { VI_TO_EN } from '@/i18n/phraseDictionary.js'
+import { getCategoryName } from '@/i18n/categoryNames.js'
+import { VI_TO_EN, translatePhrase } from '@/i18n/phraseDictionary.js'
 
 const getAutoLocale = () =>
   ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
@@ -150,8 +151,9 @@ export function OrganizerEventPicker({
       if (!searchQuery.trim()) return true
       const q = searchQuery.toLowerCase()
       const title = (ev.title || '').toLowerCase()
+      const enTitle = (translatePhrase(ev.title, 'en') || '').toLowerCase()
       const cat = (ev.category_name || '').toLowerCase()
-      return title.includes(q) || cat.includes(q)
+      return title.includes(q) || enTitle.includes(q) || cat.includes(q)
     })
   }, [enrichedEvents, activeTab, searchQuery])
 
@@ -198,15 +200,6 @@ export function OrganizerEventPicker({
       {displayLabel && (
         <div className="flex items-center justify-between mb-1.5">
           <span className="block text-base font-bold text-white [html.light_&]:text-[#0D1B2A]">{displayLabel}</span>
-          {allowAll && selectedEvent && (
-            <button
-              type="button"
-              onClick={handleClear}
-              className="text-xs font-semibold text-cyan-400 hover:text-cyan-300 hover:underline"
-            >
-              {isEnglish ? 'Back to all' : 'Quay lại tất cả'}
-            </button>
-          )}
         </div>
       )}
 
@@ -225,16 +218,11 @@ export function OrganizerEventPicker({
         <div className="flex min-w-0 flex-1 items-center gap-2.5">
           {selectedEvent ? (
             <>
-              {selectedStatus?.isLive ? (
-                <span className="relative flex size-2.5 shrink-0">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex size-2.5 rounded-full bg-emerald-500" />
-                </span>
-              ) : showCalendarIcon ? (
+              {showCalendarIcon ? (
                 <Calendar className="size-4 shrink-0 text-cyan-400" />
               ) : null}
               <span className="truncate font-bold text-white [html.light_&]:text-[#0D1B2A]">
-                {selectedEvent.title}
+                {isEnglish ? (translatePhrase(selectedEvent.title, 'en') || selectedEvent.title) : selectedEvent.title}
               </span>
               <span
                 className={`hidden shrink-0 whitespace-nowrap items-center gap-1 rounded-full border px-1.5 py-0.5 text-[9.5px] font-bold sm:inline-flex ${selectedStatus?.badgeClass}`}
@@ -267,20 +255,6 @@ export function OrganizerEventPicker({
         </div>
 
         <div className="flex shrink-0 items-center gap-1.5">
-          {allowAll && selectedEvent && (
-            <span
-              role="button"
-              tabIndex={0}
-              onClick={handleClear}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') handleClear(e)
-              }}
-              title="Xem tất cả sự kiện"
-              className="grid size-5 place-items-center rounded-full text-slate-400 transition hover:bg-white/10 hover:text-white"
-            >
-              <X className="size-3" />
-            </span>
-          )}
           <ChevronDown
             className={`size-4 text-slate-400 transition-transform duration-200 ${
               isOpen ? 'rotate-180 text-primary' : 'group-hover:text-slate-200'
@@ -409,14 +383,14 @@ export function OrganizerEventPicker({
 
                       <div className="min-w-0">
                         <p className="truncate text-xs font-bold text-white">
-                          {ev.title}
+                          {isEnglish ? (translatePhrase(ev.title, 'en') || ev.title) : ev.title}
                         </p>
                         <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
                           <span>{fmtEventDate(ev.start_time)}</span>
                           {ev.category_name && (
                             <>
                               <span>·</span>
-                              <span className="text-slate-300">{ev.category_name}</span>
+                              <span className="text-slate-300">{getCategoryName(ev.category_name, isEnglish)}</span>
                             </>
                           )}
                         </div>

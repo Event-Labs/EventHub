@@ -46,6 +46,8 @@ import { DailyRevenueBarChart } from './overview/DailyRevenueBarChart.jsx'
 import { EventRevenueBarChart } from './overview/EventRevenueBarChart.jsx'
 import { TicketStatusOverviewPanel } from './overview/TicketStatusOverviewPanel.jsx'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
+import { getCategoryName } from '@/i18n/categoryNames.js'
+import { translatePhrase } from '@/i18n/phraseDictionary.js'
 
 // ─── Formatters & Utilities ──────────────────────────────────────────────────
 
@@ -505,8 +507,8 @@ function EventsPerformanceTable({ eventsRevenue = [], onDrillDownEvent }) {
                 className="transition-colors hover:bg-white/[0.03]"
               >
                 <td className="px-3.5 py-3">
-                  <p className="truncate font-bold text-white text-sm" title={item.event_title}>
-                    {item.event_title}
+                  <p className="truncate font-bold text-white text-sm" title={isEnglish ? (translatePhrase(item.event_title, 'en') || item.event_title) : item.event_title}>
+                    {isEnglish ? (translatePhrase(item.event_title, 'en') || item.event_title) : item.event_title}
                   </p>
                   <p className="mt-0.5 text-xs text-slate-400">
                     {fmtDate(item.start_time)}
@@ -565,80 +567,6 @@ function EventsPerformanceTable({ eventsRevenue = [], onDrillDownEvent }) {
   )
 }
 
-// ─── Sub-components: Single Event Header Banner ──────────────────────────────
-
-function SingleEventBanner({ event, onBackToAll }) {
-  const { isEnglish } = useLanguage()
-  if (!event) return null
-  const op = getEventOperationalStatus(event)
-
-  return (
-    <div className="mb-6 rounded-2xl border border-primary/30 bg-gradient-to-r from-[#0d172e] via-[#101b38] to-[#0d172e] p-5 shadow-xl">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex min-w-0 items-center gap-4">
-          {event.thumbnail_url ? (
-            <img
-              src={event.thumbnail_url}
-              alt={event.title}
-              className="size-16 shrink-0 rounded-xl object-cover ring-2 ring-white/10"
-            />
-          ) : (
-            <div className="grid size-16 shrink-0 place-items-center rounded-xl bg-cyan-500/10 text-cyan-400 ring-2 ring-cyan-500/20">
-              <Calendar className="size-7" />
-            </div>
-          )}
-
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-bold ${op.badgeClass}`}>
-                <span className={`size-1.5 rounded-full ${op.dotClass}`} />
-                {op.label}
-              </span>
-              {event.category_name && (
-                <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] font-semibold text-slate-300">
-                  {event.category_name}
-                </span>
-              )}
-            </div>
-
-            <h2 className="mt-1.5 truncate font-display text-xl font-black text-white sm:text-2xl">
-              {event.title}
-            </h2>
-
-            <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-400">
-              <span className="inline-flex items-center gap-1">
-                <Clock className="size-3.5 text-cyan-400" />
-                {fmtDateTime(event.start_time)}
-              </span>
-              {event.end_time && (
-                <span>— {fmtDateTime(event.end_time)}</span>
-              )}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
-          <button
-            type="button"
-            onClick={onBackToAll}
-            className="flex items-center gap-1.5 rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs font-bold text-slate-200 transition hover:bg-white/10 hover:text-white"
-          >
-            <Layers className="size-3.5 text-cyan-400" />
-            <span>{isEnglish ? 'View All Events' : 'Xem tất cả sự kiện'}</span>
-          </button>
-
-          <Link
-            to={`/organizer/events/${event.id}`}
-            className="flex items-center gap-1.5 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-xs font-bold text-cyan-300 transition hover:bg-cyan-500/20"
-          >
-            <span>{isEnglish ? 'Event Details' : 'Chi tiết sự kiện'}</span>
-            <ExternalLink className="size-3.5" />
-          </Link>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 // ─── Sub-components: Ticket Operations & Check-in ─────────────────────────────
 
@@ -819,7 +747,7 @@ function PortfolioOverviewCard({ dashboard = {}, subscription = {} }) {
 
         {nextEvent ? (
           <div className="rounded-xl border border-white/10 bg-slate-900/60 p-3.5 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
-            <p className="truncate font-bold text-white [html.light_&]:text-[#0D1B2A]">{nextEvent.title}</p>
+            <p className="truncate font-bold text-white [html.light_&]:text-[#0D1B2A]">{isEnglish ? (translatePhrase(nextEvent.title, 'en') || nextEvent.title) : nextEvent.title}</p>
             <div className="mt-1 flex items-center justify-between text-xs text-slate-400 [html.light_&]:text-[#536b88]">
               <span>{fmtDate(nextEvent.start_time)}</span>
               <span className="font-semibold text-cyan-400 [html.light_&]:text-cyan-700">
@@ -1502,13 +1430,6 @@ export function OrganizerDashboardPage() {
         </div>
       )}
 
-      {/* ── Single Event Context Header (When Drilldown is Active) ── */}
-      {selectedEventId && activeEvent && (
-        <SingleEventBanner
-          event={activeEvent}
-          onBackToAll={() => setSelectedEventId('')}
-        />
-      )}
 
       {loading && !stats ? (
         <OrganizerPanel className="flex items-center justify-center py-24">

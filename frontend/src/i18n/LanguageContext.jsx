@@ -56,6 +56,9 @@ export function LanguageProvider({ children }) {
             if (el && el.parentNode) {
               for (const [attrName, origVal] of Object.entries(attrs)) {
                 el.setAttribute(attrName, origVal)
+                if (attrName === 'placeholder') {
+                  try { el.placeholder = origVal } catch {}
+                }
               }
             }
           } catch {
@@ -89,7 +92,18 @@ export function LanguageProvider({ children }) {
             const stored = translatedAttrsMap.get(el)
             if (!stored.placeholder) stored.placeholder = ph
             el.setAttribute('placeholder', transPh)
+            try { el.placeholder = transPh } catch {}
           }
+        }
+      }
+      const dataPh = el.getAttribute('data-placeholder')
+      if (dataPh) {
+        const transDataPh = translatePhrase(dataPh, 'en')
+        if (transDataPh && transDataPh !== dataPh) {
+          if (!translatedAttrsMap.has(el)) translatedAttrsMap.set(el, {})
+          const stored = translatedAttrsMap.get(el)
+          if (!stored['data-placeholder']) stored['data-placeholder'] = dataPh
+          el.setAttribute('data-placeholder', transDataPh)
         }
       }
       const title = el.getAttribute('title')
@@ -140,6 +154,16 @@ export function LanguageProvider({ children }) {
       if (!root) return
       if (root.nodeType === Node.ELEMENT_NODE) {
         translateElementAttrs(root)
+        try {
+          const attrElements = root.querySelectorAll?.('input[placeholder], textarea[placeholder], [data-placeholder], [title], [aria-label]')
+          if (attrElements) {
+            for (let i = 0; i < attrElements.length; i++) {
+              translateElementAttrs(attrElements[i])
+            }
+          }
+        } catch {
+          // Ignore query errors on detached nodes
+        }
       }
       const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
         acceptNode(node) {
@@ -197,13 +221,13 @@ export function LanguageProvider({ children }) {
       subtree: true,
       characterData: true,
       attributes: true,
-      attributeFilter: ['placeholder', 'title', 'aria-label'],
+      attributeFilter: ['placeholder', 'data-placeholder', 'title', 'aria-label'],
     })
 
     // Periodic sweep for asynchronous fetches / canvas re-renders
     const intervalId = setInterval(() => {
       walkAndTranslate(document.body)
-    }, 800)
+    }, 400)
 
     const handleRouteChange = () => {
       setTimeout(() => walkAndTranslate(document.body), 30)

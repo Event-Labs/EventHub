@@ -35,6 +35,7 @@ import { useToast } from '@/providers/ToastProvider.jsx'
 import { OrganizerEventPicker } from './OrganizerEventPicker.jsx'
 import { OrganizerPage, OrganizerPanel } from './OrganizerComponents.jsx'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
+import { translatePhrase } from '@/i18n/phraseDictionary.js'
 
 // ─── Formatters & Helpers ────────────────────────────────────────────────────
 
@@ -1826,7 +1827,8 @@ function EventOccupancyColumnChart({ data = [], height = 240 }) {
                 : `url(#occGradAmber-${chartId})`
 
           const textColor = occ >= 80 ? '#34d399' : occ >= 50 ? '#38bdf8' : '#fbbf24'
-          const label = ev.event_title.length > 14 ? `${ev.event_title.slice(0, 13)}…` : ev.event_title
+          const eventTitle = isEnglish ? (translatePhrase(ev.event_title, 'en') || ev.event_title) : ev.event_title
+          const label = eventTitle.length > 14 ? `${eventTitle.slice(0, 13)}…` : eventTitle
 
           return (
             <g key={ev.event_id || i} className="cursor-pointer group">
