@@ -1839,14 +1839,20 @@ export function AdminEventReviewDetailPage() {
                   <Sparkles className="size-4" />
                 </span>
                 <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-                  <span className="font-semibold text-xs text-white">Ban tổ chức có hỗ trợ ưu tiên</span>
+                  <span className="font-semibold text-xs text-white">
+                    {isEnglish ? 'Organizer with priority support' : 'Ban tổ chức có hỗ trợ ưu tiên'}
+                  </span>
                   {event.organizer_plan_name && (
                     <span className="rounded bg-white/5 border border-white/10 px-2 py-0.5 text-[10px] font-medium text-amber-300">
-                      {event.organizer_plan_name}
+                      {isEnglish
+                        ? (event.organizer_plan_name.toLowerCase().includes('doanh nghiệp') || event.organizer_plan_name.toLowerCase() === 'enterprise'
+                          ? 'Enterprise'
+                          : (translatePhrase(event.organizer_plan_name, 'en') || event.organizer_plan_name))
+                        : event.organizer_plan_name}
                     </span>
                   )}
                   <span className="text-[11px] text-slate-400">
-                    (Hàng đợi ưu tiên cao của hệ thống)
+                    {isEnglish ? '(System high-priority queue)' : '(Hàng đợi ưu tiên cao của hệ thống)'}
                   </span>
                 </div>
               </div>
