@@ -100,20 +100,55 @@ class EventBusinessRulesService {
     const { rows } = await client.query(
       `
       SELECT
-        COALESCE(COUNT(DISTINCT o.id) FILTER (WHERE o.status = 'PAID'), 0)::int AS paid_orders_count,
-        COALESCE(COUNT(DISTINCT o.id) FILTER (WHERE o.status = 'PENDING' AND o.expired_at > now()), 0)::int AS pending_orders_count,
-        COALESCE(SUM(o.total_amount) FILTER (WHERE o.status = 'PAID'), 0)::numeric AS total_paid_amount,
-        COALESCE(COUNT(DISTINCT t.id) FILTER (WHERE t.status IN ('VALID', 'USED', 'REFUND_REQUESTED')), 0)::int AS issued_tickets_count,
-        COALESCE(COUNT(DISTINCT th.id) FILTER (WHERE th.status = 'ACTIVE' AND th.expires_at > now()), 0)::int AS active_holds_count
+        (
+          SELECT COALESCE(COUNT(DISTINCT o.id) FILTER (WHERE o.status = 'PAID'), 0)::int
+          FROM orders o
+          WHERE o.id IN (
+            SELECT oi.order_id
+            FROM order_items oi
+            JOIN ticket_types tt ON tt.id = oi.ticket_type_id
+            JOIN event_sessions es ON es.id = tt.event_session_id
+            WHERE es.event_id = e.id
+          )
+        ) AS paid_orders_count,
+        (
+          SELECT COALESCE(COUNT(DISTINCT o.id) FILTER (WHERE o.status = 'PENDING' AND o.expired_at > now()), 0)::int
+          FROM orders o
+          WHERE o.id IN (
+            SELECT oi.order_id
+            FROM order_items oi
+            JOIN ticket_types tt ON tt.id = oi.ticket_type_id
+            JOIN event_sessions es ON es.id = tt.event_session_id
+            WHERE es.event_id = e.id
+          )
+        ) AS pending_orders_count,
+        (
+          SELECT COALESCE(SUM(o.total_amount) FILTER (WHERE o.status = 'PAID'), 0)::numeric
+          FROM orders o
+          WHERE o.id IN (
+            SELECT oi.order_id
+            FROM order_items oi
+            JOIN ticket_types tt ON tt.id = oi.ticket_type_id
+            JOIN event_sessions es ON es.id = tt.event_session_id
+            WHERE es.event_id = e.id
+          )
+        ) AS total_paid_amount,
+        (
+          SELECT COALESCE(COUNT(DISTINCT t.id) FILTER (WHERE t.status IN ('VALID', 'USED', 'REFUND_REQUESTED')), 0)::int
+          FROM tickets t
+          JOIN ticket_types tt ON tt.id = t.ticket_type_id
+          JOIN event_sessions es ON es.id = tt.event_session_id
+          WHERE es.event_id = e.id
+        ) AS issued_tickets_count,
+        (
+          SELECT COALESCE(COUNT(DISTINCT th.id), 0)::int
+          FROM ticket_holds th
+          JOIN ticket_types tt ON tt.id = th.ticket_type_id
+          JOIN event_sessions es ON es.id = tt.event_session_id
+          WHERE es.event_id = e.id AND th.status = 'ACTIVE' AND th.expires_at > now()
+        ) AS active_holds_count
       FROM events e
-      LEFT JOIN event_sessions es ON es.event_id = e.id
-      LEFT JOIN ticket_types tt ON tt.event_session_id = es.id
-      LEFT JOIN order_items oi ON oi.ticket_type_id = tt.id
-      LEFT JOIN orders o ON o.id = oi.order_id
-      LEFT JOIN tickets t ON t.ticket_type_id = tt.id
-      LEFT JOIN ticket_holds th ON th.ticket_type_id = tt.id
       WHERE e.id = $1
-      GROUP BY e.id
       `,
       [eventId],
     );
@@ -1037,7 +1072,7 @@ class EventBusinessRulesService {
          FROM events e 
          JOIN organizers o ON o.id = e.organizer_id 
          LEFT JOIN users u ON u.id = o.user_id 
-         WHERE e.id = $1 FOR UPDATE`,
+         WHERE e.id = $1 FOR UPDATE OF e`,
         [eventId],
       );
       const event = eventRows[0];
@@ -1125,7 +1160,7 @@ class EventBusinessRulesService {
           )
           SELECT
             $1, $2, $3, $4,
-            $5, 'EVENT_CANCELLED', 'APPROVED', 'ORGANIZER_MANUAL',
+            $5, 'Sự kiện bị hủy', 'APPROVED', 'ORGANIZER_MANUAL',
             $6, $7, now() + interval '7 days',
             $8, $9, $10, $11,
             now(), now(), now()
@@ -1506,7 +1541,7 @@ class EventBusinessRulesService {
          FROM events e 
          JOIN organizers o ON o.id = e.organizer_id 
          LEFT JOIN users u ON u.id = o.user_id 
-         WHERE e.id = $1 FOR UPDATE`,
+         WHERE e.id = $1 FOR UPDATE OF e`,
         [eventId],
       );
       const event = eventRows[0];
@@ -1593,7 +1628,7 @@ class EventBusinessRulesService {
           )
           SELECT
             $1, $2, $3, $4,
-            $5, 'EVENT_CANCELLED', 'APPROVED', 'ORGANIZER_MANUAL',
+            $5, 'Sự kiện bị hủy', 'APPROVED', 'ORGANIZER_MANUAL',
             $6, $7, now() + interval '7 days',
             $8, $9, $10, $11,
             now(), now(), now()
