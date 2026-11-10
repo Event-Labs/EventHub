@@ -34,6 +34,8 @@ import {
 import { createSeatMap, generateSeatMapFromImage, getSeatMap, updateSeatMap } from '@/services/organizerSeatMaps.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
+import { translatePhrase } from '@/i18n/phraseDictionary.js'
 
 const SEAT_W = 28
 const SEAT_H = 28
@@ -44,28 +46,28 @@ const SNAP_Y = SEAT_H + GAP_Y
 const STAGE_OFFSET_Y = 70
 const ZONE_COLORS = ['#EF4444', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4', '#F43F5E']
 
-const STAGE_SHAPES = [
-  { id: 'RECTANGLE', label: 'Hình chữ nhật / Vuông' },
-  { id: 'TRIANGLE', label: 'Hình tam giác' },
-  { id: 'CIRCLE', label: 'Hình tròn / Ellipse' },
-  { id: 'SEMI_CIRCLE', label: 'Hình bán nguyệt' },
-  { id: 'T_STAGE', label: 'Sân khấu chữ T (Runway)' },
-  { id: 'DIAMOND', label: 'Hình thoi / Kim cương' },
+const getStageShapes = (isEnglish) => [
+  { id: 'RECTANGLE', label: isEnglish ? 'Rectangle / Square' : 'Hình chữ nhật / Vuông' },
+  { id: 'TRIANGLE', label: isEnglish ? 'Triangle' : 'Hình tam giác' },
+  { id: 'CIRCLE', label: isEnglish ? 'Circle / Ellipse' : 'Hình tròn / Ellipse' },
+  { id: 'SEMI_CIRCLE', label: isEnglish ? 'Semi-circle' : 'Hình bán nguyệt' },
+  { id: 'T_STAGE', label: isEnglish ? 'T-Stage (Runway)' : 'Sân khấu chữ T (Runway)' },
+  { id: 'DIAMOND', label: isEnglish ? 'Diamond' : 'Hình thoi / Kim cương' },
 ]
 
-const CANVAS_THEMES = [
-  { id: '#0F172A', label: 'Xanh đen', color: '#0F172A' },
-  { id: '#090D16', label: 'Đen tuyền', color: '#090D16' },
-  { id: '#1E293B', label: 'Xám than', color: '#1E293B' },
-  { id: '#F8FAFC', label: 'Nền sáng', color: '#F8FAFC', light: true },
+const getCanvasThemes = (isEnglish) => [
+  { id: '#0F172A', label: isEnglish ? 'Navy Dark' : 'Xanh đen', color: '#0F172A' },
+  { id: '#090D16', label: isEnglish ? 'Deep Black' : 'Đen tuyền', color: '#090D16' },
+  { id: '#1E293B', label: isEnglish ? 'Charcoal Gray' : 'Xám than', color: '#1E293B' },
+  { id: '#F8FAFC', label: isEnglish ? 'Light Canvas' : 'Nền sáng', color: '#F8FAFC', light: true },
 ]
 
-const TOOLS = [
-  { id: 'SELECT', label: 'Chọn', icon: MousePointer2, shortcut: 'V' },
-  { id: 'ADD', label: 'Vẽ ghế', icon: Plus, shortcut: 'A', freeformOnly: true },
-  { id: 'PAINT', label: 'Tô khu vực', icon: Paintbrush, shortcut: 'P' },
-  { id: 'ERASE', label: 'Xóa', icon: Eraser, shortcut: 'E' },
-  { id: 'DISABLE', label: 'Vô hiệu', icon: Ban, shortcut: 'D' },
+const getTools = (isEnglish) => [
+  { id: 'SELECT', label: isEnglish ? 'Select' : 'Chọn', icon: MousePointer2, shortcut: 'V' },
+  { id: 'ADD', label: isEnglish ? 'Add Seat' : 'Vẽ ghế', icon: Plus, shortcut: 'A', freeformOnly: true },
+  { id: 'PAINT', label: isEnglish ? 'Paint Zone' : 'Tô khu vực', icon: Paintbrush, shortcut: 'P' },
+  { id: 'ERASE', label: isEnglish ? 'Erase' : 'Xóa', icon: Eraser, shortcut: 'E' },
+  { id: 'DISABLE', label: isEnglish ? 'Disable' : 'Vô hiệu', icon: Ban, shortcut: 'D' },
 ]
 
 function isLightColor(hex) {
@@ -90,6 +92,7 @@ function rowLabelForIndex(r) {
 }
 
 function RenameModal({ isOpen, title, initialValue, onSave, onClose }) {
+  const { isEnglish } = useLanguage()
   const [val, setVal] = useState(initialValue || '')
 
   useEffect(() => {
@@ -101,9 +104,9 @@ function RenameModal({ isOpen, title, initialValue, onSave, onClose }) {
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in">
       <div className="w-full max-w-md rounded-2xl border border-border-soft/40 bg-surface p-6 shadow-2xl space-y-4 text-content">
-        <h3 className="text-base font-extrabold text-content">{title || 'Đổi tên'}</h3>
+        <h3 className="text-base font-extrabold text-content">{title || (isEnglish ? 'Rename' : 'Đổi tên')}</h3>
         <div>
-          <label className="text-xs text-subtle font-semibold mb-1 block">Tên hiển thị mới:</label>
+          <label className="text-xs text-subtle font-semibold mb-1 block">{isEnglish ? 'New display name:' : 'Tên hiển thị mới:'}</label>
           <input
             type="text"
             value={val}
@@ -114,7 +117,7 @@ function RenameModal({ isOpen, title, initialValue, onSave, onClose }) {
               }
               if (e.key === 'Escape') onClose()
             }}
-            placeholder="Nhập tên mới..."
+            placeholder={isEnglish ? 'Enter new name...' : 'Nhập tên mới...'}
             className="w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3.5 py-2.5 text-sm font-bold text-content outline-none focus:border-tertiary shadow-inner"
             autoFocus
           />
@@ -125,7 +128,7 @@ function RenameModal({ isOpen, title, initialValue, onSave, onClose }) {
             onClick={onClose}
             className="rounded-xl px-4 py-2 text-xs font-semibold text-subtle hover:bg-panel-soft hover:text-content transition"
           >
-            Hủy
+            {isEnglish ? 'Cancel' : 'Hủy'}
           </button>
           <button
             type="button"
@@ -134,7 +137,7 @@ function RenameModal({ isOpen, title, initialValue, onSave, onClose }) {
             }}
             className="org-btn-primary px-5 py-2 text-xs"
           >
-            Lưu thay đổi
+            {isEnglish ? 'Save changes' : 'Lưu thay đổi'}
           </button>
         </div>
       </div>
@@ -494,7 +497,11 @@ function renderStageShapeBody(x, y, w, h, shape = 'RECTANGLE', color = 'var(--co
 }
 
 export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
+  const { isEnglish } = useLanguage()
   const toast = useToast()
+  const stageShapes = useMemo(() => getStageShapes(isEnglish), [isEnglish])
+  const canvasThemes = useMemo(() => getCanvasThemes(isEnglish), [isEnglish])
+  const tools = useMemo(() => getTools(isEnglish), [isEnglish])
   const svgRef = useRef(null)
   const paintVisited = useRef(new Set())
   const seatCounter = useRef(1)
@@ -2161,14 +2168,14 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
     }
   }
 
-  const visibleTools = TOOLS.filter((t) => !(t.freeformOnly && layoutType === 'GRID'))
+  const visibleTools = tools.filter((t) => !(t.freeformOnly && layoutType === 'GRID'))
 
   if (loading) {
     return createPortal(
       <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background">
         <div className="text-center">
           <div className="mx-auto mb-3 h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-          <p className="text-sm text-muted">Đang tải sơ đồ ghế...</p>
+          <p className="text-sm text-muted">{isEnglish ? 'Loading seat map...' : 'Đang tải sơ đồ ghế...'}</p>
         </div>
       </div>,
       document.body,
@@ -2199,30 +2206,32 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
           onClick={onClose}
           className="rounded-xl px-3 py-1.5 text-sm font-bold text-white transition hover:bg-white/10 hover:text-white"
         >
-          ← Quay lại
+          {isEnglish ? '← Go back' : '← Quay lại'}
         </button>
         <div className="h-6 w-px bg-border-soft/20" />
         <input
           value={mapName}
           onChange={(e) => setMapName(e.target.value)}
-          placeholder="Tên sơ đồ ghế..."
+          placeholder={isEnglish ? 'Seat map name...' : 'Tên sơ đồ ghế...'}
           className="min-w-0 flex-1 border-0 bg-transparent text-lg font-bold text-content outline-none placeholder:text-muted"
         />
 
         {/* Autosave Draft Status Indicator */}
         <div
           className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-panel-soft/60 border border-border-soft/20 text-xs shadow-xs"
-          title="Bản vẽ luôn được tự động lưu nháp liên tục trên máy (đề phòng mất điện hoặc lỡ tay tắt tab). Bấm 'Lưu sơ đồ' để lưu chính thức vào hệ thống và quay lại trang quản lý."
+          title={isEnglish ? "Drawings are continuously autosaved locally on this computer. Click 'Save diagram' to save to the system." : "Bản vẽ luôn được tự động lưu nháp liên tục trên máy (đề phòng mất điện hoặc lỡ tay tắt tab). Bấm 'Lưu sơ đồ' để lưu chính thức vào hệ thống và quay lại trang quản lý."}
         >
           <Check className="size-3.5 text-emerald-400 stroke-[2.5]" />
-          <span className="text-emerald-300 font-medium">Đã tự động lưu nháp {lastSavedTime ? `(${lastSavedTime})` : ''}</span>
+          <span className="text-emerald-300 font-medium">
+            {isEnglish ? `Draft autosaved ${lastSavedTime ? `(${lastSavedTime})` : ''}` : `Đã tự động lưu nháp ${lastSavedTime ? `(${lastSavedTime})` : ''}`}
+          </span>
         </div>
         <div className="hidden items-center gap-3 sm:flex">
           <span className="rounded-xl bg-panel-soft border border-border-soft/20 px-3 py-1 text-xs font-semibold text-content">
-            {stats.active} ghế ngồi · {stats.standingCap} chỗ đứng · {stats.totalCap} tổng chỗ
+            {stats.active} {isEnglish ? 'seats' : 'ghế ngồi'} · {stats.standingCap} {isEnglish ? 'standing' : 'chỗ đứng'} · {stats.totalCap} {isEnglish ? 'total seats' : 'tổng chỗ'}
           </span>
           {stats.total > 1800 && (
-            <span className="text-xs font-medium text-warning animate-pulse">Gần giới hạn 2000</span>
+            <span className="text-xs font-medium text-warning animate-pulse">{isEnglish ? 'Near 2,000 limit' : 'Gần giới hạn 2000'}</span>
           )}
         </div>
 
@@ -2237,22 +2246,22 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
           type="button"
           onClick={() => aiFileInputRef.current?.click()}
           disabled={aiGenerating || saving}
-          className="flex items-center gap-1.5 rounded-xl border border-[#C99A47]/60 bg-gradient-to-r from-[#C99A47]/20 to-[#E6C17A]/20 hover:from-[#C99A47]/35 hover:to-[#E6C17A]/35 px-3.5 py-2 text-xs font-extrabold text-[#E6C17A] transition shadow-sm disabled:opacity-50 cursor-pointer"
-          title="Tải ảnh sơ đồ ghế lên để AI tự động nhận diện và dựng sơ đồ"
+          className="btn-seatmap-ai-led"
+          title={isEnglish ? "Upload seat map image for AI automatic recognition and layout generation" : "Tải ảnh sơ đồ ghế lên để AI tự động nhận diện và dựng sơ đồ"}
         >
-          <Sparkles className={`size-4 ${aiGenerating ? 'animate-spin' : ''}`} />
-          <span>{aiGenerating ? 'AI đang dựng...' : 'Tạo từ ảnh (AI)'}</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={autoAlignAllSeats}
-          disabled={saving || aiGenerating || seats.length < 2}
-          className="flex items-center gap-1.5 rounded-xl border border-primary/40 bg-primary/10 hover:bg-primary/20 px-3.5 py-2 text-xs font-bold text-primary transition shadow-sm disabled:opacity-40 cursor-pointer"
-          title="Tự động căn thẳng hàng toàn bộ các ghế trên cùng một trục dọc hoặc ngang"
-        >
-          <Sparkles className="size-4" />
-          <span>Tự động căn hàng</span>
+          <svg
+            className="btn-seatmap-ai-led-svg"
+            aria-hidden="true"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <rect className="btn-seatmap-ai-led-track" />
+            <rect className="btn-seatmap-ai-led-beam-glow" pathLength="100" />
+            <rect className="btn-seatmap-ai-led-beam-core" pathLength="100" />
+          </svg>
+          <span className="btn-seatmap-ai-led-content">
+            <Sparkles className={`size-3.5 ${aiGenerating ? 'animate-spin' : ''}`} />
+            <span>{aiGenerating ? (isEnglish ? 'AI generating...' : 'AI đang dựng...') : (isEnglish ? 'Generate from Image (AI)' : 'Tạo từ ảnh (AI)')}</span>
+          </span>
         </button>
 
         <button
@@ -2260,9 +2269,9 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
           onClick={handleSave}
           disabled={saving || aiGenerating}
           className="org-btn-primary min-w-[120px] shadow-md shadow-primary/20 cursor-pointer"
-          title="Lưu sơ đồ vào hệ thống và quay lại trang quản lý sơ đồ"
+          title={isEnglish ? "Save seat map to system and return to management page" : "Lưu sơ đồ vào hệ thống và quay lại trang quản lý sơ đồ"}
         >
-          {saving ? 'Đang lưu & quay lại...' : 'Lưu sơ đồ'}
+          {saving ? (isEnglish ? 'Saving & returning...' : 'Đang lưu & quay lại...') : (isEnglish ? 'Save diagram' : 'Lưu sơ đồ')}
         </button>
       </header>
 
@@ -2278,10 +2287,10 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
             <div className="border-b border-border-soft/30 bg-panel-soft/30 p-1 shrink-0">
               <div className="grid grid-cols-4 gap-1 w-full">
                 {[
-                  { id: 'STAGE', label: 'Sân khấu', icon: Shapes },
-                  { id: 'ZONES', label: 'Khu vực', icon: Users },
-                  { id: 'GRID', label: 'Lưới ghế', icon: Grid },
-                  { id: 'THEMES', label: 'Giao diện', icon: Palette },
+                  { id: 'STAGE', label: isEnglish ? 'Stage' : 'Sân khấu', icon: Shapes },
+                  { id: 'ZONES', label: isEnglish ? 'Zones' : 'Khu vực', icon: Users },
+                  { id: 'GRID', label: isEnglish ? 'Seats' : 'Lưới ghế', icon: Grid },
+                  { id: 'THEMES', label: isEnglish ? 'Themes' : 'Giao diện', icon: Palette },
                 ].map((tab) => {
                   const IconComp = tab.icon
                   const active = sidebarTab === tab.id
@@ -2312,10 +2321,10 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
               <div className="space-y-4">
                 <section className="rounded-xl border border-[#C99A47]/30 p-3.5 bg-[#C99A47]/5 space-y-3.5">
                   <p className="text-xs font-bold uppercase tracking-wide text-white">
-                    Cấu hình sân khấu
+                    {isEnglish ? 'Stage Configuration' : 'Cấu hình sân khấu'}
                   </p>
                   <label className="text-sm text-subtle block">
-                    Tên hiển thị
+                    {isEnglish ? 'Display Name' : 'Tên hiển thị'}
                     <input
                       type="text"
                       value={stageConfig.label}
@@ -2325,13 +2334,13 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                   </label>
 
                   <label className="text-sm text-subtle block">
-                    Hình dạng khối sân khấu
+                    {isEnglish ? 'Stage Block Shape' : 'Hình dạng khối sân khấu'}
                     <select
                       value={stageConfig.shape || 'RECTANGLE'}
                       onChange={(e) => setStageConfig((c) => ({ ...c, shape: e.target.value }))}
                       className="mt-1.5 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3.5 py-2 text-base text-content outline-none focus:border-primary"
                     >
-                      {STAGE_SHAPES.map((s) => (
+                      {stageShapes.map((s) => (
                         <option key={s.id} value={s.id}>
                           {s.label}
                         </option>
@@ -2340,7 +2349,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                   </label>
 
                   <div>
-                    <label className="text-sm text-subtle block mb-1.5">Màu sắc sân khấu</label>
+                    <label className="text-sm text-subtle block mb-1.5">{isEnglish ? 'Stage Color' : 'Màu sắc sân khấu'}</label>
                     <div className="flex items-center gap-2.5">
                       <input
                         type="color"
@@ -2363,33 +2372,33 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                   </div>
 
                   <label className="text-sm text-subtle block">
-                    Vị trí
+                    {isEnglish ? 'Position' : 'Vị trí'}
                     <select
                       value={stageConfig.position}
                       onChange={(e) => setStageConfig((c) => ({ ...c, position: e.target.value }))}
                       className="mt-1.5 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3.5 py-2 text-base text-content outline-none focus:border-primary"
                     >
-                      <option value="TOP">Bên trên</option>
-                      <option value="BOTTOM">Bên dưới</option>
-                      <option value="LEFT">Trái</option>
-                      <option value="RIGHT">Phải</option>
-                      <option value="CUSTOM">Tuỳ chỉnh (Kéo thả)</option>
-                      <option value="HIDDEN">Ẩn sân khấu</option>
+                      <option value="TOP">{isEnglish ? 'Top' : 'Bên trên'}</option>
+                      <option value="BOTTOM">{isEnglish ? 'Bottom' : 'Bên dưới'}</option>
+                      <option value="LEFT">{isEnglish ? 'Left' : 'Trái'}</option>
+                      <option value="RIGHT">{isEnglish ? 'Right' : 'Phải'}</option>
+                      <option value="CUSTOM">{isEnglish ? 'Custom (Drag & Drop)' : 'Tuỳ chỉnh (Kéo thả)'}</option>
+                      <option value="HIDDEN">{isEnglish ? 'Hide Stage' : 'Ẩn sân khấu'}</option>
                     </select>
                   </label>
 
                   {stageConfig.position === 'CUSTOM' && (
                     <div className="grid grid-cols-3 gap-2 pt-1">
                       <label className="text-xs text-subtle">
-                        Ngang
+                        {isEnglish ? 'Width' : 'Ngang'}
                         <input type="number" value={stageConfig.w} onChange={(e) => setStageConfig(c => ({ ...c, w: Number(e.target.value) }))} className="mt-1 w-full rounded-md border border-border-soft/40 bg-surface px-1.5 py-1 text-sm text-content outline-none focus:border-primary" />
                       </label>
                       <label className="text-xs text-subtle">
-                        Dọc
+                        {isEnglish ? 'Height' : 'Dọc'}
                         <input type="number" value={stageConfig.h} onChange={(e) => setStageConfig(c => ({ ...c, h: Number(e.target.value) }))} className="mt-1 w-full rounded-md border border-border-soft/40 bg-surface px-1.5 py-1 text-sm text-content outline-none focus:border-primary" />
                       </label>
                       <label className="text-xs text-subtle">
-                        Xoay (°)
+                        {isEnglish ? 'Rotate (°)' : 'Xoay (°)'}
                         <input type="number" value={stageConfig.rotation || 0} onChange={(e) => setStageConfig(c => ({ ...c, rotation: Number(e.target.value) }))} className="mt-1 w-full rounded-md border border-border-soft/40 bg-surface px-1.5 py-1 text-sm text-content outline-none focus:border-primary" />
                       </label>
                     </div>
@@ -2400,17 +2409,17 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"
-                        onClick={() => setAuxElements(p => [...p, { id: newLocalId(), type: 'AUX_STAGE', label: 'Sân khấu phụ', x: 300, y: 300, w: 180, h: 40 }])}
+                        onClick={() => setAuxElements(p => [...p, { id: newLocalId(), type: 'AUX_STAGE', label: isEnglish ? 'Aux Stage' : 'Sân khấu phụ', x: 300, y: 300, w: 180, h: 40 }])}
                         className="flex items-center gap-1.5 p-2 rounded-xl border border-border-soft/40 hover:bg-panel-soft transition justify-center text-xs font-semibold bg-surface text-content shadow-sm"
                       >
-                        <Plus className="w-3.5 h-3.5 text-tertiary" /> Sân phụ
+                        <Plus className="w-3.5 h-3.5 text-tertiary" /> {isEnglish ? 'Aux Stage' : 'Sân phụ'}
                       </button>
                       <button
                         type="button"
-                        onClick={() => setAuxElements(p => [...p, { id: newLocalId(), type: 'SCREEN', label: 'Màn hình LED', x: 300, y: 300, w: 120, h: 20 }])}
+                        onClick={() => setAuxElements(p => [...p, { id: newLocalId(), type: 'SCREEN', label: isEnglish ? 'LED Screen' : 'Màn hình LED', x: 300, y: 300, w: 120, h: 20 }])}
                         className="flex items-center gap-1.5 p-2 rounded-xl border border-border-soft/40 hover:bg-panel-soft transition justify-center text-xs font-semibold bg-surface text-content shadow-sm"
                       >
-                        <Plus className="w-3.5 h-3.5 text-tertiary" /> Màn hình
+                        <Plus className="w-3.5 h-3.5 text-tertiary" /> {isEnglish ? 'LED Screen' : 'Màn hình'}
                       </button>
                     </div>
                     {auxElements.length > 0 && (
@@ -2420,11 +2429,11 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                             <div className="flex items-center justify-between">
                               <input
                                 type="text"
-                                value={a.label}
+                                value={isEnglish ? (translatePhrase(a.label, 'en') || a.label) : a.label}
                                 onChange={(e) => setAuxElements(p => p.map(x => x.id === a.id ? { ...x, label: e.target.value } : x))}
                                 className="bg-transparent font-bold px-1 w-32 outline-none border-b border-border-soft/40 focus:border-tertiary text-xs"
                               />
-                              <button type="button" onClick={() => setAuxElements(p => p.filter(x => x.id !== a.id))} title="Xóa" className="p-1 hover:bg-panel-soft rounded text-muted hover:text-error transition"><Trash2 className="w-3.5 h-3.5" /></button>
+                              <button type="button" onClick={() => setAuxElements(p => p.filter(x => x.id !== a.id))} title={isEnglish ? "Delete" : "Xóa"} className="p-1 hover:bg-panel-soft rounded text-muted hover:text-error transition"><Trash2 className="w-3.5 h-3.5" /></button>
                             </div>
                           </div>
                         ))}
@@ -2436,7 +2445,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                 {/* Mẫu có sẵn */}
                 <section className="rounded-xl border border-border-soft/20 p-3.5 bg-panel-soft/10 space-y-2">
                   <p className="text-xs font-bold uppercase tracking-wide text-white">
-                    Mẫu thiết kế nhanh & AI
+                    {isEnglish ? 'Quick Presets & AI' : 'Mẫu thiết kế nhanh & AI'}
                   </p>
                   <div className="grid grid-cols-1 gap-2">
                     <button
@@ -2447,10 +2456,10 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                     >
                       <span className="flex items-center gap-1.5 text-sm font-extrabold text-[#E6C17A]">
                         <Sparkles className="size-4" />
-                        {aiGenerating ? 'AI đang phân tích ảnh...' : 'Nhập sơ đồ từ ảnh (AI YOLO)'}
+                        {aiGenerating ? (isEnglish ? 'AI analyzing image...' : 'AI đang phân tích ảnh...') : (isEnglish ? 'Import map from image (AI YOLO)' : 'Nhập sơ đồ từ ảnh (AI YOLO)')}
                       </span>
                       <span className="text-[11px] text-subtle">
-                        Tự động nhận diện ghế, sân khấu, khu vực & vùng đứng
+                        {isEnglish ? 'Auto-detect seats, stage, zones & standing areas' : 'Tự động nhận diện ghế, sân khấu, khu vực & vùng đứng'}
                       </span>
                     </button>
                     <button
@@ -2458,24 +2467,24 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                       onClick={() => applyPreset('THEATER')}
                       className="flex flex-col items-center justify-center gap-1 rounded-xl border border-border-soft/30 bg-surface p-3 text-center hover:border-[#C99A47] hover:bg-[#C99A47]/5 transition"
                     >
-                      <span className="text-base font-bold text-white">Nhà hát / Hội trường</span>
-                      <span className="text-xs text-muted">Vuông + 200 ghế</span>
+                      <span className="text-base font-bold text-white">{isEnglish ? 'Theater / Hall' : 'Nhà hát / Hội trường'}</span>
+                      <span className="text-xs text-muted">{isEnglish ? 'Square + 200 seats' : 'Vuông + 200 ghế'}</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => applyPreset('T_STAGE')}
                       className="flex flex-col items-center justify-center gap-1 rounded-xl border border-border-soft/30 bg-surface p-3 text-center hover:border-[#C99A47] hover:bg-[#C99A47]/5 transition"
                     >
-                      <span className="text-base font-bold text-white">Concert Sân khấu T</span>
-                      <span className="text-xs text-muted">Sân T + Đứng + Ghế</span>
+                      <span className="text-base font-bold text-white">{isEnglish ? 'Concert Stage T' : 'Concert Sân khấu T'}</span>
+                      <span className="text-xs text-muted">{isEnglish ? 'T-Stage + Standing + Seats' : 'Sân T + Đứng + Ghế'}</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => applyPreset('FESTIVAL')}
                       className="flex flex-col items-center justify-center gap-1 rounded-xl border border-border-soft/30 bg-surface p-3 text-center hover:border-[#C99A47] hover:bg-[#C99A47]/5 transition"
                     >
-                      <span className="text-base font-bold text-white">Festival Hỗn hợp</span>
-                      <span className="text-xs text-muted">Bán nguyệt + Vùng đứng</span>
+                      <span className="text-base font-bold text-white">{isEnglish ? 'Mixed Festival' : 'Festival Hỗn hợp'}</span>
+                      <span className="text-xs text-muted">{isEnglish ? 'Semi-circle + Standing Area' : 'Bán nguyệt + Vùng đứng'}</span>
                     </button>
                   </div>
                 </section>
@@ -2489,7 +2498,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                 <section className="rounded-xl border border-[#C99A47]/30 p-3.5 bg-[#C99A47]/5 space-y-3">
                   <div className="space-y-2">
                     <p className="text-xs font-bold uppercase tracking-wide text-white">
-                      Vùng đứng (Không ghế)
+                      {isEnglish ? 'Standing Areas (No Seats)' : 'Vùng đứng (Không ghế)'}
                     </p>
                     <div className="grid grid-cols-2 gap-2">
                       <button
@@ -2497,31 +2506,35 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                         onClick={() => addStandingArea('RECTANGLE')}
                         className="flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-[#C99A47]/60 hover:border-[#E6C17A] bg-[#C99A47]/5 hover:bg-[#C99A47]/15 py-2.5 px-2 text-xs font-bold text-[#E6C17A] hover:text-white transition-all cursor-pointer"
                       >
-                        + Vùng đứng
+                        {isEnglish ? '+ Standing Area' : '+ Vùng đứng'}
                       </button>
                       <button
                         type="button"
                         onClick={() => addStandingArea('TRIANGLE')}
                         className="flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-[#C99A47]/60 hover:border-[#E6C17A] bg-[#C99A47]/5 hover:bg-[#C99A47]/15 py-2.5 px-2 text-xs font-bold text-[#E6C17A] hover:text-white transition-all cursor-pointer"
                       >
-                        + Khối tam giác
+                        {isEnglish ? '+ Triangle Block' : '+ Khối tam giác'}
                       </button>
                     </div>
                   </div>
                   <p className="text-[11px] text-subtle leading-relaxed">
-                    Tạo các khu vực vé đứng tự do hoặc khối hình tam giác, chữ nhật. Có thể kéo các cạnh và đỉnh tam giác để tùy biến hình dạng.
+                    {isEnglish
+                      ? 'Create general admission standing areas or geometric shapes. Drag edges and triangle vertices to customize shapes.'
+                      : 'Tạo các khu vực vé đứng tự do hoặc khối hình tam giác, chữ nhật. Có thể kéo các cạnh và đỉnh tam giác để tùy biến hình dạng.'}
                   </p>
 
                   <div className="space-y-2">
                     {standingAreas.length === 0 && (
-                      <p className="py-2 text-center text-xs text-muted border border-dashed border-border-soft/30 rounded-xl">Chưa có vùng đứng nào</p>
+                      <p className="py-2 text-center text-xs text-muted border border-dashed border-border-soft/30 rounded-xl">
+                        {isEnglish ? 'No standing areas yet' : 'Chưa có vùng đứng nào'}
+                      </p>
                     )}
                     {standingAreas.map((area) => (
                       <div key={area.id} className="p-3 rounded-xl bg-surface border border-border-soft/40 shadow-sm space-y-2">
                         <div className="flex items-center justify-between gap-2">
                           <input
                             type="text"
-                            value={area.name}
+                            value={isEnglish ? (translatePhrase(area.name, 'en') || area.name) : area.name}
                             onChange={(e) => setStandingAreas((prev) => prev.map((a) => (a.id === area.id ? { ...a, name: e.target.value } : a)))}
                             className="bg-transparent font-bold text-xs text-content outline-none border-b border-border-soft/40 focus:border-tertiary w-full"
                           />
@@ -2546,12 +2559,12 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                               )
                             }}
                             className="rounded-lg border border-border-soft/40 bg-panel-soft px-1.5 py-1 text-[11px] font-bold text-content outline-none"
-                            title="Chọn hình dạng"
+                            title={isEnglish ? 'Select shape' : 'Chọn hình dạng'}
                           >
-                            <option value="RECTANGLE">Chữ nhật</option>
-                            <option value="TRIANGLE">Tam giác</option>
-                            <option value="CIRCLE">Hình tròn</option>
-                            <option value="DIAMOND">Hình thoi</option>
+                            <option value="RECTANGLE">{isEnglish ? 'Rectangle' : 'Chữ nhật'}</option>
+                            <option value="TRIANGLE">{isEnglish ? 'Triangle' : 'Tam giác'}</option>
+                            <option value="CIRCLE">{isEnglish ? 'Circle' : 'Hình tròn'}</option>
+                            <option value="DIAMOND">{isEnglish ? 'Diamond' : 'Hình thoi'}</option>
                           </select>
                           <input
                             type="color"
@@ -2563,14 +2576,14 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                             type="button"
                             onClick={() => deleteStandingArea(area.id)}
                             className="text-muted hover:text-error transition"
-                            title="Xóa vùng đứng (Backspace/Delete)"
+                            title={isEnglish ? 'Delete standing area (Backspace/Delete)' : 'Xóa vùng đứng (Backspace/Delete)'}
                           >
                             <Trash2 className="size-3.5" />
                           </button>
                         </div>
                         {area.shape === 'TRIANGLE' && (
                           <div className="flex items-center gap-1.5 text-[11px] pt-1 border-t border-border-soft/20">
-                            <span className="text-[10px] text-subtle font-bold">Mẫu:</span>
+                            <span className="text-[10px] text-subtle font-bold">{isEnglish ? 'Preset:' : 'Mẫu:'}</span>
                             <button
                               type="button"
                               onClick={() => {
@@ -2580,9 +2593,9 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                                 )
                               }}
                               className="px-1.5 py-0.5 rounded bg-panel-soft hover:bg-tertiary/20 text-[10px] font-bold border border-border-soft/30"
-                              title="Tam giác cân"
+                              title={isEnglish ? 'Isosceles triangle' : 'Tam giác cân'}
                             >
-                              Cân
+                              {isEnglish ? 'Isosceles' : 'Cân'}
                             </button>
                             <button
                               type="button"
@@ -2593,9 +2606,9 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                                 )
                               }}
                               className="px-1.5 py-0.5 rounded bg-panel-soft hover:bg-tertiary/20 text-[10px] font-bold border border-border-soft/30"
-                              title="Tam giác vuông góc trái"
+                              title={isEnglish ? 'Right triangle (left)' : 'Tam giác vuông góc trái'}
                             >
-                              Vuông trái
+                              {isEnglish ? 'Left Right' : 'Vuông trái'}
                             </button>
                             <button
                               type="button"
@@ -2606,9 +2619,9 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                                 )
                               }}
                               className="px-1.5 py-0.5 rounded bg-panel-soft hover:bg-tertiary/20 text-[10px] font-bold border border-border-soft/30"
-                              title="Tam giác vuông góc phải"
+                              title={isEnglish ? 'Right triangle (right)' : 'Tam giác vuông góc phải'}
                             >
-                              Vuông phải
+                              {isEnglish ? 'Right Right' : 'Vuông phải'}
                             </button>
                             <button
                               type="button"
@@ -2624,15 +2637,15 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                                 )
                               }}
                               className="px-1.5 py-0.5 rounded bg-panel-soft hover:bg-tertiary/20 text-[10px] font-bold border border-border-soft/30"
-                              title="Lật ngược tam giác theo chiều dọc"
+                              title={isEnglish ? 'Flip triangle vertically' : 'Lật ngược tam giác theo chiều dọc'}
                             >
-                              Lật dọc
+                              {isEnglish ? 'Flip Vert' : 'Lật dọc'}
                             </button>
                           </div>
                         )}
                         <div className="grid grid-cols-2 gap-2">
                           <label className="text-[10px] text-subtle">
-                            Sức chứa (người)
+                            {isEnglish ? 'Capacity (people)' : 'Sức chứa (người)'}
                             <input
                               type="number"
                               min={1}
@@ -2642,7 +2655,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                             />
                           </label>
                           <label className="text-[10px] text-subtle">
-                            Kích thước (W×H)
+                            {isEnglish ? 'Size (W×H)' : 'Kích thước (W×H)'}
                             <div className="flex items-center gap-1 mt-0.5">
                               <input type="number" value={area.w} onChange={(e) => setStandingAreas((prev) => prev.map((a) => (a.id === area.id ? { ...a, w: Number(e.target.value) } : a)))} className="w-1/2 rounded-lg border border-border-soft/40 bg-panel-soft px-1 py-1 text-[11px] text-content" />
                               <input type="number" value={area.h} onChange={(e) => setStandingAreas((prev) => prev.map((a) => (a.id === area.id ? { ...a, h: Number(e.target.value) } : a)))} className="w-1/2 rounded-lg border border-border-soft/40 bg-panel-soft px-1 py-1 text-[11px] text-content" />
@@ -2658,19 +2671,21 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                 <section className="rounded-xl border border-border-soft/20 p-3.5 bg-panel-soft/10 space-y-3">
                   <div className="space-y-2">
                     <p className="text-xs font-bold uppercase tracking-wide text-white">
-                      Khu vực vé (Ghế ngồi)
+                      {isEnglish ? 'Ticket Zones (Seated)' : 'Khu vực vé (Ghế ngồi)'}
                     </p>
                     <button
                       type="button"
                       onClick={addZone}
                       className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-[#C99A47]/60 hover:border-[#E6C17A] bg-[#C99A47]/5 hover:bg-[#C99A47]/15 py-2.5 px-3 text-xs font-bold text-[#E6C17A] hover:text-white transition-all cursor-pointer"
                     >
-                      + Thêm khu vực
+                      {isEnglish ? '+ Add Zone' : '+ Thêm khu vực'}
                     </button>
                   </div>
                   <div className="space-y-2">
                     {zones.length === 0 && (
-                      <p className="py-2 text-center text-xs text-muted">Chưa có khu vực ghế nào</p>
+                      <p className="py-2 text-center text-xs text-muted">
+                        {isEnglish ? 'No seat zones yet' : 'Chưa có khu vực ghế nào'}
+                      </p>
                     )}
                     {zones.map((zone) => {
                       const count = seats.filter((s) => s.zoneLocalId === zone.localId).length
@@ -2698,7 +2713,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                             />
                             <input
                               type="text"
-                              value={zone.name}
+                              value={isEnglish ? (translatePhrase(zone.name, 'en') || zone.name) : zone.name}
                               onClick={(e) => e.stopPropagation()}
                               onChange={(e) =>
                                 setZones((prev) =>
@@ -2709,7 +2724,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                             />
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="text-[11px] font-bold text-subtle">{count} ghế</span>
+                            <span className="text-[11px] font-bold text-subtle">{count} {isEnglish ? 'seats' : 'ghế'}</span>
                             <button
                               type="button"
                               onClick={(e) => {
@@ -2734,13 +2749,13 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
               <div className="space-y-4">
                 <section className="rounded-xl border border-border-soft/20 p-3.5 bg-panel-soft/10 space-y-3">
                   <p className="text-xs font-bold uppercase tracking-wide text-white">
-                    Loại Layout & Tạo lưới
+                    {isEnglish ? 'Layout Type & Grid Setup' : 'Loại Layout & Tạo lưới'}
                   </p>
                   <div className="grid grid-cols-3 gap-1.5">
                     {[
-                      ['GRID', 'Lưới cố định'],
-                      ['FREEFORM', 'Vẽ tự do'],
-                      ['MIXED', 'Hỗn hợp'],
+                      ['GRID', isEnglish ? 'Fixed Grid' : 'Lưới cố định'],
+                      ['FREEFORM', isEnglish ? 'Freeform' : 'Vẽ tự do'],
+                      ['MIXED', isEnglish ? 'Mixed' : 'Hỗn hợp'],
                     ].map(([type, label]) => (
                       <button
                         key={type}
@@ -2760,7 +2775,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                     <div className="space-y-2 pt-2 border-t border-border-soft/20">
                       <div className="grid grid-cols-2 gap-2">
                         <label className="text-sm font-semibold text-white block">
-                          Số Hàng
+                          {isEnglish ? 'Rows' : 'Số Hàng'}
                           <input
                             type="number"
                             min={1}
@@ -2771,7 +2786,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                           />
                         </label>
                         <label className="text-sm font-semibold text-white block">
-                          Số Cột
+                          {isEnglish ? 'Columns' : 'Số Cột'}
                           <input
                             type="number"
                             min={1}
@@ -2788,28 +2803,30 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                         className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-[#C99A47]/50 bg-[#C99A47]/10 hover:bg-[#C99A47]/20 hover:border-[#E6C17A] py-2.5 px-3 text-xs font-bold text-[#E6C17A] hover:text-white transition-all cursor-pointer"
                       >
                         <RotateCcw className="size-3.5" />
-                        Tạo lại lưới ghế ({gridConfig.rows * gridConfig.cols} ghế)
+                        {isEnglish ? `Recreate seat grid (${gridConfig.rows * gridConfig.cols} seats)` : `Tạo lại lưới ghế (${gridConfig.rows * gridConfig.cols} ghế)`}
                       </button>
                     </div>
                   )}
                 </section>
 
                 <section className="rounded-xl border border-border-soft/20 p-3.5 bg-panel-soft/10 space-y-2">
-                  <p className="text-xs font-bold uppercase tracking-wide text-white">Thao tác nhanh ghế</p>
+                  <p className="text-xs font-bold uppercase tracking-wide text-white">
+                    {isEnglish ? 'Quick Seat Actions' : 'Thao tác nhanh ghế'}
+                  </p>
                   <div className="grid grid-cols-1 gap-2">
                     <button
                       type="button"
                       onClick={() => setSelectedIds(new Set(seats.map((s) => s.localId)))}
                       className="rounded-xl border border-border-soft/30 bg-surface py-2 text-xs font-semibold text-content hover:bg-panel-soft transition"
                     >
-                      Chọn tất cả ghế ({seats.length})
+                      {isEnglish ? `Select all seats (${seats.length})` : `Chọn tất cả ghế (${seats.length})`}
                     </button>
                     <button
                       type="button"
                       onClick={() => setSelectedIds(new Set())}
                       className="rounded-xl border border-border-soft/30 bg-surface py-2 text-xs font-semibold text-content hover:bg-panel-soft transition"
                     >
-                      Bỏ chọn tất cả
+                      {isEnglish ? 'Deselect all' : 'Bỏ chọn tất cả'}
                     </button>
                     <button
                       type="button"
@@ -2817,7 +2834,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                       disabled={!selectedIds.size}
                       className="rounded-xl border border-error/30 bg-error/10 py-2 text-xs font-bold text-error hover:bg-error/20 transition disabled:opacity-50"
                     >
-                      Vô hiệu hóa ({selectedIds.size}) ghế đang chọn
+                      {isEnglish ? `Disable (${selectedIds.size}) selected seats` : `Vô hiệu hóa (${selectedIds.size}) ghế đang chọn`}
                     </button>
                   </div>
                 </section>
@@ -2829,10 +2846,10 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
               <div className="space-y-4">
                 <section className="rounded-xl border border-border-soft/20 p-3.5 bg-panel-soft/10 space-y-3">
                   <p className="text-xs font-bold uppercase tracking-wide text-white">
-                    Màu nền Canvas
+                    {isEnglish ? 'Canvas Background Color' : 'Màu nền Canvas'}
                   </p>
                   <div className="grid grid-cols-1 gap-2">
-                    {CANVAS_THEMES.map((t) => {
+                    {canvasThemes.map((t) => {
                       const isSelected = canvasBg === t.color
                       return (
                         <label
@@ -2866,7 +2883,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                           <div
                             className="size-4 rounded-full border border-white/20 shrink-0"
                             style={{ backgroundColor: t.color }}
-                            title={`Mã màu: ${t.color}`}
+                            title={isEnglish ? `Color code: ${t.color}` : `Mã màu: ${t.color}`}
                           />
                         </label>
                       )
@@ -2874,7 +2891,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                   </div>
 
                   <div className="pt-2 border-t border-border-soft/20 flex items-center justify-between">
-                    <span className="text-sm font-semibold text-white">Màu tự chọn:</span>
+                    <span className="text-sm font-semibold text-white">{isEnglish ? 'Custom Color:' : 'Màu tự chọn:'}</span>
                     <input
                       type="color"
                       value={canvasBg}
@@ -2892,10 +2909,12 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                       onChange={(e) => setSnapEnabled(e.target.checked)}
                       className="size-4 rounded border-border-soft/40 bg-panel-soft accent-[#C99A47]"
                     />
-                    Căn chỉnh Lưới Snap
+                    {isEnglish ? 'Snap to Grid Alignment' : 'Căn chỉnh Lưới Snap'}
                   </label>
                   <p className="text-xs leading-relaxed text-subtle">
-                    Tự động hít vị trí ghế & vật thể theo ô lưới khi kéo thả.
+                    {isEnglish
+                      ? 'Automatically snap seats and objects to grid cells when dragging.'
+                      : 'Tự động hít vị trí ghế & vật thể theo ô lưới khi kéo thả.'}
                   </p>
                 </section>
               </div>
@@ -2913,15 +2932,15 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
         }}
         title={
           sidebarOpen
-            ? 'Thu gọn thanh bên để tiện vẽ (Phím tắt: [ hoặc Ctrl+B)'
-            : 'Mở rộng thanh bên cấu hình (Phím tắt: [ hoặc Ctrl+B)'
+            ? (isEnglish ? 'Collapse sidebar (Shortcut: [ or Ctrl+B)' : 'Thu gọn thanh bên để tiện vẽ (Phím tắt: [ hoặc Ctrl+B)')
+            : (isEnglish ? 'Expand sidebar (Shortcut: [ or Ctrl+B)' : 'Mở rộng thanh bên cấu hình (Phím tắt: [ hoặc Ctrl+B)')
         }
         className={`group absolute top-1/2 -translate-y-1/2 z-30 flex h-14 w-6 items-center justify-center rounded-r-xl border border-l-0 shadow-2xl transition-all duration-300 cursor-pointer select-none ${
           sidebarOpen
             ? 'left-[320px] border-[#C99A47]/40 bg-[#0D1B2A]/95 text-[#C99A47] hover:w-7 hover:bg-[#C99A47] hover:text-[#0D1B2A] shadow-black/50'
             : 'left-0 border-[#C99A47]/60 bg-[#0D1B2A] text-[#C99A47] hover:w-7 hover:bg-[#C99A47] hover:text-[#0D1B2A] shadow-black/70 animate-pulse-subtle'
         }`}
-        aria-label={sidebarOpen ? 'Thu gọn bảng cấu hình' : 'Mở bảng cấu hình'}
+        aria-label={sidebarOpen ? (isEnglish ? 'Collapse configuration panel' : 'Thu gọn bảng cấu hình') : (isEnglish ? 'Expand configuration panel' : 'Mở bảng cấu hình')}
       >
         {sidebarOpen ? (
           <ChevronLeft className="size-4 shrink-0 transition-transform group-hover:scale-110" />
@@ -2937,7 +2956,9 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
             <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-3 rounded-2xl border border-amber-500/50 bg-[#0D1B2A]/95 px-4 py-2 text-xs text-white shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-top-3">
               <AlertCircle className="size-4 text-amber-400 shrink-0" />
               <span>
-                Tìm thấy bản vẽ tự động lưu lúc <b>{new Date(recoveredDraft.timestamp).toLocaleTimeString('vi-VN')}</b> (phòng mất điện/đột ngột).
+                {isEnglish ? 'Found autosaved draft from ' : 'Tìm thấy bản vẽ tự động lưu lúc '}
+                <b>{new Date(recoveredDraft.timestamp).toLocaleTimeString(isEnglish ? 'en-US' : 'vi-VN')}</b>
+                {isEnglish ? ' (power outage / crash protection).' : ' (phòng mất điện/đột ngột).'}
               </span>
               <div className="flex items-center gap-1.5 ml-1">
                 <button
@@ -2947,11 +2968,11 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                     applySnapshot(recoveredDraft)
                     if (recoveredDraft.mapName) setMapName(recoveredDraft.mapName)
                     setRecoveredDraft(null)
-                    toast.success('Đã khôi phục bản vẽ nháp tự động!')
+                    toast.success(isEnglish ? 'Autosaved draft restored!' : 'Đã khôi phục bản vẽ nháp tự động!')
                   }}
                   className="rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 px-3 py-1 font-extrabold transition shadow-sm cursor-pointer"
                 >
-                  Khôi phục
+                  {isEnglish ? 'Restore' : 'Khôi phục'}
                 </button>
                 <button
                   type="button"
@@ -2961,7 +2982,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                   }}
                   className="rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 px-2.5 py-1 font-bold transition cursor-pointer"
                 >
-                  Bỏ qua
+                  {isEnglish ? 'Dismiss' : 'Bỏ qua'}
                 </button>
               </div>
             </div>
@@ -2990,7 +3011,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
               <div
                 className="flex items-center text-subtle hover:text-content cursor-grab active:cursor-grabbing px-1 py-1 select-none shrink-0"
                 onMouseDown={makeDraggable(setToolbarPos, toolbarRef)}
-                title="Kéo để di chuyển thanh công cụ (Nhấp đúp để về mặc định)"
+                title={isEnglish ? 'Drag to move toolbar (Double-click to reset)' : 'Kéo để di chuyển thanh công cụ (Nhấp đúp để về mặc định)'}
                 onDoubleClick={(e) => {
                   e.stopPropagation()
                   setToolbarPos(null)
@@ -3047,7 +3068,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                   type="button"
                   onClick={undo}
                   disabled={!canUndo}
-                  title="Quay lại thao tác trước đó (Ctrl+Z)"
+                  title={isEnglish ? 'Undo previous action (Ctrl+Z)' : 'Quay lại thao tác trước đó (Ctrl+Z)'}
                   className={`shrink-0 flex items-center gap-1.5 rounded-xl text-xs font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer ${
                     canShowQuickActionLabels ? 'px-2.5 sm:px-3 py-2' : 'p-1.5'
                   } ${
@@ -3057,13 +3078,13 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                   }`}
                 >
                   <RotateCcw className="size-4 shrink-0" />
-                  {canShowQuickActionLabels && <span className="whitespace-nowrap">Quay lại</span>}
+                  {canShowQuickActionLabels && <span className="whitespace-nowrap">{isEnglish ? 'Undo' : 'Quay lại'}</span>}
                 </button>
                 <button
                   type="button"
                   onClick={redo}
                   disabled={!canRedo}
-                  title="Quay lại thao tác sau đó (Ctrl+Y hoặc Ctrl+Shift+Z)"
+                  title={isEnglish ? 'Redo next action (Ctrl+Y or Ctrl+Shift+Z)' : 'Quay lại thao tác sau đó (Ctrl+Y hoặc Ctrl+Shift+Z)'}
                   className={`shrink-0 flex items-center gap-1.5 rounded-xl text-xs font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer ${
                     canShowQuickActionLabels ? 'px-2.5 sm:px-3 py-2' : 'p-1.5'
                   } ${
@@ -3073,12 +3094,12 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                   }`}
                 >
                   <RotateCw className="size-4 shrink-0" />
-                  {canShowQuickActionLabels && <span className="whitespace-nowrap">Tiếp tục</span>}
+                  {canShowQuickActionLabels && <span className="whitespace-nowrap">{isEnglish ? 'Redo' : 'Tiếp tục'}</span>}
                 </button>
                 <button
                   type="button"
                   onClick={selectAll}
-                  title="Chọn tất cả ghế (Ctrl+A)"
+                  title={isEnglish ? 'Select all seats (Ctrl+A)' : 'Chọn tất cả ghế (Ctrl+A)'}
                   className={`shrink-0 flex items-center gap-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                     canShowQuickActionLabels ? 'px-2.5 sm:px-3 py-2' : 'p-1.5'
                   } ${
@@ -3088,12 +3109,12 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                   }`}
                 >
                   <CheckSquare className="size-4 shrink-0" />
-                  {canShowQuickActionLabels && <span className="whitespace-nowrap">Chọn hết</span>}
+                  {canShowQuickActionLabels && <span className="whitespace-nowrap">{isEnglish ? 'Select All' : 'Chọn hết'}</span>}
                 </button>
                 <button
                   type="button"
                   onClick={copySelected}
-                  title="Sao chép (Ctrl+C)"
+                  title={isEnglish ? 'Copy (Ctrl+C)' : 'Sao chép (Ctrl+C)'}
                   className={`shrink-0 flex items-center gap-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                     canShowQuickActionLabels ? 'px-2.5 sm:px-3 py-2' : 'p-1.5'
                   } ${
@@ -3103,12 +3124,12 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                   }`}
                 >
                   <Copy className="size-4 shrink-0" />
-                  {canShowQuickActionLabels && <span className="whitespace-nowrap">Sao chép</span>}
+                  {canShowQuickActionLabels && <span className="whitespace-nowrap">{isEnglish ? 'Copy' : 'Sao chép'}</span>}
                 </button>
                 <button
                   type="button"
                   onClick={pasteCopied}
-                  title="Dán (Ctrl+V)"
+                  title={isEnglish ? 'Paste (Ctrl+V)' : 'Dán (Ctrl+V)'}
                   className={`shrink-0 flex items-center gap-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                     canShowQuickActionLabels ? 'px-2.5 sm:px-3 py-2' : 'p-1.5'
                   } ${
@@ -3118,7 +3139,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                   }`}
                 >
                   <ClipboardPaste className="size-4 shrink-0" />
-                  {canShowQuickActionLabels && <span className="whitespace-nowrap">Dán</span>}
+                  {canShowQuickActionLabels && <span className="whitespace-nowrap">{isEnglish ? 'Paste' : 'Dán'}</span>}
                 </button>
               </div>
 
@@ -3129,10 +3150,10 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                 }`}>
                   {canShowPaintText ? (
                     <span className={`text-xs sm:text-sm font-extrabold whitespace-nowrap ${isLightCanvas ? 'text-slate-800' : 'text-subtle'}`}>
-                      Tô khu vực:
+                      {isEnglish ? 'Paint Zone:' : 'Tô khu vực:'}
                     </span>
                   ) : (
-                    <Paintbrush className="size-3.5 text-subtle shrink-0" title="Tô màu khu vực" />
+                    <Paintbrush className="size-3.5 text-subtle shrink-0" title={isEnglish ? 'Paint zone' : 'Tô màu khu vực'} />
                   )}
                   <div className={`flex items-center ${isToolbarExpanded ? 'gap-1.5' : 'gap-1'}`}>
                     {zones.map((z) => (
@@ -3143,7 +3164,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                           setActiveZoneId(z.localId)
                           if (selectedIds.size > 0) applyZoneToSelected(z.localId)
                         }}
-                        title={`Khu vực: ${z.name}`}
+                        title={isEnglish ? `Zone: ${z.name}` : `Khu vực: ${z.name}`}
                         className={`size-5 sm:size-6 rounded-full border-2 transition-transform shrink-0 cursor-pointer ${activeZoneId === z.localId
                           ? isLightCanvas ? 'scale-115 border-slate-900 shadow-md ring-2 ring-[#C99A47]' : 'scale-115 border-white shadow-md'
                           : isLightCanvas ? 'border-slate-400/50 shadow-xs opacity-90 hover:opacity-100 hover:scale-105' : 'border-transparent opacity-80 hover:opacity-100'
@@ -3160,9 +3181,9 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                 <button
                   type="button"
                   onClick={() => setToolbarExpandedManual(!isToolbarExpanded)}
-                  title={isToolbarExpanded ? 'Thu gọn thanh công cụ (Phím tắt: T)' : 'Mở rộng dãn thanh công cụ (Phím tắt: T)'}
+                  title={isToolbarExpanded ? (isEnglish ? 'Collapse toolbar (Shortcut: T)' : 'Thu gọn thanh công cụ (Phím tắt: T)') : (isEnglish ? 'Expand toolbar (Shortcut: T)' : 'Mở rộng dãn thanh công cụ (Phím tắt: T)')}
                   className="p-1.5 rounded-xl transition text-subtle hover:bg-panel-soft hover:text-[#C99A47] cursor-pointer"
-                  aria-label={isToolbarExpanded ? 'Thu gọn thanh công cụ' : 'Mở rộng thanh công cụ'}
+                  aria-label={isToolbarExpanded ? (isEnglish ? 'Collapse toolbar' : 'Thu gọn thanh công cụ') : (isEnglish ? 'Expand toolbar' : 'Mở rộng thanh công cụ')}
                 >
                   {isToolbarExpanded ? (
                     <ChevronLeft className="size-4 shrink-0 stroke-[2.5]" />
@@ -3190,7 +3211,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                 >
                   <div
                     className="flex items-center text-subtle hover:text-content cursor-grab active:cursor-grabbing pr-0.5 select-none"
-                    title="Kéo để di chuyển khung (Nhấp đúp để về mặc định)"
+                    title={isEnglish ? 'Drag to move panel (Double-click to reset)' : 'Kéo để di chuyển khung (Nhấp đúp để về mặc định)'}
                     onDoubleClick={(e) => {
                       e.stopPropagation()
                       setShapeInspectorPos(null)
@@ -3199,13 +3220,15 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                     <GripVertical className="size-4" />
                   </div>
                   <div className="flex flex-col gap-1 cursor-default">
-                    <span className={`text-[10px] font-bold uppercase tracking-wider ${isLightCanvas ? 'text-slate-800' : 'text-white'}`}>Chỉnh sửa Sân khấu</span>
+                    <span className={`text-[10px] font-bold uppercase tracking-wider ${isLightCanvas ? 'text-slate-800' : 'text-white'}`}>
+                      {isEnglish ? 'Edit Stage' : 'Chỉnh sửa Sân khấu'}
+                    </span>
                     <div className="flex items-center gap-2">
                       <input
                         type="text"
                         value={stageConfig.label}
                         onChange={(e) => setStageConfig((c) => ({ ...c, label: e.target.value }))}
-                        placeholder="Nhập tên sân khấu..."
+                        placeholder={isEnglish ? 'Enter stage name...' : 'Nhập tên sân khấu...'}
                         className={`rounded-xl border px-3 py-1.5 text-xs font-bold outline-none focus:border-primary w-48 shadow-inner ${
                           isLightCanvas ? 'border-slate-300 bg-slate-100 text-slate-900' : 'border-border-soft/40 bg-panel-soft text-content'
                         }`}
@@ -3216,7 +3239,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                         value={stageConfig.color || '#3B82F6'}
                         onChange={(e) => setStageConfig((c) => ({ ...c, color: e.target.value }))}
                         className="h-7 w-8 cursor-pointer rounded border-0 bg-transparent p-0"
-                        title="Đổi màu sân khấu"
+                        title={isEnglish ? 'Change stage color' : 'Đổi màu sân khấu'}
                       />
                       <select
                         value={stageConfig.shape || 'RECTANGLE'}
@@ -3225,7 +3248,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                           isLightCanvas ? 'border-slate-300 bg-slate-100 text-slate-900' : 'border-border-soft/40 bg-panel-soft text-content'
                         }`}
                       >
-                        {STAGE_SHAPES.map((s) => (
+                        {stageShapes.map((s) => (
                           <option key={s.id} value={s.id}>{s.label}</option>
                         ))}
                       </select>
@@ -3253,7 +3276,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                     <div className="flex items-center gap-1">
                       <div
                         className="cursor-grab active:cursor-grabbing p-0.5"
-                        title="Kéo để di chuyển khung (Nhấp đúp để về mặc định)"
+                        title={isEnglish ? "Drag to move panel (Double click to reset position)" : "Kéo để di chuyển khung (Nhấp đúp để về mặc định)"}
                         onDoubleClick={(e) => {
                           e.stopPropagation()
                           setShapeInspectorPos(null)
@@ -3262,7 +3285,9 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                         <GripVertical className="size-3.5 text-subtle hover:text-content" />
                       </div>
                       <span className={`text-[10px] font-bold uppercase tracking-wider ${isLightCanvas ? 'text-slate-800' : 'text-white'}`}>
-                        Chỉnh sửa {standingItem.shape === 'TRIANGLE' ? 'Khối Tam Giác' : 'Vùng Đứng'}
+                        {isEnglish
+                          ? `Edit ${standingItem.shape === 'TRIANGLE' ? 'Triangle Block' : 'Standing Area'}`
+                          : `Chỉnh sửa ${standingItem.shape === 'TRIANGLE' ? 'Khối Tam Giác' : 'Vùng Đứng'}`}
                       </span>
                     </div>
                     <button
@@ -3276,16 +3301,16 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                   <div className="flex items-center gap-2 cursor-default">
                     <input
                       type="text"
-                      value={standingItem.name}
+                      value={isEnglish ? (translatePhrase(standingItem.name, 'en') || standingItem.name) : standingItem.name}
                       onChange={(e) => setStandingAreas((prev) => prev.map((a) => (a.id === standingItem.id ? { ...a, name: e.target.value } : a)))}
-                      placeholder="Tên vùng đứng..."
+                      placeholder={isEnglish ? "Standing area name..." : "Tên vùng đứng..."}
                       className={`rounded-xl border px-3 py-1.5 text-xs font-bold outline-none focus:border-tertiary w-36 shadow-inner ${
                         isLightCanvas ? 'border-slate-300 bg-slate-100 text-slate-900' : 'border-border-soft/40 bg-panel-soft text-content'
                       }`}
                       autoFocus
                     />
                     <label className={`text-[10px] font-bold flex items-center gap-1 ${isLightCanvas ? 'text-slate-600' : 'text-subtle'}`}>
-                      Sức chứa:
+                      {isEnglish ? 'Capacity:' : 'Sức chứa:'}
                       <input
                         type="number"
                         min={1}
@@ -3301,7 +3326,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                       value={standingItem.color || '#EF4444'}
                       onChange={(e) => setStandingAreas((prev) => prev.map((a) => (a.id === standingItem.id ? { ...a, color: e.target.value } : a)))}
                       className="h-7 w-8 cursor-pointer rounded border-0 bg-transparent p-0"
-                      title="Màu đại diện"
+                      title={isEnglish ? "Representative color" : "Màu đại diện"}
                     />
                     <select
                       value={standingItem.shape || 'RECTANGLE'}
@@ -3326,25 +3351,27 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                       className={`rounded-xl border px-2 py-1 text-xs font-bold outline-none focus:border-primary ${
                         isLightCanvas ? 'border-slate-300 bg-slate-100 text-slate-900' : 'border-border-soft/40 bg-panel-soft text-content'
                       }`}
-                      title="Hình dạng khối"
+                      title={isEnglish ? "Block shape" : "Hình dạng khối"}
                     >
-                      <option value="RECTANGLE">Chữ nhật</option>
-                      <option value="TRIANGLE">Tam giác</option>
-                      <option value="CIRCLE">Hình tròn</option>
-                      <option value="DIAMOND">Hình thoi</option>
+                      <option value="RECTANGLE">{isEnglish ? 'Rectangle' : 'Chữ nhật'}</option>
+                      <option value="TRIANGLE">{isEnglish ? 'Triangle' : 'Tam giác'}</option>
+                      <option value="CIRCLE">{isEnglish ? 'Circle' : 'Hình tròn'}</option>
+                      <option value="DIAMOND">{isEnglish ? 'Diamond' : 'Hình thoi'}</option>
                     </select>
                     <button
                       type="button"
                       onClick={() => deleteStandingArea(standingItem.id)}
                       className="text-error hover:bg-error/10 p-1.5 rounded-lg transition"
-                      title="Xóa vùng đứng (Backspace/Delete)"
+                      title={isEnglish ? "Delete standing area (Backspace/Delete)" : "Xóa vùng đứng (Backspace/Delete)"}
                     >
                       <Trash2 className="size-3.5" />
                     </button>
                   </div>
                   {standingItem.shape === 'TRIANGLE' && (
                     <div className="flex items-center gap-1.5 pt-1 border-t border-border-soft/20 text-[11px]">
-                      <span className={`text-[10px] font-bold ${isLightCanvas ? 'text-slate-600' : 'text-subtle'}`}>Mẫu tam giác:</span>
+                      <span className={`text-[10px] font-bold ${isLightCanvas ? 'text-slate-600' : 'text-subtle'}`}>
+                        {isEnglish ? 'Preset:' : 'Mẫu tam giác:'}
+                      </span>
                       <button
                         type="button"
                         onClick={() => {
@@ -3358,9 +3385,9 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                           )
                         }}
                         className="px-2 py-0.5 rounded-lg bg-panel-soft hover:bg-tertiary/20 font-bold border border-border-soft/40 transition"
-                        title="Tam giác cân"
+                        title={isEnglish ? "Isosceles triangle" : "Tam giác cân"}
                       >
-                        Cân
+                        {isEnglish ? 'Isosceles' : 'Cân'}
                       </button>
                       <button
                         type="button"
@@ -3375,9 +3402,9 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                           )
                         }}
                         className="px-2 py-0.5 rounded-lg bg-panel-soft hover:bg-tertiary/20 font-bold border border-border-soft/40 transition"
-                        title="Tam giác vuông góc trái"
+                        title={isEnglish ? "Right triangle (left)" : "Tam giác vuông góc trái"}
                       >
-                        Vuông trái
+                        {isEnglish ? 'Left Right' : 'Vuông trái'}
                       </button>
                       <button
                         type="button"
@@ -3392,9 +3419,9 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                           )
                         }}
                         className="px-2 py-0.5 rounded-lg bg-panel-soft hover:bg-tertiary/20 font-bold border border-border-soft/40 transition"
-                        title="Tam giác vuông góc phải"
+                        title={isEnglish ? "Right triangle (right)" : "Tam giác vuông góc phải"}
                       >
-                        Vuông phải
+                        {isEnglish ? 'Right Right' : 'Vuông phải'}
                       </button>
                       <button
                         type="button"
@@ -3413,9 +3440,9 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                           )
                         }}
                         className="px-2 py-0.5 rounded-lg bg-panel-soft hover:bg-tertiary/20 font-bold border border-border-soft/40 transition"
-                        title="Lật ngược tam giác theo chiều dọc"
+                        title={isEnglish ? "Flip triangle vertically" : "Lật ngược tam giác theo chiều dọc"}
                       >
-                        Lật dọc
+                        {isEnglish ? 'Flip Vert' : 'Lật dọc'}
                       </button>
                     </div>
                   )}
@@ -3438,7 +3465,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                 >
                   <div
                     className="flex items-center text-subtle hover:text-content cursor-grab active:cursor-grabbing pr-0.5 select-none"
-                    title="Kéo để di chuyển khung (Nhấp đúp để về mặc định)"
+                    title={isEnglish ? "Drag to move panel (Double click to reset position)" : "Kéo để di chuyển khung (Nhấp đúp để về mặc định)"}
                     onDoubleClick={(e) => {
                       e.stopPropagation()
                       setShapeInspectorPos(null)
@@ -3447,13 +3474,15 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                     <GripVertical className="size-4" />
                   </div>
                   <div className="flex flex-col gap-1 cursor-default">
-                    <span className={`text-[10px] font-bold uppercase tracking-wider ${isLightCanvas ? 'text-slate-800' : 'text-white'}`}>Chỉnh sửa Vật thể phụ</span>
+                    <span className={`text-[10px] font-bold uppercase tracking-wider ${isLightCanvas ? 'text-slate-800' : 'text-white'}`}>
+                      {isEnglish ? 'Edit Auxiliary Object' : 'Chỉnh sửa Vật thể phụ'}
+                    </span>
                     <div className="flex items-center gap-2">
                       <input
                         type="text"
-                        value={auxItem.label}
+                        value={isEnglish ? (translatePhrase(auxItem.label, 'en') || auxItem.label) : auxItem.label}
                         onChange={(e) => setAuxElements((prev) => prev.map((a) => (a.id === auxItem.id ? { ...a, label: e.target.value } : a)))}
-                        placeholder="Tên vật thể..."
+                        placeholder={isEnglish ? "Object name..." : "Tên vật thể..."}
                         className={`rounded-xl border px-3 py-1.5 text-xs font-bold outline-none focus:border-primary w-48 shadow-inner ${
                           isLightCanvas ? 'border-slate-300 bg-slate-100 text-slate-900' : 'border-border-soft/40 bg-panel-soft text-content'
                         }`}
@@ -3463,7 +3492,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                         type="button"
                         onClick={() => deleteAuxElement(auxItem.id)}
                         className="text-error hover:bg-error/10 p-1.5 rounded-lg transition"
-                        title="Xóa vật thể (Backspace/Delete)"
+                        title={isEnglish ? "Delete object (Backspace/Delete)" : "Xóa vật thể (Backspace/Delete)"}
                       >
                         <Trash2 className="size-3.5" />
                       </button>
@@ -3487,7 +3516,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
               type="button"
               onClick={() => setZoom((z) => Math.min(2.5, z + 0.15))}
               className={`rounded-xl p-2 transition font-bold ${isLightCanvas ? 'text-slate-700 hover:bg-slate-100 hover:text-slate-950' : 'text-subtle hover:bg-panel-soft hover:text-content'}`}
-              title="Phóng to"
+              title={isEnglish ? "Zoom in" : "Phóng to"}
             >
               <ZoomIn className="size-4" />
             </button>
@@ -3496,7 +3525,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
               type="button"
               onClick={() => setZoom((z) => Math.max(0.4, z - 0.15))}
               className={`rounded-xl p-2 transition font-bold ${isLightCanvas ? 'text-slate-700 hover:bg-slate-100 hover:text-slate-950' : 'text-subtle hover:bg-panel-soft hover:text-content'}`}
-              title="Thu nhỏ"
+              title={isEnglish ? "Zoom out" : "Thu nhỏ"}
             >
               <ZoomOut className="size-4" />
             </button>
@@ -3524,7 +3553,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
             >
               <div
                 className="flex items-center text-subtle hover:text-content cursor-grab active:cursor-grabbing pr-0.5 select-none"
-                title="Kéo để di chuyển khung tác vụ (Nhấp đúp để về mặc định)"
+                title={isEnglish ? "Drag to move action bar (Double click to reset position)" : "Kéo để di chuyển khung tác vụ (Nhấp đúp để về mặc định)"}
                 onDoubleClick={(e) => {
                   e.stopPropagation()
                   setSelectionBarPos(null)
@@ -3533,18 +3562,22 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                 <GripVertical className="size-4" />
               </div>
               <span className={`text-xs font-bold ${isLightCanvas ? 'text-slate-800' : 'text-content'} cursor-default`}>
-                Đã chọn <span className={`${isLightCanvas ? 'text-[#C99A47]' : 'text-primary'} font-extrabold`}>{selectedIds.size}</span> ghế
+                {isEnglish ? 'Selected ' : 'Đã chọn '}
+                <span className={`${isLightCanvas ? 'text-[#C99A47]' : 'text-primary'} font-extrabold`}>{selectedIds.size}</span>
+                {isEnglish ? ' seats' : ' ghế'}
               </span>
               {zones.length > 0 && (
                 <div className="flex items-center gap-1.5 border-l border-r px-2.5 border-border-soft/40">
-                  <span className={`text-[11px] font-bold ${isLightCanvas ? 'text-slate-600' : 'text-subtle'}`}>Gán khu vực:</span>
+                  <span className={`text-[11px] font-bold ${isLightCanvas ? 'text-slate-600' : 'text-subtle'}`}>
+                    {isEnglish ? 'Assign zone:' : 'Gán khu vực:'}
+                  </span>
                   <div className="flex items-center gap-1">
                     {zones.map((z) => (
                       <button
                         key={z.localId}
                         type="button"
                         onClick={() => applyZoneToSelected(z.localId)}
-                        title={`Gán các ghế đã chọn vào ${z.name}`}
+                        title={isEnglish ? `Assign selected seats to ${z.name}` : `Gán các ghế đã chọn vào ${z.name}`}
                         className="size-5 rounded-full border-2 border-white/80 shadow-sm hover:scale-115 transition-transform cursor-pointer"
                         style={{ backgroundColor: z.color }}
                       />
@@ -3558,19 +3591,19 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                   type="button"
                   onClick={alignSelectedHorizontal}
                   className="flex items-center gap-1 rounded-xl border border-primary/30 bg-primary/10 px-2.5 py-1.5 text-xs font-bold text-primary hover:bg-primary/20 transition cursor-pointer"
-                  title="Căn các ghế đã chọn thành 1 hàng ngang thẳng tắp"
+                  title={isEnglish ? "Align selected seats into a straight horizontal row" : "Căn các ghế đã chọn thành 1 hàng ngang thẳng tắp"}
                 >
                   <AlignCenterHorizontal className="size-3.5" />
-                  Căn ngang
+                  {isEnglish ? 'Align Horiz' : 'Căn ngang'}
                 </button>
                 <button
                   type="button"
                   onClick={alignSelectedVertical}
                   className="flex items-center gap-1 rounded-xl border border-primary/30 bg-primary/10 px-2.5 py-1.5 text-xs font-bold text-primary hover:bg-primary/20 transition cursor-pointer"
-                  title="Căn các ghế đã chọn thành 1 cột dọc thẳng tắp"
+                  title={isEnglish ? "Align selected seats into a straight vertical column" : "Căn các ghế đã chọn thành 1 cột dọc thẳng tắp"}
                 >
                   <AlignCenterVertical className="size-3.5" />
-                  Căn dọc
+                  {isEnglish ? 'Align Vert' : 'Căn dọc'}
                 </button>
                 <button
                   type="button"
@@ -3580,19 +3613,19 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                       ? 'border-slate-300 bg-slate-100 text-slate-800 hover:bg-slate-200'
                       : 'border-border-soft bg-surface-soft text-content hover:bg-surface-elevated'
                   }`}
-                  title="Hít toàn bộ các ghế đã chọn vào các điểm ô lưới chuẩn"
+                  title={isEnglish ? "Snap all selected seats to standard grid points" : "Hít toàn bộ các ghế đã chọn vào các điểm ô lưới chuẩn"}
                 >
                   <Grid className="size-3.5" />
-                  Hít lưới
+                  {isEnglish ? 'Snap Grid' : 'Hít lưới'}
                 </button>
                 <button
                   type="button"
                   onClick={autoAlignSelected}
                   className="flex items-center gap-1 rounded-xl border border-indigo-500/40 bg-indigo-500/15 px-2.5 py-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/25 transition cursor-pointer"
-                  title="Tự động căn thẳng hàng các ghế đã chọn theo các trục dọc và ngang"
+                  title={isEnglish ? "Auto align selected seats along horizontal and vertical axes" : "Tự động căn thẳng hàng các ghế đã chọn theo các trục dọc và ngang"}
                 >
                   <Sparkles className="size-3.5" />
-                  Tự động căn hàng
+                  {isEnglish ? 'Auto Align' : 'Tự động căn hàng'}
                 </button>
               </div>
               <div className="flex items-center gap-2">
@@ -3602,23 +3635,23 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                   className="flex items-center gap-1 rounded-xl border border-warning/40 bg-warning/15 px-3 py-1.5 text-xs font-bold text-amber-700 dark:text-warning hover:bg-warning/25 transition cursor-pointer"
                 >
                   <Ban className="size-3.5" />
-                  Vô hiệu
+                  {isEnglish ? 'Disable' : 'Vô hiệu'}
                 </button>
                 <button
                   type="button"
                   onClick={deleteSelected}
                   className="flex items-center gap-1 rounded-xl border border-error/40 bg-error/15 px-3 py-1.5 text-xs font-bold text-red-700 dark:text-error hover:bg-error/25 transition cursor-pointer"
-                  title="Xóa ghế đã chọn (Backspace/Delete)"
+                  title={isEnglish ? "Delete selected seats (Backspace/Delete)" : "Xóa ghế đã chọn (Backspace/Delete)"}
                 >
                   <Trash2 className="size-3.5" />
-                  Xóa
+                  {isEnglish ? 'Delete' : 'Xóa'}
                 </button>
                 <button
                   type="button"
                   onClick={() => setSelectedIds(new Set())}
                   className={`text-xs font-bold px-2 cursor-pointer ${isLightCanvas ? 'text-slate-600 hover:text-slate-950' : 'text-subtle hover:text-content'}`}
                 >
-                  Bỏ chọn
+                  {isEnglish ? 'Deselect' : 'Bỏ chọn'}
                 </button>
               </div>
             </div>
@@ -3642,7 +3675,11 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                   : 'border-border-soft/30 bg-surface/90 text-subtle'
               }`}>
                 <Hand className="size-3.5 text-tertiary" />
-                Click khối để sửa tên trực tiếp · Giữ <b>Alt</b> + kéo chuột để di chuyển
+                {isEnglish ? (
+                  <>Click block to edit name directly · Hold <b>Alt</b> + drag mouse to move</>
+                ) : (
+                  <>Click khối để sửa tên trực tiếp · Giữ <b>Alt</b> + kéo chuột để di chuyển</>
+                )}
               </div>
             )}
 
@@ -3796,7 +3833,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                         fontWeight="bold"
                         style={{ userSelect: 'none', pointerEvents: 'none' }}
                       >
-                        {name || 'Vùng đứng'}
+                        {isEnglish ? (translatePhrase(name, 'en') || name) : (name || 'Vùng đứng')}
                       </text>
                       <text
                         x={centroid.x}
@@ -3807,7 +3844,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                         fontWeight="600"
                         style={{ userSelect: 'none', pointerEvents: 'none' }}
                       >
-                        Sức chứa: {capacity || 0} người
+                        {isEnglish ? `Capacity: ${capacity || 0} people` : `Sức chứa: ${capacity || 0} người`}
                       </text>
 
                       {isSelected && (
@@ -3821,7 +3858,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                             stroke="#3B82F6"
                             strokeWidth={2}
                             style={{ cursor: 'pointer' }}
-                            title="Xoay hình"
+                            title={isEnglish ? "Rotate shape" : "Xoay hình"}
                             onMouseDown={(e) => {
                               e.stopPropagation()
                               setDraggingHandle({
@@ -3849,9 +3886,9 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
 
                               {/* 3 Edge Drag Handles at midpoints (Kéo cạnh) */}
                               {[
-                                { idx: 0, pt: m01, label: 'Cạnh phải' },
-                                { idx: 1, pt: m12, label: 'Cạnh đáy' },
-                                { idx: 2, pt: m20, label: 'Cạnh trái' },
+                                { idx: 0, pt: m01, label: isEnglish ? 'Right edge' : 'Cạnh phải' },
+                                { idx: 1, pt: m12, label: isEnglish ? 'Bottom edge' : 'Cạnh đáy' },
+                                { idx: 2, pt: m20, label: isEnglish ? 'Left edge' : 'Cạnh trái' },
                               ].map((edge) => (
                                 <g key={`edge-${edge.idx}`}>
                                   <rect
@@ -3881,16 +3918,16 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                                       })
                                     }}
                                   >
-                                    <title>Kéo để chỉnh {edge.label}</title>
+                                    <title>{isEnglish ? `Drag to adjust ${edge.label}` : `Kéo để chỉnh ${edge.label}`}</title>
                                   </rect>
                                 </g>
                               ))}
 
                               {/* 3 Vertex Drag Handles (Kéo đỉnh) */}
                               {[
-                                { idx: 0, pt: p0, label: 'Đỉnh trên' },
-                                { idx: 1, pt: p1, label: 'Đỉnh dưới phải' },
-                                { idx: 2, pt: p2, label: 'Đỉnh dưới trái' },
+                                { idx: 0, pt: p0, label: isEnglish ? 'Top vertex' : 'Đỉnh trên' },
+                                { idx: 1, pt: p1, label: isEnglish ? 'Bottom-right vertex' : 'Đỉnh dưới phải' },
+                                { idx: 2, pt: p2, label: isEnglish ? 'Bottom-left vertex' : 'Đỉnh dưới trái' },
                               ].map((vertex) => (
                                 <circle
                                   key={`vertex-${vertex.idx}`}
@@ -3918,7 +3955,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                                     })
                                   }}
                                 >
-                                  <title>Kéo để chỉnh {vertex.label}</title>
+                                  <title>{isEnglish ? `Drag to adjust ${vertex.label}` : `Kéo để chỉnh ${vertex.label}`}</title>
                                 </circle>
                               ))}
 
@@ -3931,7 +3968,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                                 stroke="#3B82F6"
                                 strokeWidth={2}
                                 style={{ cursor: 'nwse-resize' }}
-                                title="Kéo dãn kích thước W x H"
+                                title={isEnglish ? "Drag to resize W x H" : "Kéo dãn kích thước W x H"}
                                 onMouseDown={(e) => {
                                   e.stopPropagation()
                                   saveHistory()
@@ -4012,7 +4049,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                       fontWeight="bold"
                       style={{ userSelect: 'none', pointerEvents: 'none' }}
                     >
-                      {a.label}
+                      {isEnglish ? (translatePhrase(a.label, 'en') || a.label) : a.label}
                     </text>
 
                     {selectedShapeId === a.id && (
@@ -4161,6 +4198,7 @@ export function SeatMapPreview({
   onToggleSeat,
   showControls = true,
 }) {
+  const { isEnglish } = useLanguage()
   const containerRef = useRef(null)
   const [width, setWidth] = useState(defaultWidth)
   const [zoomLevel, setZoomLevel] = useState(1)

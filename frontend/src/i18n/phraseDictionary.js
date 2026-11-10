@@ -1510,7 +1510,7 @@ export const VI_TO_EN = {
   "Bác bỏ yêu cầu hủy sự kiện từ Ban tổ chức.": "Reject the request to cancel the event from the Organizing Committee.",
   "Bác bỏ yêu cầu hủy từ Ban tổ chức và khôi phục hoạt động bán vé.": "Reject the cancellation request from the Organizing Committee and restore ticket sales.",
   "Bán chạy nhất": "Best seller",
-  "Bán nguyệt + Vùng đứng": "Semicircle + Vertical area",
+  "Bán nguyệt + Vùng đứng": "Semi-circle + Standing area",
   "Bán vé trả phí": "Sell paid tickets",
   "Báo Cáo Cố Vấn Doanh Thu & Quản Trị Tồn Kho": "Revenue Advisory & Inventory Management Report",
   "Báo cáo Doanh thu": "Revenue Report",
@@ -1770,9 +1770,9 @@ export const VI_TO_EN = {
   "Chỉ số rủi ro": "Risk index",
   "Chỉ xem Top 5": "See only Top 5",
   "Chỉ xác nhận xuất vé sau khi khách đã thanh toán bằng thẻ.": "Only confirm ticket issuance after the customer has paid by card.",
-  "Chỉnh sửa Sân khấu": "Stage Editing",
-  "Chỉnh sửa Vùng đứng": "Edit Vertical Area",
-  "Chỉnh sửa Vật thể phụ": "Edit Secondary Objects",
+  "Chỉnh sửa Sân khấu": "Edit Stage",
+  "Chỉnh sửa Vùng đứng": "Edit Standing Area",
+  "Chỉnh sửa Vật thể phụ": "Edit Auxiliary Object",
   "Chỉnh sửa mã khuyến mãi": "Edit promotion code",
   "Chỉnh sửa thông tin cơ bản": "Edit basic information",
   "Chỉnh sửa thông tin liên hệ": "Edit contact information",
@@ -2466,8 +2466,8 @@ export const VI_TO_EN = {
   "Lưu ý về điều khoản VAT": "Note about VAT terms",
   "Lưu ý về điều khoản trẻ em": "Note about the children clause",
   "Lưới (Grid)": "Grid",
-  "Lưới cố định": "Fixed mesh",
-  "Lưới ghế": "Chair mesh",
+  "Lưới cố định": "Fixed Grid",
+  "Lưới ghế": "Seat Grid",
   "Lượt check-in trong khoảng": "Number of check-ins in approx",
   "Lượt soát vé gần đây": "Recent ticket checks",
   "Lượt soát vé theo giờ": "Ticket checks by hour",
@@ -2814,7 +2814,7 @@ export const VI_TO_EN = {
   "Suất diễn mới:": "New performance:",
   "Suất diễn đã hết hạn": "The performance has expired",
   "SÂN KHẤU T": "STAGE T",
-  "Sân T + Đứng + Ghế": "T Court + Stand + Chair",
+  "Sân T + Đứng + Ghế": "T-Stage + Standing + Seats",
   "Sân khấu chữ T (Runway)": "T-shaped stage (Runway)",
   "Sân khấu phụ": "Secondary stage",
   "Sóc Trăng": "Soc Trang",
@@ -3138,7 +3138,7 @@ export const VI_TO_EN = {
   "Tên sơ đồ": "Diagram name",
   "Tên sơ đồ ghế...": "Seat Map name...",
   "Tên sự kiện:": "Event name:",
-  "Tên vùng đứng...": "Vertical area name...",
+  "Tên vùng đứng...": "Standing area name...",
   "Tên vật thể...": "Object name...",
   "Tìm hiểu Ví Bảo Kim": "Learn about Vi Bao Kim",
   "Tìm kiếm sự kiện theo tên hoặc thể loại...": "Search for events by name or category...",
@@ -3520,7 +3520,7 @@ export const VI_TO_EN = {
   "Xóa tài liệu": "Delete documents",
   "Xóa tìm kiếm": "Clear search",
   "Xóa tệp đính kèm": "Delete attachments",
-  "Xóa vùng đứng": "Delete vertical area",
+  "Xóa vùng đứng": "Delete standing area",
   "Xóa điều khoản": "Delete terms",
   "Xóa đoạn chat này": "Delete this chat",
   "Xử lý lúc": "Processing time",
@@ -3959,8 +3959,8 @@ export const VI_TO_EN = {
   "Đổi sang hàng ghế": "Change to row of seats",
   "Đổi tên": "Rename",
   "Đổi tên Sân khấu": "Rename Stage",
-  "Đổi tên Vùng đứng": "Rename Vertical Area",
-  "Đổi tên Vật thể phụ": "Rename the Secondary Entity",
+  "Đổi tên Vùng đứng": "Rename Standing Area",
+  "Đổi tên Vật thể phụ": "Rename Auxiliary Object",
   "Độ liên quan thấp": "Low relevance",
   "đang duyệt": "browsing",
   "đang xử lý": "processing",
@@ -4031,7 +4031,7 @@ export const VI_TO_EN = {
   "+ Thêm lỗi vào ghi chú": "+ Add errors to notes",
   "+ Thêm phiên đầu tiên": "+ Add first session",
   "+ Thêm vào ghi chú": "+ Add to notes",
-  "+ Thêm vùng đứng": "+ Add vertical area",
+  "+ Thêm vùng đứng": "+ Add standing area",
   "+ Tạo sơ đồ mới": "+ Create new diagram",
   "+ Tạo địa điểm mới": "+ Create new locations",
   "+ kéo chuột để di chuyển": "+ drag mouse to move",
@@ -4429,7 +4429,7 @@ export const VI_TO_EN = {
   "Vé sẽ được hoàn trả về trạng thái hợp lệ và thông báo lý do từ chối đến email khách hàng": "Tickets will be returned to valid status and the reason for refusal will be notified to the customer's email",
   "Vé đã từng được quét. Vui lòng kiểm tra kỹ trước khi xác nhận.": "Tickets have been scanned. Please check carefully before confirming.",
   "Vì hồ sơ nhà tổ chức chứa thông tin pháp lý, EventHub bắt buộc bảo vệ tài khoản bằng OTP qua email.": "Because organizer profiles contain legal information, EventHub is required to protect accounts with OTP via email.",
-  "Vùng đứng (Không ghế)": "Standing Area (No Chair)",
+  "Vùng đứng (Không ghế)": "Standing Area (No Seats)",
   "Văn bản cấp phép, công văn chấp thuận của cơ quan thẩm quyền.": "Licensing documents and approval documents from competent authorities.",
   "Về trang Login": "About Login page",
   "Vị trí": "Location",
@@ -4898,7 +4898,81 @@ export const VI_TO_EN = {
   "Chưa cấu hình Gateway IP tĩnh chuyên dụng cho Ban tổ chức": "Dedicated static Gateway IP not configured for Organizer",
   "Khách hàng chưa cung cấp số tài khoản ngân hàng để thực hiện hoàn tiền tự động qua PayOS. Vui lòng chuyển khoản thủ công cho khách hàng.": "Customer has not provided a bank account for automatic PayOS refund. Please transfer manually.",
   "Thiếu mã yêu cầu hoàn tiền.": "Missing refund request ID.",
+  "Mẫu thiết kế nhanh & AI": "Quick Presets & AI",
+  "MẪU THIẾT KẾ NHANH & AI": "QUICK PRESETS & AI",
+  "Nhập sơ đồ từ ảnh (AI YOLO)": "Import map from image (AI YOLO)",
+  "Tự động nhận diện ghế, sân khấu, khu vực & vùng đứng": "Auto-detect seats, stage, zones & standing areas",
+  "Tạo từ ảnh (AI)": "Generate from Image (AI)",
+  "AI đang dựng...": "Generating...",
+  "AI đang phân tích ảnh...": "AI analyzing image...",
+  "Đã tự động lưu nháp": "Draft autosaved",
+  "Cửa vào 1": "Entrance 1",
+  "Cửa vào 2": "Entrance 2",
+  "Cửa vào 3": "Entrance 3",
+  "Cửa vào 4": "Entrance 4",
+  "Cửa vào 5": "Entrance 5",
+  "Cửa vào 6": "Entrance 6",
+  "Cửa vào": "Entrance",
+  "Sân phụ": "Aux Stage",
+  "Màn hình": "LED Screen",
+  "Màn hình LED": "LED Screen",
+  "Sân khấu phụ": "Aux Stage",
+  "Chữ T + Đứng + Ghế": "T-Stage + Standing + Seats",
+  "Vuông + 200 ghế": "Square + 200 seats",
+  "Bán nguyệt + Khu đứng": "Semi-circle + Standing area",
   "Vui lòng cung cấp đầy đủ thông tin: Ngân hàng, Số tài khoản và Tên chủ tài khoản.": "Please provide full bank details: Bank, Account Number, and Account Holder Name.",
+  "Concert, live show, nhạc sống, fan meeting, sân khấu, hài kịch và các chương trình biểu diễn giải trí.": "Concerts, live shows, fan meetings, stage performances, comedy, and other entertainment shows.",
+  "Workshop, seminar, tọa đàm, định hướng nghề nghiệp, lớp học và sự kiện học thuật.": "Workshops, seminars, panel discussions, career guidance, classes, and academic events.",
+  "Sự kiện doanh nghiệp, startup, công nghệ, AI, networking và kết nối đầu tư.": "Business events, startups, technology, AI, networking, and investment connections.",
+  "Lễ hội, sự kiện văn hóa, du lịch, triển lãm và hoạt động cộng đồng.": "Festivals, cultural events, tourism, exhibitions, and community activities.",
+  "Marathon, chạy bộ, giải đấu, hoạt động thể thao và sự kiện vận động ngoài trời.": "Marathons, running, tournaments, sports activities, and outdoor events.",
+  "Loại Sự kiện": "Event Categories",
+  "Thêm loại": "Add categories",
+  "Tổng loại sự kiện": "Total Event Type",
+  "Đang hoạt động": "Active",
+  "Chưa dùng": "Not Used Yet",
+  "Tên loại": "Category Name",
+  "Mô tả": "Description",
+  "Số sự kiện": "Event Count",
+  "Trạng thái": "Status",
+  "Hành động": "Actions",
+  "Chưa có mô tả": "No description",
+  "Đang tải loại sự kiện...": "Loading event categories...",
+  "Không thể tải danh sách loại sự kiện.": "Unable to load event categories.",
+  "Không thể lưu thay đổi. Vui lòng kiểm tra dữ liệu và thử lại.": "Unable to save changes. Please check the data and try again.",
+  "Cập nhật loại sự kiện": "Update Event Category",
+  "Thêm loại sự kiện": "Add Event Category",
+  "Nhập tên loại sự kiện...": "Enter event category name...",
+  "Nhập mô tả cho loại sự kiện...": "Enter event category description...",
+  "Đã tạo loại sự kiện.": "Event category created.",
+  "Không thể tạo loại sự kiện.": "Unable to create event category.",
+  "Đã tạm ẩn loại sự kiện.": "Event category hidden.",
+  "Đã cập nhật loại sự kiện.": "Event category updated.",
+  "Không thể cập nhật loại sự kiện.": "Unable to update event category.",
+  "Đã xóa loại sự kiện.": "Event category deleted.",
+  "Không thể xóa loại sự kiện.": "Unable to delete event category.",
+  "Xóa loại sự kiện?": "Delete event category?",
+  "Đang xóa...": "Deleting...",
+  "Đang lưu...": "Saving...",
+  "Lưu": "Save",
+  "Hủy": "Cancel",
+  "Xóa": "Delete",
+  "Sửa": "Edit",
+  "Tạm ẩn": "Hide",
+  "Kích hoạt": "Activate",
+  "Ưu tiên duyệt": "Priority Review",
+  "Ưu tiên duyệt (enterprise)": "Priority Review (Enterprise)",
+  "Ưu tiên duyệt (Enterprise)": "Priority Review (Enterprise)",
+  "Ưu tiên duyệt (Doanh Nghiệp)": "Priority Review (Enterprise)",
+  "Ưu tiên duyệt (Doanh nghiệp)": "Priority Review (Enterprise)",
+  "Ưu tiên duyệt (doanh nghiệp)": "Priority Review (Enterprise)",
+  "Priority Review (Doanh Nghiệp)": "Priority Review (Enterprise)",
+  "Priority Review (Doanh nghiệp)": "Priority Review (Enterprise)",
+  "Priority Review (doanh nghiệp)": "Priority Review (Enterprise)",
+  "Priority Review (enterprise)": "Priority Review (Enterprise)",
+  "Doanh Nghiệp": "Enterprise",
+  "Doanh nghiệp": "Enterprise",
+  "Ưu tiên duyệt (VIP)": "Priority Review (VIP)",
   "Tôi muốn đổi ghế khác": "I want to change to another seat",
   "Mua nhầm vé (Ghi chú: Tôi muốn đổi ghế khác)": "Purchased wrong ticket (Note: I want to change to another seat)",
   "Không tìm thấy yêu cầu hoàn tiền.": "Refund request not found.",
@@ -5041,6 +5115,31 @@ export function translateComposite(text, locale) {
       return translatedAddr
     }
   }
+
+  // Seat map element and layout composite patterns
+  res = res.replace(/\bCửa\s*vào\s*(\d*)\b/gi, (m, num) => num ? `Entrance ${num}` : 'Entrance')
+  res = res.replace(/\bCửa\s*(\d+)\b/gi, 'Gate $1')
+  res = res.replace(/Màn\s*hình\s*LED\s*phụ\s*\((.*?)\)/gi, (m, side) => {
+    const s = side.toLowerCase().includes('trái') ? 'Left' : side.toLowerCase().includes('phải') ? 'Right' : side
+    return `Aux LED Screen (${s})`
+  })
+  res = res.replace(/Màn\s*hình\s*LED\s*phụ/gi, 'Aux LED Screen')
+  res = res.replace(/Màn\s*hình\s*LED/gi, 'LED Screen')
+  res = res.replace(/Khu\s*Đứng\s*(.*?)\s*\((.*?)\)/gi, (m, name, side) => {
+    let s = side
+    if (/trái/i.test(side)) s = 'Left'
+    if (/phải/i.test(side)) s = 'Right'
+    let n = name.replace(/mặt\s*sân/i, 'Ground').replace(/phổ\s*thông/i, 'General')
+    return `Standing Area ${n.trim()} (${s})`
+  })
+  res = res.replace(/Khu\s*Đứng\s*(.+)/gi, (m, name) => {
+    let n = name.replace(/mặt\s*sân/i, 'Ground').replace(/phổ\s*thông/i, 'General')
+    return `Standing Area ${n.trim()}`
+  })
+  res = res.replace(/Phòng\s*kỹ\s*thuật/gi, 'Technical Room')
+  res = res.replace(/Sức\s*chứa:\s*(\d+)\s*người/gi, 'Capacity: $1 people')
+  res = res.replace(/Đã\s*tự\s*động\s*lưu\s*nháp\s*\((.*?)\)/gi, 'Draft autosaved ($1)')
+  res = res.replace(/Đã\s*tự\s*động\s*lưu\s*nháp/gi, 'Draft autosaved')
 
   // Zone / Area replacement (e.g. "Khu A" -> "Zone A", "Khu VIP" -> "VIP Zone")
   res = res.replace(/(^|[^\p{L}\p{N}])Khu\s+([A-Za-z0-9]+)(?=[^\p{L}\p{N}]|$)/gui, (m, p1, p2) => `${p1}Zone ${p2}`)
@@ -5221,6 +5320,18 @@ export function translateComposite(text, locale) {
   res = res.replace(/^Đã cập nhật địa điểm "(.*?)" vào thông tin sự kiện!$/gi, 'Updated venue "$1" in event details!')
   res = res.replace(/^Đã tạo sơ đồ ghế và cập nhật địa điểm "(.*?)"!$/gi, 'Created seat map and updated venue "$1"!')
   res = res.replace(/^File "(.*?)" vượt quá dung lượng tối đa 10MB$/gi, 'File "$1" exceeds maximum size of 10MB')
+  res = res.replace(/(?:Priority\s*Review|Ưu\s*tiên\s*duyệt)\s*\((.*?)\)/gi, (m, plan) => {
+    const trimmed = (plan || '').trim()
+    const lower = trimmed.toLowerCase()
+    if (lower.includes('doanh nghiệp') || lower === 'enterprise') return 'Priority Review (Enterprise)'
+    if (lower.includes('chuyên nghiệp') || lower === 'pro') return 'Priority Review (Professional)'
+    if (lower.includes('cá nhân') || lower === 'personal') return 'Priority Review (Personal)'
+    if (lower.includes('cơ bản') || lower === 'basic') return 'Priority Review (Basic)'
+    if (lower.includes('khởi nghiệp') || lower === 'starter') return 'Priority Review (Starter)'
+    const trans = VI_TO_EN[trimmed] || translateComposite(trimmed, 'en') || trimmed
+    return `Priority Review (${trans})`
+  })
+  res = res.replace(/\bƯu\s*tiên\s*duyệt\b/gi, 'Priority Review')
   res = res.replace(/^(.*?)\s*\((?:Ghi chú|Note):\s*(.*?)\)$/i, (m, mainPart, notePart) => {
     const trimmedMain = mainPart.trim()
     const transMain = VI_TO_EN[trimmedMain] || translateComposite(trimmedMain, 'en') || trimmedMain

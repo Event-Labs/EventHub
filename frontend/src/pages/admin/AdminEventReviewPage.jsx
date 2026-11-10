@@ -70,6 +70,22 @@ const STATUS_TABS = [
   { label: 'Bị đình chỉ', value: 'SUSPENDED' },
 ]
 
+function formatPlanName(name, isEnglish) {
+  if (!name) return isEnglish ? 'VIP' : 'VIP'
+  if (!isEnglish) return name
+  const trimmed = String(name).trim()
+  const lower = trimmed.toLowerCase()
+  if (lower.includes('doanh nghiệp') || lower === 'enterprise') return 'Enterprise'
+  if (lower.includes('chuyên nghiệp') || lower === 'pro' || lower === 'professional') return 'Professional'
+  if (lower.includes('khởi nghiệp') || lower.includes('khởi đầu') || lower === 'starter') return 'Starter'
+  if (lower.includes('cơ bản') || lower === 'basic') return 'Basic'
+  if (lower.includes('cá nhân') || lower === 'personal') return 'Personal'
+  if (lower.includes('tiêu chuẩn') || lower === 'standard') return 'Standard'
+  if (lower.includes('cao cấp') || lower === 'premium') return 'Premium'
+  if (lower === 'vip') return 'VIP'
+  return translatePhrase(trimmed, 'en') || trimmed
+}
+
 /**
  * Render single prioritized status badge for an event.
  * Exactly 1 badge is displayed per event.
@@ -573,7 +589,9 @@ export function AdminEventReviewPage() {
                 )}
               </div>
               <p className="mt-1 text-xs text-subtle max-w-2xl leading-relaxed">
-                Chu kỳ 15 phút quét đúng 1 sự kiện: Tự động phê duyệt nếu đạt chuẩn khi bật tự duyệt; hoặc quét review trước lưu kết quả thẩm định để Admin xem xét nếu tắt tự duyệt.
+                {isEnglish
+                  ? '15-minute cycle scans 1 event: Automatically approves if criteria are met when enabled; or pre-scans and saves evaluation for Admin review when disabled.'
+                  : 'Chu kỳ 15 phút quét đúng 1 sự kiện: Tự động phê duyệt nếu đạt chuẩn khi bật tự duyệt; hoặc quét review trước lưu kết quả thẩm định để Admin xem xét nếu tắt tự duyệt.'}
               </p>
 
               {/* Stats badges & Live Scanning status */}
@@ -739,11 +757,6 @@ export function AdminEventReviewPage() {
                     <p className="max-w-[200px] truncate font-semibold text-content" title={isEnglish ? (translatePhrase(event.title, 'en') || event.title) : event.title}>
                       {isEnglish ? (translatePhrase(event.title, 'en') || event.title) : event.title}
                     </p>
-                    {event.is_priority_support && (
-                      <span title={`Sự kiện thuộc Ban tổ chức có Hỗ trợ ưu tiên (${event.organizer_plan_name || 'Gói cao cấp'})`} className="cursor-help inline-flex items-center">
-                        <Sparkles className="size-3.5 text-amber-400 shrink-0" />
-                      </span>
-                    )}
                   </div>
                   <p className="text-xs text-subtle">{event.slug}</p>
                 </div>,
@@ -754,9 +767,10 @@ export function AdminEventReviewPage() {
                     {event.organizer_name || '—'}
                   </span>
                   {event.is_priority_support && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 border border-amber-500/30 text-amber-300 w-fit shadow-sm">
-                      <Sparkles className="size-2.5 text-amber-400" />
-                      Ưu tiên duyệt ({event.organizer_plan_name || 'VIP'})
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 border border-amber-500/30 text-amber-300 w-fit shadow-sm">
+                      {isEnglish
+                        ? `Priority Review (${formatPlanName(event.organizer_plan_name, true)})`
+                        : `Ưu tiên duyệt (${event.organizer_plan_name || 'VIP'})`}
                     </span>
                   )}
                 </div>,
