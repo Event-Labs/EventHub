@@ -1343,6 +1343,9 @@ export const VI_TO_EN = {
   "Quản lý Người dùng": "User Management",
   "Quản lý Tài khoản": "Account Management",
   "Quản lý Organizer": "Organizer Management",
+  "Quản lý Ban tổ chức": "Organizer Management",
+  "Tổng ban tổ chức": "Total Organizers",
+  "Tên ban tổ chức": "Organizer Name",
   "Loại Sự kiện": "Event Categories",
   "Duyệt Sự kiện": "Event Review",
   "Thẩm định yêu cầu hủy sự kiện": "Event Cancellation Review",
@@ -1365,7 +1368,7 @@ export const VI_TO_EN = {
   "Quay lại danh sách": "Back to List",
   "Biểu đồ": "Chart",
   "Bảng": "Table",
-  "Phiên": "Sessions",
+  "Phiên": "Session",
   "Chọn địa điểm": "Select Venue",
   "Giá vé (VND)": "Ticket Price (VND)",
   "Thông tin người tham dự": "Attendee Information",
@@ -1993,7 +1996,7 @@ export const VI_TO_EN = {
   "Ghi chú công khai": "Public notes",
   "Ghi chú của BTC:": "Notes from Organizer:",
   "Ghi chú duyệt sửa đổi (tuỳ chọn)...": "Notes on revision approval (optional)...",
-  "Ghi chú kiểm duyệt": "Censorship notes",
+  "Ghi chú kiểm duyệt": "Review notes",
   "Ghi chú nội bộ": "Internal notes",
   "Ghi chú review gần nhất": "Note the most recent review",
   "Ghi chú thêm gửi đến khách hàng qua email thông báo (tùy chọn)...": "Additional notes sent to customers via notification email (optional)...",
@@ -4288,7 +4291,27 @@ export const VI_TO_EN = {
   "Phiên này đang bị trùng thời gian với": "This session is having a time conflict",
   "Phiên sự kiện phân công": "Session event assignment",
   "Phong cách / Tone giọng": "Style / Tone of voice",
-  "Phát hiện vi phạm nghiêm trọng": "Detect serious violations",
+  "Phát hiện vi phạm nghiêm trọng": "Critical violations detected",
+  "Phát hiện vi phạm điều khoản bắt buộc, không đủ điều kiện phê duyệt.": "Mandatory policy violations detected. Not eligible for approval.",
+  "Phát hiện điều khoản vi phạm chính sách nền tảng. Đề xuất từ chối hoặc yêu cầu điều chỉnh lại.": "Platform policy violations detected. Recommend rejection or revision request.",
+  "Vi phạm nghiêm trọng": "Critical violations",
+  "Cảnh báo & Cần lưu ý": "Warnings & Notices",
+  "Cơ cấu loại vé": "Ticket Structure",
+  "Phân bổ theo phiên": "Allocation by session",
+  "Định mức / Phiên": "Norms / Session",
+  "Tổng số lượng vé": "Total number of tickets",
+  "Số lượng vé": "Ticket quantity",
+  "Vé HSSV": "Student Ticket",
+  "Vé Đồng": "Bronze Ticket",
+  "Vé Bạc": "Silver Ticket",
+  "Vé Vàng": "Gold Ticket",
+  "Tất cả các phiên": "All sessions",
+  "Tài liệu giả lập / Dữ liệu kiểm thử không có giá trị pháp lý": "Mock document / test data with no legal validity",
+  "Vi phạm tài liệu": "Document violation",
+  "Lưu ý mô tả": "Description note",
+  "Bổ sung cảnh báo độ tuổi (12+/16+) và lưu ý sức khỏe/vật dụng cấm cho khán giả tham dự kịch ma.": "Add age rating warning (12+/16+) and health precautions/prohibited items for attendees of the horror play.",
+  "Vui lòng xử lý: [Vi phạm tài liệu]": "Please resolve: [Document violation]",
+  "Vui lòng xử lý: [Lưu ý mô tả]": "Please resolve: [Description note]",
   "Phân bổ hạng vé": "Ticket Tier allocation",
   "Phân khu hạng ghế (Seat Zones)": "Seat Zones",
   "Phương thức:": "Method:",
@@ -4972,6 +4995,10 @@ export const VI_TO_EN = {
   "Priority Review (enterprise)": "Priority Review (Enterprise)",
   "Doanh Nghiệp": "Enterprise",
   "Doanh nghiệp": "Enterprise",
+  "DOANH NGHIỆP": "ENTERPRISE",
+  "CHUYÊN NGHIỆP": "PROFESSIONAL",
+  "KHỞI NGHIỆP": "STARTUP",
+  "CHƯA CÓ GÓI": "NO PLAN",
   "Ưu tiên duyệt (VIP)": "Priority Review (VIP)",
   "Tôi muốn đổi ghế khác": "I want to change to another seat",
   "Mua nhầm vé (Ghi chú: Tôi muốn đổi ghế khác)": "Purchased wrong ticket (Note: I want to change to another seat)",
@@ -5339,6 +5366,12 @@ export function translateComposite(text, locale) {
     const transNote = VI_TO_EN[trimmedNote] || trimmedNote
     return `${transMain} (Note: ${transNote})`
   })
+
+  res = res.replace(/^Vui lòng xử lý:\s*/gi, 'Please resolve: ')
+  res = res.replace(/\[Vi phạm tài liệu\]/gi, '[Document violation]')
+  res = res.replace(/\[Lưu ý mô tả\]/gi, '[Description note]')
+  res = res.replace(/Tài liệu giả lập\s*\/\s*Dữ liệu kiểm thử không có giá trị pháp lý/gi, 'Mock document / test data with no legal validity')
+  res = res.replace(/Bổ sung cảnh báo độ tuổi\s*\(12\+\/16\+\)\s*và lưu ý sức khỏe\/vật dụng cấm cho khán giả tham dự kịch ma\.?/gi, 'Add age rating warning (12+/16+) and health precautions/prohibited items for attendees of the horror play.')
 
 return res
 }

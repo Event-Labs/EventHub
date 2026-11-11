@@ -73,28 +73,28 @@ function ConfirmModal({
 
   return (
     <div className="fixed inset-0 z-[120] grid place-items-center bg-black/75 p-4 backdrop-blur-sm animate-in fade-in duration-150">
-      <div className="w-full max-w-lg rounded-2xl border border-white/10 bg-[#0d172e] p-6 shadow-2xl text-white">
+      <div className="w-full max-w-lg rounded-2xl border border-white/10 bg-[#0d172e] p-6 shadow-2xl text-white [html.light_&]:bg-white [html.light_&]:border-[#C99A47]/30 [html.light_&]:text-[#0D1B2A] [html.light_&]:shadow-xl">
         {/* Header */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3">
             <span
               className={`grid size-10 shrink-0 place-items-center rounded-xl border ${
                 isApprove
-                  ? 'bg-red-500/10 text-red-400 border-red-500/20'
-                  : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                  ? 'bg-red-500/10 text-red-400 border-red-500/20 [html.light_&]:bg-red-50 [html.light_&]:text-red-600 [html.light_&]:border-red-200'
+                  : 'bg-amber-500/10 text-amber-400 border-amber-500/20 [html.light_&]:bg-amber-50 [html.light_&]:text-amber-600 [html.light_&]:border-amber-200'
               }`}
             >
               {isApprove ? <AlertOctagon className="size-5" /> : <AlertTriangle className="size-5" />}
             </span>
             <div>
-              <h3 className="text-lg font-bold text-white">{title}</h3>
-              <p className="mt-0.5 text-xs text-slate-400">{subtitle}</p>
+              <h3 className="text-lg font-bold text-white [html.light_&]:text-[#0D1B2A]">{title}</h3>
+              <p className="mt-0.5 text-xs text-slate-400 [html.light_&]:text-slate-600">{subtitle}</p>
             </div>
           </div>
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-lg p-1 text-slate-400 hover:bg-white/10 hover:text-white transition"
+            className="rounded-lg p-1 text-slate-400 hover:bg-white/10 hover:text-white transition [html.light_&]:text-slate-600 [html.light_&]:hover:bg-slate-100 [html.light_&]:hover:text-slate-900"
           >
             <X className="size-5" />
           </button>
@@ -102,15 +102,15 @@ function ConfirmModal({
 
         {/* Event highlight */}
         {eventTitle && (
-          <div className="mt-4 rounded-xl border border-white/10 bg-[#121c38] p-3 text-xs">
-            <span className="text-[11px] font-semibold text-slate-400">Sự kiện áp dụng: </span>
-            <span className="font-bold text-white truncate">{eventTitle}</span>
+          <div className="mt-4 rounded-xl border border-white/10 bg-[#121c38] p-3 text-xs [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+            <span className="text-[11px] font-semibold text-slate-400 [html.light_&]:text-slate-600">Sự kiện áp dụng: </span>
+            <span className="font-bold text-white [html.light_&]:text-[#0D1B2A] truncate">{eventTitle}</span>
           </div>
         )}
 
         {/* Description */}
         {description && (
-          <div className="mt-3 rounded-xl border border-white/5 bg-white/[0.02] p-3.5 text-xs text-slate-300 leading-relaxed">
+          <div className="mt-3 rounded-xl border border-white/5 bg-white/[0.02] p-3.5 text-xs text-slate-300 leading-relaxed [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200 [html.light_&]:text-slate-700">
             {description}
           </div>
         )}
@@ -121,7 +121,7 @@ function ConfirmModal({
             type="button"
             onClick={onCancel}
             disabled={isPending}
-            className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-white/10 transition"
+            className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-white/10 transition [html.light_&]:bg-slate-100 [html.light_&]:border-slate-200 [html.light_&]:text-slate-700 [html.light_&]:hover:bg-slate-200"
           >
             {cancelText}
           </button>
@@ -326,22 +326,22 @@ export function AdminEventCancellationDetailPage() {
   return (
     <div className="space-y-6">
       {/* Top Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-white/10 pb-5">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-white/10 [html.light_&]:border-slate-200/80 pb-5">
         <div className="flex items-center gap-3">
           <Link
             to="/admin/events/review"
-            className="grid size-9 place-items-center rounded-xl border border-white/10 bg-[#0d172e] text-slate-300 hover:bg-white/10 hover:text-white transition"
+            className="grid size-9 place-items-center rounded-xl border border-white/10 bg-[#0d172e] text-slate-300 hover:bg-white/10 hover:text-white transition [html.light_&]:bg-white [html.light_&]:border-slate-300 [html.light_&]:text-[#0D1B2A] [html.light_&]:hover:bg-slate-100"
             title="Quay lại danh sách duyệt sự kiện"
           >
             <ArrowLeft className="size-4" />
           </Link>
           <div>
-            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
-              <span className="font-semibold text-red-400">{isEnglish ? 'Review Event Cancellation Request' : 'Duyệt yêu cầu hủy sự kiện'}</span>
+            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400 [html.light_&]:text-slate-600">
+              <span className="font-semibold text-red-400 [html.light_&]:text-red-600">{isEnglish ? 'Review Event Cancellation Request' : 'Duyệt yêu cầu hủy sự kiện'}</span>
               <span>•</span>
               <span>{event.slug}</span>
             </div>
-            <h1 className="text-xl font-bold text-white mt-0.5">
+            <h1 className="text-xl font-bold text-white [html.light_&]:text-[#0D1B2A] mt-0.5">
               {isEnglish ? (translatePhrase(event.title, 'en') || event.title) : event.title}
             </h1>
           </div>
@@ -350,19 +350,19 @@ export function AdminEventCancellationDetailPage() {
         {/* Status badges */}
         <div className="flex flex-wrap items-center gap-2.5">
           {isPending && (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-400">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-400 [html.light_&]:bg-amber-50 [html.light_&]:text-amber-700 [html.light_&]:border-amber-300">
               <Clock className="size-3.5" />
               Đang chờ duyệt hủy
             </span>
           )}
           {isApproved && (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-xs font-semibold text-red-400">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-xs font-semibold text-red-400 [html.light_&]:bg-red-50 [html.light_&]:text-red-700 [html.light_&]:border-red-300">
               <CheckCircle2 className="size-3.5" />
               Đã phê duyệt hủy
             </span>
           )}
           {isRejected && (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-slate-300">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-slate-300 [html.light_&]:bg-slate-100 [html.light_&]:text-slate-700 [html.light_&]:border-slate-300">
               <XCircle className="size-3.5" />
               Đã từ chối hủy
             </span>
@@ -372,10 +372,10 @@ export function AdminEventCancellationDetailPage() {
             <span
               className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium border ${
                 slaRemaining.isOverdue
-                  ? 'border-red-500/30 bg-red-500/10 text-red-400'
+                  ? 'border-red-500/30 bg-red-500/10 text-red-400 [html.light_&]:bg-red-50 [html.light_&]:text-red-700 [html.light_&]:border-red-300'
                   : slaRemaining.isUrgent
-                  ? 'border-amber-500/30 bg-amber-500/10 text-amber-400'
-                  : 'border-white/10 bg-[#121c38] text-slate-300'
+                  ? 'border-amber-500/30 bg-amber-500/10 text-amber-400 [html.light_&]:bg-amber-50 [html.light_&]:text-amber-700 [html.light_&]:border-amber-300'
+                  : 'border-white/10 bg-[#121c38] text-slate-300 [html.light_&]:bg-slate-100 [html.light_&]:border-slate-200 [html.light_&]:text-slate-700'
               }`}
             >
               <Clock className="size-3.5" />
@@ -387,7 +387,7 @@ export function AdminEventCancellationDetailPage() {
             type="button"
             onClick={() => refetch()}
             disabled={isFetching}
-            className="grid size-9 place-items-center rounded-xl border border-white/10 bg-[#0d172e] text-slate-300 hover:bg-white/10 hover:text-white transition disabled:opacity-50"
+            className="grid size-9 place-items-center rounded-xl border border-white/10 bg-[#0d172e] text-slate-300 hover:bg-white/10 hover:text-white transition disabled:opacity-50 [html.light_&]:bg-white [html.light_&]:border-slate-300 [html.light_&]:text-[#0D1B2A] [html.light_&]:hover:bg-slate-100"
             title="Làm mới dữ liệu"
           >
             <RefreshCw className={`size-4 ${isFetching ? 'animate-spin text-amber-400' : ''}`} />
@@ -400,20 +400,20 @@ export function AdminEventCancellationDetailPage() {
         {/* LEFT COLUMN: 7 Cols (Information & Stats) */}
         <div className="lg:col-span-7 space-y-6">
           {/* Card 1: Yêu cầu từ Ban tổ chức */}
-          <div className="rounded-2xl border border-white/10 bg-[#0d172e] p-6 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-4 mb-4">
+          <div className="rounded-2xl border border-white/10 bg-[#0d172e] p-6 shadow-sm [html.light_&]:bg-white [html.light_&]:border-[#C99A47]/30 [html.light_&]:shadow-md">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 [html.light_&]:border-slate-200 pb-4 mb-4">
               <div>
-                <h2 className="text-base font-bold text-white flex items-center gap-2">
-                  <CalendarX className="size-4 text-red-400" />
+                <h2 className="text-base font-bold text-white [html.light_&]:text-[#0D1B2A] flex items-center gap-2">
+                  <CalendarX className="size-4 text-red-400 [html.light_&]:text-red-600" />
                   Yêu cầu hủy từ Ban tổ chức
                 </h2>
-                <p className="text-xs text-slate-400 mt-0.5">
+                <p className="text-xs text-slate-400 [html.light_&]:text-slate-600 mt-0.5">
                   Gửi lúc: {formatDate(cancelRequest?.requested_at || event.updated_at)}
                 </p>
               </div>
 
               {/* Tag phân loại lý do */}
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border border-white/10 bg-[#121c38] text-slate-300">
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border border-white/10 bg-[#121c38] text-slate-300 [html.light_&]:bg-amber-50/80 [html.light_&]:border-[#C99A47]/30 [html.light_&]:text-[#0D1B2A]">
                 {cancelRequest?.reason_code === 'FORCE_MAJEURE'
                   ? 'Trường hợp bất khả kháng'
                   : 'Lý do từ Ban tổ chức'}
@@ -423,30 +423,30 @@ export function AdminEventCancellationDetailPage() {
             {/* Chi tiết giải trình */}
             <div className="space-y-4">
               <div>
-                <label className="text-xs font-semibold text-slate-400">
+                <label className="text-xs font-semibold text-slate-400 [html.light_&]:text-slate-600">
                   Giải trình của Ban tổ chức:
                 </label>
-                <div className="mt-1.5 rounded-xl border border-white/10 bg-[#080f24] p-3.5 text-sm text-slate-200 leading-relaxed">
+                <div className="mt-1.5 rounded-xl border border-white/10 bg-[#080f24] p-3.5 text-sm text-slate-200 leading-relaxed [html.light_&]:bg-[#FAF5EC] [html.light_&]:border-[#C99A47]/30 [html.light_&]:text-[#0D1B2A]">
                   {cancelRequest?.reason_note || cancelRequest?.note || 'Không có giải trình chi tiết.'}
                 </div>
               </div>
 
               {/* Thông số phương thức & cam kết */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                <div className="rounded-xl border border-white/10 bg-[#121c38] p-3 text-xs">
-                  <span className="text-slate-400 block mb-1">Phương thức hoàn tiền:</span>
-                  <span className="font-semibold text-white flex items-center gap-1.5">
-                    <Coins className="size-3.5 text-slate-400" />
+                <div className="rounded-xl border border-white/10 bg-[#121c38] p-3 text-xs [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                  <span className="text-slate-400 [html.light_&]:text-slate-600 block mb-1">Phương thức hoàn tiền:</span>
+                  <span className="font-semibold text-white [html.light_&]:text-[#0D1B2A] flex items-center gap-1.5">
+                    <Coins className="size-3.5 text-slate-400 [html.light_&]:text-[#C99A47]" />
                     {cancelRequest?.refund_mode === 'MODE_A'
                       ? 'Tự động qua cổng PayOS'
                       : 'Chuyển khoản thủ công VietQR'}
                   </span>
                 </div>
 
-                <div className="rounded-xl border border-white/10 bg-[#121c38] p-3 text-xs">
-                  <span className="text-slate-400 block mb-1">Cam kết hoàn tiền:</span>
-                  <span className="font-semibold text-emerald-400 flex items-center gap-1.5">
-                    <ShieldCheck className="size-3.5 text-emerald-400" />
+                <div className="rounded-xl border border-white/10 bg-[#121c38] p-3 text-xs [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                  <span className="text-slate-400 [html.light_&]:text-slate-600 block mb-1">Cam kết hoàn tiền:</span>
+                  <span className="font-semibold text-emerald-400 [html.light_&]:text-emerald-700 flex items-center gap-1.5">
+                    <ShieldCheck className="size-3.5 text-emerald-400 [html.light_&]:text-emerald-600" />
                     Đã cam kết trách nhiệm 100%
                   </span>
                 </div>
@@ -454,14 +454,14 @@ export function AdminEventCancellationDetailPage() {
 
               {/* Lịch sử đã duyệt/từ chối */}
               {(isApproved || isRejected) && cancelRequest?.reviewed_at && (
-                <div className="rounded-xl border border-white/10 bg-[#121c38] p-3.5 text-xs space-y-1">
-                  <p className="font-semibold text-white">Lịch sử phản hồi của Quản trị viên:</p>
-                  <p className="text-slate-400">
+                <div className="rounded-xl border border-white/10 bg-[#121c38] p-3.5 text-xs space-y-1 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                  <p className="font-semibold text-white [html.light_&]:text-[#0D1B2A]">Lịch sử phản hồi của Quản trị viên:</p>
+                  <p className="text-slate-400 [html.light_&]:text-slate-600">
                     Thời gian: {formatDate(cancelRequest.reviewed_at)}
                   </p>
                   {cancelRequest.admin_note && (
-                    <p className="text-slate-300">
-                      Ghi chú: <span className="text-slate-200">"{cancelRequest.admin_note}"</span>
+                    <p className="text-slate-300 [html.light_&]:text-slate-700">
+                      Ghi chú: <span className="text-slate-200 [html.light_&]:text-[#0D1B2A]">"{cancelRequest.admin_note}"</span>
                     </p>
                   )}
                 </div>
@@ -470,63 +470,63 @@ export function AdminEventCancellationDetailPage() {
           </div>
 
           {/* Card 2: Đánh giá Tác động & Thống kê */}
-          <div className="rounded-2xl border border-white/10 bg-[#0d172e] p-6 shadow-sm">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300 mb-4 flex items-center gap-2">
-              <Coins className="size-4 text-slate-400" />
+          <div className="rounded-2xl border border-white/10 bg-[#0d172e] p-6 shadow-sm [html.light_&]:bg-white [html.light_&]:border-[#C99A47]/30 [html.light_&]:shadow-md">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300 [html.light_&]:text-[#0D1B2A] mb-4 flex items-center gap-2">
+              <Coins className="size-4 text-slate-400 [html.light_&]:text-[#C99A47]" />
               Thống kê tác động & nghĩa vụ hoàn tiền
             </h3>
 
             {/* 3 Thống kê chính */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
-              <div className="rounded-xl border border-white/10 bg-[#121c38] p-4">
-                <span className="text-xs text-slate-400 block">
+              <div className="rounded-xl border border-white/10 bg-[#121c38] p-4 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                <span className="text-xs text-slate-400 [html.light_&]:text-slate-600 block">
                   Tổng tiền hoàn dự kiến
                 </span>
-                <p className="mt-1 text-lg font-bold text-white">
+                <p className="mt-1 text-lg font-bold text-white [html.light_&]:text-[#0D1B2A]">
                   {formatCurrency(totalRefundAmount)}
                 </p>
-                <p className="text-[11px] text-slate-500 mt-0.5">Hoàn 100% cho người mua</p>
+                <p className="text-[11px] text-slate-500 [html.light_&]:text-slate-600 mt-0.5">Hoàn 100% cho người mua</p>
               </div>
 
-              <div className="rounded-xl border border-white/10 bg-[#121c38] p-4">
-                <span className="text-xs text-slate-400 block">
+              <div className="rounded-xl border border-white/10 bg-[#121c38] p-4 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                <span className="text-xs text-slate-400 [html.light_&]:text-slate-600 block">
                   Đơn hàng thanh toán
                 </span>
-                <p className="mt-1 text-lg font-bold text-white">
+                <p className="mt-1 text-lg font-bold text-white [html.light_&]:text-[#0D1B2A]">
                   {affectedOrdersCount.toLocaleString()} đơn
                 </p>
-                <p className="text-[11px] text-slate-500 mt-0.5">Cần tạo phiếu hoàn tiền</p>
+                <p className="text-[11px] text-slate-500 [html.light_&]:text-slate-600 mt-0.5">Cần tạo phiếu hoàn tiền</p>
               </div>
 
-              <div className="rounded-xl border border-white/10 bg-[#121c38] p-4">
-                <span className="text-xs text-slate-400 block">
+              <div className="rounded-xl border border-white/10 bg-[#121c38] p-4 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                <span className="text-xs text-slate-400 [html.light_&]:text-slate-600 block">
                   Vé đã phát hành
                 </span>
-                <p className="mt-1 text-lg font-bold text-white">
+                <p className="mt-1 text-lg font-bold text-white [html.light_&]:text-[#0D1B2A]">
                   {affectedTicketsCount.toLocaleString()} vé
                 </p>
-                <p className="text-[11px] text-slate-500 mt-0.5">Chuyển sang trạng thái hoàn</p>
+                <p className="text-[11px] text-slate-500 [html.light_&]:text-slate-600 mt-0.5">Chuyển sang trạng thái hoàn</p>
               </div>
             </div>
 
             {/* Danh sách Suất diễn / Sessions */}
             <div className="mb-5">
-              <h4 className="text-xs font-semibold text-slate-400 mb-2">
+              <h4 className="text-xs font-semibold text-slate-400 [html.light_&]:text-slate-600 mb-2">
                 Các phiên sự kiện ({sessions.length})
               </h4>
               <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
                 {sessions.map((sess, idx) => (
                   <div
                     key={sess.id || idx}
-                    className="flex items-center justify-between rounded-xl border border-white/10 bg-[#080f24] p-3 text-xs"
+                    className="flex items-center justify-between rounded-xl border border-white/10 bg-[#080f24] p-3 text-xs [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200"
                   >
                     <div>
-                      <p className="font-semibold text-white">{sess.session_name || `Phiên #${idx + 1}`}</p>
-                      <p className="text-[11px] text-slate-400 mt-0.5">
+                      <p className="font-semibold text-white [html.light_&]:text-[#0D1B2A]">{sess.session_name || `Phiên #${idx + 1}`}</p>
+                      <p className="text-[11px] text-slate-400 [html.light_&]:text-slate-500 mt-0.5">
                         {formatDate(sess.start_time)} – {formatDate(sess.end_time)}
                       </p>
                     </div>
-                    <span className="text-[11px] font-medium text-slate-400">
+                    <span className="text-[11px] font-medium text-slate-400 [html.light_&]:text-slate-600">
                       {sess.status || 'UPCOMING'}
                     </span>
                   </div>
@@ -537,24 +537,24 @@ export function AdminEventCancellationDetailPage() {
             {/* Danh sách Loại vé & Đã bán phân chia theo từng Phiên */}
             {sessionsWithTickets.length > 0 && (
               <div>
-                <h4 className="text-xs font-semibold text-slate-400 mb-2.5 flex items-center justify-between">
+                <h4 className="text-xs font-semibold text-slate-400 [html.light_&]:text-slate-600 mb-2.5 flex items-center justify-between">
                   <span>Cơ cấu loại vé theo phiên ({ticketTypes.length} loại vé)</span>
                 </h4>
                 <div className="space-y-3">
                   {sessionsWithTickets.map((group) => (
                     <div
                       key={group.session.id || group.sessionIndex}
-                      className="rounded-xl border border-white/10 bg-[#080f24] overflow-hidden"
+                      className="rounded-xl border border-white/10 bg-[#080f24] overflow-hidden [html.light_&]:bg-white [html.light_&]:border-slate-200"
                     >
                       {/* Tiêu đề phiên */}
-                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-white/[0.02] p-3 text-xs">
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-white/[0.02] p-3 text-xs [html.light_&]:border-slate-200 [html.light_&]:bg-slate-50">
                         <div>
-                          <p className="font-semibold text-white flex items-center gap-1.5">
-                            <Calendar className="size-3.5 text-indigo-400" />
+                          <p className="font-semibold text-white [html.light_&]:text-[#0D1B2A] flex items-center gap-1.5">
+                            <Calendar className="size-3.5 text-indigo-400 [html.light_&]:text-[#C99A47]" />
                             {group.session.session_name || `Phiên #${group.sessionIndex}`}
                           </p>
                           {(group.session.start_time || group.session.end_time) && (
-                            <p className="text-[11px] text-slate-400 mt-0.5">
+                            <p className="text-[11px] text-slate-400 [html.light_&]:text-slate-500 mt-0.5">
                               {formatDate(group.session.start_time)} – {formatDate(group.session.end_time)}
                             </p>
                           )}
@@ -562,11 +562,11 @@ export function AdminEventCancellationDetailPage() {
                         <span
                           className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold border ${
                             group.totalSold > 0
-                              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
-                              : 'border-white/10 bg-white/5 text-slate-400'
+                              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400 [html.light_&]:bg-emerald-50 [html.light_&]:text-emerald-700 [html.light_&]:border-emerald-300'
+                              : 'border-white/10 bg-white/5 text-slate-400 [html.light_&]:bg-slate-100 [html.light_&]:text-slate-600 [html.light_&]:border-slate-200'
                           }`}
                         >
-                          Đã bán: <span className="font-bold text-white">{group.totalSold}</span> / {group.totalCapacity?.toLocaleString() ?? 0} vé
+                          Đã bán: <span className="font-bold text-white [html.light_&]:text-[#0D1B2A]">{group.totalSold}</span> / {group.totalCapacity?.toLocaleString() ?? 0} vé
                         </span>
                       </div>
 
@@ -574,7 +574,7 @@ export function AdminEventCancellationDetailPage() {
                       {group.tickets.length > 0 ? (
                         <div className="overflow-x-auto">
                           <table className="w-full text-left text-xs">
-                            <thead className="border-b border-white/5 bg-white/[0.01] text-[11px] text-slate-400 font-semibold">
+                            <thead className="border-b border-white/5 bg-white/[0.01] text-[11px] text-slate-400 [html.light_&]:text-slate-600 [html.light_&]:border-slate-200 [html.light_&]:bg-slate-50/50 font-semibold">
                               <tr>
                                 <th className="py-2 px-3">Loại vé</th>
                                 <th className="py-2 px-3">Giá vé</th>
@@ -582,42 +582,42 @@ export function AdminEventCancellationDetailPage() {
                                 <th className="py-2 px-3 text-right">Tổng tiền vé đã bán</th>
                               </tr>
                             </thead>
-                            <tbody className="divide-y divide-white/5 text-slate-300">
+                            <tbody className="divide-y divide-white/5 [html.light_&]:divide-slate-200 text-slate-300 [html.light_&]:text-slate-700">
                               {group.tickets.map((tt, tIdx) => {
                                 const sold = Number(tt.sold_quantity || 0)
                                 const total = Number(tt.quantity || 0)
                                 const price = Number(tt.price || 0)
                                 const soldRevenue = sold * price
                                 return (
-                                  <tr key={tt.id || tIdx} className="hover:bg-white/[0.01] transition-colors">
+                                  <tr key={tt.id || tIdx} className="hover:bg-white/[0.01] [html.light_&]:hover:bg-slate-50 transition-colors">
                                     <td className="py-2.5 px-3">
-                                      <p className="font-medium text-white">{tt.name}</p>
+                                      <p className="font-medium text-white [html.light_&]:text-[#0D1B2A]">{tt.name}</p>
                                       {tt.description && (
-                                        <p className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">{tt.description}</p>
+                                        <p className="text-[11px] text-slate-400 [html.light_&]:text-slate-500 line-clamp-1 mt-0.5">{tt.description}</p>
                                       )}
                                     </td>
-                                    <td className="py-2.5 px-3 font-medium text-slate-200">
+                                    <td className="py-2.5 px-3 font-medium text-slate-200 [html.light_&]:text-slate-700">
                                       {formatCurrency(price)}
                                     </td>
                                     <td className="py-2.5 px-3">
                                       <span
                                         className={`font-bold ${
-                                          sold > 0 ? 'text-emerald-400' : 'text-slate-400'
+                                          sold > 0 ? 'text-emerald-400 [html.light_&]:text-emerald-700' : 'text-slate-400 [html.light_&]:text-slate-500'
                                         }`}
                                       >
                                         {sold.toLocaleString()}
                                       </span>
                                       {' / '}
-                                      <span className="text-slate-300">{total > 0 ? total.toLocaleString() : '—'}</span>
+                                      <span className="text-slate-300 [html.light_&]:text-slate-600">{total > 0 ? total.toLocaleString() : '—'}</span>
                                       {total > 0 && (
-                                        <span className="ml-2 text-[10px] text-slate-400">
+                                        <span className="ml-2 text-[10px] text-slate-400 [html.light_&]:text-slate-500">
                                           ({Math.round((sold / total) * 100)}%)
                                         </span>
                                       )}
                                     </td>
-                                    <td className="py-2.5 px-3 text-right font-medium text-slate-200">
+                                    <td className="py-2.5 px-3 text-right font-medium text-slate-200 [html.light_&]:text-slate-700">
                                       {soldRevenue > 0 ? (
-                                        <span className="text-emerald-400 font-semibold">{formatCurrency(soldRevenue)}</span>
+                                        <span className="text-emerald-400 [html.light_&]:text-emerald-700 font-semibold">{formatCurrency(soldRevenue)}</span>
                                       ) : (
                                         <span className="text-slate-500">0 đ</span>
                                       )}
@@ -641,40 +641,40 @@ export function AdminEventCancellationDetailPage() {
           </div>
 
           {/* Card 3: Thông tin Ban tổ chức */}
-          <div className="rounded-2xl border border-white/10 bg-[#0d172e] p-6 shadow-sm">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300 mb-4 flex items-center gap-2">
-              <Building2 className="size-4 text-slate-400" />
+          <div className="rounded-2xl border border-white/10 bg-[#0d172e] p-6 shadow-sm [html.light_&]:bg-white [html.light_&]:border-[#C99A47]/30 [html.light_&]:shadow-md">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-300 [html.light_&]:text-[#0D1B2A] mb-4 flex items-center gap-2">
+              <Building2 className="size-4 text-slate-400 [html.light_&]:text-[#C99A47]" />
               Thông tin Ban tổ chức
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-              <div className="rounded-xl border border-white/10 bg-[#121c38] p-3 space-y-0.5">
-                <span className="text-slate-400 block">Đơn vị tổ chức</span>
-                <span className="font-semibold text-white text-sm block truncate">{event.organizer_name || '—'}</span>
+              <div className="rounded-xl border border-white/10 bg-[#121c38] p-3 space-y-0.5 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                <span className="text-slate-400 [html.light_&]:text-slate-600 block">Đơn vị tổ chức</span>
+                <span className="font-semibold text-white [html.light_&]:text-[#0D1B2A] text-sm block truncate">{event.organizer_name || '—'}</span>
               </div>
 
-              <div className="rounded-xl border border-white/10 bg-[#121c38] p-3 space-y-0.5">
-                <span className="text-slate-400 block">Email liên hệ</span>
-                <span className="font-semibold text-white flex items-center gap-1.5 truncate">
-                  <Mail className="size-3.5 text-slate-400 shrink-0" />
+              <div className="rounded-xl border border-white/10 bg-[#121c38] p-3 space-y-0.5 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                <span className="text-slate-400 [html.light_&]:text-slate-600 block">Email liên hệ</span>
+                <span className="font-semibold text-white [html.light_&]:text-[#0D1B2A] flex items-center gap-1.5 truncate">
+                  <Mail className="size-3.5 text-slate-400 [html.light_&]:text-[#C99A47] shrink-0" />
                   {event.organizer_email || '—'}
                 </span>
               </div>
 
               {event.organizer_phone && (
-                <div className="rounded-xl border border-white/10 bg-[#121c38] p-3 space-y-0.5">
-                  <span className="text-slate-400 block">Số điện thoại</span>
-                  <span className="font-semibold text-white flex items-center gap-1.5">
-                    <Phone className="size-3.5 text-slate-400" />
+                <div className="rounded-xl border border-white/10 bg-[#121c38] p-3 space-y-0.5 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                  <span className="text-slate-400 [html.light_&]:text-slate-600 block">Số điện thoại</span>
+                  <span className="font-semibold text-white [html.light_&]:text-[#0D1B2A] flex items-center gap-1.5">
+                    <Phone className="size-3.5 text-slate-400 [html.light_&]:text-[#C99A47]" />
                     {event.organizer_phone}
                   </span>
                 </div>
               )}
 
-              <div className="rounded-xl border border-white/10 bg-[#121c38] p-3 space-y-0.5">
-                <span className="text-slate-400 block">Thời gian diễn ra</span>
-                <span className="font-semibold text-white flex items-center gap-1.5">
-                  <Calendar className="size-3.5 text-slate-400" />
+              <div className="rounded-xl border border-white/10 bg-[#121c38] p-3 space-y-0.5 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                <span className="text-slate-400 [html.light_&]:text-slate-600 block">Thời gian diễn ra</span>
+                <span className="font-semibold text-white [html.light_&]:text-[#0D1B2A] flex items-center gap-1.5">
+                  <Calendar className="size-3.5 text-slate-400 [html.light_&]:text-[#C99A47]" />
                   {formatDate(event.start_time)}
                 </span>
               </div>
@@ -684,9 +684,9 @@ export function AdminEventCancellationDetailPage() {
 
         {/* RIGHT COLUMN: 5 Cols (Decision Form) */}
         <div className="lg:col-span-5 sticky top-6">
-          <div className="rounded-2xl border border-white/10 bg-[#0d172e] p-6 shadow-sm">
-            <h3 className="text-base font-bold text-white flex items-center gap-2 border-b border-white/10 pb-3">
-              <ShieldCheck className="size-4 text-slate-400" />
+          <div className="rounded-2xl border border-white/10 bg-[#0d172e] p-6 shadow-sm [html.light_&]:bg-white [html.light_&]:border-[#C99A47]/30 [html.light_&]:shadow-md">
+            <h3 className="text-base font-bold text-white [html.light_&]:text-[#0D1B2A] flex items-center gap-2 border-b border-white/10 [html.light_&]:border-slate-200 pb-3">
+              <ShieldCheck className="size-4 text-slate-400 [html.light_&]:text-[#C99A47]" />
               Quyết định của Quản trị viên
             </h3>
 
@@ -694,7 +694,7 @@ export function AdminEventCancellationDetailPage() {
               <form onSubmit={handleOpenConfirm} className="mt-5 space-y-5">
                 {/* 1. Decision Selection */}
                 <div>
-                  <label className="text-xs font-semibold text-slate-400 block mb-2">
+                  <label className="text-xs font-semibold text-slate-400 [html.light_&]:text-slate-600 block mb-2">
                     Hành động xử lý:
                   </label>
                   <div className="grid grid-cols-2 gap-3">
@@ -707,15 +707,15 @@ export function AdminEventCancellationDetailPage() {
                       }}
                       className={`flex flex-col items-start rounded-xl border p-3.5 text-left transition cursor-pointer ${
                         decision === 'APPROVE'
-                          ? 'border-red-500 bg-red-500/10 text-white'
-                          : 'border-white/10 bg-[#121c38] text-slate-400 hover:border-white/20 hover:text-white'
+                          ? 'border-red-500 bg-red-500/10 text-white [html.light_&]:bg-red-50 [html.light_&]:border-red-400'
+                          : 'border-white/10 bg-[#121c38] text-slate-400 hover:border-white/20 hover:text-white [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200 [html.light_&]:text-slate-600 [html.light_&]:hover:bg-slate-100'
                       }`}
                     >
-                      <div className="flex items-center gap-2 font-bold text-sm text-red-400">
+                      <div className="flex items-center gap-2 font-bold text-sm text-red-400 [html.light_&]:text-red-600">
                         <CheckCircle2 className="size-4" />
                         Duyệt hủy sự kiện
                       </div>
-                      <p className="mt-1 text-xs text-slate-400 leading-tight">
+                      <p className="mt-1 text-xs text-slate-400 [html.light_&]:text-slate-500 leading-tight">
                         Chấp thuận hủy và khởi tạo hoàn tiền
                       </p>
                     </button>
@@ -729,15 +729,15 @@ export function AdminEventCancellationDetailPage() {
                       }}
                       className={`flex flex-col items-start rounded-xl border p-3.5 text-left transition cursor-pointer ${
                         decision === 'REJECT'
-                          ? 'border-amber-500 bg-amber-500/10 text-white'
-                          : 'border-white/10 bg-[#121c38] text-slate-400 hover:border-white/20 hover:text-white'
+                          ? 'border-amber-500 bg-amber-500/10 text-white [html.light_&]:bg-amber-50 [html.light_&]:border-amber-400'
+                          : 'border-white/10 bg-[#121c38] text-slate-400 hover:border-white/20 hover:text-white [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200 [html.light_&]:text-slate-600 [html.light_&]:hover:bg-slate-100'
                       }`}
                     >
-                      <div className="flex items-center gap-2 font-bold text-sm text-amber-400">
+                      <div className="flex items-center gap-2 font-bold text-sm text-amber-400 [html.light_&]:text-amber-600">
                         <XCircle className="size-4" />
                         Từ chối yêu cầu
                       </div>
-                      <p className="mt-1 text-xs text-slate-400 leading-tight">
+                      <p className="mt-1 text-xs text-slate-400 [html.light_&]:text-slate-500 leading-tight">
                         Bác bỏ yêu cầu & tạm dừng bán vé
                       </p>
                     </button>
@@ -746,14 +746,14 @@ export function AdminEventCancellationDetailPage() {
 
                 {/* 2. Admin Note Input */}
                 <div>
-                  <label className="text-xs font-semibold text-slate-400 flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-semibold text-slate-400 [html.light_&]:text-slate-600 flex items-center justify-between mb-1.5">
                     <span>
                       {decision === 'APPROVE'
                         ? 'Ghi chú cho Ban tổ chức (tùy chọn):'
                         : 'Lý do từ chối yêu cầu (bắt buộc):'}
                     </span>
                     {decision === 'REJECT' && (
-                      <span className="text-[11px] font-bold text-red-400">* Bắt buộc</span>
+                      <span className="text-[11px] font-bold text-red-400 [html.light_&]:text-red-600">* Bắt buộc</span>
                     )}
                   </label>
                   <textarea
@@ -768,10 +768,10 @@ export function AdminEventCancellationDetailPage() {
                         ? 'Ví dụ: Ban Quản trị EventHub đồng thuận với lý do hủy sự kiện. Tiến trình hoàn tiền sẽ được khởi tạo...'
                         : 'Ví dụ: Lý do hủy chưa rõ ràng hoặc hồ sơ giải trình chưa đầy đủ...'
                     }
-                    className="w-full rounded-xl border border-white/10 bg-[#080f24] p-3 text-xs text-white placeholder-slate-500 outline-none focus:border-white/30 transition resize-none"
+                    className="w-full rounded-xl border border-white/10 bg-[#080f24] p-3 text-xs text-white placeholder-slate-500 outline-none focus:border-white/30 transition resize-none [html.light_&]:bg-[#FAF5EC] [html.light_&]:border-[#C99A47]/30 [html.light_&]:text-[#0D1B2A] [html.light_&]:placeholder-slate-400 [html.light_&]:focus:border-[#C99A47]"
                   />
                   {formError && (
-                    <p className="mt-1.5 text-xs text-red-400 flex items-center gap-1 font-medium">
+                    <p className="mt-1.5 text-xs text-red-400 [html.light_&]:text-red-600 flex items-center gap-1 font-medium">
                       <AlertTriangle className="size-3.5" />
                       {formError}
                     </p>
@@ -779,21 +779,21 @@ export function AdminEventCancellationDetailPage() {
                 </div>
 
                 {/* 3. System Note Callout */}
-                <div className="rounded-xl border border-white/10 bg-[#121c38] p-3.5 text-xs text-slate-300 leading-relaxed space-y-1.5">
-                  <p className="font-semibold text-white">
+                <div className="rounded-xl border border-white/10 bg-[#121c38] p-3.5 text-xs text-slate-300 leading-relaxed space-y-1.5 [html.light_&]:bg-amber-50/70 [html.light_&]:border-amber-200/80 [html.light_&]:text-slate-700">
+                  <p className="font-semibold text-white [html.light_&]:text-[#0D1B2A]">
                     {decision === 'APPROVE'
                       ? 'Lưu ý khi duyệt hủy sự kiện:'
                       : 'Lưu ý khi từ chối yêu cầu:'}
                   </p>
                   {decision === 'APPROVE' ? (
-                    <ul className="list-disc list-inside space-y-1 text-slate-400 text-[11px]">
+                    <ul className="list-disc list-inside space-y-1 text-slate-400 [html.light_&]:text-slate-600 text-[11px]">
                       <li>Sự kiện chuyển sang trạng thái <strong>Đã hủy (CANCELLED)</strong>.</li>
                       <li>Đóng vĩnh viễn cổng bán vé, hủy toàn bộ vé hợp lệ đã xuất.</li>
                       <li>Khởi tạo danh sách hoàn tiền 100% cho các đơn hàng đã thanh toán.</li>
                       <li>Gửi thông báo hủy sự kiện đến người mua vé và Ban tổ chức.</li>
                     </ul>
                   ) : (
-                    <ul className="list-disc list-inside space-y-1 text-slate-400 text-[11px]">
+                    <ul className="list-disc list-inside space-y-1 text-slate-400 [html.light_&]:text-slate-600 text-[11px]">
                       <li>Yêu cầu hủy sự kiện sẽ bị từ chối.</li>
                       <li>Gỡ bỏ lệnh tạm dừng bán vé do yêu cầu hủy, tiếp tục bán vé bình thường.</li>
                       <li>Gửi thông báo kèm lý do từ chối đến tài khoản Ban tổ chức.</li>
@@ -827,20 +827,20 @@ export function AdminEventCancellationDetailPage() {
             ) : (
               /* Already Processed */
               <div className="mt-5 space-y-4">
-                <div className="rounded-xl border border-white/10 bg-[#121c38] p-4 text-center">
+                <div className="rounded-xl border border-white/10 bg-[#121c38] p-4 text-center [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
                   {isApproved ? (
                     <>
-                      <CheckCircle2 className="mx-auto size-7 text-red-400 mb-2" />
-                      <h4 className="font-bold text-sm text-white">Yêu cầu đã được phê duyệt</h4>
-                      <p className="mt-1 text-xs text-slate-400">
+                      <CheckCircle2 className="mx-auto size-7 text-red-400 [html.light_&]:text-red-600 mb-2" />
+                      <h4 className="font-bold text-sm text-white [html.light_&]:text-[#0D1B2A]">Yêu cầu đã được phê duyệt</h4>
+                      <p className="mt-1 text-xs text-slate-400 [html.light_&]:text-slate-600">
                         Sự kiện đã hủy và danh sách hoàn tiền đã được tạo tự động.
                       </p>
                     </>
                   ) : (
                     <>
-                      <XCircle className="mx-auto size-7 text-slate-400 mb-2" />
-                      <h4 className="font-bold text-sm text-white">Yêu cầu đã bị từ chối</h4>
-                      <p className="mt-1 text-xs text-slate-400">
+                      <XCircle className="mx-auto size-7 text-slate-400 [html.light_&]:text-slate-600 mb-2" />
+                      <h4 className="font-bold text-sm text-white [html.light_&]:text-[#0D1B2A]">Yêu cầu đã bị từ chối</h4>
+                      <p className="mt-1 text-xs text-slate-400 [html.light_&]:text-slate-600">
                         Ban Quản trị đã từ chối yêu cầu hủy. Sự kiện tiếp tục hoạt động.
                       </p>
                     </>
@@ -849,7 +849,7 @@ export function AdminEventCancellationDetailPage() {
 
                 <Link
                   to="/admin/events/review"
-                  className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#121c38] py-2.5 px-4 text-xs font-semibold text-white hover:bg-white/10 transition"
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#121c38] py-2.5 px-4 text-xs font-semibold text-white hover:bg-white/10 transition [html.light_&]:bg-white [html.light_&]:border-slate-300 [html.light_&]:text-[#0D1B2A] [html.light_&]:hover:bg-slate-100"
                 >
                   <ArrowLeft className="size-4" />
                   Quay lại danh sách duyệt sự kiện

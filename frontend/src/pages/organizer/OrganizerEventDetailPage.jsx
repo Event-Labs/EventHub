@@ -485,6 +485,24 @@ export function OrganizerEventDetailPage() {
     const isPendingReview = event.status === 'PENDING_REVIEW'
     const canEdit = !isCancelPending && !isCancelled && !isSuspended && !ended
 
+    const firstVenue =
+        event.venue ||
+        event.venues?.[0] ||
+        event.sessions?.find((s) => s && s.venue)?.venue ||
+        (typeof event.sessions?.[0]?.venue === 'object' ? event.sessions[0].venue : null)
+
+    const venueName =
+        event.venue_name ||
+        (typeof event.venue === 'string' ? event.venue : event.venue?.name) ||
+        firstVenue?.name ||
+        ''
+
+    const venueAddress =
+        event.address ||
+        (typeof event.address_line === 'string' ? event.address_line : null) ||
+        firstVenue?.address_line ||
+        [firstVenue?.address_line, firstVenue?.ward, firstVenue?.district, firstVenue?.city].filter(Boolean).join(', ')
+
     return (
         <OrganizerPage
             title={isEnglish ? 'Event Details' : 'Chi tiết sự kiện'}
@@ -567,13 +585,17 @@ export function OrganizerEventDetailPage() {
                                     <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-panel-soft">
                                         <MapPin className="size-5 text-subtle" />
                                     </div>
-                                    <div>
+                                    <div className="min-w-0 flex-1">
                                         <p className="text-xs uppercase tracking-wider text-subtle">{isEnglish ? 'Location' : 'Địa điểm'}</p>
                                         <p className="mt-1 text-sm font-semibold text-content">
-                                            {cleanAndFormatVenue(event.venue_name || event.venue, isEnglish) || (isEnglish ? 'Updating' : 'Đang cập nhật')}
+                                            {venueName
+                                                ? (isEnglish ? cleanAndFormatVenue(venueName, true) : venueName)
+                                                : (firstVenue ? cleanAndFormatVenue(firstVenue, isEnglish) : (isEnglish ? 'Venue to be announced' : 'Địa điểm cập nhật sau'))}
                                         </p>
-                                        {event.address && (
-                                            <p className="text-sm font-semibold text-content">{cleanAndFormatVenue(event.address, isEnglish)}</p>
+                                        {venueAddress && venueAddress !== venueName && (
+                                            <p className="mt-0.5 text-xs text-subtle leading-relaxed">
+                                                {isEnglish ? cleanAndFormatVenue(venueAddress, true) : venueAddress}
+                                            </p>
                                         )}
                                     </div>
                                 </div>
@@ -585,7 +607,7 @@ export function OrganizerEventDetailPage() {
 
                                     <div className="relative">
                                         <div
-                                            className={`ql-editor ql-content description-html block max-w-full break-words text-sm text-subtle p-0 [&_*]:max-w-full [&_a]:break-words [&_a]:text-[#E6C17A] [&_a]:underline [&_table]:block [&_table]:overflow-x-auto transition-all duration-300 ${
+                                            className={`ql-editor ql-content description-html block max-w-full break-words text-sm text-content p-0 [&_*]:max-w-full [&_a]:break-words [&_a]:text-[#E6C17A] [&_a]:underline [&_table]:block [&_table]:overflow-x-auto transition-all duration-300 ${
                                                 isDescriptionExpanded
                                                     ? 'overflow-visible'
                                                     : 'max-h-56 overflow-hidden'

@@ -1,5 +1,6 @@
 import { AlertTriangle, Building2, ShieldCheck } from 'lucide-react'
 import { Modal } from '@/components/Modal.jsx'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
 
 export function ConfirmSuspendOrganizerModal({
   open,
@@ -9,6 +10,7 @@ export function ConfirmSuspendOrganizerModal({
   onClose,
   onConfirm,
 }) {
+  const { isEnglish } = useLanguage()
   if (!organizer) return null
 
   const isSuspending = targetStatus === 'SUSPENDED'
@@ -16,7 +18,11 @@ export function ConfirmSuspendOrganizerModal({
   return (
     <Modal
       open={open}
-      title={isSuspending ? 'Tạm ngưng tài khoản Organizer' : 'Kích hoạt lại tài khoản Organizer'}
+      title={
+        isSuspending
+          ? (isEnglish ? 'Suspend Organizer Account' : 'Tạm ngưng tài khoản Ban tổ chức')
+          : (isEnglish ? 'Reactivate Organizer Account' : 'Kích hoạt lại tài khoản Ban tổ chức')
+      }
       onClose={onClose}
       maxWidth="max-w-lg"
       footer={
@@ -27,7 +33,7 @@ export function ConfirmSuspendOrganizerModal({
             onClick={onClose}
             disabled={isPending}
           >
-            Hủy bỏ
+            {isEnglish ? 'Cancel' : 'Hủy bỏ'}
           </button>
           <button
             type="button"
@@ -40,10 +46,10 @@ export function ConfirmSuspendOrganizerModal({
             disabled={isPending}
           >
             {isPending
-              ? 'Đang xử lý...'
+              ? (isEnglish ? 'Processing...' : 'Đang xử lý...')
               : isSuspending
-                ? 'Xác nhận tạm ngưng'
-                : 'Xác nhận kích hoạt'}
+                ? (isEnglish ? 'Confirm Suspension' : 'Xác nhận tạm ngưng')
+                : (isEnglish ? 'Confirm Activation' : 'Xác nhận kích hoạt')}
           </button>
         </>
       }
@@ -65,14 +71,16 @@ export function ConfirmSuspendOrganizerModal({
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-[11px] font-extrabold uppercase tracking-wider">
-              {isSuspending ? 'Cảnh báo tạm ngưng' : 'Khôi phục hoạt động'}
+              {isSuspending
+                ? (isEnglish ? 'Suspension Warning' : 'Cảnh báo tạm ngưng')
+                : (isEnglish ? 'Restoration' : 'Khôi phục hoạt động')}
             </p>
             <p className="mt-0.5 text-base font-bold text-content truncate">
               {organizer.organization_name}
             </p>
             {(organizer.owner_name || organizer.owner_email || organizer.business_email) && (
               <p className="mt-1 text-xs text-subtle truncate">
-                Chủ sở hữu: {organizer.owner_name ? `${organizer.owner_name} (${organizer.owner_email || organizer.business_email})` : (organizer.owner_email || organizer.business_email)}
+                {isEnglish ? 'Owner' : 'Chủ sở hữu'}: {organizer.owner_name ? `${organizer.owner_name} (${organizer.owner_email || organizer.business_email})` : (organizer.owner_email || organizer.business_email)}
               </p>
             )}
           </div>
@@ -80,17 +88,32 @@ export function ConfirmSuspendOrganizerModal({
 
         {isSuspending ? (
           <div className="rounded-xl border border-border-soft/40 bg-panel-soft p-4 space-y-2 text-sm text-subtle">
-            <p className="font-semibold text-content">Khi tạm ngưng tài khoản này:</p>
+            <p className="font-semibold text-content">{isEnglish ? 'When suspending this account:' : 'Khi tạm ngưng tài khoản này:'}</p>
             <ul className="list-disc list-inside space-y-1 text-xs text-subtle leading-5">
-              <li>Nhà tổ chức <strong className="text-content">không thể tạo mới</strong> hoặc chỉnh sửa các sự kiện.</li>
-              <li>Hoạt động mở bán vé và tính năng quản trị của organizer sẽ bị tạm dừng.</li>
-              <li>Các phiên đăng nhập hiện tại của nhà tổ chức sẽ được làm mới.</li>
-              <li>Bạn có thể kích hoạt lại tài khoản bất kỳ lúc nào khi cần.</li>
+              {isEnglish ? (
+                <>
+                  <li>The organizer <strong className="text-content">cannot create</strong> or edit events.</li>
+                  <li>Ticket sales and administrative operations will be paused.</li>
+                  <li>Active sessions of the organizer will be refreshed.</li>
+                  <li>You can reactivate this account at any time.</li>
+                </>
+              ) : (
+                <>
+                  <li>Ban tổ chức <strong className="text-content">không thể tạo mới</strong> hoặc chỉnh sửa các sự kiện.</li>
+                  <li>Hoạt động mở bán vé và tính năng quản trị của ban tổ chức sẽ bị tạm dừng.</li>
+                  <li>Các phiên đăng nhập hiện tại của ban tổ chức sẽ được làm mới.</li>
+                  <li>Bạn có thể kích hoạt lại tài khoản bất kỳ lúc nào khi cần.</li>
+                </>
+              )}
             </ul>
           </div>
         ) : (
           <div className="rounded-xl border border-border-soft/40 bg-panel-soft p-4 text-sm text-subtle leading-6">
-            Nhà tổ chức sẽ được khôi phục trạng thái <strong className="text-success">Hoạt động</strong> và có thể tiếp tục tạo sự kiện, quản lý bán vé và sử dụng toàn bộ tính năng của nền tảng.
+            {isEnglish ? (
+              <>The organizer will have its status restored to <strong className="text-success">Active</strong> and can continue creating events, managing ticket sales, and utilizing all platform features.</>
+            ) : (
+              <>Ban tổ chức sẽ được khôi phục trạng thái <strong className="text-success">Hoạt động</strong> và có thể tiếp tục tạo sự kiện, quản lý bán vé và sử dụng toàn bộ tính năng của nền tảng.</>
+            )}
           </div>
         )}
       </div>

@@ -391,17 +391,19 @@ export function OrganizerRefundsPage() {
                   onClick={() => setSelectedStatus(f.value)}
                   className={`rounded-xl px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition cursor-pointer flex items-center gap-1.5 ${
                     isActive
-                      ? isDisputedPill
-                        ? 'bg-rose-500 text-white shadow-sm shadow-rose-500/30 border border-rose-400'
-                        : 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-sm shadow-[#C99A47]/30 border border-[#C99A47]'
-                      : isDisputedPill && counts.disputed > 0
-                        ? 'border border-rose-500/40 bg-rose-500/15 text-rose-300 hover:bg-rose-500/25 [html.light_&]:bg-rose-50 [html.light_&]:text-rose-800 [html.light_&]:border-rose-300'
-                        : 'border border-white/10 bg-[#151d34] text-slate-300 hover:bg-white/5 hover:text-white [html.light_&]:border-[#C99A47]/30 [html.light_&]:bg-white/85 [html.light_&]:text-[#1B365D] [html.light_&]:shadow-sm [html.light_&]:hover:bg-[#F5EBDD] [html.light_&]:hover:text-[#0D1B2A]'
+                      ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-sm shadow-[#C99A47]/30 border border-[#C99A47]'
+                      : 'border border-white/10 bg-[#151d34] text-slate-300 hover:bg-white/5 hover:text-white [html.light_&]:border-[#C99A47]/30 [html.light_&]:bg-white/85 [html.light_&]:text-[#1B365D] [html.light_&]:shadow-sm [html.light_&]:hover:bg-[#F5EBDD] [html.light_&]:hover:text-[#0D1B2A]'
                   }`}
                 >
                   <span>{f.label}</span>
                   {isDisputedPill && counts.disputed > 0 && (
-                    <span className="flex size-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white [html.light_&]:bg-rose-600">
+                    <span
+                      className={`flex size-4 items-center justify-center rounded-full text-[10px] font-bold ${
+                        isActive
+                          ? 'bg-[#0D1B2A] text-[#C99A47]'
+                          : 'bg-rose-500 text-white [html.light_&]:bg-rose-600'
+                      }`}
+                    >
                       {counts.disputed}
                     </span>
                   )}

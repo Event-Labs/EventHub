@@ -488,6 +488,13 @@ export function translateEventHtmlDescription(html, isEnglish = false) {
   let cleaned = html
     .replace(/&nbsp;/gi, ' ')
     .replace(/\u00A0/g, ' ')
+    .replace(/color:\s*rgb\(\s*255\s*,\s*255\s*,\s*255\s*\);?/gi, '')
+    .replace(/color:\s*rgba\(\s*255\s*,\s*255\s*,\s*255\s*,\s*[\d.]+\);?/gi, '')
+    .replace(/color:\s*#ffffff;?/gi, '')
+    .replace(/color:\s*#fff\b;?/gi, '')
+    .replace(/color:\s*white;?/gi, '')
+    .replace(/color:\s*#f8fafc;?/gi, '')
+    .replace(/color:\s*#f1f5f9;?/gi, '')
 
   if (!isEnglish) return cleaned
 

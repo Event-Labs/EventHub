@@ -688,6 +688,78 @@ function SalesRevenueComboChart({ data = [], dateRangeLabel = '' }) {
   )
 }
 
+// Helper to smartly wrap long ticket names into up to 2 lines without overlapping adjacent columns
+function getTicketNameLines(name, slotW) {
+  if (!name) return { line1: '', line2: '' }
+  const trimmed = String(name).trim()
+
+  // Calculate safe char limit per line based on slot width
+  let maxChars = 14
+  if (slotW < 42) maxChars = 6
+  else if (slotW < 52) maxChars = 8
+  else if (slotW < 65) maxChars = 10
+  else if (slotW < 85) maxChars = 13
+  else if (slotW < 110) maxChars = 16
+  else maxChars = 22
+
+  // If the whole name already fits comfortably on 1 line:
+  if (trimmed.length <= maxChars) {
+    return { line1: trimmed, line2: '' }
+  }
+
+  // If it has multiple words, split smartly across words
+  const words = trimmed.split(/\s+/)
+  if (words.length > 1) {
+    let l1 = ''
+    let splitIdx = 0
+
+    for (let i = 0; i < words.length; i++) {
+      const candidate = l1 ? `${l1} ${words[i]}` : words[i]
+      if (candidate.length <= maxChars) {
+        l1 = candidate
+        splitIdx = i + 1
+      } else {
+        if (!l1) {
+          l1 = words[0]
+          splitIdx = 1
+        }
+        break
+      }
+    }
+
+    const remainingWords = words.slice(splitIdx)
+    let l2 = ''
+    for (let j = 0; j < remainingWords.length; j++) {
+      const candidate = l2 ? `${l2} ${remainingWords[j]}` : remainingWords[j]
+      if (candidate.length <= maxChars) {
+        l2 = candidate
+      } else {
+        if (!l2) {
+          l2 = remainingWords[j]
+        }
+        break
+      }
+    }
+
+    if (l1.length > maxChars) {
+      l1 = l1.slice(0, Math.max(maxChars - 1, 1)).trim() + '…'
+    }
+    if (l2.length > maxChars) {
+      l2 = l2.slice(0, Math.max(maxChars - 1, 1)).trim().replace(/[\(\[\{,\.\-]$/, '') + '…'
+    }
+
+    return { line1: l1, line2: l2 }
+  }
+
+  // Single long word without spaces
+  const l1 = trimmed.slice(0, maxChars)
+  let l2 = trimmed.slice(maxChars)
+  if (l2.length > maxChars) {
+    l2 = l2.slice(0, Math.max(maxChars - 1, 1)).trim() + '…'
+  }
+  return { line1: l1, line2: l2 }
+}
+
 // ─── Component 2: Ticket Type Performance Chart (SMART FILTER + DUAL VIEW) ────
 
 function TicketTypePerformanceChart({ data = [] }) {
@@ -925,8 +997,8 @@ function TicketTypePerformanceChart({ data = [] }) {
             <div ref={containerRef} className="w-full overflow-hidden select-none">
               <svg
                 width="100%"
-                height={height + 54}
-                viewBox={`0 0 ${w} ${height + 54}`}
+                height={height + 62}
+                viewBox={`0 0 ${w} ${height + 62}`}
                 className="block"
                 onMouseLeave={() => setHoveredId(null)}
               >
@@ -1024,12 +1096,23 @@ function TicketTypePerformanceChart({ data = [] }) {
 
                   const y = height - barH
 
+                  // Smart 2-line wrap for long ticket names + strictly aligned unit price
+                  const { line1, line2 } = getTicketNameLines(d.ticket_type_name, slotW)
+                  const nameFontSize = slotW < 44 ? 9.5 : slotW < 58 ? 10 : 11
+                  const priceFontSize = slotW < 44 ? 9.5 : 10.5
+                  const unitPriceVal = Number(d.unit_price ?? d.price ?? 0)
+                  const priceText = unitPriceVal === 0 ? (isEnglish ? 'Free' : '0 đ') : `${fmtShort(unitPriceVal)} đ`
+                  const line1Y = line2 ? height + 16 : height + 20
+                  const priceY = height + 46 // Cố định trên 1 dòng duy nhất cho mọi cột
+
                   return (
                     <g
                       key={d.ticket_type_id || i}
                       onMouseEnter={() => setHoveredId(d.ticket_type_id)}
                       className="cursor-pointer transition-all duration-200"
                     >
+                      <title>{`${d.ticket_type_name} • ${priceText}`}</title>
+
                       {/* Capacity pillar backdrop for Volume mode */}
                       {activeMetric === 'volume' && cap > 0 && (
                         <rect
@@ -1081,30 +1164,45 @@ function TicketTypePerformanceChart({ data = [] }) {
                         strokeWidth={1}
                       />
 
-                      {/* X-Axis Ticket Name */}
+                      {/* X-Axis Ticket Name (Line 1) */}
                       <text
                         x={x + barW / 2}
-                        y={height + 20}
+                        y={line1Y}
                         textAnchor="middle"
-                        fontSize={11}
+                        fontSize={nameFontSize}
                         fontWeight={600}
                         fill={isHovered ? pal.accent : '#cbd5e1'}
                         className="[html.light_&]:fill-[#1B365D]"
                       >
-                        {d.ticket_type_name.length > 12 ? `${d.ticket_type_name.slice(0, 11)}…` : d.ticket_type_name}
+                        {line1}
                       </text>
 
-                      {/* Sub-label: Unit Price */}
+                      {/* X-Axis Ticket Name (Line 2 - if long and wrapped) */}
+                      {line2 ? (
+                        <text
+                          x={x + barW / 2}
+                          y={height + 30}
+                          textAnchor="middle"
+                          fontSize={nameFontSize}
+                          fontWeight={600}
+                          fill={isHovered ? pal.accent : '#cbd5e1'}
+                          className="[html.light_&]:fill-[#1B365D]"
+                        >
+                          {line2}
+                        </text>
+                      ) : null}
+
+                      {/* Sub-label: Unit Price (Số tiền - LUÔN THẲNG HÀNG TRÊN 1 DÒNG DUY NHẤT) */}
                       <text
                         x={x + barW / 2}
-                        y={height + 36}
+                        y={priceY}
                         textAnchor="middle"
-                        fontSize={10}
-                        fontWeight={500}
-                        fill="#64748b"
+                        fontSize={priceFontSize}
+                        fontWeight={600}
+                        fill={isHovered ? pal.accent : '#94a3b8'}
                         className="[html.light_&]:fill-[#536b88]"
                       >
-                        {fmtShort(d.unit_price)} đ
+                        {priceText}
                       </text>
                     </g>
                   )
