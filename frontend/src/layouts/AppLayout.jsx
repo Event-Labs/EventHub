@@ -26,14 +26,12 @@ function getCenterNavItems(isEnglish) {
         ['Favorites', '/favorites', true],
         ['My Tickets', '/my-tickets', true],
         ['Feedback', '/feedback', true],
-        ['Complaints', '/complaints', true],
       ]
     : [
         ['Khám phá sự kiện', '/events', false],
         ['Sự kiện yêu thích', '/favorites', true],
         ['Vé của tôi', '/my-tickets', true],
         ['Đánh giá', '/feedback', true],
-        ['Khiếu nại', '/complaints', true],
       ]
 }
 
@@ -537,8 +535,8 @@ export function AppLayout() {
                     </NavLink>
                   </div>
 
-                  <div className="border-t border-border-soft py-1">
-                    {!canOpenOrganizerPortal && !hasAdminRole && (
+                  {!canOpenOrganizerPortal && !hasAdminRole && (
+                    <div className="border-t border-border-soft py-1">
                       <NavLink
                         className="block px-4 py-2 text-sm font-semibold text-subtle hover:bg-panel-soft hover:text-[#E6C17A]"
                         to="/organizer-request"
@@ -546,7 +544,17 @@ export function AppLayout() {
                       >
                         {isEnglish ? 'Register as Organizer' : 'Đăng ký làm Ban Tổ Chức'}
                       </NavLink>
-                    )}
+                    </div>
+                  )}
+
+                  <div className="border-t border-border-soft py-1">
+                    <NavLink
+                      className="block px-4 py-2 text-sm font-semibold text-subtle hover:bg-panel-soft hover:text-[#E6C17A]"
+                      to="/complaints"
+                      onClick={() => setOpen(false)}
+                    >
+                      {isEnglish ? 'Complaints & Inquiries' : 'Khiếu nại & Phản ánh'}
+                    </NavLink>
                   </div>
 
                   <div className="border-t border-border-soft py-1">

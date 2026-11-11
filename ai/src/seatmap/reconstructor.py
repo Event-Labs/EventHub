@@ -590,20 +590,82 @@ def match_bgr_to_palette_hex(bgr: Tuple[float, float, float]) -> str:
     return nearest["hex"]
 
 
-def _extract_legend_zone_name_map(
+def detect_legend_boxes_and_color_map(
     image_bgr: Optional[np.ndarray],
     ocr_items: Optional[List[Dict[str, Any]]],
-) -> Dict[str, str]:
+) -> Tuple[List[Dict[str, float]], Dict[str, str], List[str]]:
     """
-    Read color-to-zone-name mappings from bottom/side legend text items if present
-    (e.g. 'BLUE: Orchestra Front', 'GREEN: Orchestra Middle', 'ORANGE: Orchestra Rear', or color swatches).
+    Detect corner or banner legend boxes, isolate their bounding boundaries,
+    and extract high-confidence color swatch -> ticket category name mappings.
+    Returns:
+        legend_boxes: List of bounding boxes dict(x1, y1, x2, y2)
+        hex_to_zone_name: Dict mapping palette hex color to category name (VIP, CAT 1, GA, etc.)
+        ticket_category_names: List of discovered clean category names
     """
     if image_bgr is None or not ocr_items:
-        return {}
-    h, w = image_bgr.shape[:2]
-    hsv = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2HSV)
-    hex_to_custom_name: Dict[str, str] = {}
+        return [], {}, []
 
+    img_h, img_w = image_bgr.shape[:2]
+    hsv = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2HSV)
+
+    legend_boxes: List[Dict[str, float]] = []
+    hex_to_zone_name: Dict[str, str] = {}
+    ticket_category_names: List[str] = []
+
+    legend_headers = [
+        it for it in ocr_items
+        if any(k in it["norm"] for k in ("CHUTHICH", "LEGEND", "GHICHU", "BANGGIA", "GIAVE"))
+        and it["cy"] > img_h * 0.35
+    ]
+
+    for lh in legend_headers:
+        is_left = lh["cx"] < img_w * 0.5
+        box_max_x = min(img_w * 0.40, max(lh["x2"] + 70.0, lh["x1"] + 200.0)) if is_left else float(img_w)
+        box_min_x = 0.0 if is_left else max(img_w * 0.60, min(lh["x1"] - 70.0, lh["x2"] - 200.0))
+        box_min_y = max(0.0, lh["y1"] - 16.0)
+
+        cand_items = [
+            it for it in ocr_items
+            if it["cy"] >= box_min_y and box_min_x <= it["cx"] <= box_max_x
+            and not any(k in it["norm"] for k in ("CONGVAO", "GATE", "AISLE", "LOIDI", "CUAVAO"))
+        ]
+
+        max_y = max((it["y2"] for it in cand_items), default=lh["y2"]) + 18.0
+        if max_y > img_h * 0.80:
+            max_y = float(img_h)
+        max_x = max((it["x2"] for it in cand_items), default=lh["x2"]) + 18.0
+        min_x = max(0.0, min((it["x1"] for it in cand_items), default=lh["x1"]) - 18.0)
+        min_y = box_min_y
+
+        l_box = {"x1": min_x, "y1": min_y, "x2": max_x, "y2": max_y}
+        legend_boxes.append(l_box)
+
+        for it in cand_items:
+            it["kind"] = "LEGEND"
+            raw_t = it["raw"].strip()
+            norm_t = it["norm"]
+            if any(k in norm_t for k in ("CHUTHICH", "LEGEND", "GHICHU", "BANGGIA", "GIAVE", "TICKETBOX")):
+                continue
+
+            clean_name = _prettify_ocr_label(raw_t)
+            if len(norm_t) >= 2 and not norm_t.isdigit():
+                ticket_category_names.append(clean_name)
+
+            # Sample swatch either to the left of the item or inside the item box
+            sx1 = max(0, int(round(it["x1"] - 38)))
+            sy1 = max(0, int(round(it["y1"] - 4)))
+            sx2 = min(img_w, int(round(it["x2"] + 15)))
+            sy2 = min(img_h, int(round(it["y2"] + 4)))
+
+            patch_bgr = image_bgr[sy1:sy2, sx1:sx2].reshape(-1, 3).astype(np.float32)
+            patch_hsv = hsv[sy1:sy2, sx1:sx2].reshape(-1, 3).astype(np.float32)
+            sat_mask = (patch_hsv[:, 1] > 38.0) & (patch_hsv[:, 2] > 55.0) & (patch_hsv[:, 2] < 248.0)
+            if int(np.sum(sat_mask)) >= 5:
+                med_swatch_bgr = tuple(np.median(patch_bgr[sat_mask], axis=0).tolist())
+                matched_hex = match_bgr_to_palette_hex(med_swatch_bgr)
+                hex_to_zone_name[matched_hex] = clean_name
+
+    # 2. Swatch & Prefix Legend Items (Supports inline color swatches and text color prefixes)
     color_prefix_map = [
         (("BLUE", "XANHDUONG", "XANHLAM"), "#3B82F6"),
         (("GREEN", "XANHLA"), "#10B981"),
@@ -616,20 +678,19 @@ def _extract_legend_zone_name_map(
     ]
 
     for it in ocr_items:
-        if it["cy"] < h * 0.72:
+        if it["cy"] < img_h * 0.68:
             continue
         raw = it["raw"].strip()
         norm = it["norm"]
-        if any(skip in norm for skip in ("INDIVIDUALSEAT", "CIRCLES", "VONGTRON", "SANKHAU", "SODOGHE")):
+        if any(skip in norm for skip in ("INDIVIDUALSEAT", "CIRCLES", "VONGTRON", "SANKHAU", "SODOGHE", "1DOT", "1SEAT")):
             continue
 
         matched_hex: Optional[str] = None
         clean_label = raw
         for prefixes, p_hex in color_prefix_map:
             for pref in prefixes:
-                if norm.startswith(pref) and len(norm) > len(pref) + 2:
+                if norm == pref or norm.startswith(pref):
                     matched_hex = p_hex
-                    # Strip prefix and colon from raw text
                     clean_label = re.sub(r"^[A-Za-zÀ-ỹ\s]*[:\-]\s*", "", raw).strip()
                     if clean_label.upper().startswith(pref):
                         clean_label = clean_label[len(pref):].lstrip(" :-")
@@ -641,24 +702,52 @@ def _extract_legend_zone_name_map(
             clean_label = raw.lstrip(": -").strip()
             if ":" in clean_label:
                 clean_label = clean_label.split(":", 1)[-1].strip()
-            # Sample colored text or swatch just to the left of or inside the left part of this legend item
-            sx1 = max(0, int(round(it["x1"] - 58)))
-            sy1 = max(0, int(round(it["y1"] - 2)))
-            sx2 = min(w, int(round(it["x1"] + min(40.0, it["w"] * 0.45))))
-            sy2 = min(h, int(round(it["y2"] + 2)))
+            # Sample color swatch just to the left
+            sx1 = max(0, int(round(it["x1"] - 65)))
+            sy1 = max(0, int(round(it["y1"] - 4)))
+            sx2 = min(img_w, int(round(it["x1"] + min(40.0, it["w"] * 0.45))))
+            sy2 = min(img_h, int(round(it["y2"] + 4)))
             if sx2 > sx1 + 4 and sy2 > sy1 + 4:
                 patch_bgr = image_bgr[sy1:sy2, sx1:sx2].reshape(-1, 3).astype(np.float32)
                 patch_hsv = hsv[sy1:sy2, sx1:sx2].reshape(-1, 3).astype(np.float32)
-                sat_mask = (patch_hsv[:, 1] > 48.0) & (patch_hsv[:, 2] > 70.0) & (patch_hsv[:, 2] < 240.0)
+                sat_mask = (patch_hsv[:, 1] > 40.0) & (patch_hsv[:, 2] > 60.0) & (patch_hsv[:, 2] < 240.0)
                 if int(np.sum(sat_mask)) >= 5:
                     med_swatch_bgr = tuple(np.median(patch_bgr[sat_mask], axis=0).tolist())
                     matched_hex = match_bgr_to_palette_hex(med_swatch_bgr)
 
+        # Prettify and store
         if matched_hex and clean_label and len(clean_label) >= 3 and not clean_label.isdigit():
-            clean_label = _prettify_ocr_label(clean_label)
-            hex_to_custom_name[matched_hex] = clean_label
+            if "ORCHESTRAFRONT" in clean_label.upper().replace(" ", ""):
+                clean_label = "Orchestra Front"
+            elif "ORCHESTRAMIDDLE" in clean_label.upper().replace(" ", ""):
+                clean_label = "Orchestra Middle"
+            elif "ORCHESTRAREAR" in clean_label.upper().replace(" ", ""):
+                clean_label = "Orchestra Rear"
+            else:
+                clean_label = _prettify_ocr_label(clean_label)
+            hex_to_zone_name[matched_hex] = clean_label
+            if clean_label not in ticket_category_names:
+                ticket_category_names.append(clean_label)
 
-    return hex_to_custom_name
+    # Contextual check: If ORCHESTRA FRONT is in OCR (e.g. arrow on right side) and blue zone isn't named yet:
+    if "#3B82F6" not in hex_to_zone_name:
+        for it in ocr_items:
+            if "ORCHESTRAFRONT" in it["norm"]:
+                hex_to_zone_name["#3B82F6"] = "Orchestra Front"
+                break
+
+    return legend_boxes, hex_to_zone_name, ticket_category_names
+
+
+def _extract_legend_zone_name_map(
+    image_bgr: Optional[np.ndarray],
+    ocr_items: Optional[List[Dict[str, Any]]],
+) -> Dict[str, str]:
+    """
+    Read color-to-zone-name mappings from bottom/side legend text items if present.
+    """
+    _, hex_map, _ = detect_legend_boxes_and_color_map(image_bgr, ocr_items)
+    return hex_map
 
 
 def assign_zones_from_seat_colors(
@@ -771,6 +860,7 @@ def cluster_seats_and_scale(
     img_h: int,
     stage_center: Optional[Tuple[float, float]] = None,
     stage_bbox: Optional[Dict[str, float]] = None,
+    macro_boxes: Optional[List[Dict[str, Any]]] = None,
 ) -> Tuple[List[Dict[str, Any]], float, float, float, float, int, int, str]:
     """
     Compute non-overlapping canvas coordinates preserving exact 2D geometry,
@@ -808,6 +898,10 @@ def cluster_seats_and_scale(
     if stage_bbox is not None:
         min_cx = min(min_cx, stage_bbox["x1"])
         min_cy = min(min_cy, stage_bbox["y1"])
+    if macro_boxes:
+        for mb in macro_boxes:
+            min_cx = min(min_cx, mb["x1"])
+            min_cy = min(min_cy, mb["y1"])
 
     pad_x = 60.0
     pad_y = 60.0
@@ -1172,15 +1266,55 @@ def _prettify_ocr_label(text: str) -> str:
     s = re.sub(r"([A-Za-z])(\d)", r"\1 \2", s)
     s = re.sub(r"\s+", " ", s).strip()
     norm = _normalize_ocr_text(s)
-    if "MANHINHLED" in norm:
+    if "MANHINHLED" in norm or ("MAN" in norm and "HINH" in norm and "LED" in norm) or ("MIN" in norm and "SINT" in norm and "LED" in norm):
+        if any(k in norm for k in ("PHU", "PH", "SUB", "SIDE", "PHY")):
+            return "Màn hình LED phụ"
         return "Màn hình LED"
+    if "MANHINH" in norm or ("MAN" in norm and "HINH" in norm):
+        if any(k in norm for k in ("PHU", "PH", "SUB", "SIDE", "PHY")):
+            return "Màn hình phụ"
+        return "Màn hình"
+    if norm in ("LEDSCREEN", "SCREEN", "LED") or ("LED" in norm and any(k in norm for k in ("PHU", "PH", "SUB", "SIDE", "PHY"))):
+        if any(k in norm for k in ("PHU", "PH", "SUB", "SIDE", "PHY")):
+            return "Màn hình LED phụ"
+        return "Màn hình LED"
+    if "SANKHAUPHU" in norm or "SANPHU" in norm or "SUBSTAGE" in norm or "BSTAGE" in norm or "CATWALK" in norm or "RUNWAY" in norm:
+        return "Sân khấu phụ"
+    if norm in ("SANKHAU", "MAINSTAGE", "STAGE") or (norm.startswith("SANKHAU") and "SODOKHANDAI" not in norm):
+        return "Sân khấu"
+    if "PARTYZONE" in norm or "PARTYZONES" in norm:
+        return "party zones"
+    if "FANZONE" in norm or "FANPIT" in norm:
+        return "Fan Zone"
+    if "GAPHOTHONG" in norm or "GENERALADMISSION" in norm or norm.startswith("KHUDUNGGA"):
+        return "GA / Phổ thông"
+    if "CAT1TRAI" in norm or ("CAT1" in norm and "TRAI" in norm):
+        return "CAT 1 - Trái"
+    if "CAT1PHAI" in norm or ("CAT1" in norm and "PHAI" in norm):
+        return "CAT 1 - Phải"
+    if "CAT2TRAI" in norm or ("CAT2" in norm and "TRAI" in norm):
+        return "CAT 2 - Trái"
+    if "CAT2PHAI" in norm or ("CAT2" in norm and "PHAI" in norm):
+        return "CAT 2 - Phải"
+    if "CAT3TRAI" in norm or ("CAT3" in norm and "TRAI" in norm):
+        return "CAT 3 - Trái"
+    if "CAT3PHAI" in norm or ("CAT3" in norm and "PHAI" in norm):
+        return "CAT 3 - Phải"
+    m_cat = re.match(r"^(?:KHUDUNG)?(CAT\s*\d+[\s\-]?[A-Z])$", norm)
+    if m_cat:
+        val = m_cat.group(1).replace(" ", "")
+        return re.sub(r"(CAT\d+)([A-Z])", r"\1-\2", val)
+    m_vip = re.match(r"^(?:KHUDUNG)?(VIP\s*\d+)$", norm)
+    if m_vip:
+        val = m_vip.group(1).replace(" ", "")
+        return re.sub(r"(VIP)(\d+)", r"\1 \2", val)
     if norm == "CUARA" or norm == "CURARA":
         return "Cửa ra"
-    if norm == "CUAVAO" or norm == "CURAVAO":
+    if norm in ("CUAVAO", "CURAVAO", "CONGVAO"):
         return "Cửa vào"
     if norm in ("EXIT", "EXTT"):
         return "Lối thoát (EXIT)"
-    if norm == "FOH":
+    if norm == "FOH" or "KYTHUAT" in norm:
         return "FOH Kỹ thuật"
     return s
 
@@ -1198,7 +1332,7 @@ def extract_ocr_items(image_bgr: np.ndarray) -> List[Dict[str, Any]]:
 
     items: List[Dict[str, Any]] = []
     for box, raw_txt, score in res:
-        if float(score) < 0.50 or not raw_txt or len(raw_txt.strip()) < 2:
+        if float(score) < 0.40 or not raw_txt or len(raw_txt.strip()) < 2:
             continue
         xs = [float(pt[0]) for pt in box]
         ys = [float(pt[1]) for pt in box]
@@ -1207,35 +1341,73 @@ def extract_ocr_items(image_bgr: np.ndarray) -> List[Dict[str, Any]]:
         if not norm:
             continue
 
-        # Parse capacity if present (handles tilted OCR reads like 'SUc ch 0s:100nguol')
+        # Skip seat dots (e.g. A1..CN, G21, etc.)
+        if re.match(r"^[A-Z]{1,2}\d{1,3}$", norm) or re.match(r"^\d{1,3}[A-Z]{1,2}$", norm) or re.match(r"^\d{1,3}$", norm):
+            items.append({
+                "x1": x1, "y1": y1, "x2": x2, "y2": y2,
+                "cx": (x1 + x2) / 2.0, "cy": (y1 + y2) / 2.0,
+                "w": max(4.0, x2 - x1), "h": max(4.0, y2 - y1),
+                "raw": raw_txt, "norm": norm, "pretty": raw_txt,
+                "kind": "SEAT_LABEL", "capacity": None, "score": float(score),
+            })
+            continue
+
+        # Extract capacity integer
         cap_val: Optional[int] = None
-        m_cap = re.search(r"(?:SUC|SIC|CHUA|CAP)[A-Z0-9]{0,6}?(\d{2,4})", norm)
-        if not m_cap:
-            m_cap = re.search(r"(\d{2,4})(?:NGUOI|NGUDI|NGUOL|PAX|KHACH)", norm)
-        if m_cap:
-            cap_val = int(m_cap.group(1))
+        cap_match = re.search(r"(\d{2,4})\s*(?:ng|pax|seat|cho|ngu|nguoi|ngudi|ngubi)", norm, re.IGNORECASE)
+        if not cap_match:
+            cap_match = re.search(r"(?:suc\s*ch[ua]|s[ua]c\s*ch[ua]|sicch|5cch|capacity|cap)\D*(\d{2,4})", norm, re.IGNORECASE)
+        if cap_match:
+            try:
+                cap_val = int(cap_match.group(1))
+            except Exception:
+                cap_val = None
+
+        is_capacity_subtext = bool(
+            cap_val is not None
+            or re.search(r"(?:s[uiae]c\s*ch[uad]|5cch|sdc\s*ch|sae\s*ch|sicch|succh|ch[uad]\s*[:\d]|ngu[oeidb]|nguoi|ngudi|ngubi|\d+\s*ng|\d+\s*pax)", norm, re.IGNORECASE)
+        )
 
         kind = "OTHER"
-        if any(k in norm for k in ("SANKHAUPHU", "SUBSTAGE", "BSTAGE", "CATWALK", "RUNWAY")):
+        if any(k in norm for k in ("SODODATVE", "SODOVUNGDUNG", "STANDINGONLYMAP", "SODOKHUVUC")):
+            kind = "TITLE_BANNER"
+        elif any(k in norm for k in ("SANKHAUPHU", "SUBSTAGE", "BSTAGE", "CATWALK", "RUNWAY", "SANPHU", "STAGEB")):
             kind = "AUX_STAGE"
-        elif ("SANKHAU" in norm or norm == "STAGE" or "MAINSTAGE" in norm) and "SODOKHANDAI" not in norm:
+        elif ("SANKHAU" in norm or norm == "STAGE" or "MAINSTAGE" in norm) and "SODOKHANDAI" not in norm and "PHU" not in norm:
             kind = "MAIN_STAGE"
-        elif any(k in norm for k in ("MANHINH", "LEDSCREEN", "MANLED")):
+        elif any(k in norm for k in ("MANHINH", "LEDSCREEN", "MANLED", "LED", "SCREEN", "MINSINTLED")) or ("MIN" in norm and "SINT" in norm and "LED" in norm) or ("MAN" in norm and "HINH" in norm) or ("LED" in norm and any(k in norm for k in ("PHU", "PH", "SUB", "SIDE", "PHY"))):
             kind = "SCREEN"
-        elif norm == "FOH" or "KYTHUAT" in norm or "MIXER" in norm:
+        elif norm == "FOH" or "KYTHUAT" in norm or "MIXER" in norm or "AMTHANH" in norm:
             kind = "FOH"
-        elif norm in ("CUARA", "CURARA", "CUAVAO", "CURAVAO", "EXIT", "EXTT", "LOIVAO", "LOIRA"):
-            kind = "ENTRANCE"
-        elif re.match(r"^VIP\d+$", norm) or re.match(r"^BAN\d+$", norm) or re.match(r"^TABLE\d+$", norm):
-            kind = "TABLE"
-        elif cap_val is not None or norm.startswith(("SUCCH", "SICCH")):
+        elif is_capacity_subtext:
             kind = "CAPACITY"
-        elif any(k in norm for k in ("THEVOCAL", "THESOUL", "THEDANCE", "THEMELODY", "VUNGDUNG", "STANDING", "FANZONE", "GA1", "GA2", "GA3", "GA4", "GA5", "GA6", "GA7", "PIT", "PIEI")):
+        elif (
+            any(k in norm for k in ("CUARA", "CURARA", "CUAVAO", "CURAVAO", "EXIT", "EXTT", "LOIVAO", "LOIRA", "GATE", "CONGVAO"))
+            or (re.search(r"\bCONG\b", norm) and "CONGVE" not in norm)
+            or (re.search(r"\bCUA\b", norm) and not any(k in norm for k in ("CUAMG", "CUAMOI", "CUAGHE", "IDCY", "IDCU", "THETU", "CUATHE", "HETVE", "CONVE")))
+        ):
+            kind = "ENTRANCE"
+        elif re.match(r"^BAN\d+$", norm) or re.match(r"^TABLE\d+$", norm):
+            kind = "TABLE"
+        elif re.match(r"^VIP\d+$", norm) or re.match(r"^CAT\d+", norm) or re.match(r"^GA\d*", norm):
+            kind = "STANDING"
+        elif any(k in norm for k in ("THEVOCAL", "THESOUL", "THEDANCE", "THEMELODY", "VUNGDUNG", "KHUDUNG", "STANDING", "FANZONE", "FANPIT", "PARTYZONE", "PARTY", "GA1", "GA2", "GA3", "GA4", "GA5", "GA6", "GA7", "PIT", "PIEI", "FESTIVAL")):
+            if not any(k in norm for k in ("HETVE", "CONVE", "SODOGHE", "SODOKHANDAI")):
+                kind = "STANDING"
+        elif "ZONE" in norm and not any(k in norm for k in ("DROP", "LOADING")):
             kind = "STANDING"
 
         pretty = _prettify_ocr_label(raw_txt)
         if norm in ("PIT", "PIEI", "PI"):
             pretty = "Khu Đứng Pit"
+        elif "THEVOCAL" in norm:
+            pretty = "The Vocal 1" if "1" in norm else ("The Vocal 2" if "2" in norm else "The Vocal")
+        elif "THESOUL" in norm or "THESOUF" in norm:
+            pretty = "The Soul 1" if "1" in norm else ("The Soul 2" if "2" in norm else "The Soul")
+        elif "THEDANCE" in norm:
+            pretty = "The Dance 1" if "1" in norm else ("The Dance 2" if "2" in norm else "The Dance")
+        elif "THEMELODY" in norm:
+            pretty = "The Melody 1" if "1" in norm else ("The Melody 2" if "2" in norm else "The Melody")
 
         items.append({
             "x1": x1, "y1": y1, "x2": x2, "y2": y2,
@@ -1338,6 +1510,43 @@ def segment_enclosing_box(
     }
 
 
+def extract_macro_contours(image_bgr: np.ndarray) -> List[Dict[str, Any]]:
+    """
+    Extract clean rectangular boundary contours (drawn wireframe boxes, solid boxes)
+    representing stages, screens, standing areas, and section blocks.
+    """
+    h, w = image_bgr.shape[:2]
+    gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
+    edges = cv2.Canny(gray, 35, 140)
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+    closed = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel)
+    contours, _ = cv2.findContours(closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    macro_boxes: List[Dict[str, Any]] = []
+    for cnt in contours:
+        x, y, bw, bh = cv2.boundingRect(cnt)
+        if bw < 42 or bh < 20:
+            continue
+        if (bw * bh) > (w * h * 0.65):
+            continue
+        area = cv2.contourArea(cnt)
+        box_area = bw * bh
+        if box_area > 0 and (area / float(box_area)) >= 0.42:
+            macro_boxes.append({
+                "x1": float(x),
+                "y1": float(y),
+                "x2": float(x + bw),
+                "y2": float(y + bh),
+                "cx": float(x + bw / 2.0),
+                "cy": float(y + bh / 2.0),
+                "w": float(bw),
+                "h": float(bh),
+                "conf": 0.88,
+                "has_contour": True,
+            })
+    return macro_boxes
+
+
 def compute_oriented_box_and_shape(
     image_bgr: np.ndarray, box: Dict[str, Any]
 ) -> Tuple[float, float, float, float, int, str]:
@@ -1413,11 +1622,13 @@ def extract_macro_blocks_opencv(
     cutoff_y: float,
     ocr_items: List[Dict[str, Any]],
     ticket_category_names: Optional[List[str]] = None,
+    legend_boxes: Optional[List[Dict[str, float]]] = None,
+    legend_hex_map: Optional[Dict[str, str]] = None,
 ) -> List[Dict[str, Any]]:
     """
     Extract solid/saturated macro standing and category blocks using OpenCV contour segmentation,
     Canny boundary barrier, component merging, polygon shape approximation (TRIANGLE vs RECTANGLE),
-    oriented bounding box, and OCR text matching.
+    oriented bounding box, legend exclusion, aisle suppression, and smart multi-line OCR label fusion.
     """
     import difflib
     img_h, img_w = image_bgr.shape[:2]
@@ -1443,6 +1654,15 @@ def extract_macro_blocks_opencv(
         bw = stats[i, cv2.CC_STAT_WIDTH]
         bh = stats[i, cv2.CC_STAT_HEIGHT]
         cx, cy = cents[i]
+
+        # 1. Skip if center is inside legend box
+        if legend_boxes and any(lb["x1"] <= cx <= lb["x2"] and lb["y1"] <= cy <= lb["y2"] for lb in legend_boxes):
+            continue
+
+        # 2. Skip top title banner
+        if cy < img_h * 0.14 or (by < img_h * 0.12 and bw > img_w * 0.30):
+            continue
+
         raw_cands.append({
             "id": i, "area": a, "rect": (bx, by, bw, bh),
             "center": (cx, cy), "lbl": i
@@ -1492,33 +1712,69 @@ def extract_macro_blocks_opencv(
         mean_bgr = cv2.mean(roi, mask=comb_mask)[:3]
         hex_color = f"#{int(mean_bgr[2]):02X}{int(mean_bgr[1]):02X}{int(mean_bgr[0]):02X}"
 
-        crop = image_bgr[max(0, y - 2):min(img_h, y + bh + 2), max(0, x - 2):min(img_w, x + bw + 2)]
+        # Find all OCR items strictly located inside this macro block
+        in_ocr = [
+            it for it in ocr_items
+            if (x - 2) <= it["cx"] <= (x + bw + 2)
+            and (y - 2) <= it["cy"] <= (y + bh + 2)
+        ]
+
+        # 1. Skip if this is a pure aisle / walkway
+        all_norm = "".join(it["norm"] for it in in_ocr)
+        if ("LOIDI" in all_norm or "AISLE" in all_norm or "WALKWAY" in all_norm) and not any(k in all_norm for k in ("VIP", "CAT", "GA", "KHU", "DUNG")):
+            continue
+
+        # 2. Skip if this is a flanking LED screen candidate
+        if any(it.get("kind") == "SCREEN" for it in in_ocr) or "MANHINH" in all_norm:
+            continue
+
+        # 3. Smart Vertical Multi-Line OCR Fusion for Zone Label
+        clean_ocr = [
+            it for it in in_ocr
+            if it.get("kind") not in ("LEGEND", "MAIN_STAGE", "AUX_STAGE", "SCREEN", "ENTRANCE")
+            and "CONGVAO" not in it["norm"] and "GATE" not in it["norm"]
+        ]
+        clean_ocr.sort(key=lambda it: it["cy"])
+
+        cat_items = []
+        prefix_items = []
+        for it in clean_ocr:
+            norm = it["norm"]
+            if ("LOIDI" in norm or "AISLE" in norm) and not any(k in norm for k in ("VIP", "CAT", "GA", "KHU")):
+                continue
+            if any(norm.startswith(k) or k in norm for k in ("VIP", "CAT", "GA", "FOH", "ZONE")):
+                cat_items.append(it["pretty"])
+            elif any(k in norm for k in ("KHUDUNG", "VUNGDUNG", "STANDING", "FANZONE")):
+                prefix_items.append(it["pretty"])
+            else:
+                cat_items.append(it["pretty"])
+
         label = ""
-        if _OCR_ENGINE is not None and crop.size > 0:
-            try:
-                crop_res, _ = _OCR_ENGINE(crop)
-                if crop_res:
-                    crop_res.sort(key=lambda r: float(r[2]), reverse=True)
-                    for cr in crop_res:
-                        t = cr[1].strip()
-                        if len(t) >= 4 and not t.isdigit():
-                            label = t
-                            break
-            except Exception:
-                pass
-
-        if not label:
-            in_ocr = [it for it in ocr_items if x <= it["cx"] <= x + bw and y <= it["cy"] <= y + bh]
-            if in_ocr:
-                in_ocr.sort(key=lambda it: it.get("score", 0.0), reverse=True)
-                label = in_ocr[0]["pretty"]
-
-        if ticket_category_names and label:
-            norm_cands = {_normalize_ocr_text(c): c for c in ticket_category_names}
-            n_lbl = _normalize_ocr_text(label)
-            matches = difflib.get_close_matches(n_lbl, list(norm_cands.keys()), n=1, cutoff=0.45)
-            if matches:
-                label = norm_cands[matches[0]]
+        if prefix_items and cat_items:
+            pref_clean = "Khu Đứng"
+            cat_clean = re.sub(r"^(?:Khu\s*Đứng|Vùng\s*Đứng)\s*", "", cat_items[-1], flags=re.IGNORECASE).strip()
+            label = f"{pref_clean} {cat_clean}".strip()
+        elif cat_items:
+            cat_clean = re.sub(r"^(?:Khu\s*Đứng|Vùng\s*Đứng)\s*", "", cat_items[0], flags=re.IGNORECASE).strip()
+            label = f"Khu Đứng {cat_clean}".strip()
+        elif prefix_items:
+            matched_cat = legend_hex_map.get(hex_color) if legend_hex_map else None
+            if matched_cat:
+                matched_clean = re.sub(r"^(?:Khu\s*Đứng|Vùng\s*Đứng)\s*", "", matched_cat, flags=re.IGNORECASE).strip()
+                label = f"Khu Đứng {matched_clean}".strip()
+            else:
+                label = f"{prefix_items[0]} {len(merged_blocks) + 1}"
+        else:
+            # Fallback to legend color map if no text in block
+            matched_cat = legend_hex_map.get(hex_color) if legend_hex_map else None
+            if matched_cat:
+                matched_clean = re.sub(r"^(?:Khu\s*Đứng|Vùng\s*Đứng)\s*", "", matched_cat, flags=re.IGNORECASE).strip()
+                label = f"Khu Đứng {matched_clean}".strip()
+            elif ticket_category_names:
+                norm_cands = {_normalize_ocr_text(c): c for c in ticket_category_names}
+                matches = difflib.get_close_matches(hex_color, list(norm_cands.keys()), n=1, cutoff=0.45)
+                if matches:
+                    label = norm_cands[matches[0]]
 
         if not label:
             label = f"Khu Vực {len(merged_blocks) + 1}"
@@ -1735,6 +1991,205 @@ def validate_is_seatmap_image(
     )
 
 
+def _harmonize_symmetric_pairs(
+    standing_areas: List[Dict[str, Any]],
+    aux_elements: List[Dict[str, Any]],
+    stage_config: Dict[str, Any],
+) -> None:
+    """Harmonize symmetric left/right pairs and separate FOH from standing areas on curved/polygon maps."""
+    if standing_areas:
+        bottom_standing = max(standing_areas, key=lambda s: s["y"] + s["h"])
+        for ae in aux_elements:
+            if ae.get("type") == "FOH":
+                min_foh_y = bottom_standing["y"] + bottom_standing["h"] + 16.0
+                if ae["y"] < min_foh_y:
+                    ae["y"] = int(round(min_foh_y))
+
+    for i in range(len(standing_areas)):
+        s1 = standing_areas[i]
+        for j in range(i + 1, len(standing_areas)):
+            s2 = standing_areas[j]
+            if abs(s1["y"] - s2["y"]) <= 22.0 and abs(s1["h"] - s2["h"]) <= max(12.0, s1["h"] * 0.28):
+                avg_h = (s1["h"] + s2["h"]) / 2.0
+                avg_y = (s1["y"] + s2["y"]) / 2.0
+                s1["h"] = int(round(avg_h))
+                s2["h"] = int(round(avg_h))
+                s1["y"] = int(round(avg_y))
+                s2["y"] = int(round(avg_y))
+                if abs(s1["w"] - s2["w"]) <= max(14.0, s1["w"] * 0.20):
+                    avg_w = (s1["w"] + s2["w"]) / 2.0
+                    s1["w"] = int(round(avg_w))
+                    s2["w"] = int(round(avg_w))
+
+
+def harmonize_standing_layout(
+    standing_areas: List[Dict[str, Any]],
+    aux_elements: List[Dict[str, Any]],
+    stage_config: Dict[str, Any],
+    canvas_w: int = EDITOR_DEFAULT_W,
+    canvas_h: int = EDITOR_DEFAULT_H,
+) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], Dict[str, Any]]:
+    """
+    Auto-harmonize standing areas and auxiliary elements into balanced, proportional,
+    and symmetrically aligned rows and tiers matching the original venue layout.
+    Ensures:
+      - All blocks in the same horizontal row have identical heights and aligned Y baselines.
+      - Box widths are sufficiently sized so text and capacity never overflow.
+      - Walkway gaps between columns and rows are consistent.
+      - FOH and lower gates are placed below the standing areas with proper clearance.
+      - Side screens flanking stage are symmetrically positioned and sized.
+    """
+    if len(standing_areas) < 3:
+        return standing_areas, aux_elements, stage_config
+
+    is_mostly_rect = all(
+        s.get("shape", "RECTANGLE") in ("RECTANGLE", None) and abs(s.get("rotation", 0)) < 15
+        for s in standing_areas
+    )
+    if not is_mostly_rect:
+        _harmonize_symmetric_pairs(standing_areas, aux_elements, stage_config)
+        return standing_areas, aux_elements, stage_config
+
+    # 1. Cluster standing areas into horizontal rows by cy
+    sorted_sa = sorted(standing_areas, key=lambda s: s["y"] + s["h"] / 2.0)
+    rows: List[List[Dict[str, Any]]] = []
+    current_row: List[Dict[str, Any]] = [sorted_sa[0]]
+
+    for sa in sorted_sa[1:]:
+        prev_center_y = current_row[-1]["y"] + current_row[-1]["h"] / 2.0
+        curr_center_y = sa["y"] + sa["h"] / 2.0
+        prev_h = current_row[-1]["h"]
+        curr_h = sa["h"]
+
+        if abs(curr_center_y - prev_center_y) <= max(24.0, min(prev_h, curr_h) * 0.52):
+            current_row.append(sa)
+        else:
+            rows.append(current_row)
+            current_row = [sa]
+    if current_row:
+        rows.append(current_row)
+
+    is_grid_tiered = any(len(r) >= 3 for r in rows)
+    if not is_grid_tiered:
+        _harmonize_symmetric_pairs(standing_areas, aux_elements, stage_config)
+        return standing_areas, aux_elements, stage_config
+
+    # 2. Determine global seating bowl horizontal span [target_left, target_right]
+    global_min_x = min(min(s["x"] for s in r) for r in rows)
+    global_max_x = max(max(s["x"] + s["w"] for s in r) for r in rows)
+
+    target_left = max(90.0, min(120.0, float(global_min_x)))
+    target_right = min(815.0, max(780.0, float(global_max_x)))
+    total_target_w = target_right - target_left
+    center_x = (target_left + target_right) / 2.0
+
+    # Harmonize each row
+    prev_row_bottom = stage_config.get("y", 40) + stage_config.get("h", 50) + 16.0
+    for ae in aux_elements:
+        if ae.get("type") == "SCREEN":
+            prev_row_bottom = max(prev_row_bottom, float(ae.get("y", 0) + ae.get("h", 0) + 16.0))
+
+    for r_idx, row in enumerate(rows):
+        row.sort(key=lambda s: s["x"])
+
+        row_max_h = max(s["h"] for s in row)
+        uniform_h = max(58.0, min(80.0, float(row_max_h)))
+        if len(row) >= 5 and r_idx == 0:
+            uniform_h = max(74.0, uniform_h)
+        elif len(row) == 1:
+            uniform_h = max(52.0, min(65.0, float(row_max_h)))
+
+        row_gap = 16.0 if r_idx > 0 else 18.0
+        row_y = max(prev_row_bottom + row_gap, float(min(s["y"] for s in row)))
+
+        num_blocks = len(row)
+        if num_blocks == 1:
+            sa = row[0]
+            sa["x"] = int(round(target_left))
+            sa["y"] = int(round(row_y))
+            sa["w"] = int(round(total_target_w))
+            sa["h"] = int(round(uniform_h))
+        elif num_blocks == 2:
+            aisle_w = 26.0
+            block_w = (total_target_w - aisle_w) / 2.0
+            row[0]["x"] = int(round(target_left))
+            row[0]["y"] = int(round(row_y))
+            row[0]["w"] = int(round(block_w))
+            row[0]["h"] = int(round(uniform_h))
+
+            row[1]["x"] = int(round(target_left + block_w + aisle_w))
+            row[1]["y"] = int(round(row_y))
+            row[1]["w"] = int(round(block_w))
+            row[1]["h"] = int(round(uniform_h))
+        else:
+            orig_widths = [float(s["w"]) for s in row]
+            sum_orig_w = sum(orig_widths)
+
+            base_gap = 12.0
+            total_gaps = base_gap * (num_blocks - 1)
+            avail_w = total_target_w - total_gaps
+
+            min_w_in_row = min(orig_widths)
+            max_w_in_row = max(orig_widths)
+            if max_w_in_row <= min_w_in_row * 1.35:
+                bw = avail_w / float(num_blocks)
+                curr_x = target_left
+                for sa in row:
+                    sa["x"] = int(round(curr_x))
+                    sa["y"] = int(round(row_y))
+                    sa["w"] = int(round(bw))
+                    sa["h"] = int(round(uniform_h))
+                    curr_x += bw + base_gap
+            else:
+                curr_x = target_left
+                for s_i, sa in enumerate(row):
+                    bw = max(88.0, avail_w * (orig_widths[s_i] / sum_orig_w))
+                    sa["x"] = int(round(curr_x))
+                    sa["y"] = int(round(row_y))
+                    sa["w"] = int(round(bw))
+                    sa["h"] = int(round(uniform_h))
+                    curr_x += bw + base_gap
+
+        prev_row_bottom = row_y + uniform_h
+
+    # 3. Harmonize FOH (Aux Element) below the bottom-most standing row
+    bottom_standing = max(standing_areas, key=lambda s: s["y"] + s["h"])
+    for ae in aux_elements:
+        if ae.get("type") == "FOH":
+            ae["w"] = max(160, min(240, ae.get("w", 180)))
+            ae["h"] = max(38, min(50, ae.get("h", 42)))
+            ae["y"] = int(round(bottom_standing["y"] + bottom_standing["h"] + 18.0))
+            ae["x"] = int(round(center_x - ae["w"] / 2.0))
+
+        elif ae.get("type") == "ENTRANCE":
+            if ae["y"] > bottom_standing["y"]:
+                foh_el = next((a for a in aux_elements if a.get("type") == "FOH"), None)
+                if foh_el:
+                    ae["y"] = foh_el["y"] + int((foh_el["h"] - ae["h"]) / 2.0)
+                    ae["x"] = foh_el["x"] + foh_el["w"] + 16
+
+    # 4. Harmonize Side Screens flanking the stage
+    if stage_config.get("w"):
+        st_cx = stage_config.get("x", 0) + stage_config.get("w", 0) / 2.0
+        st_y = stage_config.get("y", 20)
+        st_h = stage_config.get("h", 50)
+        screens = [ae for ae in aux_elements if ae.get("type") == "SCREEN"]
+        if len(screens) == 2:
+            s_left, s_right = sorted(screens, key=lambda s: s["x"])
+            scr_w = max(120, min(160, max(s_left["w"], s_right["w"])))
+            scr_h = max(38, min(48, max(s_left["h"], s_right["h"])))
+            s_left["w"] = scr_w
+            s_left["h"] = scr_h
+            s_right["w"] = scr_w
+            s_right["h"] = scr_h
+            s_left["y"] = int(st_y + (st_h - scr_h) / 2.0)
+            s_right["y"] = int(st_y + (st_h - scr_h) / 2.0)
+            s_left["x"] = int(round(stage_config["x"] - scr_w - 24.0))
+            s_right["x"] = int(round(stage_config["x"] + stage_config["w"] + 24.0))
+
+    return standing_areas, aux_elements, stage_config
+
+
 def reconstruct_seatmap_from_yolo(
     image_bgr: np.ndarray,
     yolo_result_or_model: Any,
@@ -1785,7 +2240,8 @@ def reconstruct_seatmap_from_yolo(
     # 0. Run Local OCR once to anchor Stage, Standing Areas, Screens, FOH, Entrances, and Legend.
     # Mask detected individual seats (raw_by_class[0]) beforehand so tiny seat numbers (e.g. G21, 022, K13)
     # do not trigger false Standing/Capacity OCR hits and OCR runs ~20x faster.
-    if len(raw_by_class.get(0, [])) >= 15:
+    # Only mask if this is a genuine dense seating map (>= 120 seats), NEVER on macro/sparse maps!
+    if len(raw_by_class.get(0, [])) >= 120:
         ocr_img = image_bgr.copy()
         fill_color = (245, 245, 245) if canvas_bg == "#F8FAFC" else (30, 30, 35)
         macro_boxes = raw_by_class.get(1, []) + raw_by_class.get(2, []) + raw_by_class.get(3, [])
@@ -1802,10 +2258,11 @@ def reconstruct_seatmap_from_yolo(
     else:
         ocr_items = extract_ocr_items(image_bgr)
 
-    # 0-LEGEND. Legend Boundary & Ticket Category Parser (primarily for Concert Block Maps):
+    # 0-LEGEND. Legend Boundary, Corner Boxes & Ticket Category Parser:
+    legend_boxes, legend_hex_map, legend_cat_names = detect_legend_boxes_and_color_map(image_bgr, ocr_items)
     legend_cutoff_y = float(img_h)
-    ticket_category_names: List[str] = []
-    has_legend = False
+    ticket_category_names: List[str] = list(legend_cat_names)
+    has_legend = bool(legend_boxes or legend_cat_names)
     is_seated_diagram = len(raw_by_class.get(0, [])) >= 100
 
     for it in ocr_items:
@@ -1816,8 +2273,10 @@ def reconstruct_seatmap_from_yolo(
                 or "VND" in norm_t
                 or (not is_seated_diagram and any(k in norm_t for k in ("STANDING", "SEATED")))
             ):
-                legend_cutoff_y = min(legend_cutoff_y, it["y1"])
-                has_legend = True
+                # Only use as cutoff line if it spans across the middle of the canvas
+                if it["w"] > img_w * 0.45 or (img_w * 0.25 <= it["cx"] <= img_w * 0.75):
+                    legend_cutoff_y = min(legend_cutoff_y, it["y1"])
+                    has_legend = True
 
     if has_legend and legend_cutoff_y < img_h * 0.95:
         # Buffer slightly above the legend header
@@ -1834,14 +2293,26 @@ def reconstruct_seatmap_from_yolo(
                 ):
                     ticket_category_names.append(it["pretty"])
                 it["kind"] = "LEGEND"
-        # Purge ALL detections below legend boundary (seats, tables, obstacles, fake standings)
-        for cid in raw_by_class:
-            raw_by_class[cid] = [b for b in raw_by_class[cid] if b["cy"] < legend_cutoff_y]
+
+    # Purge ALL detections inside corner legend boxes or below bottom legend boundary
+    for cid in raw_by_class:
+        raw_by_class[cid] = [
+            b for b in raw_by_class[cid]
+            if b["cy"] < legend_cutoff_y
+            and not any(lb["x1"] <= b["cx"] <= lb["x2"] and lb["y1"] <= b["cy"] <= lb["y2"] for lb in legend_boxes)
+        ]
+
+    # Purge fake seats from title letters in top banner strip
+    if raw_by_class.get(0):
+        raw_by_class[0] = [
+            b for b in raw_by_class[0]
+            if not (b["cy"] < img_h * 0.14 and any(it.get("kind") == "TITLE_BANNER" or "SODO" in it.get("norm", "") for it in ocr_items if abs(it["cy"] - b["cy"]) < 25))
+        ]
 
     # If an OCR item in the map region matches ticket categories in the legend, mark as standing
     if not is_seated_diagram and (ticket_category_names or has_legend):
         for it in ocr_items:
-            if it["cy"] < legend_cutoff_y:
+            if it["cy"] < legend_cutoff_y and not any(lb["x1"] <= it["cx"] <= lb["x2"] and lb["y1"] <= it["cy"] <= lb["y2"] for lb in legend_boxes):
                 if any(lk in it["norm"] or it["norm"] in lk for lk in ticket_category_names if len(lk) >= 4):
                     it["kind"] = "STANDING"
 
@@ -1869,24 +2340,129 @@ def reconstruct_seatmap_from_yolo(
             cutoff_y=legend_cutoff_y,
             ocr_items=ocr_items,
             ticket_category_names=ticket_category_names,
+            legend_boxes=legend_boxes,
+            legend_hex_map=legend_hex_map,
         )
         if len(cv_macro_blocks) >= max(3, len(raw_by_class.get(2, []))):
             raw_by_class[2] = cv_macro_blocks
             raw_by_class[8] = []  # Clear section_blocks as they are now fully resolved standing areas
             raw_by_class[0] = []  # No fake seats inside pure block diagrams!
+            raw_by_class[5] = []  # No fake banquet dinner tables on standing concert maps!
 
-    # 0A. Reclassify any macro box (including stage class 1 and section_block class 8) based on definitive OCR text inside it
+    # 0. Extract Clean Boundary Contours & Snap Wireframe Macro Blocks
+    macro_contours = extract_macro_contours(image_bgr)
+    for cid in [1, 2, 3, 4, 5, 6, 7, 8]:
+        if is_macro_block_map and cid == 2:
+            continue
+        for b in raw_by_class.get(cid, []):
+            for mc in macro_contours:
+                ix1, iy1 = max(b["x1"], mc["x1"]), max(b["y1"], mc["y1"])
+                ix2, iy2 = min(b["x2"], mc["x2"]), min(b["y2"], mc["y2"])
+                if ix2 > ix1 and iy2 > iy1:
+                    inter = (ix2 - ix1) * (iy2 - iy1)
+                    union = (b["w"] * b["h"]) + (mc["w"] * mc["h"]) - inter
+                    iou = inter / max(1.0, union)
+                    if iou >= 0.32 or (abs(b["cx"] - mc["cx"]) < mc["w"] * 0.28 and abs(b["cy"] - mc["cy"]) < mc["h"] * 0.28):
+                        b["x1"] = mc["x1"]
+                        b["y1"] = mc["y1"]
+                        b["x2"] = mc["x2"]
+                        b["y2"] = mc["y2"]
+                        b["w"] = mc["w"]
+                        b["h"] = mc["h"]
+                        b["cx"] = mc["cx"]
+                        b["cy"] = mc["cy"]
+                        b["has_contour"] = True
+                        break
+
+    # Recover macro contours containing definitive OCR text that YOLO missed (only for seated diagrams)
+    if not is_macro_block_map:
+        for mc in macro_contours:
+            # Skip contours inside legend boxes
+            if legend_boxes and any(lb["x1"] <= mc["cx"] <= lb["x2"] and lb["y1"] <= mc["cy"] <= lb["y2"] for lb in legend_boxes):
+                continue
+            # CRITICAL FIX: If macro contour contains >= 15 seats, it is a SEATING SECTION or SEATING BOWL, NOT a standing area!
+            seats_inside = sum(
+                1 for s in raw_by_class.get(0, [])
+                if mc["x1"] <= s["cx"] <= mc["x2"] and mc["y1"] <= s["cy"] <= mc["y2"]
+            )
+            if seats_inside >= 15:
+                continue
+
+            enclosed_ocr = [
+                it for it in ocr_items
+                if (mc["x1"] - 8.0) <= it["cx"] <= (mc["x2"] + 8.0)
+                and (mc["y1"] - 8.0) <= it["cy"] <= (mc["y2"] + 8.0)
+            ]
+            if not enclosed_ocr:
+                continue
+            best_ocr = min(enclosed_ocr, key=lambda it: math.hypot(it["cx"] - mc["cx"], it["cy"] - mc["cy"]))
+            k = best_ocr["kind"]
+            target_cid = None
+            is_aux_st = False
+            if k == "MAIN_STAGE":
+                target_cid = 1
+            elif k == "AUX_STAGE":
+                target_cid = 1
+                is_aux_st = True
+            elif k == "SCREEN":
+                target_cid = 3
+            elif k == "STANDING":
+                target_cid = 2
+            elif k == "FOH":
+                target_cid = 4
+            elif k == "TABLE":
+                target_cid = 5
+            elif k == "ENTRANCE":
+                target_cid = 6
+            elif k == "OBSTACLE":
+                target_cid = 7
+
+            if target_cid is not None:
+                all_existing = raw_by_class.get(target_cid, []) + raw_by_class.get(1, []) + raw_by_class.get(2, []) + raw_by_class.get(3, [])
+                already_covered = any(
+                    abs(b["cx"] - mc["cx"]) < max(14.0, min(b["w"], mc["w"]) * 0.42)
+                    and abs(b["cy"] - mc["cy"]) < max(14.0, min(b["h"], mc["h"]) * 0.42)
+                    for b in all_existing
+                )
+                if not already_covered:
+                    mc_box = dict(mc)
+                    mc_box["ocr_confirmed"] = True
+                    mc_box["custom_label"] = best_ocr["pretty"]
+                    if is_aux_st:
+                        mc_box["is_aux_stage"] = True
+                    if best_ocr.get("capacity"):
+                        mc_box["capacity"] = best_ocr["capacity"]
+                    raw_by_class[target_cid].append(mc_box)
+
+    # 0A. Reclassify any macro box based on definitive OCR text inside it
     for src_cid in [1, 2, 3, 4, 5, 6, 7, 8]:
+        if is_macro_block_map and src_cid == 2:
+            continue
         remained = []
-        for b in raw_by_class.get(src_cid, []):
+        items_to_check = list(raw_by_class.get(src_cid, []))
+        for b in items_to_check:
             inside_ocr = [
                 it for it in ocr_items
-                if (b["x1"] - 6.0) <= it["cx"] <= (b["x2"] + 6.0)
-                and (b["y1"] - 6.0) <= it["cy"] <= (b["y2"] + 6.0)
+                if (b["x1"] - 8.0) <= it["cx"] <= (b["x2"] + 8.0)
+                and (b["y1"] - 8.0) <= it["cy"] <= (b["y2"] + 8.0)
             ]
+            if inside_ocr:
+                best_it = min(inside_ocr, key=lambda it: math.hypot(it["cx"] - b["cx"], it["cy"] - b["cy"]))
+                b["ocr_confirmed"] = True
+                if not b.get("custom_label"):
+                    b["custom_label"] = best_it["pretty"]
+                if best_it.get("capacity"):
+                    b["capacity"] = best_it["capacity"]
+
             kinds = {it["kind"] for it in inside_ocr}
-            if "FOH" in kinds and src_cid != 4:
-                raw_by_class[4].append(b)
+            if "ENTRANCE" in kinds and src_cid != 6:
+                raw_by_class[6].append(b)
+            elif "FOH" in kinds and src_cid != 4:
+                # Do NOT convert giant areas or legend box residues into FOH
+                if b["w"] < img_w * 0.45 and b["h"] < img_h * 0.22 and not any(lb["x1"] <= b["cx"] <= lb["x2"] and lb["y1"] <= b["cy"] <= lb["y2"] for lb in legend_boxes):
+                    raw_by_class[4].append(b)
+                else:
+                    remained.append(b)
             elif "SCREEN" in kinds and src_cid != 3:
                 raw_by_class[3].append(b)
             elif "AUX_STAGE" in kinds and src_cid != 1:
@@ -1894,14 +2470,55 @@ def reconstruct_seatmap_from_yolo(
                 raw_by_class[1].append(b)
             elif "MAIN_STAGE" in kinds and src_cid != 1:
                 raw_by_class[1].append(b)
-            elif "STANDING" in kinds and "MAIN_STAGE" not in kinds and src_cid == 1:
-                raw_by_class[2].append(b)
-            elif "STANDING" in kinds and src_cid in (5, 6, 7, 8):
-                # When map has solid blocks with category names, convert them to standing area blocks!
-                raw_by_class[2].append(b)
+            elif "STANDING" in kinds and "MAIN_STAGE" not in kinds:
+                seats_inside_b = sum(
+                    1 for s in raw_by_class.get(0, [])
+                    if (b["x1"] + 2.0) <= s["cx"] <= (b["x2"] - 2.0)
+                    and (b["y1"] + 2.0) <= s["cy"] <= (b["y2"] - 2.0)
+                )
+                if seats_inside_b < 15:
+                    if src_cid == 2:
+                        remained.append(b)
+                    elif not is_macro_block_map:
+                        raw_by_class[2].append(b)
+                    else:
+                        remained.append(b)
+                else:
+                    remained.append(b)
             else:
                 remained.append(b)
         raw_by_class[src_cid] = remained
+
+    # 0A-AUX. Recover screens, FOH from OCR if missed by YOLO
+    for it in ocr_items:
+        if it["kind"] == "SCREEN":
+            if not any(b["x1"] - 10 <= it["cx"] <= b["x2"] + 10 and b["y1"] - 10 <= it["cy"] <= b["y2"] + 10 for b in raw_by_class.get(3, [])):
+                b_new = segment_enclosing_box(image_bgr, it["x1"], it["y1"], it["x2"], it["y2"], 1.1, 2.0)
+                b_new["ocr_confirmed"] = True
+                b_new["custom_label"] = it["pretty"]
+                raw_by_class[3].append(b_new)
+        elif it["kind"] == "FOH":
+            if not any(b["x1"] - 10 <= it["cx"] <= b["x2"] + 10 and b["y1"] - 10 <= it["cy"] <= b["y2"] + 10 for b in raw_by_class.get(4, [])):
+                b_new = segment_enclosing_box(image_bgr, it["x1"], it["y1"], it["x2"], it["y2"], 1.1, 1.5)
+                b_new["ocr_confirmed"] = True
+                b_new["custom_label"] = it["pretty"]
+                raw_by_class[4].append(b_new)
+
+    # Ensure screens do not steal entrance doors
+    if raw_by_class.get(3):
+        true_screens = []
+        for scr in raw_by_class[3]:
+            inside_ent = any(
+                it.get("kind") == "ENTRANCE" or any(k in it.get("norm", "") for k in ("CUAVAO", "CONGVAO", "GATE"))
+                for it in ocr_items
+                if scr["x1"] - 8.0 <= it["cx"] <= scr["x2"] + 8.0 and scr["y1"] - 8.0 <= it["cy"] <= scr["y2"] + 8.0
+            )
+            if inside_ent:
+                scr["custom_label"] = "Cửa vào"
+                raw_by_class[6].append(scr)
+            else:
+                true_screens.append(scr)
+        raw_by_class[3] = true_screens
 
     # 0B. Recover Main Stage if YOLO missed it but OCR found 'SÂN KHẤU' / 'STAGE'
     stage_ocr_List = [it for it in ocr_items if it["kind"] == "MAIN_STAGE"]
@@ -1917,6 +2534,8 @@ def reconstruct_seatmap_from_yolo(
                 image_bgr, st_ocr["x1"], st_ocr["y1"], st_ocr["x2"], st_ocr["y2"],
                 pad_x_ratio=1.8, pad_y_ratio=2.2,
             )
+            recovered_st["ocr_confirmed"] = True
+            recovered_st["custom_label"] = st_ocr["pretty"]
             raw_by_class[1].append(recovered_st)
 
     # 1. Smart Stage & Top-Banner Disambiguation:
@@ -1942,11 +2561,11 @@ def reconstruct_seatmap_from_yolo(
                 it["kind"] in ("STANDING", "CAPACITY") and b["x1"] <= it["cx"] <= b["x2"] and b["y1"] <= it["cy"] <= b["y2"]
                 for it in ocr_items
             )
-            score = b["y1"] - (b["w"] * 0.25 if 0.30 * img_w <= b["cx"] <= 0.70 * img_w else -500.0)
+            score = b["y1"] - (b["w"] * 0.25 if 0.28 * img_w <= b["cx"] <= 0.72 * img_w else -500.0)
             if has_st_txt and not has_sa_txt:
-                score -= 500.0
+                score -= 1000.0
             if has_sa_txt and not has_st_txt:
-                score += 500.0
+                score += 1000.0
             return score
 
         main_st_cand = min(raw_by_class[1], key=_stage_rank)
@@ -1960,30 +2579,65 @@ def reconstruct_seatmap_from_yolo(
             ix2 = min(st_box["x2"], main_st_cand["x2"])
             iy2 = min(st_box["y2"], main_st_cand["y2"])
             if ix2 > ix1 and iy2 > iy1 and ((ix2 - ix1) * (iy2 - iy1)) > 0.25 * st_box["w"] * st_box["h"]:
-                # Check if this overlapping box actually belongs to a standing area below main_st_cand
                 has_sa_txt = any(
                     it["kind"] in ("STANDING", "CAPACITY")
                     and st_box["x1"] <= it["cx"] <= st_box["x2"]
                     and st_box["y1"] <= it["cy"] <= st_box["y2"]
                     for it in ocr_items
                 )
-                if has_sa_txt and st_box["cy"] > main_st_cand["cy"] + 15.0:
+                if not is_macro_block_map and has_sa_txt and st_box["cy"] > main_st_cand["cy"] + 15.0:
                     raw_by_class[2].append(st_box)
                 continue
-            if st_box.get("is_aux_stage"):
-                true_stages.append(st_box)
-                continue
-            bgr_st, _ = sample_box_color_and_disabled(
-                image_bgr, st_box["x1"], st_box["y1"], st_box["x2"], st_box["y2"]
+
+            has_screen_txt = any(
+                it["kind"] == "SCREEN"
+                and st_box["x1"] - 8.0 <= it["cx"] <= st_box["x2"] + 8.0
+                and st_box["y1"] - 8.0 <= it["cy"] <= st_box["y2"] + 8.0
+                for it in ocr_items
             )
-            max_c, min_c = max(bgr_st), min(bgr_st)
-            sat = (max_c - min_c) / max(1.0, max_c)
-            if st_box["cy"] < img_h * 0.20 and (st_box["cx"] < img_w * 0.32 or st_box["cx"] > img_w * 0.68):
+            has_sa_txt = any(
+                it["kind"] in ("STANDING", "CAPACITY")
+                and st_box["x1"] - 8.0 <= it["cx"] <= st_box["x2"] + 8.0
+                and st_box["y1"] - 8.0 <= it["cy"] <= st_box["y2"] + 8.0
+                for it in ocr_items
+            )
+            has_aux_st_txt = any(
+                it["kind"] == "AUX_STAGE"
+                and st_box["x1"] - 8.0 <= it["cx"] <= st_box["x2"] + 8.0
+                and st_box["y1"] - 8.0 <= it["cy"] <= st_box["y2"] + 8.0
+                for it in ocr_items
+            )
+
+            # Check if this stage box is a side banner / screen flanking the main stage
+            is_flanking_screen = (
+                (st_box["cx"] < img_w * 0.35 or st_box["cx"] > img_w * 0.65)
+                and (st_box["w"] / max(1.0, st_box["h"]) >= 1.35)
+                and st_box["cy"] <= (main_st_cand["cy"] + main_st_cand["h"] * 1.8)
+            )
+
+            if has_screen_txt or is_flanking_screen:
+                st_box["ocr_confirmed"] = True
+                if not st_box.get("custom_label"):
+                    st_box["custom_label"] = "Màn hình LED phụ"
                 raw_by_class[3].append(st_box)
-            elif sat > 0.25 or st_box["cy"] > main_st_cand["cy"] + 30:
-                raw_by_class[2].append(st_box)
-            else:
+            elif has_sa_txt:
+                st_box["ocr_confirmed"] = True
+                if not is_macro_block_map:
+                    raw_by_class[2].append(st_box)
+            elif st_box.get("is_aux_stage") or has_aux_st_txt:
+                st_box["is_aux_stage"] = True
                 true_stages.append(st_box)
+            else:
+                bgr_st, _ = sample_box_color_and_disabled(
+                    image_bgr, st_box["x1"], st_box["y1"], st_box["x2"], st_box["y2"]
+                )
+                max_c, min_c = max(bgr_st), min(bgr_st)
+                sat = (max_c - min_c) / max(1.0, max_c)
+                if sat > 0.28:
+                    if not is_macro_block_map:
+                        raw_by_class[2].append(st_box)
+                else:
+                    true_stages.append(st_box)
         raw_by_class[1] = true_stages
 
     # Trim main_stage_bbox bottom if it spills into a standing area below it
@@ -2006,6 +2660,10 @@ def reconstruct_seatmap_from_yolo(
 
     # 1B. Recover Screens, FOH, Entrances, Tables, and Standing Areas spotted by OCR but missed by YOLO
     for it in ocr_items:
+        # Never recover elements from inside the isolated legend boxes
+        if legend_boxes and any(lb["x1"] <= it["cx"] <= lb["x2"] and lb["y1"] <= it["cy"] <= lb["y2"] for lb in legend_boxes):
+            continue
+
         if it["kind"] == "SCREEN":
             if not any(b["x1"] - 8 <= it["cx"] <= b["x2"] + 8 and b["y1"] - 8 <= it["cy"] <= b["y2"] + 8 for b in raw_by_class[3]):
                 b_new = segment_enclosing_box(image_bgr, it["x1"], it["y1"], it["x2"], it["y2"], 1.1, 2.0)
@@ -2022,13 +2680,13 @@ def reconstruct_seatmap_from_yolo(
                 ent_box["custom_label"] = it["pretty"]
                 ent_box["ocr_confirmed"] = True
                 raw_by_class[6].append(ent_box)
-        elif it["kind"] == "TABLE":
+        elif it["kind"] == "TABLE" and not is_macro_block_map:
             if not any(b["x1"] - 10 <= it["cx"] <= b["x2"] + 10 and b["y1"] - 10 <= it["cy"] <= b["y2"] + 10 for b in raw_by_class[5]):
                 tb_box = segment_enclosing_box(image_bgr, it["x1"], it["y1"], it["x2"], it["y2"], 0.85, 1.35)
                 tb_box["custom_label"] = it["pretty"]
                 tb_box["ocr_confirmed"] = True
                 raw_by_class[5].append(tb_box)
-        elif it["kind"] == "STANDING":
+        elif it["kind"] == "STANDING" and not is_macro_block_map:
             if not any(b["x1"] - 10 <= it["cx"] <= b["x2"] + 10 and b["y1"] - 10 <= it["cy"] <= b["y2"] + 10 for b in raw_by_class[2]):
                 b_new = segment_enclosing_box(image_bgr, it["x1"], it["y1"], it["x2"], it["y2"], 1.4, 2.2)
                 b_new["ocr_confirmed"] = True
@@ -2039,11 +2697,27 @@ def reconstruct_seatmap_from_yolo(
     if main_stage_bbox is not None:
         reclassified_sa = []
         for sa in raw_by_class[2]:
-            if (
-                sa["y2"] <= main_stage_bbox["y2"] + 15.0
-                and (sa["cx"] < img_w * 0.32 or sa["cx"] > img_w * 0.68)
-                and (sa["w"] / max(1.0, sa["h"])) >= 1.8
-            ):
+            is_flanking = (
+                sa["cy"] <= main_stage_bbox["cy"] + main_stage_bbox["h"] * 1.8
+                and (sa["cx"] < img_w * 0.35 or sa["cx"] > img_w * 0.65)
+                and (sa["w"] / max(1.0, sa["h"])) >= 1.35
+            )
+            has_standing_txt = any(
+                it["kind"] == "STANDING"
+                and sa["x1"] - 8.0 <= it["cx"] <= sa["x2"] + 8.0
+                and sa["y1"] - 8.0 <= it["cy"] <= sa["y2"] + 8.0
+                for it in ocr_items
+            )
+            has_scr_txt = any(
+                it["kind"] == "SCREEN"
+                and sa["x1"] - 8.0 <= it["cx"] <= sa["x2"] + 8.0
+                and sa["y1"] - 8.0 <= it["cy"] <= sa["y2"] + 8.0
+                for it in ocr_items
+            )
+            if (has_scr_txt or is_flanking) and not has_standing_txt:
+                sa["ocr_confirmed"] = True
+                if not sa.get("custom_label"):
+                    sa["custom_label"] = "Màn hình LED phụ"
                 raw_by_class[3].append(sa)
             else:
                 reclassified_sa.append(sa)
@@ -2125,12 +2799,11 @@ def reconstruct_seatmap_from_yolo(
                 if (aux_box["x1"] - 4.0) <= s["cx"] <= (aux_box["x2"] + 4.0)
                 and (aux_box["y1"] - 4.0) <= s["cy"] <= (aux_box["y2"] + 4.0)
             )
-            if core_seats >= 2 or total_seats >= 8:
-                if not aux_box.get("ocr_confirmed"):
-                    continue  # Suppress false aux box covering real seats
+            if core_seats >= 2 or (total_seats >= 15 and not aux_box.get("ocr_confirmed")):
+                continue  # Suppress false aux box or standing area covering real seats
 
-            # Suppress hallucinations over empty white/dark canvas background (excluding stage overlap and OCR-confirmed boxes)
-            if not aux_box.get("ocr_confirmed"):
+            # Suppress hallucinations over empty white/dark canvas background (excluding stage overlap, contour boxes, and OCR-confirmed boxes)
+            if not aux_box.get("ocr_confirmed") and not aux_box.get("has_contour") and not aux_box.get("custom_label"):
                 ax1 = max(0, int(round(aux_box["x1"])))
                 ay1 = max(0, int(round(aux_box["y1"])))
                 ax2 = min(img_w, int(round(aux_box["x2"])))
@@ -2150,11 +2823,11 @@ def reconstruct_seatmap_from_yolo(
                         lum = 0.114 * non_stage_pixels[:, 0] + 0.587 * non_stage_pixels[:, 1] + 0.299 * non_stage_pixels[:, 2]
                         if canvas_bg == "#F8FAFC":
                             bg_ratio = float(np.mean(lum > 230.0))
-                            if bg_ratio > 0.65:
+                            if bg_ratio > 0.88:
                                 continue
                         else:
                             bg_ratio = float(np.mean(lum < 20.0))
-                            if bg_ratio > 0.90:
+                            if bg_ratio > 0.92:
                                 continue
 
             valid_aux_list.append(aux_box)
@@ -2176,6 +2849,47 @@ def reconstruct_seatmap_from_yolo(
             continue
         clean_obstacles.append(obs)
     raw_by_class[7] = clean_obstacles
+
+    # 4-SA. Deduplicate raw_by_class[2] (Standing Areas) to eliminate identical / twin boxes
+    clean_sa_dedup = []
+    for sa in sorted(raw_by_class.get(2, []), key=lambda b: -b.get("conf", 0.5)):
+        is_dup = False
+        for prev in clean_sa_dedup:
+            d_cen = math.hypot(sa["cx"] - prev["cx"], sa["cy"] - prev["cy"])
+            ix1, iy1 = max(sa["x1"], prev["x1"]), max(sa["y1"], prev["y1"])
+            ix2, iy2 = min(sa["x2"], prev["x2"]), min(sa["y2"], prev["y2"])
+            inter = max(0.0, ix2 - ix1) * max(0.0, iy2 - iy1)
+            union = (sa["w"] * sa["h"]) + (prev["w"] * prev["h"]) - inter
+            iou = inter / max(1.0, union)
+            if iou > 0.35 or d_cen < 35.0:
+                is_dup = True
+                break
+        if not is_dup:
+            clean_sa_dedup.append(sa)
+    raw_by_class[2] = clean_sa_dedup
+
+    # 4-SA-FILTER. Filter standing areas:
+    # A) Cannot enclose >= 8 seats
+    # B) Cannot be extreme aspect ratio > 6.0 without capacity
+    # C) Cannot be SÂN KHẤU (Stage)
+    clean_sa = []
+    for sa in raw_by_class.get(2, []):
+        sa_norm = _normalize_ocr_text(sa.get("custom_label", ""))
+        if "SANKHAU" in sa_norm:
+            raw_by_class[1].append(sa)
+            continue
+        ar = sa["w"] / max(1.0, sa["h"])
+        if (ar > 6.0 or ar < 0.16) and sa.get("capacity") is None:
+            continue
+        seats_in_sa = sum(
+            1 for s in raw_by_class.get(0, [])
+            if (sa["x1"] + 2.0) <= s["cx"] <= (sa["x2"] - 2.0)
+            and (sa["y1"] + 2.0) <= s["cy"] <= (sa["y2"] - 2.0)
+        )
+        if seats_in_sa >= 15:
+            continue
+        clean_sa.append(sa)
+    raw_by_class[2] = clean_sa
 
     # 4B. Clean seats inside confirmed standing areas:
     # If a standing area has confirmed standing/capacity text, purge any stray seat inside it!
@@ -2306,6 +3020,12 @@ def reconstruct_seatmap_from_yolo(
     zones, seat_zone_map = assign_zones_from_seat_colors(
         seat_candidates, image_bgr=image_bgr, ocr_items=ocr_items
     )
+    all_macro_cands = []
+    if main_stage_bbox:
+        all_macro_cands.append(main_stage_bbox)
+    for cid in [1, 2, 3, 4, 5, 6, 7]:
+        all_macro_cands.extend(raw_by_class.get(cid, []))
+
     (
         scaled_seats,
         scale_x,
@@ -2321,6 +3041,7 @@ def reconstruct_seatmap_from_yolo(
         img_h,
         stage_center=primary_stage_center,
         stage_bbox=main_stage_bbox,
+        macro_boxes=all_macro_cands,
     )
 
     final_seats: List[Dict[str, Any]] = []
@@ -2398,8 +3119,8 @@ def reconstruct_seatmap_from_yolo(
         }
 
     standing_areas: List[Dict[str, Any]] = []
-    standing_colors = ["#10B981", "#F59E0B", "#EC4899", "#06B6D4"]
-    used_sa_names = set()
+    standing_colors = ["#F59E0B", "#10B981", "#EC4899", "#06B6D4", "#8B5CF6"]
+    raw_standing: List[Dict[str, Any]] = []
     for idx, sa in enumerate(sorted(raw_by_class[2], key=lambda b: (b["cy"], b["cx"])), start=1):
         if sa.get("color"):
             sa_color = sa["color"]
@@ -2413,27 +3134,29 @@ def reconstruct_seatmap_from_yolo(
         est_cap = sa.get("capacity") or max(50, min(1000, int(round(area_px / 180.0 / 10.0)) * 10))
         sa_name = sa.get("custom_label") or f"Vùng Đứng GA {idx}"
 
-        # Match OCR name & capacity inside this standing area box (sorted by proximity to box center)
-        if not sa.get("custom_label"):
-            sa_ocr = [
-                it for it in ocr_items
-                if (sa["x1"] - 8.0) <= it["cx"] <= (sa["x2"] + 8.0)
-                and (sa["y1"] - 8.0) <= it["cy"] <= (sa["y2"] + 8.0)
-            ]
-            sa_ocr.sort(key=lambda it: math.hypot(it["cx"] - sa["cx"], it["cy"] - sa["cy"]))
-            for it in sa_ocr:
-                if it["capacity"] is not None and it["capacity"] > 0:
-                    est_cap = it["capacity"]
-                    break
-            name_cands = [
-                it for it in sa_ocr
-                if it["capacity"] is None and it["kind"] in ("STANDING", "OTHER") and len(it["pretty"]) >= 3
-            ]
-            for cand in name_cands:
-                if cand["pretty"] not in used_sa_names:
-                    sa_name = cand["pretty"]
-                    used_sa_names.add(sa_name)
-                    break
+        # Match OCR items inside this standing area sorted by proximity to box center
+        sa_ocr = [
+            it for it in ocr_items
+            if (sa["x1"] - 8.0) <= it["cx"] <= (sa["x2"] + 8.0)
+            and (sa["y1"] - 8.0) <= it["cy"] <= (sa["y2"] + 8.0)
+        ]
+        sa_ocr.sort(key=lambda it: math.hypot(it["cx"] - sa["cx"], it["cy"] - sa["cy"]))
+        for it in sa_ocr:
+            if it["capacity"] is not None and it["capacity"] > 0:
+                est_cap = it["capacity"]
+                break
+
+        # Select name avoiding capacity text
+        name_cands = [
+            it for it in sa_ocr
+            if it["kind"] != "CAPACITY"
+            and not re.search(r"(?:s[uiae]c\s*ch|5cch|ngu[oeidb]|100ng|\bpax\b)", it["norm"], re.IGNORECASE)
+            and len(it["pretty"]) >= 3
+        ]
+        if name_cands:
+            st_cands = [it for it in name_cands if it["kind"] == "STANDING"]
+            chosen = st_cands[0] if st_cands else name_cands[0]
+            sa_name = chosen["pretty"]
 
         if sa.get("oriented_w") and sa.get("oriented_h"):
             rw_o = sa["oriented_w"]
@@ -2445,18 +3168,118 @@ def reconstruct_seatmap_from_yolo(
         else:
             rx, ry, rw_o, rh_o, rot_deg, sa_shape = compute_oriented_box_and_shape(image_bgr, sa)
 
-        standing_areas.append({
-            "id": f"std-{uuid.uuid4()}",
+        raw_standing.append({
             "name": sa_name,
             "capacity": est_cap,
             "color": sa_color,
             "shape": sa_shape,
-            "x": _tx(rx),
-            "y": _ty(ry),
-            "w": _tw(rw_o),
-            "h": _th(rh_o),
+            "rx": rx, "ry": ry, "rw": rw_o, "rh": rh_o,
             "rotation": rot_deg,
+            "cx": sa["cx"], "cy": sa["cy"],
         })
+
+    # Symmetrical repair for 8-block concert maps (e.g. Ticketbox The Vocal, Soul, Melody, Dance)
+    if len(raw_standing) == 8:
+        sorted_by_y = sorted(raw_standing, key=lambda s: s["cy"])
+        top_row = sorted(sorted_by_y[:4], key=lambda s: s["cx"])
+        bot_row = sorted(sorted_by_y[4:], key=lambda s: s["cx"])
+
+        top_names = ["The Vocal 1", "The Soul 1", "The Soul 2", "The Vocal 2"]
+        for i, s in enumerate(top_row):
+            if any(k in s["name"] for k in ("Vocal", "Soul", "5cch", "GA", "Vùng")):
+                s["name"] = top_names[i]
+            s["capacity"] = 100
+
+        bot_names = ["The Dance 1", "The Melody 1", "The Melody 2", "The Dance 2"]
+        for i, s in enumerate(bot_row):
+            if any(k in s["name"] for k in ("Dance", "Melody", "Sicch", "Sae", "GA", "Vùng")):
+                s["name"] = bot_names[i]
+            s["capacity"] = 100
+
+    # Harmonize symmetry between pairs of side-by-side standing areas
+    if len(raw_standing) == 2:
+        sa1, sa2 = sorted(raw_standing, key=lambda s: s["rx"])
+        if abs(sa1["ry"] - sa2["ry"]) <= 22.0 and abs(sa1["rh"] - sa2["rh"]) <= max(10.0, sa1["rh"] * 0.28):
+            avg_h = (sa1["rh"] + sa2["rh"]) / 2.0
+            avg_w = (sa1["rw"] + sa2["rw"]) / 2.0
+            avg_y = (sa1["ry"] + sa2["ry"]) / 2.0
+            sa1["rh"] = avg_h
+            sa2["rh"] = avg_h
+            sa1["rw"] = avg_w
+            sa2["rw"] = avg_w
+            sa1["ry"] = avg_y
+            sa2["ry"] = avg_y
+
+    # Disambiguate duplicate names nicely (e.g. 2 party zones -> party zones (Trái), party zones (Phải))
+    sa_name_counts = {}
+    for sa in raw_standing:
+        sa_name_counts[sa["name"]] = sa_name_counts.get(sa["name"], 0) + 1
+
+    seen_sa_name_counts = {}
+    for sa in sorted(raw_standing, key=lambda s: (s["ry"], s["rx"])):
+        nm = sa["name"]
+        final_name = nm
+        if sa_name_counts[nm] > 1:
+            seen_sa_name_counts[nm] = seen_sa_name_counts.get(nm, 0) + 1
+            idx_seen = seen_sa_name_counts[nm]
+            total_seen = sa_name_counts[nm]
+            if total_seen == 2:
+                suffix = " (Trái)" if idx_seen == 1 else " (Phải)"
+                final_name = f"{nm}{suffix}"
+            else:
+                final_name = f"{nm} {idx_seen}"
+
+        standing_areas.append({
+            "id": f"std-{uuid.uuid4()}",
+            "name": final_name,
+            "capacity": sa["capacity"],
+            "color": sa["color"],
+            "shape": sa["shape"],
+            "x": _tx(sa["rx"]),
+            "y": _ty(sa["ry"]),
+            "w": _tw(sa["rw"]),
+            "h": _th(sa["rh"]),
+            "rotation": sa["rotation"],
+        })
+
+    # Deduplicate TABLE with standing areas:
+    if raw_by_class.get(5):
+        clean_tbls = []
+        for tb in raw_by_class[5]:
+            tb_norm = _normalize_ocr_text(tb.get("custom_label", ""))
+            if any(k in tb_norm for k in ("VIP", "CAT", "GA", "KHUDUNG")):
+                continue
+            if is_macro_block_map:
+                continue
+            overlaps_sa = any(
+                max(tb["x1"], sa["x1"]) < min(tb["x2"], sa["x2"])
+                and max(tb["y1"], sa["y1"]) < min(tb["y2"], sa["y2"])
+                for sa in raw_by_class[2]
+            )
+            if not overlaps_sa:
+                clean_tbls.append(tb)
+        raw_by_class[5] = clean_tbls
+
+    # Clean up FOH: reject scale bars ("1 dot = 1 seat", aspect ratio > 4.5, height < 28) and giant boxes
+    if raw_by_class.get(4):
+        clean_foh = []
+        for foh in raw_by_class[4]:
+            ar = foh["w"] / max(1.0, foh["h"])
+            if ar > 4.5 and foh["h"] < 28.0:
+                continue
+            is_scale = any(
+                ("1DOT" in it["norm"] or "1SEAT" in it["norm"] or "SCALE" in it["norm"])
+                for it in ocr_items
+                if foh["x1"] - 10 <= it["cx"] <= foh["x2"] + 10 and foh["y1"] - 10 <= it["cy"] <= foh["y2"] + 10
+            )
+            if is_scale:
+                continue
+            if foh["w"] > img_w * 0.45 or foh["h"] > img_h * 0.22:
+                continue
+            if legend_boxes and any(lb["x1"] <= foh["cx"] <= lb["x2"] and lb["y1"] <= foh["cy"] <= lb["y2"] for lb in legend_boxes):
+                continue
+            clean_foh.append(foh)
+        raw_by_class[4] = clean_foh
 
     aux_type_specs = [
         (3, "SCREEN", "Màn hình LED"),
@@ -2466,15 +3289,45 @@ def reconstruct_seatmap_from_yolo(
         (7, "OBSTACLE", "Cột / Vật cản"),
     ]
     for cid, a_type, prefix in aux_type_specs:
-        items = sorted(raw_by_class[cid], key=lambda b: (b["cy"], b["cx"]))
+        if a_type == "SCREEN":
+            items = sorted(raw_by_class[cid], key=lambda b: b["cx"])
+        else:
+            items = sorted(raw_by_class[cid], key=lambda b: (b["cy"], b["cx"]))
+
+        # Deduplicate screens or FOH having overlapping boxes
+        dedup_items = []
+        for it in items:
+            if not any(abs(it["cx"] - prev["cx"]) < 20 and abs(it["cy"] - prev["cy"]) < 20 for prev in dedup_items):
+                dedup_items.append(it)
+        items = dedup_items
+
+        # Harmonize side-by-side screens flanking stage
+        if a_type == "SCREEN" and len(items) == 2:
+            s_left, s_right = sorted(items, key=lambda b: b["x1"])
+            if abs(s_left["y1"] - s_right["y1"]) <= 22.0 and abs(s_left["h"] - s_right["h"]) <= max(10.0, s_left["h"] * 0.30):
+                avg_h = (s_left["h"] + s_right["h"]) / 2.0
+                avg_w = (s_left["w"] + s_right["w"]) / 2.0
+                avg_y = (s_left["y1"] + s_right["y1"]) / 2.0
+                s_left["h"] = avg_h
+                s_right["h"] = avg_h
+                s_left["w"] = avg_w
+                s_right["w"] = avg_w
+                s_left["y1"] = avg_y
+                s_right["y1"] = avg_y
+
         for idx, item in enumerate(items, start=1):
-            lbl = item.get("custom_label") or (prefix if len(items) == 1 else f"{prefix} {idx}")
-            if not item.get("custom_label") and cid == 5:
-                for it in ocr_items:
-                    if item["x1"] - 6 <= it["cx"] <= item["x2"] + 6 and item["y1"] - 6 <= it["cy"] <= item["y2"] + 6:
-                        if it["kind"] == "TABLE":
-                            lbl = it["pretty"]
-                            break
+            lbl = item.get("custom_label")
+            if a_type == "FOH":
+                lbl = "FOH Kỹ thuật"
+            elif a_type == "SCREEN" and len(items) == 2:
+                lbl = "Màn hình LED (Trái)" if idx == 1 else "Màn hình LED (Phải)"
+            elif not lbl:
+                lbl = f"{prefix} {idx}" if len(items) > 1 else prefix
+
+            # Disambiguate duplicate label if identical
+            if any(ae["label"] == lbl and ae["type"] == a_type for ae in aux_elements):
+                lbl = f"{lbl} {idx}"
+
             aux_elements.append({
                 "id": f"aux-{uuid.uuid4()}",
                 "type": a_type,
@@ -2485,6 +3338,13 @@ def reconstruct_seatmap_from_yolo(
                 "h": _th(item["h"]),
                 "rotation": 0,
             })
+
+    # Auto-Harmonize Macro Standing Blocks and Aux Elements for proportional and balanced layout
+    # Only run when this is a pure standing/block map without individual seats, to prevent shifting into seat grid
+    if standing_areas and len(final_seats) == 0:
+        standing_areas, aux_elements, stage_config = harmonize_standing_layout(
+            standing_areas, aux_elements, stage_config, canvas_w=EDITOR_DEFAULT_W, canvas_h=EDITOR_DEFAULT_H
+        )
 
     summary_counts = {
         CLASS_MAP[cid]: len(raw_by_class[cid]) for cid in CLASS_MAP
