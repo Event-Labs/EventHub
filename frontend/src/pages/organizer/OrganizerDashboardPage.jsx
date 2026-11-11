@@ -58,7 +58,7 @@ const getAutoLocale = () =>
     : 'vi-VN'
 
 function fmtCurrency(n) {
-  return new Intl.NumberFormat(getAutoLocale(), { style: 'currency', currency: 'VND' }).format(Number(n) || 0)
+  return `${new Intl.NumberFormat(getAutoLocale()).format(Number(n) || 0)} VNĐ`
 }
 
 function fmtShort(n) {

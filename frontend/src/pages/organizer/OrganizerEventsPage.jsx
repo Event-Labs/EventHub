@@ -171,9 +171,9 @@ function PublishConfirmModal({ event, onConfirm, onClose, loading }) {
             <Globe className="size-5 text-success" />
           </span>
           <div>
-            <h3 className="text-xl font-black text-white">Xác nhận xuất bản</h3>
+            <h3 className="text-xl font-black text-white">{isEnglish ? 'Confirm Publication' : 'Xác nhận xuất bản'}</h3>
             <p className="mt-1 text-sm text-slate-300">
-              Sự kiện sẽ hiển thị công khai ngay sau khi xuất bản.
+              {isEnglish ? 'The event will be publicly visible immediately after publishing.' : 'Sự kiện sẽ hiển thị công khai ngay sau khi xuất bản.'}
             </p>
           </div>
         </div>
@@ -189,9 +189,9 @@ function PublishConfirmModal({ event, onConfirm, onClose, loading }) {
         {/* Info note */}
         <div className="mt-4 rounded-xl border border-tertiary/30 bg-tertiary/[0.08] p-3 text-xs text-primary">
           <ul className="list-inside list-disc space-y-1">
-            <li>Sự kiện sẽ xuất hiện trong danh sách tìm kiếm và trang chủ.</li>
-            <li>Người dùng có thể mua vé ngay sau khi xuất bản.</li>
-            <li>Bạn vẫn có thể chỉnh sửa thông tin sau khi xuất bản.</li>
+            <li>{isEnglish ? 'The event will appear in search results and homepage.' : 'Sự kiện sẽ xuất hiện trong danh sách tìm kiếm và trang chủ.'}</li>
+            <li>{isEnglish ? 'Attendees can purchase tickets immediately after publishing.' : 'Người dùng có thể mua vé ngay sau khi xuất bản.'}</li>
+            <li>{isEnglish ? 'You can still edit event details after publishing.' : 'Bạn vẫn có thể chỉnh sửa thông tin sau khi xuất bản.'}</li>
           </ul>
         </div>
 
@@ -203,7 +203,7 @@ function PublishConfirmModal({ event, onConfirm, onClose, loading }) {
             disabled={loading}
             className="flex-1 rounded-xl border border-border-soft/40 bg-panel-soft px-4 py-2.5 text-sm font-semibold text-subtle transition hover:border-border-soft hover:text-content disabled:opacity-50"
           >
-            Để sau
+            {isEnglish ? 'Later' : 'Để sau'}
           </button>
           <button
             type="button"
@@ -214,10 +214,10 @@ function PublishConfirmModal({ event, onConfirm, onClose, loading }) {
             {loading ? (
               <span className="flex items-center justify-center gap-2">
                 <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#0D1B2A] border-t-transparent" />
-                Đang xuất bản...
+                {isEnglish ? 'Publishing...' : 'Đang xuất bản...'}
               </span>
             ) : (
-              'Xuất bản ngay'
+              isEnglish ? 'Publish Now' : 'Xuất bản ngay'
             )}
           </button>
         </div>
@@ -269,12 +269,18 @@ function CancelOrRequestCancelModal({ event, onConfirm, onClose, loading, error 
           </span>
           <div>
             <h3 className="text-xl font-black text-white">
-              {hasPaidOrders ? 'Gửi yêu cầu hủy sự kiện' : 'Xác nhận hủy sự kiện'}
+              {hasPaidOrders
+                ? (isEnglish ? 'Request Event Cancellation' : 'Gửi yêu cầu hủy sự kiện')
+                : (isEnglish ? 'Confirm Event Cancellation' : 'Xác nhận hủy sự kiện')}
             </h3>
             <p className="mt-1 text-xs text-slate-300">
               {hasPaidOrders
-                ? 'Sự kiện đã phát sinh đơn hàng. Cần gửi yêu cầu và cam kết hoàn tiền để Admin phê duyệt.'
-                : 'Sự kiện chưa bán được vé nào. Bạn có thể hủy trực tiếp ngay lập tức.'}
+                ? (isEnglish
+                    ? 'Orders have been placed for this event. You must submit a request and refund commitment for Admin approval.'
+                    : 'Sự kiện đã phát sinh đơn hàng. Cần gửi yêu cầu và cam kết hoàn tiền để Admin phê duyệt.')
+                : (isEnglish
+                    ? 'No tickets sold yet. You can cancel immediately.'
+                    : 'Sự kiện chưa bán được vé nào. Bạn có thể hủy trực tiếp ngay lập tức.')}
             </p>
           </div>
         </div>
@@ -301,15 +307,19 @@ function CancelOrRequestCancelModal({ event, onConfirm, onClose, loading, error 
               {/* Reason Code */}
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Nhóm lý do hủy <span className="text-rose-400">*</span>
+                  {isEnglish ? 'Cancellation Reason Category' : 'Nhóm lý do hủy'} <span className="text-rose-400">*</span>
                 </label>
                 <select
                   value={reasonCode}
                   onChange={(e) => setReasonCode(e.target.value)}
                   className="w-full rounded-xl border border-white/15 bg-[#121c38] px-3 py-2 text-sm text-white outline-none focus:border-primary"
                 >
-                  <option value="ORGANIZER_REASON">Lý do từ Ban tổ chức (Kế hoạch, lịch trình, tài chính)</option>
-                  <option value="FORCE_MAJEURE">Lý do bất khả kháng (Thiên tai, dịch bệnh, pháp lý)</option>
+                  <option value="ORGANIZER_REASON">
+                    {isEnglish ? 'Organizer Reason (Schedule, planning, financial)' : 'Lý do từ Ban tổ chức (Kế hoạch, lịch trình, tài chính)'}
+                  </option>
+                  <option value="FORCE_MAJEURE">
+                    {isEnglish ? 'Force Majeure (Natural disaster, pandemic, legal)' : 'Lý do bất khả kháng (Thiên tai, dịch bệnh, pháp lý)'}
+                  </option>
                 </select>
               </div>
 
@@ -317,17 +327,21 @@ function CancelOrRequestCancelModal({ event, onConfirm, onClose, loading, error 
               <div>
                 <div className="flex justify-between items-center mb-1">
                   <label className="text-xs font-semibold text-slate-300">
-                    Giải trình chi tiết lý do hủy <span className="text-rose-400">*</span>
+                    {isEnglish ? 'Detailed explanation of cancellation reason' : 'Giải trình chi tiết lý do hủy'} <span className="text-rose-400">*</span>
                   </label>
                   <span className={`text-[11px] ${reasonNote.trim().length >= 20 ? 'text-emerald-400' : 'text-slate-400'}`}>
-                    {reasonNote.trim().length}/20 ký tự
+                    {reasonNote.trim().length}/20 {isEnglish ? 'chars' : 'ký tự'}
                   </span>
                 </div>
                 <textarea
                   rows={3}
                   value={reasonNote}
                   onChange={(e) => setReasonNote(e.target.value)}
-                  placeholder="Nêu rõ lý do hủy và phương án giải quyết để Admin xem xét phê duyệt (tối thiểu 20 ký tự)..."
+                  placeholder={
+                    isEnglish
+                      ? 'State clearly the cancellation reason and solution plan for Admin review (min 20 characters)...'
+                      : 'Nêu rõ lý do hủy và phương án giải quyết để Admin xem xét phê duyệt (tối thiểu 20 ký tự)...'
+                  }
                   className="w-full rounded-xl border border-white/15 bg-[#121c38] p-3 text-sm text-white placeholder:text-slate-500 outline-none focus:border-primary resize-none"
                 />
               </div>
@@ -335,7 +349,7 @@ function CancelOrRequestCancelModal({ event, onConfirm, onClose, loading, error 
               {/* Refund Mode */}
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Phương thức hoàn tiền cho người mua vé <span className="text-rose-400">*</span>
+                  {isEnglish ? 'Refund method for ticket buyers' : 'Phương thức hoàn tiền cho người mua vé'} <span className="text-rose-400">*</span>
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                   <label className={`flex items-start gap-2 p-3 rounded-xl border cursor-pointer transition ${refundMode === 'MODE_B' ? 'border-primary bg-primary/10 text-white' : 'border-white/10 bg-[#121c38] text-slate-300'}`}>
@@ -348,8 +362,10 @@ function CancelOrRequestCancelModal({ event, onConfirm, onClose, loading, error 
                       className="mt-0.5"
                     />
                     <div>
-                      <p className="font-bold">Chuyển khoản VietQR</p>
-                      <p className="text-[11px] text-slate-400 mt-0.5">BTC tự chuyển tiền theo danh sách đối soát hoàn tiền.</p>
+                      <p className="font-bold">{isEnglish ? 'VietQR Bank Transfer' : 'Chuyển khoản VietQR'}</p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        {isEnglish ? 'Organizer transfers directly according to refund audit list.' : 'BTC tự chuyển tiền theo danh sách đối soát hoàn tiền.'}
+                      </p>
                     </div>
                   </label>
                   <label className={`flex items-start gap-2 p-3 rounded-xl border cursor-pointer transition ${refundMode === 'MODE_A' ? 'border-primary bg-primary/10 text-white' : 'border-white/10 bg-[#121c38] text-slate-300'}`}>
@@ -362,8 +378,10 @@ function CancelOrRequestCancelModal({ event, onConfirm, onClose, loading, error 
                       className="mt-0.5"
                     />
                     <div>
-                      <p className="font-bold">Tự động qua payOS</p>
-                      <p className="text-[11px] text-slate-400 mt-0.5">Yêu cầu đã kích hoạt Payout API trong cài đặt thanh toán.</p>
+                      <p className="font-bold">{isEnglish ? 'Automatic via payOS' : 'Tự động qua payOS'}</p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        {isEnglish ? 'Requires Payout API activated in payment settings.' : 'Yêu cầu đã kích hoạt Payout API trong cài đặt thanh toán.'}
+                      </p>
                     </div>
                   </label>
                 </div>
@@ -379,7 +397,12 @@ function CancelOrRequestCancelModal({ event, onConfirm, onClose, loading, error 
                     className="mt-0.5 size-4 rounded border border-white/20 bg-slate-900/60 accent-[#C99A47] cursor-pointer focus:ring-1 focus:ring-[#C99A47] shrink-0"
                   />
                   <span>
-                    <strong className="font-semibold text-white">Cam kết nghĩa vụ hoàn tiền (Bắt buộc):</strong> Tôi cam kết sẽ thực hiện hoàn trả 100% tiền vé cho người mua trong vòng tối đa 7 ngày làm việc. Tôi hiểu rõ EventHub là nền tảng trung gian không giữ tiền vé, và toàn bộ nghĩa vụ tài chính hoàn tiền thuộc về Ban tổ chức.
+                    <strong className="font-semibold text-white">
+                      {isEnglish ? 'Refund Obligation Commitment (Required): ' : 'Cam kết nghĩa vụ hoàn tiền (Bắt buộc): '}
+                    </strong>
+                    {isEnglish
+                      ? 'I commit to refunding 100% of ticket amounts to buyers within a maximum of 7 business days. I understand that EventHub is an intermediary platform that does not hold ticket proceeds, and all financial refund obligations belong to the Organizer.'
+                      : 'Tôi cam kết sẽ thực hiện hoàn trả 100% tiền vé cho người mua trong vòng tối đa 7 ngày làm việc. Tôi hiểu rõ EventHub là nền tảng trung gian không giữ tiền vé, và toàn bộ nghĩa vụ tài chính hoàn tiền thuộc về Ban tổ chức.'}
                   </span>
                 </label>
               </div>
@@ -387,18 +410,22 @@ function CancelOrRequestCancelModal({ event, onConfirm, onClose, loading, error 
           ) : (
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1">
-                Lý do hủy (Tùy chọn)
+                {isEnglish ? 'Cancellation Reason (Optional)' : 'Lý do hủy (Tùy chọn)'}
               </label>
               <textarea
                 rows={2}
                 value={reasonNote}
                 onChange={(e) => setReasonNote(e.target.value)}
-                placeholder="Nhập lý do hủy sự kiện..."
+                placeholder={isEnglish ? 'Enter event cancellation reason...' : 'Nhập lý do hủy sự kiện...'}
                 className="w-full rounded-xl border border-white/15 bg-[#121c38] p-3 text-sm text-white placeholder:text-slate-500 outline-none focus:border-primary resize-none"
               />
               <div className="mt-3 rounded-xl border border-warning/30 bg-warning/[0.07] p-3 text-xs text-warning">
-                <p className="font-semibold">⚠️ Lưu ý:</p>
-                <p className="mt-0.5">Sự kiện sẽ bị hủy ngay lập tức và chuyển sang trạng thái đã hủy. Hành động này không thể hoàn tác.</p>
+                <p className="font-semibold">⚠️ {isEnglish ? 'Note:' : 'Lưu ý:'}</p>
+                <p className="mt-0.5">
+                  {isEnglish
+                    ? 'The event will be cancelled immediately and moved to cancelled status. This action cannot be undone.'
+                    : 'Sự kiện sẽ bị hủy ngay lập tức và chuyển sang trạng thái đã hủy. Hành động này không thể hoàn tác.'}
+                </p>
               </div>
             </div>
           )}
@@ -411,7 +438,7 @@ function CancelOrRequestCancelModal({ event, onConfirm, onClose, loading, error 
               disabled={loading}
               className="flex-1 rounded-xl border border-border-soft/40 bg-panel-soft px-4 py-2.5 text-sm font-semibold text-subtle transition hover:border-border-soft hover:text-content disabled:opacity-50"
             >
-              Hủy bỏ
+              {isEnglish ? 'Cancel' : 'Hủy bỏ'}
             </button>
             <button
               type="submit"
@@ -421,12 +448,12 @@ function CancelOrRequestCancelModal({ event, onConfirm, onClose, loading, error 
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
                   <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#0D1B2A] border-t-transparent" />
-                  Đang xử lý...
+                  {isEnglish ? 'Processing...' : 'Đang xử lý...'}
                 </span>
               ) : hasPaidOrders ? (
-                'Gửi yêu cầu hủy'
+                isEnglish ? 'Submit Cancellation Request' : 'Gửi yêu cầu hủy'
               ) : (
-                'Xác nhận hủy ngay'
+                isEnglish ? 'Confirm Cancellation' : 'Xác nhận hủy ngay'
               )}
             </button>
           </div>
@@ -458,12 +485,18 @@ function ToggleHideConfirmModal({ event, onConfirm, onClose, loading }) {
           </span>
           <div>
             <h3 className="text-xl font-black text-white">
-              {isCurrentlyHidden ? 'Xác nhận hiện lại sự kiện' : 'Xác nhận tạm ẩn sự kiện'}
+              {isCurrentlyHidden
+                ? (isEnglish ? 'Confirm Unhiding Event' : 'Xác nhận hiện lại sự kiện')
+                : (isEnglish ? 'Confirm Hiding Event' : 'Xác nhận tạm ẩn sự kiện')}
             </h3>
             <p className="mt-1 text-sm text-slate-300">
               {isCurrentlyHidden
-                ? 'Sự kiện sẽ được hiển thị công khai trở lại trên trang chủ và tìm kiếm.'
-                : 'Sự kiện sẽ bị ẩn khỏi trang chủ và kết quả tìm kiếm của khách hàng.'}
+                ? (isEnglish
+                    ? 'The event will be publicly visible again on homepage and search.'
+                    : 'Sự kiện sẽ được hiển thị công khai trở lại trên trang chủ và tìm kiếm.')
+                : (isEnglish
+                    ? 'The event will be hidden from homepage and customer search results.'
+                    : 'Sự kiện sẽ bị ẩn khỏi trang chủ và kết quả tìm kiếm của khách hàng.')}
             </p>
           </div>
         </div>
@@ -479,13 +512,13 @@ function ToggleHideConfirmModal({ event, onConfirm, onClose, loading }) {
         {!isCurrentlyHidden && (
           <div className="mt-4">
             <label className="block text-xs font-semibold text-slate-300 mb-1">
-              Lý do tạm ẩn (Tùy chọn)
+              {isEnglish ? 'Reason for hiding (Optional)' : 'Lý do tạm ẩn (Tùy chọn)'}
             </label>
             <input
               type="text"
               value={reasonNote}
               onChange={(e) => setReasonNote(e.target.value)}
-              placeholder="Nhập lý do tạm ẩn sự kiện..."
+              placeholder={isEnglish ? 'Enter reason for hiding event...' : 'Nhập lý do tạm ẩn sự kiện...'}
               className="w-full rounded-xl border border-white/15 bg-[#121c38] p-2.5 text-xs text-white placeholder:text-slate-500 outline-none focus:border-primary"
             />
           </div>
@@ -494,11 +527,15 @@ function ToggleHideConfirmModal({ event, onConfirm, onClose, loading }) {
         {/* Warning / Note */}
         <div className={`mt-4 rounded-xl border p-3 text-xs ${isCurrentlyHidden ? 'border-primary/30 bg-primary/10 text-primary-200' : 'border-amber-500/30 bg-amber-500/10 text-amber-200'}`}>
           {isCurrentlyHidden ? (
-            <p>💡 Người dùng có thể tìm thấy sự kiện và tiếp tục xem thông tin bình thường sau khi mở lại.</p>
+            <p>💡 {isEnglish ? 'Users can search and view event details normally after unhiding.' : 'Người dùng có thể tìm thấy sự kiện và tiếp tục xem thông tin bình thường sau khi mở lại.'}</p>
           ) : (
             <div className="space-y-1">
-              <p>⚠️ <strong>Lưu ý:</strong> Khi tạm ẩn sự kiện, tính năng bán vé sẽ <strong>tự động tạm dừng</strong>.</p>
-              <p className="text-amber-300/80">Bạn cần hiện lại sự kiện trước nếu muốn tiếp tục mở bán vé cho khách hàng.</p>
+              <p>⚠️ <strong>{isEnglish ? 'Note:' : 'Lưu ý:'}</strong> {isEnglish ? 'When hiding the event, ticket sales will be automatically paused.' : 'Khi tạm ẩn sự kiện, tính năng bán vé sẽ tự động tạm dừng.'}</p>
+              <p className="text-amber-300/80">
+                {isEnglish
+                  ? 'You will need to unhide the event first before reopening ticket sales.'
+                  : 'Bạn cần hiện lại sự kiện trước nếu muốn tiếp tục mở bán vé cho khách hàng.'}
+              </p>
             </div>
           )}
         </div>
@@ -511,7 +548,7 @@ function ToggleHideConfirmModal({ event, onConfirm, onClose, loading }) {
             disabled={loading}
             className="flex-1 rounded-full border border-border-soft/40 bg-panel-soft px-4 py-2.5 text-sm font-semibold text-subtle transition hover:border-border-soft hover:text-content disabled:opacity-50"
           >
-            Hủy bỏ
+            {isEnglish ? 'Cancel' : 'Hủy bỏ'}
           </button>
           <button
             type="button"
@@ -522,12 +559,12 @@ function ToggleHideConfirmModal({ event, onConfirm, onClose, loading }) {
             {loading ? (
               <span className="flex items-center justify-center gap-2">
                 <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#0D1B2A] border-t-transparent" />
-                Đang xử lý...
+                {isEnglish ? 'Processing...' : 'Đang xử lý...'}
               </span>
             ) : isCurrentlyHidden ? (
-              'Hiện lại ngay'
+              isEnglish ? 'Unhide Now' : 'Hiện lại ngay'
             ) : (
-              'Tạm ẩn sự kiện'
+              isEnglish ? 'Hide Event' : 'Tạm ẩn sự kiện'
             )}
           </button>
         </div>
@@ -551,8 +588,12 @@ function DeleteDraftConfirmModal({ event, onConfirm, onClose, loading }) {
             <Trash2 className="size-5 text-error" />
           </span>
           <div>
-            <h3 className="text-lg font-extrabold text-content">Xác nhận xóa bản nháp</h3>
-            <p className="mt-1 text-sm text-subtle">Hành động này sẽ xóa vĩnh viễn và không thể hoàn tác.</p>
+            <h3 className="text-lg font-extrabold text-content">
+              {isEnglish ? 'Confirm Deleting Draft' : 'Xác nhận xóa bản nháp'}
+            </h3>
+            <p className="mt-1 text-sm text-subtle">
+              {isEnglish ? 'This action is permanent and cannot be undone.' : 'Hành động này sẽ xóa vĩnh viễn và không thể hoàn tác.'}
+            </p>
           </div>
         </div>
 
@@ -569,10 +610,10 @@ function DeleteDraftConfirmModal({ event, onConfirm, onClose, loading }) {
 
         {/* Warning */}
         <div className="mt-4 rounded-xl border border-error/30 bg-error/[0.07] p-3 text-sm text-error">
-          <p className="font-semibold">⚠️ Cảnh báo:</p>
+          <p className="font-semibold">⚠️ {isEnglish ? 'Warning:' : 'Cảnh báo:'}</p>
           <ul className="mt-1 list-inside list-disc space-y-1 text-xs">
-            <li>Bản nháp sự kiện sẽ bị xóa vĩnh viễn khỏi danh sách.</li>
-            <li>Tất cả thông tin cấu hình, suất diễn và vé tạm thời sẽ không thể khôi phục.</li>
+            <li>{isEnglish ? 'The draft event will be permanently deleted from the list.' : 'Bản nháp sự kiện sẽ bị xóa vĩnh viễn khỏi danh sách.'}</li>
+            <li>{isEnglish ? 'All configuration data, sessions and draft tickets will not be recoverable.' : 'Tất cả thông tin cấu hình, suất diễn và vé tạm thời sẽ không thể khôi phục.'}</li>
           </ul>
         </div>
 
@@ -584,7 +625,7 @@ function DeleteDraftConfirmModal({ event, onConfirm, onClose, loading }) {
             disabled={loading}
             className="flex-1 rounded-full border border-border-soft/40 bg-panel-soft px-4 py-2.5 text-sm font-semibold text-subtle transition hover:border-border-soft hover:text-content disabled:opacity-50"
           >
-            Hủy bỏ
+            {isEnglish ? 'Cancel' : 'Hủy bỏ'}
           </button>
           <button
             type="button"
@@ -595,10 +636,10 @@ function DeleteDraftConfirmModal({ event, onConfirm, onClose, loading }) {
             {loading ? (
               <span className="flex items-center justify-center gap-2">
                 <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                Đang xóa...
+                {isEnglish ? 'Deleting...' : 'Đang xóa...'}
               </span>
             ) : (
-              'Xóa vĩnh viễn'
+              isEnglish ? 'Delete Permanently' : 'Xóa vĩnh viễn'
             )}
           </button>
         </div>
@@ -1185,14 +1226,19 @@ export function OrganizerEventsPage() {
                 <RotateCcw className="size-6" />
               </span>
               <div>
-                <h3 className="text-lg font-black text-white">Hoàn tác yêu cầu hủy sự kiện</h3>
+                <h3 className="text-lg font-black text-white">
+                  {isEnglish ? 'Withdraw Event Cancellation Request' : 'Hoàn tác yêu cầu hủy sự kiện'}
+                </h3>
                 <p className="mt-1 text-xs text-slate-300">
-                  Bạn có chắc chắn muốn hoàn tác yêu cầu này? Yêu cầu gửi Quản trị viên sẽ được hủy bỏ và trạng thái bán vé của sự kiện sẽ được khôi phục.
+                  {isEnglish
+                    ? 'Are you sure you want to withdraw this request? The request sent to Admin will be revoked and event sales status will be restored.'
+                    : 'Bạn có chắc chắn muốn hoàn tác yêu cầu này? Yêu cầu gửi Quản trị viên sẽ được hủy bỏ và trạng thái bán vé của sự kiện sẽ được khôi phục.'}
                 </p>
               </div>
             </div>
             <div className="mt-4 rounded-xl border border-white/10 bg-[#121c38] p-3 text-xs text-slate-300">
-              Sự kiện: <strong className="text-white">{withdrawTarget.title}</strong>
+              {isEnglish ? 'Event: ' : 'Sự kiện: '}
+              <strong className="text-white">{isEnglish ? (translatePhrase(withdrawTarget.title, 'en') || withdrawTarget.title) : withdrawTarget.title}</strong>
             </div>
             <div className="mt-6 flex justify-end gap-3">
               <button
@@ -1201,7 +1247,7 @@ export function OrganizerEventsPage() {
                 onClick={closeWithdrawModal}
                 className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-white/10 disabled:opacity-50"
               >
-                Hủy bỏ
+                {isEnglish ? 'Cancel' : 'Hủy bỏ'}
               </button>
               <button
                 type="button"
@@ -1210,7 +1256,7 @@ export function OrganizerEventsPage() {
                 className="rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-4 py-2 text-xs font-black text-[#0D1B2A] shadow-md shadow-[#C99A47]/30 transition hover:brightness-110 active:scale-95 disabled:opacity-50 inline-flex items-center gap-1.5"
               >
                 {withdrawLoading && <span className="size-3 animate-spin rounded-full border-2 border-[#0D1B2A] border-t-transparent" />}
-                Xác nhận hoàn tác
+                {isEnglish ? 'Confirm Withdrawal' : 'Xác nhận hoàn tác'}
               </button>
             </div>
           </div>

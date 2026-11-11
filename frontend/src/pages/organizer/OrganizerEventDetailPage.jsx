@@ -467,7 +467,7 @@ export function OrganizerEventDetailPage() {
             : 'vi-VN'
 
     const formatCurrency = (amount) =>
-        new Intl.NumberFormat(getAutoLocale(), { style: 'currency', currency: 'VND' }).format(amount || 0)
+        `${new Intl.NumberFormat(getAutoLocale()).format(Number(amount) || 0)} VNĐ`
 
     const formatDate = (iso) => {
         if (!iso) return '—'
