@@ -9,6 +9,8 @@ import { getProfile } from '@/services/user.service.js'
 import { isAuthenticated, getStoredUser, getStoredUserKey } from '@/lib/auth.js'
 import { clearBookingDraft, readBookingDraft, saveBookingDraft, secondsLeft, formatCountdown } from '@/utils/bookingDraft.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
+import { translateEventTitle, cleanAndFormatVenue } from '@/i18n/eventTranslations.js'
 
 function stripIcons(text) {
   if (!text || typeof text !== 'string') return text;
@@ -26,8 +28,9 @@ const getAutoLocale = () =>
     ? 'en-US'
     : 'vi-VN'
 
-function ActionMessage({ content, navigate, setInput, onSendMessage }) {
+function ActionMessage({ content, navigate, setInput, onSendMessage, sessionLocale = 'vi' }) {
   const toast = useToast();
+  const isEnglish = sessionLocale === 'en';
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
@@ -259,7 +262,7 @@ function ActionMessage({ content, navigate, setInput, onSendMessage }) {
       try {
         window.sessionStorage.removeItem('eventhub-booking-draft');
       } catch {}
-      toast.error('Thời gian giữ vé (15 phút) đã hết hạn. Đơn đặt vé đã bị hủy.');
+      toast.error(isEnglish ? 'Hold time (15 minutes) has expired. Booking was cancelled.' : 'Thời gian giữ vé (15 phút) đã hết hạn. Đơn đặt vé đã bị hủy.');
       navigate('/', { replace: true });
       return;
     }
@@ -404,7 +407,11 @@ function ActionMessage({ content, navigate, setInput, onSendMessage }) {
     <div className="space-y-3">
       {parts.map((part, i) => {
         if (part.type === 'text') {
-          return <ReactMarkdown key={i} remarkPlugins={[remarkGfm]}>{stripIcons(part.text)}</ReactMarkdown>;
+          return (
+            <div key={i} data-no-translate className="ai-message-text prose prose-sm prose-invert max-w-none prose-p:leading-relaxed prose-pre:bg-black/30">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{stripIcons(part.text)}</ReactMarkdown>
+            </div>
+          );
         }
 
         if (part.action === 'CLEAR_BOOKING') {
@@ -429,12 +436,12 @@ function ActionMessage({ content, navigate, setInput, onSendMessage }) {
           const isComplete = proposal.isAttendeesComplete;
 
           return (
-            <div key={i} className="mt-3 overflow-hidden rounded-2xl border border-slate-700/60 bg-[#111728]/95 p-4 sm:p-5 text-white shadow-xl backdrop-blur-md transition-all">
+            <div key={i} data-no-translate className="mt-3 overflow-hidden rounded-2xl border border-slate-700/60 bg-[#111728]/95 p-4 sm:p-5 text-white shadow-xl backdrop-blur-md transition-all">
               {/* Header Badge */}
               <div className="flex items-center justify-between border-b border-slate-700/60 pb-2.5">
                 <div className="flex items-center gap-2">
                   <span className="text-[11px] font-bold uppercase tracking-wider text-slate-300">
-                    Đề xuất đặt vé thông minh
+                    {isEnglish ? 'Smart Booking Recommendation' : 'Đề xuất đặt vé thông minh'}
                   </span>
                 </div>
                 <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${
@@ -443,52 +450,74 @@ function ActionMessage({ content, navigate, setInput, onSendMessage }) {
                     : 'text-[#E6C17A] bg-[#C99A47]/10 border-[#C99A47]/30'
                 }`}>
                   {isProposalExpired
-                    ? 'Đã hết hạn giữ vé'
+                    ? (isEnglish ? 'Hold time expired' : 'Đã hết hạn giữ vé')
                     : proposal.holdExpiresAt
-                      ? `Giữ chỗ (${formatCountdown(proposalSecondsLeft)})`
-                      : proposal.hasSeatMap ? 'Tạm giữ chỗ' : 'Sẵn sàng đặt'}
+                      ? (isEnglish ? `Holding (${formatCountdown(proposalSecondsLeft)})` : `Giữ chỗ (${formatCountdown(proposalSecondsLeft)})`)
+                      : proposal.hasSeatMap 
+                        ? (isEnglish ? 'Temporary hold' : 'Tạm giữ chỗ') 
+                        : (isEnglish ? 'Ready to book' : 'Sẵn sàng đặt')}
                 </span>
               </div>
 
               {/* Event & Session Details */}
               <div className="mt-3 space-y-2 text-xs">
                 <h4 className="text-[15px] font-bold text-white leading-snug break-words">
-                  {proposal.eventTitle}
+                  {translateEventTitle(proposal.eventTitle, isEnglish)}
                 </h4>
                 {proposal.session?.name && (
                   <div className="text-slate-300 flex items-center gap-1.5 flex-wrap">
-                    <span className="text-slate-400 font-medium">Suất diễn:</span>
-                    <span className="font-semibold text-slate-200">{proposal.session.name}</span>
+                    <span className="text-slate-400 font-medium">{isEnglish ? 'Showtime:' : 'Suất diễn:'}</span>
+                    <span className="font-semibold text-slate-200">
+                      {isEnglish 
+                        ? (/(?:suat\s*chinh|main\s*session)/i.test((proposal.session.name || '').normalize('NFD').replace(/[\u0300-\u036f]/g, ''))
+                            ? 'Main Session'
+                            : proposal.session.name.replace(/^(?:Suất|Suat)\s*/i, 'Session ').replace(/^Ca\s*/i, 'Shift '))
+                        : proposal.session.name}
+                    </span>
                     {proposal.session.start_time && (
-                      <span className="text-slate-400">({new Date(proposal.session.start_time).toLocaleDateString(getAutoLocale())})</span>
+                      <span className="text-slate-400">({new Date(proposal.session.start_time).toLocaleDateString(isEnglish ? 'en-US' : 'vi-VN')})</span>
                     )}
                   </div>
                 )}
                 {proposal.venueSummary && (
                   <div className="text-slate-300 text-xs leading-relaxed break-words">
-                    <span className="text-slate-400 font-medium">Địa điểm: </span>
-                    <span className="text-slate-200">{proposal.venueSummary}</span>
+                    <span className="text-slate-400 font-medium">{isEnglish ? 'Venue: ' : 'Địa điểm: '}</span>
+                    <span className="text-slate-200">{cleanAndFormatVenue(proposal.venueSummary, isEnglish)}</span>
                   </div>
                 )}
 
                 {/* Seat Badges or Ticket Types */}
                 <div className="pt-1.5">
                   <div className="text-[11px] font-medium text-slate-400 mb-1.5">
-                    {proposal.hasSeatMap ? 'Vị trí ghế đề xuất:' : 'Hạng vé:'}
+                    {proposal.hasSeatMap 
+                      ? (isEnglish ? 'Recommended seats:' : 'Vị trí ghế đề xuất:') 
+                      : (isEnglish ? 'Ticket tier:' : 'Hạng vé:')}
                   </div>
                   {hasSeatList ? (
                     <div className="flex flex-wrap gap-1.5">
-                      {seatsList.map((s, idx) => (
-                        <span
-                          key={idx}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/90 px-2.5 py-1 text-xs font-semibold text-slate-100 shadow-sm"
-                        >
-                          <span>Ghế {s.label}</span>
-                          {s.ticketTypeName && (
-                            <span className="text-[11px] text-[#E6C17A] font-normal">({s.ticketTypeName})</span>
-                          )}
-                        </span>
-                      ))}
+                      {seatsList.map((s, idx) => {
+                        const seatLabel = isEnglish ? `Seat ${s.label}` : `Ghế ${s.label}`;
+                        let typeName = s.ticketTypeName;
+                        if (isEnglish && typeName) {
+                          typeName = typeName
+                            .replace(/(?:Khu\s*vực|Khu\s*vuc|Khu)\s*(\d+)/gi, 'Zone $1')
+                            .replace(/(?:Khu\s*vực|Khu\s*vuc|Khu)\s*([A-Za-z])/gi, 'Zone $1')
+                            .replace(/(?:Hàng\s*ghế|Hang\s*ghe|Hàng|Hang)\s*([A-Za-z\d]+)/gi, 'Row $1')
+                            .replace(/(?:Tiêu\s*chuẩn|Tieu\s*chuan)/gi, 'Standard')
+                            .replace(/(?:Phổ\s*thông|Pho\s*thong)/gi, 'Regular');
+                        }
+                        return (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/90 px-2.5 py-1 text-xs font-semibold text-slate-100 shadow-sm"
+                          >
+                            <span>{seatLabel}</span>
+                            {typeName && (
+                              <span className="text-[11px] text-[#E6C17A] font-normal">({typeName})</span>
+                            )}
+                          </span>
+                        );
+                      })}
                     </div>
                   ) : (
                     <div className="space-y-1.5">
@@ -498,15 +527,17 @@ function ActionMessage({ content, navigate, setInput, onSendMessage }) {
                             key={idx}
                             className="flex items-center justify-between text-xs bg-slate-800/60 border border-slate-700 px-3 py-2 rounded-lg text-slate-200"
                           >
-                            <span className="font-medium">{it.quantity} vé {it.ticketType?.name || ''}</span>
+                            <span className="font-medium">
+                              {it.quantity} {isEnglish ? (it.quantity > 1 ? 'tickets' : 'ticket') : 'vé'} {it.ticketType?.name || ''}
+                            </span>
                             <span className="font-bold text-[#E6C17A]">
-                              {Number((it.ticketType?.price || 0) * (it.quantity || 1)).toLocaleString('vi-VN')} đ
+                              {Number((it.ticketType?.price || 0) * (it.quantity || 1)).toLocaleString(isEnglish ? 'en-US' : 'vi-VN')} {isEnglish ? 'VND' : 'đ'}
                             </span>
                           </div>
                         ))
                       ) : (
                         <div className="text-[#E6C17A] font-semibold">
-                          {proposal.quantity} vé
+                          {proposal.quantity} {isEnglish ? (proposal.quantity > 1 ? 'tickets' : 'ticket') : 'vé'}
                         </div>
                       )}
                     </div>
@@ -528,9 +559,17 @@ function ActionMessage({ content, navigate, setInput, onSendMessage }) {
                       : 'bg-amber-950/30 border-amber-500/30 text-amber-300'
                   }`}>
                     {isComplete ? (
-                      <div>Đã đủ thông tin người tham gia ({attendeeCount}/{proposal.quantity} người)</div>
+                      <div>
+                        {isEnglish 
+                          ? `Attendee details completed (${attendeeCount}/${proposal.quantity} people)` 
+                          : `Đã đủ thông tin người tham gia (${attendeeCount}/${proposal.quantity} người)`}
+                      </div>
                     ) : (
-                      <div>Cần bổ sung thông tin {proposal.quantity - attendeeCount} người tham gia còn lại (nhắn Eve trong chat)</div>
+                      <div>
+                        {isEnglish 
+                          ? `Need info for ${proposal.quantity - attendeeCount} remaining attendee(s) (message Eve in chat)` 
+                          : `Cần bổ sung thông tin ${proposal.quantity - attendeeCount} người tham gia còn lại (nhắn Eve trong chat)`}
+                      </div>
                     )}
                   </div>
                 )}
@@ -539,15 +578,19 @@ function ActionMessage({ content, navigate, setInput, onSendMessage }) {
                 {isProposalExpired && (
                   <div className="rounded-lg bg-rose-950/40 border border-rose-500/30 p-2.5 text-[11px] text-rose-300 leading-relaxed flex items-center gap-2">
                     <AlertCircle className="size-4 shrink-0 text-rose-400" />
-                    <span>Thời gian giữ vé (15 phút) cho đề xuất này đã hết hạn. Vui lòng chat để chọn lại vé mới.</span>
+                    <span>
+                      {isEnglish 
+                        ? 'Ticket hold time (15 minutes) for this suggestion has expired. Please chat to select tickets again.' 
+                        : 'Thời gian giữ vé (15 phút) cho đề xuất này đã hết hạn. Vui lòng chat để chọn lại vé mới.'}
+                    </span>
                   </div>
                 )}
 
                 {/* Total Price */}
                 <div className="flex items-baseline justify-between pt-2.5 border-t border-slate-700/60 mt-2.5">
-                  <span className="text-xs text-slate-400 font-medium">Tổng thanh toán:</span>
+                  <span className="text-xs text-slate-400 font-medium">{isEnglish ? 'Total payment:' : 'Tổng thanh toán:'}</span>
                   <span className="text-lg font-black text-[#E6C17A]">
-                    {Number(proposal.totalAmount || 0).toLocaleString('vi-VN')} đ
+                    {Number(proposal.totalAmount || 0).toLocaleString(isEnglish ? 'en-US' : 'vi-VN')} {isEnglish ? 'VND' : 'đ'}
                   </span>
                 </div>
               </div>
@@ -564,7 +607,11 @@ function ActionMessage({ content, navigate, setInput, onSendMessage }) {
                   }`}
                   style={isProposalExpired ? undefined : { background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
                 >
-                  <span>{isProposalExpired ? 'Thời gian giữ vé đã hết hạn' : 'Xác nhận & Đi tới Thanh toán'}</span>
+                  <span>
+                    {isProposalExpired 
+                      ? (isEnglish ? 'Hold time has expired' : 'Thời gian giữ vé đã hết hạn') 
+                      : (isEnglish ? 'Confirm & Proceed to Payment' : 'Xác nhận & Đi tới Thanh toán')}
+                  </span>
                 </button>
 
                 <div className="flex flex-wrap items-center justify-between gap-y-2 text-[11px] px-1 text-slate-400">
@@ -574,7 +621,7 @@ function ActionMessage({ content, navigate, setInput, onSendMessage }) {
                       onClick={() => handleProposalManualSeat(proposal)}
                       className="hover:text-[#E6C17A] underline transition-colors cursor-pointer"
                     >
-                      Tôi muốn tự chọn trên sơ đồ
+                      {isEnglish ? 'I want to pick seats on map' : 'Tôi muốn tự chọn trên sơ đồ'}
                     </button>
                   ) : <span />}
                   
@@ -582,11 +629,17 @@ function ActionMessage({ content, navigate, setInput, onSendMessage }) {
                     <button
                       type="button"
                       onClick={() => {
-                        setInput(proposal.hasSeatMap ? 'Đổi sang hàng ghế ' : 'Tôi muốn đổi sang vé ');
+                        setInput(
+                          isEnglish 
+                            ? (proposal.hasSeatMap ? 'Change to row ' : 'I want to change ticket to ') 
+                            : (proposal.hasSeatMap ? 'Đổi sang hàng ghế ' : 'Tôi muốn đổi sang vé ')
+                        );
                       }}
                       className="hover:text-[#E6C17A] underline transition-colors cursor-pointer"
                     >
-                      {proposal.hasSeatMap ? 'Đổi hàng ghế khác' : 'Đổi loại vé / số lượng'}
+                      {proposal.hasSeatMap 
+                        ? (isEnglish ? 'Change seating row' : 'Đổi hàng ghế khác') 
+                        : (isEnglish ? 'Change ticket type / quantity' : 'Đổi loại vé / số lượng')}
                     </button>
                   )}
 
@@ -603,15 +656,16 @@ function ActionMessage({ content, navigate, setInput, onSendMessage }) {
                       } catch (err) {
                         console.warn('Error clearing booking on change event:', err);
                       }
+                      const changeMsg = isEnglish ? 'I want to change to another event' : 'Tôi muốn đổi sang sự kiện khác';
                       if (onSendMessage) {
-                        onSendMessage('Tôi muốn đổi sang sự kiện khác');
+                        onSendMessage(changeMsg);
                       } else if (setInput) {
-                        setInput('Tôi muốn đổi sang sự kiện khác');
+                        setInput(changeMsg);
                       }
                     }}
                     className="hover:text-[#E6C17A] underline transition-colors cursor-pointer"
                   >
-                    Đổi sự kiện khác
+                    {isEnglish ? 'Change event' : 'Đổi sự kiện khác'}
                   </button>
                 </div>
               </div>
@@ -624,26 +678,32 @@ function ActionMessage({ content, navigate, setInput, onSendMessage }) {
             <button
               key={i}
               type="button"
+              data-no-translate
               onClick={() => handleBookingNavigate(part.args)}
               className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl py-2.5 px-4 text-xs font-bold transition-all hover:brightness-110 active:scale-[0.98] cursor-pointer shadow-md"
               style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
             >
-              <span>Nhấn vào đây để chọn ghế trên sơ đồ</span>
+              <span>{isEnglish ? 'Click here to choose seats on seat map' : 'Nhấn vào đây để chọn ghế trên sơ đồ'}</span>
             </button>
           )
         }
 
         if (part.action === 'PREFILL_BOOKING') {
-          const isSeatBooking = content.toLowerCase().includes('ghế') || content.toLowerCase().includes('sơ đồ');
+          const isSeatBooking = content.toLowerCase().includes('ghế') || content.toLowerCase().includes('sơ đồ') || content.toLowerCase().includes('seat');
           return (
             <button
               key={i}
               type="button"
+              data-no-translate
               onClick={() => handlePrefillNavigate(part.args)}
               className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl py-2.5 px-4 text-xs font-bold transition-all hover:brightness-110 active:scale-[0.98] cursor-pointer shadow-md"
               style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
             >
-              <span>{isSeatBooking ? 'Nhấn vào đây để chọn ghế trên sơ đồ' : 'Nhấn vào đây để xem lại & xác nhận vé'}</span>
+              <span>
+                {isSeatBooking 
+                  ? (isEnglish ? 'Click here to choose seats on seat map' : 'Nhấn vào đây để chọn ghế trên sơ đồ')
+                  : (isEnglish ? 'Click here to review & confirm tickets' : 'Nhấn vào đây để xem lại & xác nhận vé')}
+              </span>
             </button>
           )
         }
@@ -665,36 +725,60 @@ function getActiveSessionStorageKey(userKey) {
   return userKey ? `${ACTIVE_SESSION_STORAGE_KEY_PREFIX}${userKey}` : null;
 }
 
+const DEFAULT_GREETING_VI = `Xin chào bạn! Mình là Eve – Trợ lý AI của EventHub.
+
+Eve luôn sẵn sàng hỗ trợ bạn tìm kiếm sự kiện, tra cứu giá vé, đặt chỗ nhanh và giải đáp thắc mắc. Hôm nay bạn đang quan tâm đến sự kiện nào nè?`;
+
+const DEFAULT_GREETING_EN = `Hello! I'm Eve – EventHub's AI Assistant.
+
+Eve is always ready to assist you with exploring events, checking ticket prices, booking seats quickly, and answering questions. What event are you interested in today?`;
+
 const DEFAULT_GREETING = {
   role: 'assistant',
-  content: `Xin chào bạn! Mình là Eve – Trợ lý AI của EventHub.
-
-Eve luôn sẵn sàng hỗ trợ bạn tìm kiếm sự kiện, tra cứu giá vé, đặt chỗ nhanh và giải đáp thắc mắc. Hôm nay bạn đang quan tâm đến sự kiện nào nè?`
+  content: DEFAULT_GREETING_VI
 };
+
+function getSessionLocale(session) {
+  if (session?.locale === 'en' || session?.locale === 'vi') return session.locale;
+  const firstMsg = session?.messages?.[0]?.content || '';
+  if (firstMsg.includes('Hello!') || firstMsg.includes("Eve – EventHub's AI Assistant") || session?.title === 'New chat') {
+    return 'en';
+  }
+  return 'vi';
+}
 
 function ensureGreeting(session) {
   if (!session) return session;
+  const locale = getSessionLocale(session);
   const rawMessages = Array.isArray(session.messages) ? [...session.messages] : [];
+  const defaultGreetingContent = locale === 'en' ? DEFAULT_GREETING_EN : DEFAULT_GREETING_VI;
   const messages = (rawMessages.length === 0 || rawMessages[0]?.role !== 'assistant')
-    ? [DEFAULT_GREETING, ...rawMessages]
+    ? [{ role: 'assistant', content: defaultGreetingContent }, ...rawMessages]
     : rawMessages;
-  return { ...session, messages };
+  return { ...session, locale, messages };
 }
 
-function createNewSession() {
+function createNewSession(isEn = false) {
   const id = 'session_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+  const locale = isEn ? 'en' : 'vi';
   return {
     id,
-    title: 'Đoạn chat mới',
+    title: isEn ? 'New chat' : 'Đoạn chat mới',
+    locale,
     createdAt: Date.now(),
     updatedAt: Date.now(),
-    messages: [DEFAULT_GREETING]
+    messages: [
+      {
+        role: 'assistant',
+        content: isEn ? DEFAULT_GREETING_EN : DEFAULT_GREETING_VI
+      }
+    ]
   };
 }
 
-function loadInitialSessions(userKey) {
+function loadInitialSessions(userKey, isEn = false) {
   const storageKey = getSessionsStorageKey(userKey);
-  if (!storageKey) return [createNewSession()];
+  if (!storageKey) return [createNewSession(isEn)];
   try {
     const raw = localStorage.getItem(storageKey);
     if (raw) {
@@ -706,7 +790,7 @@ function loadInitialSessions(userKey) {
   } catch (e) {
     console.error('Error loading AI chat sessions from localStorage', e);
   }
-  return [createNewSession()];
+  return [createNewSession(isEn)];
 }
 
 function loadInitialActiveId(userKey, sessions) {
@@ -722,11 +806,12 @@ function loadInitialActiveId(userKey, sessions) {
 }
 
 export function CustomerAiAssistantWidget({ enabled = true }) {
+  const { isEnglish, language } = useLanguage();
   const currentUser = getStoredUser();
   const userKey = getStoredUserKey(currentUser);
 
   const [isOpen, setIsOpen] = useState(false);
-  const [sessions, setSessions] = useState(() => loadInitialSessions(userKey));
+  const [sessions, setSessions] = useState(() => loadInitialSessions(userKey, isEnglish));
   const [activeSessionId, setActiveSessionId] = useState(() => loadInitialActiveId(userKey, sessions));
   const [showHistoryDrawer, setShowHistoryDrawer] = useState(false);
   const [input, setInput] = useState('');
@@ -777,7 +862,7 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
     }
 
     if (!isSpeechSupported) {
-      setSpeechError('Trình duyệt hiện tại chưa hỗ trợ nhận diện giọng nói (khuyên dùng Chrome hoặc Edge).');
+      setSpeechError(activeSessionIsEnglish ? 'Your browser does not support voice recognition (Chrome or Edge recommended).' : 'Trình duyệt hiện tại chưa hỗ trợ nhận diện giọng nói (khuyên dùng Chrome hoặc Edge).');
       return;
     }
 
@@ -790,7 +875,7 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
     try {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       const recognition = new SpeechRecognition();
-      recognition.lang = 'vi-VN';
+      recognition.lang = activeSessionIsEnglish ? 'en-US' : 'vi-VN';
       recognition.continuous = true;
       recognition.interimResults = true;
       recognition.maxAlternatives = 1;
@@ -879,9 +964,9 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
         }
         setIsPendingAutoSend(false);
         if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-          setSpeechError('Vui lòng cấp quyền micro cho trình duyệt để sử dụng nhận diện giọng nói.');
+          setSpeechError(activeSessionIsEnglish ? 'Please grant microphone permissions in your browser to use voice input.' : 'Vui lòng cấp quyền micro cho trình duyệt để sử dụng nhận diện giọng nói.');
         } else if (event.error === 'network') {
-          setSpeechError('Lỗi kết nối dịch vụ giọng nói. Vui lòng thử lại!');
+          setSpeechError(activeSessionIsEnglish ? 'Voice recognition service connection error. Please try again!' : 'Lỗi kết nối dịch vụ giọng nói. Vui lòng thử lại!');
         }
         setIsRecording(false);
       };
@@ -965,9 +1050,15 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
   }, []);
 
   // Find active session or fallback to first
-  const activeSession = sessions.find(s => s.id === activeSessionId) || sessions[0] || createNewSession();
-  const rawMessages = activeSession.messages && activeSession.messages.length > 0 ? activeSession.messages : [DEFAULT_GREETING];
-  const messages = rawMessages[0]?.role !== 'assistant' ? [DEFAULT_GREETING, ...rawMessages] : rawMessages;
+  const activeSession = sessions.find(s => s.id === activeSessionId) || sessions[0] || createNewSession(isEnglish);
+  const activeSessionLocale = getSessionLocale(activeSession);
+  const activeSessionIsEnglish = activeSessionLocale === 'en';
+  const defaultGreetingForSession = {
+    role: 'assistant',
+    content: activeSessionIsEnglish ? DEFAULT_GREETING_EN : DEFAULT_GREETING_VI
+  };
+  const rawMessages = activeSession.messages && activeSession.messages.length > 0 ? activeSession.messages : [defaultGreetingForSession];
+  const messages = rawMessages[0]?.role !== 'assistant' ? [defaultGreetingForSession, ...rawMessages] : rawMessages;
 
   // Clean up legacy un-scoped storage keys once
   useEffect(() => {
@@ -980,13 +1071,13 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
   // When userKey changes (e.g. account switch), reload sessions for that specific user and sync with Database
   useEffect(() => {
     if (!userKey || !isAuthenticated()) {
-      setSessions([createNewSession()]);
+      setSessions([createNewSession(isEnglish)]);
       setActiveSessionId(null);
       return;
     }
 
     // 1. Initial instant load from localStorage cache
-    const cachedSessions = loadInitialSessions(userKey);
+    const cachedSessions = loadInitialSessions(userKey, isEnglish);
     setSessions(cachedSessions);
     setActiveSessionId(loadInitialActiveId(userKey, cachedSessions));
 
@@ -1076,8 +1167,51 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
 
   if (!enabled || !isAuthenticated()) return null;
 
+  // Handle language change from navbar:
+  // "không thay đổi ngôn ngữ trong đoạn chat khi người dùng chuyển đổi ngôn ngữ, trong đoạn chat đã có sẵn thì luôn luôn giữ nguyên ngôn ngữ, nếu người dùng thay đổi ngôn ngữ thì chuyển qua đoạn chat mới mới chuyển"
+  const prevLanguageRef = useRef(language);
+  useEffect(() => {
+    if (prevLanguageRef.current !== language) {
+      prevLanguageRef.current = language;
+      const targetLocale = isEnglish ? 'en' : 'vi';
+
+      // Current active session
+      const currentActive = sessions.find((s) => s.id === activeSessionId) || sessions[0];
+      const currentLocale = getSessionLocale(currentActive);
+
+      if (currentLocale !== targetLocale) {
+        const hasUserMessages = Array.isArray(currentActive?.messages) && currentActive.messages.some((m) => m.role === 'user');
+
+        if (!hasUserMessages && currentActive) {
+          // If the current active session is brand new / untouched without user messages, convert it in-place
+          const updated = {
+            ...currentActive,
+            locale: targetLocale,
+            title: isEnglish ? 'New chat' : 'Đoạn chat mới',
+            updatedAt: Date.now(),
+            messages: [
+              {
+                role: 'assistant',
+                content: isEnglish ? DEFAULT_GREETING_EN : DEFAULT_GREETING_VI
+              }
+            ]
+          };
+          setSessions((prev) => prev.map((s) => (s.id === currentActive.id ? updated : s)));
+          saveAiChatSession(updated).catch(() => {});
+        } else {
+          // Existing session with messages: DO NOT alter it! Keep it 100% intact!
+          // Switch to a new chat session in the new language as requested by user
+          const newSession = createNewSession(isEnglish);
+          setSessions((prev) => [newSession, ...prev]);
+          setActiveSessionId(newSession.id);
+          saveAiChatSession(newSession).catch(() => {});
+        }
+      }
+    }
+  }, [language, isEnglish, sessions, activeSessionId]);
+
   const handleCreateNewChat = () => {
-    const newSession = createNewSession();
+    const newSession = createNewSession(isEnglish);
     setSessions((prev) => [newSession, ...prev]);
     setActiveSessionId(newSession.id);
     setShowHistoryDrawer(false);
@@ -1095,7 +1229,7 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
     deleteAiChatSession(sessionId).catch(() => {});
     const updated = sessions.filter((s) => s.id !== sessionId);
     if (updated.length === 0) {
-      const fresh = createNewSession();
+      const fresh = createNewSession(isEnglish);
       setSessions([fresh]);
       setActiveSessionId(fresh.id);
       saveAiChatSession(fresh).catch(() => {});
@@ -1130,7 +1264,8 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
 
     // Determine updated title if still default
     const isFirstUserMessage = !activeSession.messages.some(m => m.role === 'user');
-    const newTitle = (isFirstUserMessage || activeSession.title === 'Đoạn chat mới')
+    const isDefaultTitle = activeSession.title === 'Đoạn chat mới' || activeSession.title === 'New chat';
+    const newTitle = (isFirstUserMessage || isDefaultTitle)
       ? (userMessage.length > 28 ? userMessage.substring(0, 28) + '...' : userMessage)
       : activeSession.title;
 
@@ -1142,6 +1277,7 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
         return {
           ...s,
           title: newTitle,
+          locale: activeSessionLocale,
           updatedAt: Date.now(),
           messages: updatedMessagesWithUser
         };
@@ -1170,18 +1306,30 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
           sessionId: activeSession.id,
           title: newTitle,
           eventSlug: currentEventSlug,
-          eventId: activeDraft?.eventId || null
+          eventId: activeDraft?.eventId || null,
+          context: {
+            locale: activeSessionLocale
+          }
         }
       );
 
-      const assistantText = response?.content || 'Eve đã tiếp nhận thông tin của bạn!';
+      const assistantText = response?.content || (activeSessionIsEnglish ? 'Eve has received your request!' : 'Eve đã tiếp nhận thông tin của bạn!');
 
       setSessions(prev => prev.map(s => {
         if (s.id === activeSession.id) {
+          const finalMessages = [...updatedMessagesWithUser, { role: 'assistant', content: assistantText }];
+          saveAiChatSession({
+            id: activeSession.id,
+            title: newTitle,
+            locale: activeSessionLocale,
+            messages: finalMessages,
+            updatedAt: Date.now()
+          }).catch(() => {});
           return {
             ...s,
+            locale: activeSessionLocale,
             updatedAt: Date.now(),
-            messages: [...updatedMessagesWithUser, { role: 'assistant', content: assistantText }]
+            messages: finalMessages
           };
         }
         return s;
@@ -1193,10 +1341,12 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
                          abortController.signal.aborted;
 
       if (isCanceled) {
-        const stoppedMessages = [...updatedMessagesWithUser, { role: 'assistant', content: '_Đã dừng phản hồi theo yêu cầu của bạn._' }];
+        const stoppedText = activeSessionIsEnglish ? '_Response stopped by your request._' : '_Đã dừng phản hồi theo yêu cầu của bạn._';
+        const stoppedMessages = [...updatedMessagesWithUser, { role: 'assistant', content: stoppedText }];
         saveAiChatSession({
           id: activeSession.id,
           title: newTitle,
+          locale: activeSessionLocale,
           messages: stoppedMessages,
           updatedAt: Date.now()
         }).catch(() => {});
@@ -1205,6 +1355,7 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
           if (s.id === activeSession.id) {
             return {
               ...s,
+              locale: activeSessionLocale,
               updatedAt: Date.now(),
               messages: stoppedMessages
             };
@@ -1216,13 +1367,14 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
 
       const serverMessage = error?.response?.data?.message || error?.response?.data?.error;
       const fallbackMsg = serverMessage && !serverMessage.toLowerCase().includes('network error')
-        ? `Dạ hệ thống thông báo: ${serverMessage}. Bạn vui lòng thử lại nhé.`
-        : 'Xin lỗi, kết nối mạng tạm thời bị gián đoạn. Bạn vui lòng kiểm tra kết nối internet và thử lại nhé.';
+        ? (activeSessionIsEnglish ? `System notification: ${serverMessage}. Please try again.` : `Dạ hệ thống thông báo: ${serverMessage}. Bạn vui lòng thử lại nhé.`)
+        : (activeSessionIsEnglish ? 'Sorry, network connection was interrupted. Please check your internet connection and try again.' : 'Xin lỗi, kết nối mạng tạm thời bị gián đoạn. Bạn vui lòng kiểm tra kết nối internet và thử lại nhé.');
 
       setSessions(prev => prev.map(s => {
         if (s.id === activeSession.id) {
           return {
             ...s,
+            locale: activeSessionLocale,
             messages: [...updatedMessagesWithUser, { role: 'assistant', content: fallbackMsg }]
           };
         }
@@ -1248,7 +1400,7 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
       <button
         onClick={() => setIsOpen(true)}
         className={`fixed bottom-[76px] right-4 sm:bottom-6 sm:right-6 z-40 grid size-12 sm:size-14 place-items-center rounded-full bg-gradient-to-r from-primary to-indigo-500 text-white shadow-lg shadow-primary/20 transition-all hover:scale-105 hover:shadow-xl ${isOpen ? 'scale-0 opacity-0' : 'scale-100 opacity-100'}`}
-        aria-label="Mở trợ lý AI"
+        aria-label={isEnglish ? "Open AI assistant" : "Mở trợ lý AI"}
       >
         <Sparkles className="size-5 sm:size-6" />
       </button>
@@ -1267,7 +1419,7 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
               className={`grid size-8 place-items-center rounded-lg transition-colors ${
                 showHistoryDrawer ? 'bg-primary/20 text-primary' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
               }`}
-              title="Lịch sử đoạn chat"
+              title={isEnglish ? "Chat history" : "Lịch sử đoạn chat"}
             >
               <Menu className="size-5" />
             </button>
@@ -1276,7 +1428,7 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
             <button
               onClick={handleCreateNewChat}
               className="grid size-8 place-items-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
-              title="Tạo đoạn chat mới"
+              title={isEnglish ? "New chat" : "Tạo đoạn chat mới"}
             >
               <Plus className="size-5" />
             </button>
@@ -1288,8 +1440,10 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
             </div>
             <div>
               <h3 className="font-display text-sm font-bold text-white leading-tight">EventHub AI</h3>
-              <p className="text-[11px] text-primary leading-tight max-w-[140px] truncate">
-                {activeSession.title && activeSession.title !== 'Đoạn chat mới' ? activeSession.title : 'Trợ lý hỗ trợ sự kiện & vé'}
+              <p data-no-translate className="text-[11px] text-primary leading-tight max-w-[140px] truncate">
+                {activeSession.title && activeSession.title !== 'Đoạn chat mới' && activeSession.title !== 'New chat' 
+                  ? activeSession.title 
+                  : (activeSessionIsEnglish ? 'Event & Ticket Assistant' : 'Trợ lý hỗ trợ sự kiện & vé')}
               </p>
             </div>
           </div>
@@ -1297,7 +1451,7 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
           <button
             onClick={() => setIsOpen(false)}
             className="grid size-8 place-items-center rounded-full text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
-            title="Đóng"
+            title={isEnglish ? "Close" : "Đóng"}
           >
             <X className="size-5" />
           </button>
@@ -1315,13 +1469,13 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
               <button
                 onClick={() => setShowHistoryDrawer(false)}
                 className="grid size-7 place-items-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
-                title="Quay lại"
+                title={isEnglish ? "Back" : "Quay lại"}
               >
                 <ChevronLeft className="size-5" />
               </button>
               <h4 className="text-sm font-bold text-white flex items-center gap-1.5">
                 <Clock className="size-4 text-primary" />
-                Lịch sử trò chuyện
+                {isEnglish ? 'Chat History' : 'Lịch sử trò chuyện'}
               </h4>
             </div>
 
@@ -1330,7 +1484,7 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
               className="flex items-center gap-1 rounded-lg bg-primary/20 border border-primary/40 px-2.5 py-1 text-xs font-semibold text-primary hover:bg-primary/30 transition-colors"
             >
               <Plus className="size-3.5" />
-              <span>Mới</span>
+              <span>{isEnglish ? 'New' : 'Mới'}</span>
             </button>
           </div>
 
@@ -1358,7 +1512,7 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
                   <div className="flex items-center gap-2.5 min-w-0 pr-2">
                     <MessageSquare className={`size-4 shrink-0 ${isActive ? 'text-primary' : 'text-slate-400'}`} />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-white font-medium">{session.title || 'Đoạn chat mới'}</p>
+                      <p data-no-translate className="truncate text-white font-medium">{session.title || (getSessionLocale(session) === 'en' ? 'New chat' : 'Đoạn chat mới')}</p>
                       <p className="text-[10px] text-slate-400">{formattedTime}</p>
                     </div>
                   </div>
@@ -1366,7 +1520,7 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
                   <button
                     onClick={(e) => handleDeleteSession(e, session.id)}
                     className="grid size-6 shrink-0 place-items-center rounded text-slate-400 opacity-60 hover:opacity-100 hover:bg-red-500/20 hover:text-red-400 transition-all"
-                    title="Xóa đoạn chat này"
+                    title={isEnglish ? "Delete this chat" : "Xóa đoạn chat này"}
                   >
                     <Trash2 className="size-3.5" />
                   </button>
@@ -1379,29 +1533,47 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
         {/* Chat Messages */}
         <div className="flex-1 overflow-y-auto p-4 bg-[#090f1f] scrollbar-thin scrollbar-track-transparent scrollbar-thumb-slate-700 hover:scrollbar-thumb-primary/50">
           <div className="flex flex-col gap-4">
-            {messages.map((msg, idx) => (
-              <div
-                key={idx}
-                className={`flex max-w-[88%] items-end gap-2 ${msg.role === 'user' ? 'self-end flex-row-reverse' : 'self-start'}`}
-              >
-                <div className={`grid size-7 shrink-0 place-items-center rounded-full ${msg.role === 'user' ? 'bg-primary text-[#081126]' : 'bg-[#12192e] border border-slate-700/80 text-[#E6C17A]'}`}>
-                  {msg.role === 'user' ? <User className="size-4" /> : <Bot className="size-4" />}
-                </div>
+            {messages.map((msg, idx) => {
+              const isGreeting = idx === 0 && msg.role === 'assistant' && (
+                msg.content === DEFAULT_GREETING_VI ||
+                msg.content === DEFAULT_GREETING_EN ||
+                msg.content.startsWith('Xin chào bạn! Mình là Eve') ||
+                msg.content.startsWith("Hello! I'm Eve")
+              );
+              const messageContent = isGreeting
+                ? (activeSessionIsEnglish ? DEFAULT_GREETING_EN : DEFAULT_GREETING_VI)
+                : msg.content;
+
+              return (
                 <div
-                  className={`rounded-2xl px-4 py-2.5 shadow-md ${
-                    msg.role === 'user'
-                      ? 'bg-primary text-[#081126] font-medium rounded-br-sm'
-                      : 'bg-[#12192e] border border-slate-700/60 text-slate-100 rounded-bl-sm prose prose-sm prose-invert max-w-none prose-p:leading-relaxed prose-pre:bg-black/30'
-                  }`}
+                  key={idx}
+                  className={`flex max-w-[88%] items-end gap-2 ${msg.role === 'user' ? 'self-end flex-row-reverse' : 'self-start'}`}
                 >
-                  {msg.role === 'user' ? (
-                    <p className="whitespace-pre-wrap text-sm leading-relaxed">{msg.content}</p>
-                  ) : (
-                    <ActionMessage content={msg.content} navigate={navigate} setInput={setInput} onSendMessage={handleSendMessage} />
-                  )}
+                  <div className={`grid size-7 shrink-0 place-items-center rounded-full ${msg.role === 'user' ? 'bg-primary text-[#081126]' : 'bg-[#12192e] border border-slate-700/80 text-[#E6C17A]'}`}>
+                    {msg.role === 'user' ? <User className="size-4" /> : <Bot className="size-4" />}
+                  </div>
+                  <div
+                    className={`rounded-2xl px-4 py-2.5 shadow-md ${
+                      msg.role === 'user'
+                        ? 'bg-primary text-[#081126] font-medium rounded-br-sm'
+                        : 'bg-[#12192e] border border-slate-700/60 text-slate-100 rounded-bl-sm prose prose-sm prose-invert max-w-none prose-p:leading-relaxed prose-pre:bg-black/30'
+                    }`}
+                  >
+                    {msg.role === 'user' ? (
+                      <p data-no-translate className="whitespace-pre-wrap text-sm leading-relaxed">{messageContent}</p>
+                    ) : (
+                      <ActionMessage
+                        content={messageContent}
+                        navigate={navigate}
+                        setInput={setInput}
+                        onSendMessage={handleSendMessage}
+                        sessionLocale={activeSessionLocale}
+                      />
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
             
             {isTyping && (
               <div className="flex max-w-[85%] self-start items-end gap-2 animate-in fade-in">
@@ -1455,7 +1627,7 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
                       : 'bg-rose-500 text-white shadow-[0_0_15px_rgba(244,63,94,0.6)] animate-pulse cursor-pointer'
                     : 'border border-slate-700 bg-[#131d38] text-slate-300 hover:text-cyan-300 hover:border-cyan-500/50 hover:bg-[#18254b] cursor-pointer'
               }`}
-              title={isTyping ? 'Đang đợi AI trả lời...' : isRecording ? 'Dừng thu âm' : 'Nhập bằng giọng nói (Tiếng Việt)'}
+              title={isTyping ? (isEnglish ? 'Waiting for AI response...' : 'Đang đợi AI trả lời...') : isRecording ? (isEnglish ? 'Stop recording' : 'Dừng thu âm') : (activeSessionIsEnglish ? 'Voice input (English)' : 'Nhập bằng giọng nói (Tiếng Việt)')}
             >
               {isRecording ? <Square className="size-4 fill-white" /> : <Mic className="size-5" />}
               {isRecording && !isTyping && (
@@ -1486,7 +1658,7 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
                     }
                   }
                 }}
-                placeholder={isRecording ? 'Đang lắng nghe... Nói vào micro...' : 'Hỏi về sự kiện, giá vé...'}
+                placeholder={isRecording ? (activeSessionIsEnglish ? 'Listening... Speak into microphone...' : 'Đang lắng nghe... Nói vào micro...') : (activeSessionIsEnglish ? 'Ask about events, ticket prices...' : 'Hỏi về sự kiện, giá vé...')}
                 className={`no-scrollbar w-full resize-none rounded-xl border bg-[#131d38] py-2.5 pl-3.5 pr-3 text-sm text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:bg-[#162244] transition-all leading-normal ${
                   isRecording 
                     ? 'border-rose-500/60 focus:border-rose-400 focus:ring-rose-500/40 ring-1 ring-rose-500/20' 
@@ -1508,7 +1680,7 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
                 type="button"
                 onClick={stopAiGeneration}
                 className="relative grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-rose-500 text-white font-bold transition-all hover:bg-rose-600 active:scale-95 shadow-[0_0_15px_rgba(244,63,94,0.5)] cursor-pointer"
-                title="Dừng tiến trình AI"
+                title={isEnglish ? 'Stop AI response' : 'Dừng tiến trình AI'}
               >
                 <Square className="size-4 fill-white" />
                 <span className="absolute -inset-1 rounded-xl bg-rose-500/30 animate-ping -z-10" />
@@ -1518,14 +1690,14 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
                 type="submit"
                 disabled={!input.trim()}
                 className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-primary text-[#081126] font-bold transition-all hover:brightness-110 active:scale-95 disabled:opacity-40 disabled:hover:brightness-100 disabled:cursor-not-allowed cursor-pointer shadow-sm"
-                title="Gửi tin nhắn"
+                title={isEnglish ? 'Send message' : 'Gửi tin nhắn'}
               >
                 <Send className="size-4.5 -ml-0.5" />
               </button>
             )}
           </form>
           <div className="mt-2 text-center text-[11px] text-slate-400/80">
-            AI có thể mắc lỗi. Vui lòng kiểm tra lại thông tin quan trọng.
+            {activeSessionIsEnglish ? 'AI can make mistakes. Please review important information.' : 'AI có thể mắc lỗi. Vui lòng kiểm tra lại thông tin quan trọng.'}
           </div>
         </div>
       </div>

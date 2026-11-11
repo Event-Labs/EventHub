@@ -1412,6 +1412,7 @@ function getGroupedMapItems(seatMap) {
 }
 
 function TicketDescriptionModal({ isOpen, ticketName, initialDescription, onSave, onClose }) {
+  const { isEnglish } = useLanguage()
   const [desc, setDesc] = useState(initialDescription || '')
 
   useEffect(() => {
@@ -1617,6 +1618,7 @@ function Step3TicketsSeats({
   isEditMode = false,
   eventId = '',
 }) {
+  const { isEnglish } = useLanguage()
   const toast = useToast()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState(0)
@@ -2929,6 +2931,7 @@ function Step3TicketsSeats({
 }
 
 function Step4PoliciesSettings({ formData, setFormData, completeness, editPermissions }) {
+  const { isEnglish } = useLanguage()
   const { refund_policy: rp } = formData
   const [uploadingPolicy, setUploadingPolicy] = useState(false)
   const [uploadingPermits, setUploadingPermits] = useState(false)

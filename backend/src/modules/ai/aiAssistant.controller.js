@@ -97,7 +97,7 @@ class AiAssistantController {
       if (!userId) {
         return res.status(401).json(ApiResponse.error('Authentication required', 401));
       }
-      const { id, sessionId, title, messages, createdAt, updatedAt } = req.body;
+      const { id, sessionId, title, messages, createdAt, updatedAt, locale } = req.body;
       const sid = sessionId || id;
       if (!sid) {
         return res.status(400).json(ApiResponse.error('Session ID is required', 400));
@@ -108,6 +108,7 @@ class AiAssistantController {
         messages,
         createdAt,
         updatedAt,
+        locale,
       });
       res.status(200).json(ApiResponse.success(saved, 'Session saved'));
     } catch (err) {
@@ -132,6 +133,7 @@ class AiAssistantController {
               messages: s.messages,
               createdAt: s.createdAt,
               updatedAt: s.updatedAt,
+              locale: s.locale,
             });
           }
         }
