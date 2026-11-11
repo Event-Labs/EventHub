@@ -297,10 +297,11 @@ function createFetchRouter(originalFetch, dynamicDocs = {}) {
 
       if (urlStr.endsWith('/api/chat')) {
         const body = JSON.parse(init.body || '{}');
-        // Assert deterministic Stage 2 configuration (Phase 4A)
-        if (body.options?.num_ctx !== 8192 || body.options?.temperature !== 0.1) {
+        // Assert deterministic Stage 2 configuration (Phase 4A + JSON grammar + dynamic ctx overflow shield)
+        const reqCtx = Number(body.options?.num_ctx || 0);
+        if (reqCtx < 8192 || reqCtx > 16384 || body.options?.temperature !== 0.1 || body.format !== 'json') {
           throw new Error(
-            `Stage 2 LLM config mismatch: expected num_ctx=8192 & temperature=0.1, got num_ctx=${body.options?.num_ctx}, temperature=${body.options?.temperature}`,
+            `Stage 2 LLM config mismatch: expected num_ctx in [8192..16384], temperature=0.1 & format=json, got num_ctx=${body.options?.num_ctx}, temperature=${body.options?.temperature}, format=${body.format}`,
           );
         }
 

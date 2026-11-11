@@ -204,6 +204,106 @@ describe('Phase 4 — Vision Model Upgrade (qwen2.5vl:3b + moondream fallback) &
     const chatOptions = chatSpy.mock.calls[0][1];
     expect(chatOptions.temperature).toBe(0.1);
     expect(chatOptions.num_ctx).toBe(8192);
+    expect(chatOptions.format).toBe('json');
+    expect(chatOptions.max_tokens).toBe(2048);
+  });
+
+  it('ollamaClient.chat forwards format: "json" and extractJSON cleans unclosed <think> before truncated repair', async () => {
+    jest.resetModules();
+    const realOllamaClient = jest.requireActual('../../src/infrastructure/ai/ollama.client');
+
+    const fetchMock = jest.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        model: 'eventhub-qwen3',
+        message: { content: '{"decision":"APPROVE","risk_score":5}' },
+      }),
+    }));
+    global.fetch = fetchMock;
+
+    await realOllamaClient.chat(
+      [{ role: 'user', content: 'Review event' }],
+      { format: 'json', num_ctx: 8192 },
+    );
+
+    const reqBody = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(reqBody.format).toBe('json');
+
+    // Think block contains stray brace; valid truncated JSON follows closing </think>
+    const mixedThinkTruncated = '<think>{"noise": 123}</think>\n{"decision": "REJECT", "risk_score": 90, "summary": "Loi tai lieu"';
+    const parsedMixed = realOllamaClient.extractJSON(mixedThinkTruncated);
+    expect(parsedMixed).toEqual(expect.objectContaining({ decision: 'REJECT', risk_score: 90 }));
+
+    // Unclosed <think> block alone returns null rather than parsing think text
+    expect(realOllamaClient.extractJSON('<think>reasoning {"fake": true}')).toBeNull();
+  });
+
+  it('stripHtmlForAiPrompt decodes HTML entities and runAiReview scales num_ctx dynamically on huge prompts', async () => {
+    const db = require('../../src/infrastructure/database/db.client');
+    const reviewCriteriaRepository = require('../../src/modules/admin/reviewCriteria.repository');
+    const ollamaClient = require('../../src/infrastructure/ai/ollama.client');
+    const htmlImageParser = require('../../src/common/utils/htmlImageParser.util');
+    const eventsAdminService = require('../../src/modules/admin/events.service');
+
+    expect(
+      eventsAdminService.stripHtmlForAiPrompt('<p>Green&nbsp;Future &amp; Expo&nbsp;2027 &mdash; &quot;HCMC&quot;</p>'),
+    ).toBe('Green Future & Expo 2027 — "HCMC"');
+
+    // Simulate 16 verbose active criteria pushing estimated prompt tokens past 8192
+    const largeCriteria = Array.from({ length: 16 }, (_, idx) => ({
+      code: `RULE_${idx + 1}`,
+      title: `Tiêu chí kiểm duyệt số ${idx + 1}`,
+      severity: 'CRITICAL',
+      rule_content: 'Kiểm tra chặt chẽ toàn bộ nội dung, hình ảnh, tài liệu pháp lý và điều khoản sự kiện. '.repeat(12),
+      is_active: true,
+    }));
+    jest.spyOn(reviewCriteriaRepository, 'findActive').mockResolvedValue(largeCriteria);
+    jest.spyOn(ollamaClient, 'isHealthy').mockResolvedValue(true);
+    jest.spyOn(ollamaClient, 'describeImageBatch').mockResolvedValue([]);
+    jest.spyOn(htmlImageParser, 'fetchImageAsBase64').mockResolvedValue(null);
+
+    const chatSpy = jest.spyOn(ollamaClient, 'chat').mockResolvedValue({
+      model: 'eventhub-qwen3',
+      content: JSON.stringify({
+        decision: 'APPROVE',
+        risk_score: 5,
+        quality_score: 95,
+        summary: 'Hợp lệ.',
+      }),
+    });
+
+    db.query
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: 'evt-large-ctx',
+            title: 'Green Future Expo 2027',
+            short_description: 'Triển lãm công nghệ xanh.',
+            description: '<p>Nội dung&nbsp;chi&nbsp;tiết '.repeat(120) + '</p>',
+            format: 'ONLINE',
+            visibility: 'PUBLIC',
+            category_name: 'Công nghệ',
+            organization_name: 'EcoVN',
+            is_verified: true,
+            start_time: new Date(Date.now() + 14 * 86400000).toISOString(),
+            end_time: new Date(Date.now() + 14 * 86400000 + 10800000).toISOString(),
+            sessions: [],
+            ticket_types: [{ name: 'Free', price: 0, quantity: 100, is_seated: false }],
+            permits: [],
+            refund_policy: {},
+          },
+        ],
+      })
+      .mockResolvedValue({
+        rows: [{ id: 'evt-large-ctx', event_id: 'evt-large-ctx', recommendation: 'APPROVE', warnings: {}, created_at: new Date() }],
+      });
+
+    await eventsAdminService.runAiReview('evt-large-ctx');
+
+    const chatOptions = chatSpy.mock.calls[0][1];
+    expect(chatOptions.format).toBe('json');
+    expect(chatOptions.num_ctx).toBeGreaterThan(8192);
+    expect(chatOptions.num_ctx).toBeLessThanOrEqual(16384);
   });
 });
 

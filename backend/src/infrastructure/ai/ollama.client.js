@@ -204,6 +204,8 @@ async function chat(messages, options = {}) {
   // Qwen3 8B supports this natively via its chat template.
   if (options.tools && options.tools.length > 0) {
     body.tools = options.tools;
+  } else if (options.format) {
+    body.format = options.format;
   }
 
   let result;
@@ -342,7 +344,10 @@ function repairUnterminatedJson(str) {
  */
 function extractJSON(text) {
   if (!text) return null;
-  const clean = text.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+  const clean = text
+    .replace(/<think>[\s\S]*?<\/think>/gi, '')
+    .replace(/<think>[\s\S]*$/gi, '')
+    .trim();
 
   // 1. Try direct parse
   try { return JSON.parse(clean); } catch { /* continue */ }
@@ -374,8 +379,8 @@ function extractJSON(text) {
     try { return JSON.parse(arrMatch[0]); } catch { /* continue */ }
   }
 
-  // 4. Try repairing truncated JSON if the model stopped at max_tokens
-  const repaired = repairTruncatedJson(text);
+  // 6. Try repairing truncated JSON if the model stopped at max_tokens
+  const repaired = repairTruncatedJson(clean);
   if (repaired && typeof repaired === 'object') {
     return repaired;
   }

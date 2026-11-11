@@ -28,143 +28,94 @@ function buildAiReviewSystemPrompt(activeCriteria = []) {
   let criteriaSection = '';
   if (Array.isArray(activeCriteria) && activeCriteria.length > 0) {
     criteriaSection = activeCriteria.map((c, idx) => {
-      const severityText = c.severity === 'CRITICAL'
-        ? 'BẮT BUỘC / QUAN TRỌNG NHẤT (Nếu vi phạm -> BẮT BUỘC xếp vào "critical_violations" và BẮT BUỘC REJECT)'
-        : c.severity === 'WARNING'
-          ? 'CẢNH BÁO / LƯU Ý (Xếp vào "warnings", trừ điểm chất lượng, đề xuất NEEDS_REVIEW nếu cần điều chỉnh)'
-          : 'KHUYẾN NGHỊ / GỢI Ý (Xếp vào "suggestions" để BTC hoàn thiện)';
-      return `${idx + 1}. [${c.code}] ${c.title} — (${severityText}):\n   ${c.rule_content.split('\n').join('\n   ')}`;
-    }).join('\n\n');
+      const compactRule = String(c.rule_content || '')
+        .replace(/[ \t]+\n/g, '\n')
+        .replace(/\n{2,}/g, '\n')
+        .trim();
+      const sev = c.severity || 'WARNING';
+      return `${idx + 1}. [${c.code}] ${c.title} (${sev}): ${compactRule}`;
+    }).join('\n');
   } else {
-    criteriaSection = `1. [TERMS_ORGANIZER] ĐIỀU KHOẢN TỔ CHỨC (CRITICAL): Cấm lừa đảo tài chính, cấm cam kết x100 lợi nhuận/bao lỗ, cấm Ponzi, cấm cờ bạc/tài xỉu/nội dung độc hại.
-2. [PAYMENT_POLICY] KÊNH THANH TOÁN (CRITICAL): Mọi giao dịch qua EventHub. Nghiêm cấm kêu gọi chuyển khoản STK cá nhân, né phí sàn qua Zalo/Telegram.
-3. [REFUND_POLICY] CHÍNH SÁCH HOÀN TIỀN (CRITICAL): Đảm bảo quyền lợi người mua khi hoãn/hủy sự kiện. Nghiêm cấm quy định "hủy sự kiện vẫn không hoàn tiền dưới mọi lý do".
-4. [TICKET_POLICY] CHÍNH SÁCH VÉ & ĐỊA ĐIỂM (WARNING): Giá vé minh bạch, quyền lợi rõ ràng. Địa chỉ sự kiện cụ thể, không giấu địa chỉ.
-5. [SESSION_SCHEDULE] LỊCH TRÌNH CÁC PHIÊN (CRITICAL): Thời gian không nằm trong quá khứ, giờ kết thúc phải sau giờ bắt đầu.
-6. [IMAGE_POLICY] KIỂM DUYỆT HÌNH ẢNH (CRITICAL): Poster & Banner rõ nét, phù hợp ngữ cảnh. Cấm 18+ khiêu dâm đồi trụy, bạo lực máu me.
-7. [CONTENT_SPELLING] SOÁT LỖI CHÍNH TẢ, TIÊU ĐỀ & MÔ TẢ CHI TIẾT SỰ KIỆN (CRITICAL/WARNING):
-   - Thẩm định Tiêu đề: Rõ ràng, đúng nhận diện chương trình, không giật tít lừa đảo / cam kết lợi nhuận.
-   - Thẩm định Mô tả chi tiết (Description): BẮT BUỘC thẩm định kỹ bài viết mô tả sự kiện:
-     * Đầy đủ & Chi tiết: Nêu rõ cốt truyện/chủ đề, nội dung chương trình, nghệ sĩ/diễn giả tham gia.
-     * Quy định tham gia & Cảnh báo an toàn: Với sự kiện kinh dị/kịch ma/sân khấu kịch hoặc sự kiện nhạy cảm, BẮT BUỘC kiểm tra xem có quy định độ tuổi (hạn chế trẻ em dưới 12/16 tuổi, người có tiền sử tim mạch/huyết áp/phụ nữ mang thai), quy định trang phục và vật dụng cấm mang vào hay chưa.
-     * Tính minh bạch: Cấm chèn STK cá nhân, cấm dẫn link chuyển khoản ngoài sàn, cấm cam kết x100 lợi nhuận hoặc điều khoản mâu thuẫn chính sách hoàn vé.
-     * Nhận xét chi tiết trong "content_review.description_analysis" (phân tích ưu điểm, điểm thiếu sót).
-     * Nếu đạt chuẩn, thêm một câu vào "compliant_checks". Nếu thiếu cảnh báo quan trọng, đưa vào "suggestions" hoặc "warnings".
-8. [VALUABLE_SUGGESTIONS] GỢI Ý CẢI THIỆN CÓ GIÁ TRỊ (INFO): Gợi ý hotline, check-in, phân đoạn nội dung. Không spam gợi ý chỉnh kích thước ảnh.`;
+    criteriaSection = `1. [TERMS_ORGANIZER] ĐIỀU KHOẢN TỔ CHỨC (CRITICAL): Cấm lừa đảo tài chính, cam kết lợi nhuận/x100/bao lỗ, Ponzi, cờ bạc/tài xỉu, nội dung độc hại.
+2. [PAYMENT_POLICY] KÊNH THANH TOÁN (CRITICAL): Giao dịch qua EventHub; cấm STK cá nhân hoặc dẫn link chuyển khoản ngoài sàn.
+3. [REFUND_POLICY] CHÍNH SÁCH HOÀN TIỀN (CRITICAL): Cấm tuyên bố hủy show không hoàn tiền dưới mọi lý do.
+4. [TICKET_POLICY] VÉ & ĐỊA ĐIỂM (WARNING): Giá vé minh bạch; địa điểm cụ thể cho sự kiện OFFLINE.
+5. [SESSION_SCHEDULE] LỊCH TRÌNH (CRITICAL): Thời gian không trong quá khứ; kết thúc phải sau bắt đầu.
+6. [IMAGE_POLICY] HÌNH ẢNH (CRITICAL): Poster/Banner rõ nét, đúng ngữ cảnh; cấm 18+ khiêu dâm, bạo lực đẫm máu, QR lừa đảo.
+7. [CONTENT_SPELLING] TIÊU ĐỀ & MÔ TẢ (WARNING): Rõ nội dung, nghệ sĩ/diễn giả, quy định độ tuổi/an toàn nếu nhạy cảm; soát lỗi chính tả.
+8. [VALUABLE_SUGGESTIONS] GỢI Ý CẢI THIỆN (INFO): Gợi ý thiết thực cho BTC (hotline, check-in, phân đoạn); không spam gợi ý kích thước ảnh.`;
   }
 
-  return `Bạn là Chuyên gia Kiểm duyệt & Thẩm định Toàn diện Sự kiện của nền tảng EventHub.
-Nhiệm vụ của bạn là kiểm tra, đối chiếu thông tin và đánh giá sự kiện KHÁCH QUAN, CHUẨN XÁC, CÔNG BẰNG dựa trên BỘ ĐIỀU KHOẢN VÀ TIÊU CHÍ HIỆN HÀNH DƯỚI ĐÂY.
+  return `Bạn là Chuyên gia Kiểm duyệt Sự kiện EventHub. Đánh giá KHÁCH QUAN, CÔNG BẰNG dựa trên ${activeCriteria.length} điều khoản sau:
+Quy ước mức độ: CRITICAL -> xếp vào "critical_violations" & BẮT BUỘC "REJECT" | WARNING -> "warnings" | INFO -> "suggestions".
 
-BỘ ĐIỀU KHOẢN & TIÊU CHÍ DUYỆT SỰ KIỆN HIỆN HÀNH (${activeCriteria.length} điều khoản):
 ${criteriaSection}
 
-NGUYÊN TẮC CỐT LÕI VỀ KIỂM DUYỆT & ĐIỀU KHOẢN BẮT BUỘC:
-1. ĐIỀU KHOẢN BẮT BUỘC (CRITICAL MANDATORY):
-   - BẤT KỲ SỰ KIỆN NÀO VI PHẠM DÙ CHỈ 1 ĐIỀU KHOẢN BẮT BUỘC -> BẮT BUỘC RA QUYẾT ĐỊNH "REJECT" (TUYỆT ĐỐI KHÔNG APPROVE / KHÔNG NEEDS_REVIEW).
-   - Bao gồm: Lừa đảo tài chính/Ponzi/cam kết x100 lợi nhuận, cờ bạc/tài xỉu, 18+ khiêu dâm đồi trụy, mã QR chuyển khoản lừa đảo, chuyển khoản cá nhân ngoài sàn EventHub, tuyên bố hủy show không hoàn tiền, thời gian sự kiện trong quá khứ, treo đầu dê bán thịt chó, ảnh rác/lạc đề nghiêm trọng hoặc nộp tài liệu giấy phép giả mạo/lạc đề.
+NGUYÊN TẮC CỐT LÕI:
+1. CRITICAL MANDATORY: Vi phạm >=1 điều khoản CRITICAL (lừa đảo/Ponzi, cờ bạc, 18+, QR chuyển khoản lừa đảo, chuyển khoản ngoài sàn, hủy không hoàn tiền, quá khứ, ảnh rác lạc đề hoặc tài liệu giả mạo/lạc đề) -> BẮT BUỘC "decision": "REJECT".
+2. DOCUMENT_RELEVANCE: Tách riêng kết quả thẩm định tệp đính kèm vào "document_review" (KHÔNG gộp vào "image_review"). Đối chiếu tên sự kiện, BTC và từ khóa pháp lý. Nếu "document_analysis" ghi nhận tài liệu rác/lạc đề (IRRELEVANT_OR_FAKE_DOCUMENT: từ vựng IPA, giáo án, đề thi, CV, hóa đơn, code, hoặc văn bản sự kiện khác) -> BẮT BUỘC "status": "VIOLATION", "overall_document_verdict": "VIOLATION", thêm critical_violations mã [LEGAL_PERMIT_AUTHENTICITY], "risk_score" >= 85, "decision": "REJECT".
+3. IMAGE_RELEVANCE & CoT OCR: Kiểm tra "is_event_poster_or_relevant_banner", "visual_description", "extracted_text", "safety_flags" đối với Title/Category. Ảnh selfie, meme, bàn nhậu, thú cưng, phong cảnh lạc đề hoặc có safety_flags -> "status": "VIOLATION", "overall_image_verdict": "VIOLATION", critical_violations ([EVENT_COHERENCE]/[IMAGE_POLICY]), "risk_score" >= 75, "decision": "REJECT" (hoặc "NEEDS_REVIEW" nếu ảnh phụ hơi lệch nhẹ). Phân tích "ocr_reasoning" 4 bước (bối cảnh -> chữ mồi -> giải mã tiếng Việt có dấu, không biến thành Thái/Khmer -> phân biệt nghệ thuật hợp lệ như kịch ma/hồ bơi với vi phạm thực tế).
+4. ANTI_FALSE_POSITIVE: OFFLINE/HYBRID đã có "venue_name" & "address" trong "sessions" -> KHÔNG bắt thiếu địa điểm. Sự kiện ONLINE -> KHÔNG bắt thiếu địa chỉ đường phố. Workshop/webinar/meetup/online không đính kèm permit_files (NOT_REQUIRED) -> KHÔNG tự đánh REJECT vì thiếu giấy phép.
+5. QUYẾT ĐỊNH & ĐIỂM:
+   - "REJECT": >=1 CRITICAL (hoặc ảnh/tài liệu VIOLATION), risk_score >= 75 (tài liệu lạc đề >= 85), quality_score < 50.
+   - "NEEDS_REVIEW": 0 CRITICAL nhưng có WARNING, risk_score 30-64, quality_score 50-74.
+   - "APPROVE": 0 CRITICAL, ảnh & tài liệu phù hợp, risk_score < 30, quality_score >= 75.
+   - Điểm quality_score (100 - CRITICAL:40..50 - WARNING:10..20 - nhẹ:2..5); risk_score (0 + CRITICAL:75..90 + WARNING:15..25 + nhẹ:2..5).
 
-2. QUY TẮC TÀI LIỆU (DOCUMENT_RELEVANCE & DOCUMENT REVIEW):
-   - TÁCH BIỆT HOÀN TOÀN TÀI LIỆU VÀ HÌNH ẢNH: Kết quả thẩm định tài liệu đính kèm trả về trong mục "document_review". TUYỆT ĐỐI KHÔNG gộp tài liệu vào "image_review".
-   - Ràng buộc định dạng PDF / DOCX / Ảnh giấy phép đã được Stage 1A kiểm tra và trích xuất văn bản.
-   - ĐỐI CHIẾU TÍNH LIÊN QUAN (DOCUMENT_RELEVANCE): Đối chiếu nội dung tài liệu với Tên sự kiện, Nhà tổ chức, Danh mục và từ khóa hành chính/pháp lý ("Cộng hòa xã hội chủ nghĩa Việt Nam", "Độc lập - Tự do - Hạnh phúc", "Giấy phép", "Quyết định", "Chấp thuận", "Sở Văn hóa", "Ủy ban nhân dân", "Hợp đồng thuê địa điểm", "Giấy chứng nhận đăng ký doanh nghiệp", "Xác nhận", "Ủy quyền"...).
-   - NGHIÊM CẤM TÀI LIỆU RÁC / LẠC ĐỀ (IRRELEVANT_OR_FAKE_DOCUMENT): Sách từ vựng (Vocabulary, Part of Speech, Noun/Verb/Adjective, phiên âm IPA), giáo án/bài giảng/đề thi/đáp án, CV xin việc, hóa đơn bán lẻ/thực đơn, code lập trình, tài liệu test giả lập hoặc văn bản không liên quan đến sự kiện/nhà tổ chức.
-   - XỬ LÝ BẮT BUỘC: Nếu "document_analysis" phát hiện tài liệu đính kèm trong "permit_files" là tài liệu lạc đề / không liên quan / giả mạo -> BẮT BUỘC đánh "document_review.items[].status" là "VIOLATION" (hoặc "REJECTED"), "overall_document_verdict" = "VIOLATION", nêu rõ "violation_type" và "violating_location", thêm vào "critical_violations" với mã [LEGAL_PERMIT_AUTHENTICITY], đặt "risk_score" >= 85 và ra quyết định "decision" = "REJECT".
-
-3. QUY TẮC HÌNH ẢNH (IMAGE_RELEVANCE & VISUAL CHAIN-OF-THOUGHT OCR):
-   - "image_review" CHỈ dành cho hình ảnh thực tế (Poster, Banner, ảnh mô tả sự kiện). KHÔNG đưa tài liệu văn bản vào danh sách ảnh.
-   - ĐỐI CHIẾU NGỮ CẢNH SỰ KIỆN (IMAGE_RELEVANCE): Phải kiểm tra trường "is_event_poster_or_relevant_banner", "visual_description", "extracted_text" và "safety_flags" từ "vision_analysis" đối chiếu với "title" và "category" của sự kiện:
-     * Nếu "vision_analysis" chỉ ra ảnh là ảnh selfie cá nhân, meme, bàn nhậu, thú cưng, ảnh chụp màn hình rác, hoặc chủ thể trong ảnh hoàn toàn không ăn nhập với "title" và "category" (ví dụ: Hội thảo công nghệ nhưng đăng ảnh đồ ăn/thú cưng/phong cảnh ngẫu nhiên không có chữ sự kiện), hoặc có "safety_flags" (18+/NSFW, bạo lực, cờ bạc, mã QR chuyển khoản lừa đảo):
-       -> BẮT BUỘC đánh "image_review.items[].status" = "VIOLATION" (hoặc "REJECTED") và "overall_image_verdict" = "VIOLATION", thêm vào "critical_violations" với mã tiêu chí tương ứng ([EVENT_COHERENCE] hoặc [IMAGE_QUALITY] / [IMAGE_POLICY]), tăng "risk_score" >= 75 và đặt "decision" = "REJECT" (hoặc tối thiểu "NEEDS_REVIEW" nếu chỉ hơi lệch nhẹ ở ảnh mô tả phụ).
-   - BẮT BUỘC ÁP DỤNG QUY TRÌNH TƯ DUY 4 BƯỚC "VISUAL CHAIN-OF-THOUGHT (CoT) OCR" CHO MỖI ẢNH (lưu vào "ocr_reasoning"):
-     * Bước 1 - Phân tích bối cảnh & Chủ đề (Scene & Theme Context): Nhận diện chủ đề tổng thể của banner, tông màu và đối tượng trực quan so với chủ đề sự kiện.
-     * Bước 2 - Quét vùng chữ rõ nét làm mồi ngữ cảnh (Anchor Text Extraction): Đọc các dòng chữ dễ nhận diện để xác nhận ngôn ngữ và khớp nối sự kiện.
-     * Bước 3 - Giải mã phông chữ biến dạng & Sửa lỗi từ vựng (Stylized Typography Decoding): Giữ tiếng Việt chuẩn có dấu, tuyệt đối không dịch sang ký tự Thái/Khmer.
-     * Bước 4 - Đánh giá kiểm duyệt (Moderation Verdict): Phân biệt hiệu ứng nghệ thuật hợp lệ của sự kiện (kịch ma, sân khấu ca nhạc, hồ bơi lành mạnh) với vi phạm thực tế (NSFW 18+ lộ liễu, bạo lực đẫm máu, cờ bạc, QR lừa đảo hoặc ảnh rác lạc đề).
-
-4. QUY TẮC CHỐNG BẮT NHẦM (ANTI_FALSE_POSITIVE):
-   - Sự kiện OFFLINE/HYBRID đã có thông tin "venue_name" và "address" trong mảng "sessions": TUYỆT ĐỐI KHÔNG bắt lỗi thiếu địa điểm tổ chức (ngay cả khi phần mô tả HTML không ghi lại địa chỉ).
-   - Sự kiện ONLINE không có địa chỉ vật lý: TUYỆT ĐỐI KHÔNG bắt lỗi thiếu địa chỉ đường phố.
-   - Sự kiện không đính kèm "permit_files" và không phải là đại nhạc hội/sự kiện nhạy cảm bắt buộc giấy phép theo luật (trạng thái NOT_REQUIRED — ví dụ: workshop, webinar, hội thảo, meetup cộng đồng, online event): TUYỆT ĐỐI KHÔNG tự ý đánh "REJECT" vì thiếu giấy phép.
-
-5. 3 ĐỀ XUẤT PHÊ DUYỆT CỐT LÕI (decision) & CƠ CHẾ TÍNH ĐIỂM:
-   - "REJECT": Có ít nhất 1 lỗi CRITICAL (hoặc tài liệu/ảnh VIOLATION), risk_score >= 75 (tài liệu lạc đề >= 85), quality_score < 50.
-   - "NEEDS_REVIEW": 0 lỗi CRITICAL, nhưng có cảnh báo WARNING hoặc ảnh hơi lệch nhẹ, risk_score từ 30 đến 64, quality_score từ 50 đến 74.
-   - "APPROVE": 100% tuân thủ các điều khoản bắt buộc, 0 lỗi CRITICAL, ảnh & tài liệu phù hợp ngữ cảnh, rủi ro thấp (risk_score < 30 và quality_score >= 75).
-   - THANG ĐIỂM CHẤT LƯỢNG (quality_score: 0 -> 100, Khởi điểm 100 điểm):
-     * Mỗi lỗi BẮT BUỘC (CRITICAL): Trừ -40 đến -50 điểm / lỗi.
-     * Mỗi cảnh báo LƯU Ý (WARNING): Trừ -10 đến -20 điểm / lỗi.
-     * Mỗi lỗi nhẹ / chính tả: Trừ -2 đến -5 điểm / lỗi.
-   - THANG ĐIỂM RỦI RO (risk_score: 0 -> 100, Khởi điểm 0 điểm):
-     * Mỗi lỗi BẮT BUỘC (CRITICAL): Cộng +75 đến +90 điểm rủi ro.
-     * Mỗi cảnh báo LƯU Ý (WARNING): Cộng +15 đến +25 điểm rủi ro.
-     * Mỗi lỗi nhẹ / chính tả: Cộng +2 đến +5 điểm rủi ro.
-
-ĐỊNH DẠNG ĐẦU RA BẮT BUỘC (JSON THUẦN TÚY):
-Trả về DUY NHẤT 01 chuỗi JSON hợp lệ (KHÔNG dùng <think>, KHÔNG thêm text ngoài JSON) theo cấu trúc:
+TRẢ VỀ DUY NHẤT 01 JSON THUẦN HỢP LỆ (KHÔNG <think>, KHÔNG text ngoài JSON), đặt "decision", "risk_score", "quality_score", "summary" lên đầu:
 {
-  "decision": "APPROVE" | "REJECT" | "NEEDS_REVIEW",
-  "risk_score": <0 đến 100, tính theo quy tắc cộng điểm rủi ro>,
-  "quality_score": <0 đến 100, tính theo quy tắc trừ điểm>,
-  "summary": "<Tóm tắt 1-2 câu lý do phê duyệt/từ chối/lưu ý>",
+  "decision": "APPROVE|REJECT|NEEDS_REVIEW",
+  "risk_score": 0,
+  "quality_score": 100,
+  "summary": "<Tóm tắt 1-2 câu>",
   "content_review": {
-    "title_status": "VALID" | "NEEDS_IMPROVEMENT" | "VIOLATION",
-    "title_analysis": "<Đánh giá tiêu đề>",
-    "description_status": "VALID" | "NEEDS_IMPROVEMENT" | "VIOLATION",
-    "description_analysis": "<Đánh giá mô tả chi tiết>",
-    "spelling_grammar_issues": ["<Lỗi chính tả kèm từ đúng>"]
+    "title_status": "VALID|NEEDS_IMPROVEMENT|VIOLATION",
+    "title_analysis": "<Nhận xét tiêu đề>",
+    "description_status": "VALID|NEEDS_IMPROVEMENT|VIOLATION",
+    "description_analysis": "<Nhận xét mô tả chi tiết>",
+    "spelling_grammar_issues": ["<Lỗi chính tả nếu có>"]
   },
   "image_review": {
-    "overall_image_verdict": "SAFE" | "WARNING" | "VIOLATION",
+    "overall_image_verdict": "SAFE|WARNING|VIOLATION",
     "items": [
       {
-        "source": "MAIN_POSTER | COVER_BANNER | DESCRIPTION_IMAGE_1",
-        "status": "VALID | WARNING | VIOLATION | MISSING",
-        "analysis": "<Đánh giá tổng thể hình ảnh và chữ đã giải mã>",
+        "source": "MAIN_POSTER|COVER_BANNER|DESCRIPTION_IMAGE_1",
+        "status": "VALID|WARNING|VIOLATION|MISSING",
+        "analysis": "<Đánh giá ảnh & chữ>",
         "ocr_reasoning": {
-          "step1_scene_context": "<Phân tích bối cảnh, tông màu, phong cách đồ họa và chủ đề sự kiện>",
-          "step2_anchor_text": "<Vùng chữ rõ nét làm mồi ngữ cảnh: đạo diễn, nghệ sĩ, ngày giờ, thể loại>",
-          "step3_stylized_decoding": "<Quá trình bóc tách râu ria/máu/khói, đối chiếu khung xương chữ cái tiếng Việt và sửa lỗi từ vựng theo tên sự kiện>",
-          "step4_moderation_verdict": "<Phân biệt hiệu ứng nghệ thuật hợp lệ của sự kiện với vi phạm thực tế>"
+          "step1_scene_context": "<Bối cảnh/chủ đề>",
+          "step2_anchor_text": "<Chữ mồi rõ nét>",
+          "step3_stylized_decoding": "<Giải mã phông chữ tiếng Việt>",
+          "step4_moderation_verdict": "<Nghệ thuật hợp lệ vs vi phạm>"
         },
         "extracted_texts": [
-          {
-            "text": "<Cụm từ tiếng Việt đã giải mã>",
-            "font_style": "NORMAL" | "STYLIZED_HORROR" | "NEON_GLOW" | "3D_EFFECT" | "HANDWRITTEN",
-            "confidence": "HIGH" | "MEDIUM" | "LOW",
-            "visual_effect": "BLOOD_SPLATTER" | "SMOKE" | "DISTORTION" | "NONE",
-            "is_event_title": true | false
-          }
+          {"text": "<Chữ>", "font_style": "NORMAL|STYLIZED_HORROR|NEON_GLOW|3D_EFFECT|HANDWRITTEN", "confidence": "HIGH|MEDIUM|LOW", "visual_effect": "BLOOD_SPLATTER|SMOKE|DISTORTION|NONE", "is_event_title": false}
         ],
-        "issues": ["<Vấn đề phát hiện nếu có>"],
-        "suggestion": "<Gợi ý cải thiện>"
+        "issues": ["<Vấn đề nếu có>"],
+        "suggestion": "<Gợi ý>"
       }
     ]
   },
   "document_review": {
-    "overall_document_verdict": "SAFE" | "WARNING" | "VIOLATION" | "NOT_PROVIDED",
+    "overall_document_verdict": "SAFE|WARNING|VIOLATION|NOT_PROVIDED",
     "items": [
       {
         "source": "PERMIT_DOCUMENT_1",
         "file_name": "<Tên tệp>",
-        "status": "VALID | WARNING | VIOLATION",
-        "relevance_to_event": "HIGH | MEDIUM | LOW | IRRELEVANT",
-        "analysis": "<Đánh giá chi tiết tài liệu và mức độ liên quan đến sự kiện>",
-        "violation_type": "<Vi phạm gì nếu có, hoặc để trống/null nếu hợp lệ>",
-        "violating_location": "<Vi phạm chỗ nào trong tài liệu: trích dẫn câu/từ/đoạn>",
-        "issues": ["<Vấn đề phát hiện nếu có>"],
-        "suggestion": "<Gợi ý cho BTC>"
+        "status": "VALID|WARNING|VIOLATION",
+        "relevance_to_event": "HIGH|MEDIUM|LOW|IRRELEVANT",
+        "analysis": "<Đánh giá tính liên quan tài liệu>",
+        "violation_type": "<Loại vi phạm hoặc null>",
+        "violating_location": "<Trích dẫn đoạn vi phạm hoặc null>",
+        "issues": ["<Vấn đề nếu có>"],
+        "suggestion": "<Gợi ý>"
       }
     ]
   },
-  "compliant_checks": ["<Tiêu chí thực sự đạt chuẩn>"],
-  "critical_violations": [
-    {"policy_code": "<Mã điều khoản vi phạm>", "issue": "<Mô tả lỗi vi phạm nghiêm trọng (nếu do tài liệu thì ghi: [Vi phạm tài liệu] [Tên tệp]: <vi phạm gì>)>", "highlighted_text": "<Trích dẫn vi phạm chỗ nào trong tài liệu hoặc mô tả>"}
-  ],
-  "warnings": [
-    {"policy_code": "<Mã điều khoản lưu ý>", "issue": "<Mô tả điểm cần lưu ý>", "highlighted_text": "<Trích dẫn>"}
-  ],
-  "suggestions": ["<Lời khuyên cải thiện thực sự có giá trị cho BTC>"]
+  "compliant_checks": ["<Tiêu chí đạt chuẩn>"],
+  "critical_violations": [{"policy_code": "<MÃ>", "issue": "<Mô tả lỗi; tài liệu ghi: [Vi phạm tài liệu] [Tên tệp]: <lỗi>>", "highlighted_text": "<Trích dẫn>"}],
+  "warnings": [{"policy_code": "<MÃ>", "issue": "<Lưu ý>", "highlighted_text": "<Trích dẫn>"}],
+  "suggestions": ["<Gợi ý giá trị>"]
 }`;
 }
 
@@ -1835,6 +1786,16 @@ function stripHtmlForAiPrompt(value, maxLen = 4500) {
   return String(value || '')
     .replace(/data:image\/[^;]+;base64,[^\s"'>]+/gi, '[Hình ảnh đính kèm]')
     .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&ndash;/gi, '–')
+    .replace(/&mdash;/gi, '—')
+    .replace(/&hellip;/gi, '...')
+    .replace(/&bull;/gi, '•')
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, maxLen);
@@ -2226,9 +2187,9 @@ class EventsAdminService {
     const activeCodes = new Set(activeCriteria.map((c) => c.code));
 
     // Strip HTML and large base64 strings from description/short_description/additional_terms for clean, compact prompt
-    const cleanDescription = stripHtmlForAiPrompt(event.description, 4500);
+    const cleanDescription = stripHtmlForAiPrompt(event.description, 2800);
     const cleanShortDesc = stripHtmlForAiPrompt(event.short_description, 400);
-    const cleanAdditionalTerms = stripHtmlForAiPrompt(event.additional_terms, 1000);
+    const cleanAdditionalTerms = stripHtmlForAiPrompt(event.additional_terms, 800);
 
     // Check permits
     const permitFiles = Array.isArray(event.permits)
@@ -2355,7 +2316,7 @@ class EventsAdminService {
                 violatingLocation: legality.violatingLocation || null,
                 description: legality.isSubstanceViolation
                   ? `[VI PHẠM NỘI DUNG TÀI LIỆU]: Tệp '${item.fileName || 'Tài liệu'}' có dấu hiệu vi phạm: ${legality.violationType || legality.reason}. Vị trí vi phạm: ${legality.violatingLocation || cleanPreview.slice(0, 160)}`
-                  : `[NỘI DUNG TÀI LIỆU HỢP LỆ '${item.fileName || 'Tài liệu'}']:\n${cleanPreview.slice(0, 2000)}`,
+                  : `[NỘI DUNG TÀI LIỆU HỢP LỆ '${item.fileName || 'Tài liệu'}']:\n${cleanPreview.slice(0, 1200)}`,
               });
               continue;
             } else if (docResult.imageBase64Fallback) {
@@ -2473,8 +2434,8 @@ class EventsAdminService {
           return `[Tài liệu đính kèm: "${r.fileName || r.source}"] ${statusBadge}:\n${r.description || ''}`;
         }).join('\n\n');
 
-        if (documentAnalysisSummary.length > 4000) {
-          documentAnalysisSummary = documentAnalysisSummary.slice(0, 4000) + '\n... (đã rút gọn)';
+        if (documentAnalysisSummary.length > 2600) {
+          documentAnalysisSummary = documentAnalysisSummary.slice(0, 2600) + '\n... (đã rút gọn)';
         }
       }
 
@@ -2544,8 +2505,8 @@ class EventsAdminService {
           ].join('\n');
         }).join('\n\n');
 
-        if (visionAnalysisSummary.length > 3500) {
-          visionAnalysisSummary = visionAnalysisSummary.slice(0, 3500) + '\n... (đã rút gọn)';
+        if (visionAnalysisSummary.length > 2500) {
+          visionAnalysisSummary = visionAnalysisSummary.slice(0, 2500) + '\n... (đã rút gọn)';
         }
 
         logger.info(`[AiReview] Phân tích hình ảnh hoàn tất. ${imageAnalysisResults.length} ảnh đã kiểm tra.`);
@@ -2572,10 +2533,20 @@ class EventsAdminService {
         { role: 'user', content: eventPromptWithVision }
       ];
 
+      const baseNumCtx = Number(ollamaClient.OLLAMA_NUM_CTX) || 8192;
+      const maxOutputTokens = 2048;
+      // Qwen3 BPE averages ~2.9-3.2 chars/token on Vietnamese + JSON; divide by 2.7 conservatively
+      const estimatedInputTokens = Math.ceil((systemPrompt.length + eventPromptWithVision.length) / 2.7);
+      const neededCtx = estimatedInputTokens + maxOutputTokens + 256;
+      const effectiveNumCtx = neededCtx > baseNumCtx
+        ? Math.min(16384, Math.max(10240, Math.ceil(neededCtx / 512) * 512))
+        : baseNumCtx;
+
       const aiResponse = await ollamaClient.chat(messages, {
         temperature: 0.1,
-        max_tokens: 1500,
-        num_ctx: Number(ollamaClient.OLLAMA_NUM_CTX) || 8192,
+        max_tokens: maxOutputTokens,
+        num_ctx: effectiveNumCtx,
+        format: 'json',
         timeoutMs: ollamaClient.OLLAMA_TIMEOUT,
         signal: effectiveSignal,
       });
@@ -3450,6 +3421,7 @@ serviceInstance.buildValidatedDocumentReview = buildValidatedDocumentReview;
 serviceInstance.buildValidatedImageReview = buildValidatedImageReview;
 serviceInstance.buildEventAiUserPrompt = buildEventAiUserPrompt;
 serviceInstance.formatSessionVenueAddress = formatSessionVenueAddress;
+serviceInstance.stripHtmlForAiPrompt = stripHtmlForAiPrompt;
 
 module.exports = serviceInstance;
 
