@@ -249,7 +249,7 @@ function isEventInfoInquiry(message) {
     /\?$/.test(message.trim());
 
   // Only disqualify inquiry if it is an explicit imperative booking action without interrogative intent
-  if (!hasInquiryKeywords && /(?:dat|mua|book|booking|giu cho|chot|muc)\s*(?:giup|ho|luon|ngay|\d+|ve|cho|ghe)\b/i.test(norm)) {
+  if (!hasInquiryKeywords && /(?:dat|mua|book|booking|buy|purchase|reserve|get|giu cho|chot|muc)\s*(?:giup|ho|luon|ngay|me|please|\d+|ve|cho|ghe|ticket|tickets|seat|seats)\b/i.test(norm)) {
     return false;
   }
   // Must NOT be security, account, admin, password, or system policies
@@ -270,8 +270,8 @@ function isAutonomousBookingRequest(message) {
 
   // 1. If it contains interrogative, comparative, advice or guidance tokens, it is NOT an autonomous booking action:
   if (
-    /(?:o\s*dau|o\s*cho\s*nao|nhu\s*the\s*nao|the\s*nao|ra\s*sao|lam\s*sao|tai\s*sao|sao|cach\s*(?:nao|dat|mua|thuc)?|huong\s*dan|quy\s*trinh|co\s*nen|co\s*the|duoc\s*khong|khong\s*a|khong\s*nhi|bao\s*nhieu|re\s*nhat|dat\s*nhat|re\s*hon|nao\s*re|sao\s*re|gia\s*re|tim\s*ve|san\s*ve|su\s*kien\s*nao|show\s*nao|ve\s*nao|cho\s*nao|gia\s*bao\s*nhieu)\b/i.test(normMsg) ||
-    (/\?$/.test(message.trim()) && !/(?:dat|mua|book)\s*(?:giup|ho|cho)\b/i.test(normMsg))
+    /(?:o\s*dau|o\s*cho\s*nao|nhu\s*the\s*nao|the\s*nao|ra\s*sao|lam\s*sao|tai\s*sao|sao|cach\s*(?:nao|dat|mua|thuc)?|huong\s*dan|quy\s*trinh|co\s*nen|co\s*the|duoc\s*khong|khong\s*a|khong\s*nhi|bao\s*nhieu|re\s*nhat|dat\s*nhat|re\s*hon|nao\s*re|sao\s*re|gia\s*re|tim\s*ve|san\s*ve|su\s*kien\s*nao|show\s*nao|ve\s*nao|cho\s*nao|gia\s*bao\s*nhieu|how\s*to|how\s*much|where\s*is|when\s*is|which\s*event)\b/i.test(normMsg) ||
+    (/\?$/.test(message.trim()) && !/(?:dat|mua|book|buy|reserve|get)\s*(?:giup|ho|cho|me|for\s*me|please)\b/i.test(normMsg))
   ) {
     return false;
   }
@@ -279,35 +279,46 @@ function isAutonomousBookingRequest(message) {
   if (isEventInfoInquiry(message)) return false;
 
   return (
-    /(?:dat|mua|book|booking|giu\s*cho|order)\s*(?:lai\s*)?(?:giup|ho|luon|ngay)?\s*(?:\d+|mot|hai|ba|bon|nam|cap|doi)?\s*(?:ve|cho|ghe|ticket|suat)/i.test(normMsg) ||
-    /(?:dat|mua|book|lay)\s*(?:lai\s*)?(?:giup|ho)\s*(?:toi|minh|em|anh)?\s*(?:\d+|mot|hai|ba|bon|nam|cap|doi)?\s*(?:ve|cho|ghe|ticket)/i.test(normMsg) ||
-    /(?:cho\s*(?:minh|toi|em|anh)|lay\s*(?:ho|giup)|can|muon)\s*(?:dat|mua|book|lay|giu)\s*(?:lai\s*)?(?:\d+|mot|hai|ba|bon|nam|cap|doi)?\s*(?:ve|cho|ghe|ticket)/i.test(normMsg) ||
-    /(?:cho\s*(?:minh|toi|em|anh))\s*(\d+|mot|hai|ba|bon|nam|cap|doi)\s*(?:ve|cho|ghe|ticket)/i.test(normMsg) ||
+    // Vietnamese booking patterns:
+    /(?:dat|mua|book|booking|giu\s*cho|order)\s*(?:lai\s*)?(?:giup|ho|luon|ngay)?\s*(?:\d+|mot|hai|ba|bon|nam|cap|doi)?\s*(?:ve|cho|ghe|ticket|tickets|suat)/i.test(normMsg) ||
+    /(?:dat|mua|book|lay)\s*(?:lai\s*)?(?:giup|ho)\s*(?:toi|minh|em|anh)?\s*(?:\d+|mot|hai|ba|bon|nam|cap|doi)?\s*(?:ve|cho|ghe|ticket|tickets)/i.test(normMsg) ||
+    /(?:cho\s*(?:minh|toi|em|anh)|lay\s*(?:ho|giup)|can|muon)\s*(?:dat|mua|book|lay|giu)\s*(?:lai\s*)?(?:\d+|mot|hai|ba|bon|nam|cap|doi)?\s*(?:ve|cho|ghe|ticket|tickets)/i.test(normMsg) ||
+    /(?:cho\s*(?:minh|toi|em|anh))\s*(\d+|mot|hai|ba|bon|nam|cap|doi)\s*(?:ve|cho|ghe|ticket|tickets)/i.test(normMsg) ||
     /(?:dat|mua|book|lay|chot)\s*(?:lai\s*)?luon\b/i.test(normMsg) ||
-    /(?:dat|mua|book|lay)\s+lai\s*(\d+|mot|hai|ba|bon|nam|cap|doi)?\s*(?:ve|cho|ghe|ticket)/i.test(normMsg) ||
+    /(?:dat|mua|book|lay)\s+lai\s*(\d+|mot|hai|ba|bon|nam|cap|doi)?\s*(?:ve|cho|ghe|ticket|tickets)/i.test(normMsg) ||
     /\b(?:dat|mua|book|lay)\s+lai\b/i.test(normMsg) ||
-    /\b(?:chot\s*keo|chot\s*don|vao\s*viec\s*luon|muc\s*luon|muc\s+ve)\b/i.test(normMsg)
-  ) && !/(?:tu\s*chon|so\s*do\s*ghe|mo\s*so\s*do|cho\s*toi\s*tu\s*chon|tu\s*vao\s*chon)/i.test(normMsg);
+    /\b(?:chot\s*keo|chot\s*don|vao\s*viec\s*luon|muc\s*luon|muc\s+ve)\b/i.test(normMsg) ||
+    // English booking patterns:
+    /\b(?:wanna|want\s*to|would\s*like\s*to|need\s*to|help\s*me)\s*(?:buy|book|purchase|reserve|get|order)\b/i.test(normMsg) ||
+    /\b(?:buy|book|purchase|reserve|get|order)\s+(?:me\s+)?(?:\d+|one|two|three|four|five|a\s*pair\s*of|a\s*couple\s*of)?\s*(?:tickets?|seats?|passes?|slots?)\b/i.test(normMsg) ||
+    /\b(?:buy|book|purchase|reserve|get)\s+(?:\d+|one|two|three|four|five)\b/i.test(normMsg) ||
+    /\b(?:\d+|one|two|three|four|five)\s*(?:tickets?|seats?|passes?)\s*(?:for|of|please)\b/i.test(normMsg) ||
+    /\b(?:book\s*now|buy\s*now|reserve\s*now|get\s*tickets?\s*now)\b/i.test(normMsg)
+  ) && !/(?:tu\s*chon|so\s*do\s*ghe|mo\s*so\s*do|cho\s*toi\s*tu\s*chon|tu\s*vao\s*chon|choose\s*seat|select\s*seat|open\s*seat\s*map)/i.test(normMsg);
 }
 
-function formatEventDetailResponse(eventDetail, activeEvent) {
-  const title = eventDetail?.title || activeEvent?.title || 'Sự kiện';
+function formatEventDetailResponse(eventDetail, activeEvent, isEn = false) {
+  const title = (isEn && (eventDetail?.title_en || activeEvent?.title_en)) || eventDetail?.title || activeEvent?.title || (isEn ? 'Event' : 'Sự kiện');
   const venueStr = eventDetail?.venue?.summary ||
     [eventDetail?.venue?.name, eventDetail?.venue?.address_line, eventDetail?.venue?.city].filter(Boolean).join(', ') ||
-    activeEvent?.venue_name || activeEvent?.city || 'Địa điểm đang cập nhật';
+    activeEvent?.venue_name || activeEvent?.city || (isEn ? 'Venue updating' : 'Địa điểm đang cập nhật');
 
   // Format sessions
   const sessions = eventDetail?.sessions || [];
   let sessionStr = '';
   if (sessions.length > 0) {
     sessionStr = sessions.map((s, idx) => {
-      const timeStr = s.start_time ? new Date(s.start_time).toLocaleString('vi-VN') : 'Đang cập nhật';
-      return `• Suất ${idx + 1}: ${s.session_name || 'Tiêu chuẩn'} - ${timeStr}`;
+      const timeStr = s.start_time ? new Date(s.start_time).toLocaleString(isEn ? 'en-US' : 'vi-VN') : (isEn ? 'Updating' : 'Đang cập nhật');
+      return isEn
+        ? `• Showtime ${idx + 1}: ${s.session_name || 'Standard'} - ${timeStr}`
+        : `• Suất ${idx + 1}: ${s.session_name || 'Tiêu chuẩn'} - ${timeStr}`;
     }).join('\n');
   } else if (activeEvent?.start_time) {
-    sessionStr = `• Thời gian: ${new Date(activeEvent.start_time).toLocaleString('vi-VN')}`;
+    sessionStr = isEn
+      ? `• Time: ${new Date(activeEvent.start_time).toLocaleString('en-US')}`
+      : `• Thời gian: ${new Date(activeEvent.start_time).toLocaleString('vi-VN')}`;
   } else {
-    sessionStr = '• Thời gian: Đang cập nhật';
+    sessionStr = isEn ? '• Time: Updating' : '• Thời gian: Đang cập nhật';
   }
 
   // Format ticket types
@@ -315,14 +326,20 @@ function formatEventDetailResponse(eventDetail, activeEvent) {
   let ticketStr = '';
   if (tickets.length > 0) {
     ticketStr = tickets.map(t => {
-      const priceStr = Number(t.price) === 0 ? 'Miễn phí' : `${Number(t.price).toLocaleString('vi-VN')}đ`;
-      const rem = t.available_quantity !== undefined ? ` (còn ${t.available_quantity} vé)` : '';
+      const priceStr = Number(t.price) === 0
+        ? (isEn ? 'Free' : 'Miễn phí')
+        : (isEn ? `${Number(t.price).toLocaleString('en-US')} VND` : `${Number(t.price).toLocaleString('vi-VN')}đ`);
+      const rem = t.available_quantity !== undefined
+        ? (isEn ? ` (${t.available_quantity} tickets left)` : ` (còn ${t.available_quantity} vé)`)
+        : '';
       return `• ${t.name}: ${priceStr}${rem}`;
     }).join('\n');
   } else if (activeEvent?.min_price) {
-    ticketStr = `• Giá vé từ: ${Number(activeEvent.min_price).toLocaleString('vi-VN')}đ`;
+    ticketStr = isEn
+      ? `• Ticket from: ${Number(activeEvent.min_price).toLocaleString('en-US')} VND`
+      : `• Giá vé từ: ${Number(activeEvent.min_price).toLocaleString('vi-VN')}đ`;
   } else {
-    ticketStr = '• Giá vé: Liên hệ';
+    ticketStr = isEn ? '• Ticket price: Contact' : '• Giá vé: Liên hệ';
   }
 
   // Description / Highlights
@@ -332,7 +349,20 @@ function formatEventDetailResponse(eventDetail, activeEvent) {
   }
 
   const slug = eventDetail?.slug || activeEvent?.slug;
-  const linkStr = slug ? `\n**Xem chi tiết & sơ đồ vé:** /events/${slug}` : '';
+  const linkStr = slug ? (isEn ? `\n**View details & seat map:** /events/${slug}` : `\n**Xem chi tiết & sơ đồ vé:** /events/${slug}`) : '';
+
+  if (isEn) {
+    return `Eve would love to share details about **${title}** with you:
+
+**Venue:** ${venueStr}
+**Showtime:**
+${sessionStr}
+**Ticket Types & Pricing:**
+${ticketStr}
+${desc ? `**Highlights:** ${desc}` : ''}${linkStr}
+
+Would you like Eve to assist you with booking tickets for this event? Please let Eve know your desired ticket quantity and category.`;
+  }
 
   return `Dạ Eve gửi bạn thông tin chi tiết về sự kiện **${title}** nhé:
 
@@ -608,7 +638,7 @@ function isOutOfScopeQuery(message) {
 
   // If the message is explicitly talking about events, tickets, venues or platform features, it is IN-SCOPE!
   // Note: Avoid bare 've' to prevent false positive matching on the Vietnamese preposition 'về' (about)
-  if (/(su kien|event|show|workshop|ticket|gia ve|hang ve|ve vip|con ve|het ve|giu ve|huy ve|mua ve|dat ve|soat ve|xem ve|lay ve|ngay hoi|le hoi|trien lam|hoa nhac|concert|san khau|kich|dien vien|ca si|ban to chuc|eventhub)/i.test(norm)) {
+  if (/(su kien|event|events|show|workshop|ticket|tickets|seat|seats|pass|passes|gia ve|hang ve|ve vip|con ve|het ve|giu ve|huy ve|mua ve|dat ve|soat ve|xem ve|lay ve|ngay hoi|le hoi|trien lam|hoa nhac|concert|san khau|kich|dien vien|ca si|ban to chuc|eventhub)/i.test(norm)) {
     // If it also mentions homework or math or medical, don't let the escape bypass it
     if (!/(viet code|lap trinh|phuong trinh|bai toan|tich phan|dao ham|tong thong|thu tuong|dau dau|sot cao)/i.test(norm)) {
       return false;
@@ -829,31 +859,35 @@ function extractPhoneNumber(text) {
   return '';
 }
 
-const VIETNAMESE_WORD_TO_NUM = {
+const WORD_TO_NUM = {
   'mot': 1, 'hai': 2, 'ba': 3, 'bon': 4, 'tu': 4, 'nam': 5,
   'sau': 6, 'bay': 7, 'tam': 8, 'chin': 9, 'muoi': 10,
-  'cap': 2, 'doi': 2
+  'cap': 2, 'doi': 2,
+  'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
+  'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
+  'pair': 2, 'couple': 2
 };
+const VIETNAMESE_WORD_TO_NUM = WORD_TO_NUM;
 
 function parseQuantityFromText(text, prevQuantity = null) {
   if (!text) return null;
   const norm = normalizeText(text);
 
   // 1. Explicit target TOTAL expressions (HIGHEST PRIORITY):
-  // 'tong cong la 3 ve', 'tong cong 3 ve', 'tong la 3 ve', 'tong 3 ve', 'tat ca 3 ve', 'thanh 3 ve', 'doi thanh 3 ve', 'thanh 2 slot'
-  const totalDigitMatch = norm.match(/(?:tong\s*cong|tong|tat\s*ca|thanh|doi\s*thanh|chuyen\s*thanh|tang\s*len|giam\s*xuong)\s*(?:la\s*)?(\d+)\s*(?:ve|cho|ghe|ticket|suat|nguoi|slot|dua|ban|mang|phan)?\b/i);
+  // 'tong cong la 3 ve', 'tong cong 3 ve', 'tong la 3 ve', 'tong 3 ve', 'tat ca 3 ve', 'thanh 3 ve', 'doi thanh 3 ve', 'total of 3 tickets'
+  const totalDigitMatch = norm.match(/(?:tong\s*cong|tong|tat\s*ca|thanh|doi\s*thanh|chuyen\s*thanh|tang\s*len|giam\s*xuong|total|total\s*of)\s*(?:la|to|of)?\s*(\d+)\s*(?:ve|cho|ghe|tickets?|suat|nguoi|slots?|dua|ban|mang|phan|seats?|passes?|persons?|people)?\b/i);
   if (totalDigitMatch) {
     return parseInt(totalDigitMatch[1], 10);
   }
 
-  const totalWordMatch = norm.match(/(?:tong\s*cong|tong|tat\s*ca|thanh|doi\s*thanh|chuyen\s*thanh|tang\s*len|giam\s*xuong)\s*(?:la\s*)?(mot|hai|ba|bon|tu|nam|sau|bay|tam|chin|muoi)\s*(?:ve|cho|ghe|ticket|suat|nguoi|slot|dua|ban|mang|phan)?\b/i);
-  if (totalWordMatch && VIETNAMESE_WORD_TO_NUM[totalWordMatch[1]]) {
-    return VIETNAMESE_WORD_TO_NUM[totalWordMatch[1]];
+  const totalWordMatch = norm.match(/(?:tong\s*cong|tong|tat\s*ca|thanh|doi\s*thanh|chuyen\s*thanh|tang\s*len|giam\s*xuong|total|total\s*of)\s*(?:la|to|of)?\s*(mot|hai|ba|bon|tu|nam|sau|bay|tam|chin|muoi|one|two|three|four|five|six|seven|eight|nine|ten)\s*(?:ve|cho|ghe|tickets?|suat|nguoi|slots?|dua|ban|mang|phan|seats?|passes?|persons?|people)?\b/i);
+  if (totalWordMatch && WORD_TO_NUM[totalWordMatch[1]]) {
+    return WORD_TO_NUM[totalWordMatch[1]];
   }
 
   // 2. Relative ADDITION / REDUCTION when previous quantity is known:
-  // 'them 1 ve nua', 'dat them 1 ve', 'mua them 2 ve', 'lay them 1', 'them 1 slot'
-  const addMatch = norm.match(/(?:dat\s*them|mua\s*them|lay\s*them|tang\s*them|them)\s+(?:cho\s*(?:minh|toi|tui|em|anh)\s*)?(\d+)\s*(?:ve|cho|ghe|ticket|suat|nguoi|slot|dua|ban|mang|phan)?(?:\s*nua)?\b/i);
+  // 'them 1 ve nua', 'dat them 1 ve', 'mua them 2 ve', 'lay them 1', 'add 1 ticket', '2 more'
+  const addMatch = norm.match(/(?:dat\s*them|mua\s*them|lay\s*them|tang\s*them|them|add|more)\s+(?:cho\s*(?:minh|toi|tui|em|anh|me|us)\s*)?(\d+)\s*(?:ve|cho|ghe|tickets?|suat|nguoi|slots?|dua|ban|mang|phan|seats?|passes?|persons?|people)?(?:\s*(?:nua|more))?\b/i);
   if (addMatch) {
     const addCount = parseInt(addMatch[1], 10);
     if (prevQuantity && prevQuantity > 0) {
@@ -861,54 +895,54 @@ function parseQuantityFromText(text, prevQuantity = null) {
     }
   }
 
-  const addWordMatch = norm.match(/(?:dat\s*them|mua\s*them|lay\s*them|tang\s*them|them)\s+(?:cho\s*(?:minh|toi|tui|em|anh)\s*)?(mot|hai|ba|bon|tu|nam|sau|bay|tam|chin|muoi)\s*(?:ve|cho|ghe|ticket|suat|nguoi|slot|dua|ban|mang|phan)?(?:\s*nua)?\b/i);
-  if (addWordMatch && VIETNAMESE_WORD_TO_NUM[addWordMatch[1]]) {
-    const addCount = VIETNAMESE_WORD_TO_NUM[addWordMatch[1]];
+  const addWordMatch = norm.match(/(?:dat\s*them|mua\s*them|lay\s*them|tang\s*them|them|add|more)\s+(?:cho\s*(?:minh|toi|tui|em|anh|me|us)\s*)?(mot|hai|ba|bon|tu|nam|sau|bay|tam|chin|muoi|one|two|three|four|five|six|seven|eight|nine|ten)\s*(?:ve|cho|ghe|tickets?|suat|nguoi|slots?|dua|ban|mang|phan|seats?|passes?|persons?|people)?(?:\s*(?:nua|more))?\b/i);
+  if (addWordMatch && WORD_TO_NUM[addWordMatch[1]]) {
+    const addCount = WORD_TO_NUM[addWordMatch[1]];
     if (prevQuantity && prevQuantity > 0) {
       return prevQuantity + addCount;
     }
   }
 
-  const subMatch = norm.match(/(?:bot|giam|huy\s*bot|bo\s*bot|bo)\s*(?:di\s*)?(\d+)\s*(?:ve|cho|ghe|ticket|suat|nguoi|slot|dua|ban|mang|phan)?\b/i);
+  const subMatch = norm.match(/(?:bot|giam|huy\s*bot|bo\s*bot|bo|reduce|remove|decrease)\s*(?:di\s*)?(\d+)\s*(?:ve|cho|ghe|tickets?|suat|nguoi|slots?|dua|ban|mang|phan|seats?|passes?|persons?|people)?\b/i);
   if (subMatch && prevQuantity && prevQuantity > 0) {
     const subCount = parseInt(subMatch[1], 10);
     return Math.max(1, prevQuantity - subCount);
   }
 
-  const subWordMatch = norm.match(/(?:bot|giam|huy\s*bot|bo\s*bot|bo)\s*(?:di\s*)?(mot|hai|ba|bon|tu|nam|sau|bay|tam|chin|muoi)\s*(?:ve|cho|ghe|ticket|suat|nguoi|slot|dua|ban|mang|phan)?\b/i);
-  if (subWordMatch && VIETNAMESE_WORD_TO_NUM[subWordMatch[1]] && prevQuantity && prevQuantity > 0) {
-    const subCount = VIETNAMESE_WORD_TO_NUM[subWordMatch[1]];
+  const subWordMatch = norm.match(/(?:bot|giam|huy\s*bot|bo\s*bot|bo|reduce|remove|decrease)\s*(?:di\s*)?(mot|hai|ba|bon|tu|nam|sau|bay|tam|chin|muoi|one|two|three|four|five|six|seven|eight|nine|ten)\s*(?:ve|cho|ghe|tickets?|suat|nguoi|slots?|dua|ban|mang|phan|seats?|passes?|persons?|people)?\b/i);
+  if (subWordMatch && WORD_TO_NUM[subWordMatch[1]] && prevQuantity && prevQuantity > 0) {
+    const subCount = WORD_TO_NUM[subWordMatch[1]];
     return Math.max(1, prevQuantity - subCount);
   }
 
-  // 3. Direct pairs with digit: "1 cap", "2 cap", "1 doi", "2 doi"
-  const capMatch = norm.match(/(\d+)\s*(?:cap|doi)\b/i);
+  // 3. Direct pairs with digit: "1 cap", "2 cap", "1 doi", "2 doi", "1 pair", "2 couples"
+  const capMatch = norm.match(/(\d+)\s*(?:cap|doi|pairs?|couples?)\b/i);
   if (capMatch) return parseInt(capMatch[1], 10) * 2;
 
-  // 4. Action verb or modification verb followed by digits: "dat 2", "mua 3", "lay 1", "doi sang 2", "cho minh 2", "cho 2 slot", "nhom 3 dua", "2 dua tui"
-  const actionDigitMatch = norm.match(/(?:dat|mua|lay|book|cham|doi\s*sang|chuyen\s*sang|cho\s*minh|cho\s*toi|cho\s*tui|cho|di|nhom|tui\s*minh|chung\s*minh)\s+(?:(?:giup|ho|gium|cho)\s*)?(?:minh|toi|tui|em|anh|chi|mik|b|fen|sop|shop|ad)?\s*(\d+)\b/i);
+  // 4. Action verb or modification verb followed by digits: "dat 2", "mua 3", "lay 1", "doi sang 2", "cho minh 2", "buy 2", "get 3", "order 2"
+  const actionDigitMatch = norm.match(/(?:dat|mua|lay|book|cham|doi\s*sang|chuyen\s*sang|cho\s*minh|cho\s*toi|cho\s*tui|cho|di|nhom|tui\s*minh|chung\s*minh|buy|wanna\s*buy|want\s*to\s*buy|would\s*like\s*to\s*buy|purchase|reserve|get|order)\s+(?:(?:giup|ho|gium|cho|me|us|for\s*me)\s*)?(?:minh|toi|tui|em|anh|chi|mik|b|fen|sop|shop|ad)?\s*(\d+)\b/i);
   if (actionDigitMatch) return parseInt(actionDigitMatch[1], 10);
 
-  // 5. Check digit + ticket unit: "1 ve", "2 ve", "3 cho", "4 ghe", "2 ticket", "1 suat", "3 nguoi", "cho 3 nguoi", "2 slot", "3 dua", "2 ban", "2 mang"
-  const digitUnitMatch = norm.match(/(?:cho\s*)?(\d+)\s*(?:ve|cho|ghe|ticket|suat|nguoi|slot|dua|ban|mang|phan)\b/i);
+  // 5. Check digit + ticket unit: "1 ve", "2 ve", "3 cho", "4 ghe", "2 ticket", "2 tickets", "1 suat", "3 nguoi", "2 seats"
+  const digitUnitMatch = norm.match(/(?:cho\s*)?(\d+)\s*(?:ve|cho|ghe|tickets?|suat|nguoi|slots?|dua|ban|mang|phan|seats?|passes?|persons?|people)\b/i);
   if (digitUnitMatch) return parseInt(digitUnitMatch[1], 10);
 
-  // 6. Check numeral word + ticket unit: "mot ve", "hai ve", "ba ve", "hai nguoi", "hai slot"
-  const wordUnitMatch = norm.match(/(?:cho\s*)?\b(mot|hai|ba|bon|tu|nam|sau|bay|tam|chin|muoi)\s*(?:ve|cho|ghe|ticket|suat|nguoi|slot|dua|ban|mang|phan)\b/i);
-  if (wordUnitMatch && VIETNAMESE_WORD_TO_NUM[wordUnitMatch[1]]) {
-    return VIETNAMESE_WORD_TO_NUM[wordUnitMatch[1]];
+  // 6. Check numeral word + ticket unit: "mot ve", "hai ve", "two tickets", "three seats"
+  const wordUnitMatch = norm.match(/(?:cho\s*)?\b(mot|hai|ba|bon|tu|nam|sau|bay|tam|chin|muoi|one|two|three|four|five|six|seven|eight|nine|ten)\s*(?:ve|cho|ghe|tickets?|suat|nguoi|slots?|dua|ban|mang|phan|seats?|passes?|persons?|people)\b/i);
+  if (wordUnitMatch && WORD_TO_NUM[wordUnitMatch[1]]) {
+    return WORD_TO_NUM[wordUnitMatch[1]];
   }
 
-  // 7. Action verb or modification verb followed by numeral word: "dat mot", "mua hai", "cho hai", "di hai"
-  const actionWordMatch = norm.match(/(?:dat|mua|lay|book|cham|doi\s*sang|chuyen\s*sang|cho\s*minh|cho\s*toi|cho\s*tui|cho|di|nhom|tui\s*minh|chung\s*minh)\s+(?:(?:giup|ho|gium|cho)\s*)?(?:minh|toi|tui|em|anh|chi|mik|b|fen|sop|shop|ad)?\s*(mot|hai|ba|bon|tu|nam|sau|bay|tam|chin|muoi)\b/i);
-  if (actionWordMatch && VIETNAMESE_WORD_TO_NUM[actionWordMatch[1]]) {
-    return VIETNAMESE_WORD_TO_NUM[actionWordMatch[1]];
+  // 7. Action verb or modification verb followed by numeral word: "dat mot", "mua hai", "buy two", "book three"
+  const actionWordMatch = norm.match(/(?:dat|mua|lay|book|cham|doi\s*sang|chuyen\s*sang|cho\s*minh|cho\s*toi|cho\s*tui|cho|di|nhom|tui\s*minh|chung\s*minh|buy|wanna\s*buy|want\s*to\s*buy|would\s*like\s*to\s*buy|purchase|reserve|get|order)\s+(?:(?:giup|ho|gium|cho|me|us|for\s*me)\s*)?(?:minh|toi|tui|em|anh|chi|mik|b|fen|sop|shop|ad)?\s*(mot|hai|ba|bon|tu|nam|sau|bay|tam|chin|muoi|one|two|three|four|five|six|seven|eight|nine|ten)\b/i);
+  if (actionWordMatch && WORD_TO_NUM[actionWordMatch[1]]) {
+    return WORD_TO_NUM[actionWordMatch[1]];
   }
 
-  // 8. Check standalone pair words "cap", "doi", excluding modification verbs (doi sang/thanh/qua/lai/hang/ghe/loai)
-  if (/\b(?:1\s*cap|cap)\s*(?:ve)?\b/i.test(norm)) return 2;
+  // 8. Check standalone pair words "cap", "doi", "pair", "couple"
+  if (/\b(?:1\s*cap|cap|1\s*pair|pair|1\s*couple|couple)\s*(?:ve|tickets?)?\b/i.test(norm)) return 2;
   if (/\b(?:1\s*doi|doi\s*ve|mot\s*doi)\b/i.test(norm) && !/\bdoi\s*(?:sang|thanh|qua|lai|hang|ghe|loai)\b/i.test(norm)) return 2;
-  if (/\bdoi\b/i.test(norm) && !/\bdoi\s*(?:sang|thanh|qua|lai|hang|ghe|loai|ve|cho)\b/i.test(norm) && /(?:mua|dat|lay)\s+doi\b/i.test(norm)) return 2;
+  if (/\bdoi\b/i.test(norm) && !/\bdoi\s*(?:sang|thanh|qua|lai|hang|ghe|loai|ve|cho)\b/i.test(norm) && /(?:mua|dat|lay|buy|book)\s+doi\b/i.test(norm)) return 2;
 
   return null;
 }
@@ -933,7 +967,7 @@ function parseTicketsFromText(allUserText, ticketTypes) {
     if (cleanName.length >= 2) candidates.add(cleanName);
     if (rawNorm.length >= 3) candidates.add(rawNorm);
 
-    // Numbered zone abbreviations: "khu vuc 1" -> "khu 1", "kv 1", "kv1", "loai 1", "khu i", "kv i"
+    // Numbered zone abbreviations: "khu vuc 1" -> "khu 1", "kv 1", "kv1", "loai 1", "khu i", "kv i", "zone 1", "tier 1"
     const numMatch = cleanName.match(/(\d+)/);
     if (numMatch) {
       const num = numMatch[1];
@@ -943,6 +977,8 @@ function parseTicketsFromText(allUserText, ticketTypes) {
       candidates.add(`kv${num}`);
       candidates.add(`loai ${num}`);
       candidates.add(`hang ${num}`);
+      candidates.add(`zone ${num}`);
+      candidates.add(`tier ${num}`);
 
       const roman = ROMAN_NUMERAL_MAP[num];
       if (roman) {
@@ -950,10 +986,11 @@ function parseTicketsFromText(allUserText, ticketTypes) {
         candidates.add(`khu vuc ${roman}`);
         candidates.add(`kv ${roman}`);
         candidates.add(`kv${roman}`);
+        candidates.add(`zone ${roman}`);
       }
     }
 
-    // Check for roman numeral in name: "khu vuc i" -> "khu 1", "kv 1"
+    // Check for roman numeral in name: "khu vuc i" -> "khu 1", "kv 1", "zone 1"
     const romanMatch = cleanName.match(/\b(i{1,3}|iv|v)\b/);
     if (romanMatch) {
       const rom = romanMatch[1];
@@ -963,11 +1000,12 @@ function parseTicketsFromText(allUserText, ticketTypes) {
         candidates.add(`khu vuc ${digit}`);
         candidates.add(`kv ${digit}`);
         candidates.add(`kv${digit}`);
+        candidates.add(`zone ${digit}`);
       }
     }
 
     // Distinctive single tokens (only if not generic stop words like 'khu' or 'vuc')
-    const tokens = cleanName.split(/\s+/).filter(w => w.length >= 2 && !['khu', 'vuc', 'hang', 'loai', 've', 'zone', 'ticket'].includes(w));
+    const tokens = cleanName.split(/\s+/).filter(w => w.length >= 2 && !['khu', 'vuc', 'hang', 'loai', 've', 'zone', 'ticket', 'tickets', 'tier'].includes(w));
     for (const tok of tokens) {
       const sharedWithOther = ticketTypes.some(other => other.id !== t.id && normalizeText(other.name).includes(tok));
       if (!sharedWithOther) {
@@ -982,41 +1020,41 @@ function parseTicketsFromText(allUserText, ticketTypes) {
     for (const cand of candidates) {
       const escaped = cand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-      // Pattern 0: "N cặp/đôi [vé] <candidate>" e.g. "2 cặp vé VIP", "1 cặp VIP", "3 đôi vé thường"
-      const reCap = new RegExp('(?:(\\d+)|\\b(mot|hai|ba|bon|tu|nam|sau)\\b)?\\s*(?:c[aặ]p|cap|d[oô]i|doi)\\s*(?:v[eé]|ve)?\\s*(?:h[aà]ng|hang|lo[aạ]i|loai)?\\s*' + escaped + '\\b', 'i');
+      // Pattern 0: "N cặp/đôi [vé] <candidate>" e.g. "2 cặp vé VIP", "1 cặp VIP", "2 pairs of VIP"
+      const reCap = new RegExp('(?:(\\d+)|\\b(mot|hai|ba|bon|tu|nam|sau|one|two|three|four|five|six)\\b)?\\s*(?:c[aặ]p|cap|d[oô]i|doi|pairs?|couples?)\\s*(?:v[eé]|ve|tickets?|of)?\\s*(?:h[aà]ng|hang|lo[aạ]i|loai|zone|tier)?\\s*' + escaped + '\\b', 'i');
       const mCap = normUserText.match(reCap);
       if (mCap) {
         let mult = 1;
         if (mCap[1]) mult = parseInt(mCap[1], 10);
-        else if (mCap[2]) mult = VIETNAMESE_WORD_TO_NUM[mCap[2].toLowerCase()] || 1;
+        else if (mCap[2]) mult = WORD_TO_NUM[mCap[2].toLowerCase()] || 1;
         matchedQty = mult * 2;
         break;
       }
 
-      // Pattern A: "<number|word> [ve] [hang] <candidate>" e.g. "2 ve khu vuc 1", "1 ve vip", "2 ve 50k", "mot ve thuong"
-      const reA = new RegExp('(?:(\\d+)|\\b(mot|hai|ba|bon|tu|nam|sau|bay|tam|chin|muoi|cap|doi)\\b)\\s*(?:v[eé]|ve)?\\s*(?:h[aà]ng|hang|lo[aạ]i|loai)?\\s*' + escaped + '\\b', 'i');
+      // Pattern A: "<number|word> [ve] [hang] <candidate>" e.g. "2 ve khu vuc 1", "2 tickets zone 1", "1 ve vip", "two tickets vip"
+      const reA = new RegExp('(?:(\\d+)|\\b(mot|hai|ba|bon|tu|nam|sau|bay|tam|chin|muoi|one|two|three|four|five|six|seven|eight|nine|ten|cap|doi|pair|couple)\\b)\\s*(?:v[eé]|ve|tickets?|seats?|passes?)?\\s*(?:h[aà]ng|hang|lo[aạ]i|loai|zone|tier)?\\s*' + escaped + '\\b', 'i');
       const mA = normUserText.match(reA);
       if (mA) {
         if (mA[1]) matchedQty = parseInt(mA[1], 10);
-        else if (mA[2]) matchedQty = VIETNAMESE_WORD_TO_NUM[mA[2].toLowerCase()] || 1;
+        else if (mA[2]) matchedQty = WORD_TO_NUM[mA[2].toLowerCase()] || 1;
         break;
       }
 
-      // Pattern B: "<candidate> [hang] <number|word>" e.g. "khu vuc 1 2 ve", "vip 2 ve"
-      const reB = new RegExp(escaped + '\\s*(?:h[aà]ng|hang|lo[aạ]i|loai)?\\s*(?:(\\d+)|\\b(mot|hai|ba|bon|tu|nam|sau|bay|tam|chin|muoi|cap|doi)\\b)\\s*(?:v[eé]|ve)?', 'i');
+      // Pattern B: "<candidate> [hang] <number|word>" e.g. "khu vuc 1 2 ve", "zone 1 2 tickets", "vip 2 ve"
+      const reB = new RegExp(escaped + '\\s*(?:h[aà]ng|hang|lo[aạ]i|loai|zone|tier)?\\s*(?:(\\d+)|\\b(mot|hai|ba|bon|tu|nam|sau|bay|tam|chin|muoi|one|two|three|four|five|six|seven|eight|nine|ten|cap|doi|pair|couple)\\b)\\s*(?:v[eé]|ve|tickets?|seats?|passes?)?', 'i');
       const mB = normUserText.match(reB);
       if (mB) {
         if (mB[1]) matchedQty = parseInt(mB[1], 10);
-        else if (mB[2]) matchedQty = VIETNAMESE_WORD_TO_NUM[mB[2].toLowerCase()] || 1;
+        else if (mB[2]) matchedQty = WORD_TO_NUM[mB[2].toLowerCase()] || 1;
         break;
       }
 
-      // Pattern C: "<number|word> <candidate>" e.g. "2 vip"
-      const reC = new RegExp('\\b(?:(\\d+)|\\b(mot|hai|ba|bon|tu|nam|sau|bay|tam|chin|muoi|cap|doi)\\b)\\s+' + escaped + '\\b', 'i');
+      // Pattern C: "<number|word> <candidate>" e.g. "2 vip", "two vip"
+      const reC = new RegExp('\\b(?:(\\d+)|\\b(mot|hai|ba|bon|tu|nam|sau|bay|tam|chin|muoi|one|two|three|four|five|six|seven|eight|nine|ten|cap|doi|pair|couple)\\b)\\s+' + escaped + '\\b', 'i');
       const mC = normUserText.match(reC);
       if (mC) {
         if (mC[1]) matchedQty = parseInt(mC[1], 10);
-        else if (mC[2]) matchedQty = VIETNAMESE_WORD_TO_NUM[mC[2].toLowerCase()] || 1;
+        else if (mC[2]) matchedQty = WORD_TO_NUM[mC[2].toLowerCase()] || 1;
         break;
       }
     }
@@ -1330,7 +1368,8 @@ function detectEventChangeIntent(message) {
     /(?:doi|chuyen)\s*(?:sang\s*|qua\s*)?(?:suat|ca|buoi|ngay|khung\s*gio|gio\s*chieu)\b/i.test(norm) ||
     /(?:suat|ca|khung\s*gio|gio\s*chieu)\s*khac\b/i.test(norm) ||
     /(?:huy|bo|xoa)\s*(?:ghe|cho|hang|suat|\d+\s*ve|bot\s*\d+\s*ve)\b/i.test(norm) ||
-    /(?:bot|giam)\s*(?:\d+\s*)?(?:ve|cho|slot)\b/i.test(norm) ||
+    /(?:bot|giam)\s*(?:xuong\s*)?(?:\d+\s*)?(?:ve|cho|slot)\b/i.test(norm) ||
+    /(?:tang|giam|giam\s*xuong|tang\s*len)\s*\d+\s*(?:ve|cho|slot)\b/i.test(norm) ||
     /(?:doi|chuyen)\s*(?:sang\s*)?(?:\d+\s*)?(?:ve\s*)?(?:vip|vvip|svip|regular|standard|eco|economy|premium|ga|early\s*bird|thuong|tieu chuan|pho thong|dong|bac|vang|kim cuong)\b/i.test(norm) ||
     /(?:doi|chuyen)\s*(?:sang\s*)?(?:loai\s*ve|hang\s*ve|khu\s*vuc|ve\s*re|ve\s*dat)\b/i.test(norm) ||
     /(?:doi|chuyen)\s*(?:thanh|sang)?\s*\d+\s*(?:ve|cho|ghe|slot)\b/i.test(norm) ||
@@ -2954,29 +2993,36 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
 
       // 0. Instant Pure Greeting Fast-path:
       const isPureGreetingMsg = isPureGreeting(message);
-      const hasPriorUserBooking = cleanHistory.some(m => m.role === 'user' && /(đặt|mua|lấy|book|giữ\s*chỗ)\s*(?:\d+|vé|ghe)/i.test(m.content || ''));
+      const hasPriorUserBooking = cleanHistory.some(m => m.role === 'user' && /(đặt|mua|lấy|book|giữ\s*chỗ|buy|reserve)\s*(?:\d+|vé|ghe|tickets?|seats?)/i.test(m.content || ''));
       if (isPureGreetingMsg && !hasPriorUserBooking) {
+        const isEn = clientContext?.locale === 'en';
         return {
           role: 'assistant',
-          content: `Xin chào bạn! Mình là Eve – Trợ lý AI của EventHub.
-
-Eve luôn sẵn sàng hỗ trợ bạn tìm kiếm sự kiện, tra cứu giá vé, đặt chỗ nhanh và giải đáp thắc mắc. Hôm nay bạn đang quan tâm đến sự kiện nào?`
+          content: isEn
+            ? `Hello! I'm Eve – EventHub's AI Assistant.\n\nEve is always ready to assist you with exploring events, checking ticket prices, booking seats quickly, and answering questions. What event are you interested in today?`
+            : `Xin chào bạn! Mình là Eve – Trợ lý AI của EventHub.\n\nEve luôn sẵn sàng hỗ trợ bạn tìm kiếm sự kiện, tra cứu giá vé, đặt chỗ nhanh và giải đáp thắc mắc. Hôm nay bạn đang quan tâm đến sự kiện nào?`
         };
       }
 
       // 0.1. Immediate Security Guardrail Fast-path:
       if (isJailbreakAttempt(message)) {
+        const isEn = clientContext?.locale === 'en';
         return {
           role: 'assistant',
-          content: `Xin lỗi, Eve là Trợ lý AI của EventHub và được thiết kế để tuân thủ nghiêm ngặt các tiêu chuẩn an toàn bảo mật.\n\nEve không thể chia sẻ thông tin hệ thống nội bộ, cấu trúc cơ sở dữ liệu hay thông tin tài khoản của quản trị viên và người dùng khác. Eve luôn sẵn sàng hỗ trợ bạn khám phá các sự kiện và đặt vé nhé.`
+          content: isEn
+            ? `Sorry, Eve is EventHub's AI Assistant and strictly adheres to platform security and privacy standards.\n\nEve cannot disclose internal system information, database structure, or accounts of administrators and other users. Eve is always delighted to assist you with discovering events and booking tickets on EventHub!`
+            : `Xin lỗi, Eve là Trợ lý AI của EventHub và được thiết kế để tuân thủ nghiêm ngặt các tiêu chuẩn an toàn bảo mật.\n\nEve không thể chia sẻ thông tin hệ thống nội bộ, cấu trúc cơ sở dữ liệu hay thông tin tài khoản của quản trị viên và người dùng khác. Eve luôn sẵn sàng hỗ trợ bạn khám phá các sự kiện và đặt vé nhé.`
         };
       }
 
       // 0.2. Immediate Out-of-Scope Guardrail Fast-path:
       if (isOutOfScopeQuery(message)) {
+        const isEn = clientContext?.locale === 'en';
         return {
           role: 'assistant',
-          content: `Dạ Eve là Trợ lý AI chuyên trách của nền tảng EventHub nên chỉ có thể hỗ trợ các thông tin về sự kiện, đặt vé và chính sách của hệ thống thôi nè.\n\nEve xin phép không trả lời các câu hỏi ngoài phạm vi này nhé. Bạn có muốn Eve giới thiệu các sự kiện âm nhạc, triển lãm hay workshop thú vị đang có trên EventHub không ạ?`
+          content: isEn
+            ? `Eve is EventHub's specialized AI Assistant and can only support event discovery, ticket booking, and EventHub policies.\n\nEve politely declines questions outside this scope. Would you like Eve to recommend upcoming concerts, exhibitions, or creative workshops on EventHub?`
+            : `Dạ Eve là Trợ lý AI chuyên trách của nền tảng EventHub nên chỉ có thể hỗ trợ các thông tin về sự kiện, đặt vé và chính sách của hệ thống thôi nè.\n\nEve xin phép không trả lời các câu hỏi ngoài phạm vi này nhé. Bạn có muốn Eve giới thiệu các sự kiện âm nhạc, triển lãm hay workshop thú vị đang có trên EventHub không ạ?`
         };
       }
 
@@ -3024,6 +3070,35 @@ Eve luôn sẵn sàng hỗ trợ bạn tìm kiếm sự kiện, tra cứu giá v
     }
 
     let dynamicSystemPrompt = SYSTEM_PROMPT;
+    if (clientContext?.locale === 'en') {
+      dynamicSystemPrompt = `CRITICAL MANDATORY INSTRUCTION:
+- The customer interface language is ENGLISH (locale: en).
+- Every single word of your response MUST be in natural, polite, and helpful ENGLISH.
+- NEVER speak Vietnamese, nor use Vietnamese conversational particles (such as "Dạ", "nè", "nhé", "nha", "ạ", "chốt kèo", "múc vé", "vào việc").
+- Never output Vietnamese prompt examples, Vietnamese system directives, or refusal sentences in Vietnamese.
+- Even if event titles in the database are Vietnamese, converse with the customer 100% IN ENGLISH.\n\n` + dynamicSystemPrompt;
+
+      dynamicSystemPrompt = dynamicSystemPrompt.replace(
+        '- BẮT BUỘC 100% TIẾNG VIỆT: Tuyệt đối KHÔNG sử dụng chữ Hán/tiếng Trung (như 電子信箱, 邮箱, 好的). Luôn viết là "Email" hoặc "hòm thư" thay vì tiếng Trung.',
+        '- MANDATORY 100% ENGLISH: The user has selected English interface mode (locale: en). Every single word of your reply MUST be in natural, polite, helpful English. NEVER output Vietnamese words, phrases, or Vietnamese prompt examples. Maintain the same friendly Eve personality.'
+      );
+      dynamicSystemPrompt = dynamicSystemPrompt.replace(
+        /BỘ VÍ DỤ ỨNG XỬ LINH HOẠT & THẤU CẢM CỦA EVE[\s\S]*?QUY TẮC CỐT LÕI - GIAO TIẾP TỰ NHIÊN, LINH HOẠT & BẢO MẬT:/,
+        `EVE'S BEHAVIORAL EXAMPLES & GUIDELINES (ENGLISH):
+- EXAMPLE 1: Customer asks by mood / emotion (feeling down, stressed, want to chill):
+  Express sincere warmth and empathy: Suggest soothing acoustic live shows or an oil pastel/pottery workshop to recharge.
+- EXAMPLE 2: Customer looks for family, kids, or date ideas:
+  Enthusiastically recommend family-friendly plays or romantic live music and creative workshops.
+- EXAMPLE 3: Customer uses direct booking requests or slang:
+  Acknowledge booking immediately and proceed with seat recommendation and booking proposal.
+- EXAMPLE 4: Customer hesitates or needs time:
+  Be gracious and respectful, never pushy. Assure them Eve is ready whenever they want to proceed.
+- EXAMPLE 5: Customer asks brief or ambiguous questions:
+  Be proactive and cheerful: Introduce 2-3 top featured events on EventHub and ask about their tastes.
+
+CORE RULES - NATURAL COMMUNICATION & SECURITY (ENGLISH):`
+      );
+    }
     if (userId) {
       dynamicSystemPrompt = dynamicSystemPrompt.replace(
         '- Nếu người dùng chưa đăng nhập, hãy khuyên họ đăng nhập.',
@@ -3143,9 +3218,12 @@ Eve luôn sẵn sàng hỗ trợ bạn tìm kiếm sự kiện, tra cứu giá v
           logger.warn(`[AiAssistant] Error releasing seat holds on cancel: ${e.message}`);
         }
       }
+      const isEn = clientContext?.locale === 'en';
       return {
         role: 'assistant',
-        content: `Dạ vâng, Eve đã dừng quy trình đặt vé theo yêu cầu của bạn rồi nhé.\n\nBạn đừng lo lắng, các vị trí giữ chỗ tạm thời (nếu có) đã được tự động giải phóng rồi nha. Bạn có muốn Eve hỗ trợ tìm kiếm sự kiện nào khác, hoặc cần Eve giải đáp thêm thông tin gì trên EventHub không ạ?\n\n[ACTION:CLEAR_BOOKING${eventIdToRelease ? `:${eventIdToRelease}` : ''}]`
+        content: isEn
+          ? `Certainly, Eve has stopped the booking process as requested.\n\nPlease don't worry, any temporary seat holds (if any) have been automatically released. Would you like Eve to help you search for other events, or answer any other questions on EventHub?\n\n[ACTION:CLEAR_BOOKING${eventIdToRelease ? `:${eventIdToRelease}` : ''}]`
+          : `Dạ vâng, Eve đã dừng quy trình đặt vé theo yêu cầu của bạn rồi nhé.\n\nBạn đừng lo lắng, các vị trí giữ chỗ tạm thời (nếu có) đã được tự động giải phóng rồi nha. Bạn có muốn Eve hỗ trợ tìm kiếm sự kiện nào khác, hoặc cần Eve giải đáp thêm thông tin gì trên EventHub không ạ?\n\n[ACTION:CLEAR_BOOKING${eventIdToRelease ? `:${eventIdToRelease}` : ''}]`
       };
     }
 
@@ -3159,17 +3237,25 @@ Eve luôn sẵn sàng hỗ trợ bạn tìm kiếm sự kiện, tra cứu giá v
           logger.warn(`[AiAssistant] Error releasing seat holds on change: ${e.message}`);
         }
       }
+      const isEn = clientContext?.locale === 'en';
       const topEvents = (publishedEvents || []).slice(0, 4);
       let listStr = '';
       if (topEvents.length > 0) {
         listStr = topEvents.map(e => {
-          const price = Number(e.min_price) === 0 ? 'Miễn phí' : `${Number(e.min_price).toLocaleString('vi-VN')}đ`;
-          return `**${e.title}**\nĐịa điểm: ${e.venue_name || e.city || 'TP.HCM'}\nGiá từ: ${price}\nChi tiết: /events/${e.slug}`;
+          const price = Number(e.min_price) === 0
+            ? (isEn ? 'Free' : 'Miễn phí')
+            : (isEn ? `${Number(e.min_price).toLocaleString('en-US')} VND` : `${Number(e.min_price).toLocaleString('vi-VN')}đ`);
+          const title = (isEn && e.title_en) ? e.title_en : e.title;
+          return isEn
+            ? `**${title}**\nVenue: ${e.venue_name || e.city || 'Vietnam'}\nFrom: ${price}\nDetails: /events/${e.slug}`
+            : `**${title}**\nĐịa điểm: ${e.venue_name || e.city || 'TP.HCM'}\nGiá từ: ${price}\nChi tiết: /events/${e.slug}`;
         }).join('\n\n');
       }
       return {
         role: 'assistant',
-        content: `Dạ vâng, Eve đã hủy đề xuất đặt vé trước đó rồi nè.\n\nEve xin gợi ý cho bạn một số sự kiện nổi bật đang có trên EventHub để bạn tham khảo nhé:\n\n${listStr}\n\nBạn quan tâm hoặc muốn Eve hỗ trợ sự kiện nào trong số này không ạ?\n\n[ACTION:CLEAR_BOOKING${eventIdToRelease ? `:${eventIdToRelease}` : ''}]`
+        content: isEn
+          ? `Certainly, Eve has cleared your previous booking proposal.\n\nHere are some featured events currently on EventHub for you to explore:\n\n${listStr}\n\nWould you like Eve to help you book tickets for any of these events?\n\n[ACTION:CLEAR_BOOKING${eventIdToRelease ? `:${eventIdToRelease}` : ''}]`
+          : `Dạ vâng, Eve đã hủy đề xuất đặt vé trước đó rồi nè.\n\nEve xin gợi ý cho bạn một số sự kiện nổi bật đang có trên EventHub để bạn tham khảo nhé:\n\n${listStr}\n\nBạn quan tâm hoặc muốn Eve hỗ trợ sự kiện nào trong số này không ạ?\n\n[ACTION:CLEAR_BOOKING${eventIdToRelease ? `:${eventIdToRelease}` : ''}]`
       };
     }
 
@@ -3221,26 +3307,38 @@ Eve luôn sẵn sàng hỗ trợ bạn tìm kiếm sự kiện, tra cứu giá v
       const contHasPlacement = /(?:hang\s*[a-z]|gan\s*(?:san\s*khau|trung\s*tam)|o\s*giua|trung\s*tam|vip|thuong|dau|cuoi)/i.test(normalizeText(message));
 
       if (!contQty && contDetected.length === 0 && !contHasPlacement) {
+        const isEn = clientContext?.locale === 'en';
+        const evTitle = (isEn && (contDetail?.title_en || activeEvent.title_en)) || activeEvent.title;
         if (contIsSeated) {
           return {
             role: 'assistant',
-            content: `Dạ vâng, Eve sẵn sàng tiếp tục hỗ trợ bạn đặt vé sự kiện **${activeEvent.title}** nè! 🎉\n\nĐây là sự kiện có **sơ đồ ghế ngồi trực quan**. Bạn có muốn Eve mở sơ đồ chỗ ngồi để bạn tự tay chọn vị trí đẹp nhất, hoặc bạn cho Eve biết bạn muốn ngồi khu vực nào (VIP, Tiêu chuẩn...) để Eve giữ chỗ giúp bạn nhé? 🥰`
+            content: isEn
+              ? `Certainly, Eve is ready to continue assisting you with booking tickets for **${evTitle}**! 🎉\n\nThis event features an **interactive seat map**. Would you like Eve to open the seat map so you can select your favorite seats, or would you like to tell Eve which seating zone (VIP, Standard...) you prefer so Eve can hold seats for you? 🥰`
+              : `Dạ vâng, Eve sẵn sàng tiếp tục hỗ trợ bạn đặt vé sự kiện **${activeEvent.title}** nè! 🎉\n\nĐây là sự kiện có **sơ đồ ghế ngồi trực quan**. Bạn có muốn Eve mở sơ đồ chỗ ngồi để bạn tự tay chọn vị trí đẹp nhất, hoặc bạn cho Eve biết bạn muốn ngồi khu vực nào (VIP, Tiêu chuẩn...) để Eve giữ chỗ giúp bạn nhé? 🥰`
           };
         } else if (contTicketTypes.length > 0) {
           const tierSummary = contTicketTypes.map(t => {
-            const priceStr = t.price === 0 ? 'Miễn phí' : `${Number(t.price).toLocaleString('vi-VN')}đ`;
-            const remaining = t.available_quantity !== undefined ? ` (còn ${t.available_quantity} vé)` : '';
+            const priceStr = Number(t.price) === 0
+              ? (isEn ? 'Free' : 'Miễn phí')
+              : (isEn ? `${Number(t.price).toLocaleString('en-US')} VND` : `${Number(t.price).toLocaleString('vi-VN')}đ`);
+            const remaining = t.available_quantity !== undefined
+              ? (isEn ? ` (${t.available_quantity} tickets left)` : ` (còn ${t.available_quantity} vé)`)
+              : '';
             return `• **${t.name}:** ${priceStr}${remaining}`;
           }).join('\n');
 
           return {
             role: 'assistant',
-            content: `Dạ vâng, Eve sẵn sàng tiếp tục hỗ trợ bạn đặt vé sự kiện **${activeEvent.title}** nè! 🎉\n\nSự kiện hiện đang mở bán các hạng vé:\n${tierSummary}\n\nBạn muốn đặt mấy vé và chọn hạng vé nào để Eve tiến hành giữ chỗ ngay cho bạn nhé? 🥰`
+            content: isEn
+              ? `Certainly, Eve is ready to continue assisting you with booking tickets for **${evTitle}**! 🎉\n\nCurrently on sale:\n${tierSummary}\n\nHow many tickets and which tier would you like to book? Eve will reserve them right away for you! 🥰`
+              : `Dạ vâng, Eve sẵn sàng tiếp tục hỗ trợ bạn đặt vé sự kiện **${activeEvent.title}** nè! 🎉\n\nSự kiện hiện đang mở bán các hạng vé:\n${tierSummary}\n\nBạn muốn đặt mấy vé và chọn hạng vé nào để Eve tiến hành giữ chỗ ngay cho bạn nhé? 🥰`
           };
         } else {
           return {
             role: 'assistant',
-            content: `Dạ vâng, Eve sẵn sàng tiếp tục hỗ trợ bạn đặt vé sự kiện **${activeEvent.title}** nè! 🎉\n\nBạn muốn đặt bao nhiêu vé để Eve hỗ trợ bạn ngay nhé? 🥰`
+            content: isEn
+              ? `Certainly, Eve is ready to continue assisting you with booking tickets for **${evTitle}**! 🎉\n\nHow many tickets would you like to book? Eve is happy to help you right away! 🥰`
+              : `Dạ vâng, Eve sẵn sàng tiếp tục hỗ trợ bạn đặt vé sự kiện **${activeEvent.title}** nè! 🎉\n\nBạn muốn đặt bao nhiêu vé để Eve hỗ trợ bạn ngay nhé? 🥰`
           };
         }
       }
@@ -3285,9 +3383,10 @@ Eve luôn sẵn sàng hỗ trợ bạn tìm kiếm sự kiện, tra cứu giá v
         (Boolean(currentMatchedEvent) || (Boolean(activeEvent) && /(?:su\s*kien|show|no|nay|lich\s*dien|dia\s*diem)\b/i.test(normalizeText(message)))) &&
         isEventInfoInquiry(message);
       if (isDirectInfoInquiry && !isBookingContinuationIntent(message) && !isAutonomousBookingRequest(message)) {
+        const isEn = clientContext?.locale === 'en';
         return {
           role: 'assistant',
-          content: formatEventDetailResponse(eventDetail, activeEvent)
+          content: formatEventDetailResponse(eventDetail, activeEvent, isEn)
         };
       }
 
@@ -3681,7 +3780,7 @@ Bạn hãy xác nhận đã chuyển sang sự kiện "${activeEvent.title}", gi
       !eventChangeInfo.isCancelOnly &&
       !isManualSeatMapRequest &&
       !isEventInfoInquiry(message) &&
-      (isAutonomousBooking || isSeatAdjustmentRequest || wantsDifferentTier || isTierOrPriceResponse || isBookingContinuationIntent(message) || /(?:đặt luôn|đặt vé|chọn vé|dat luon|dat ve|chon ve|đặt lại|mua lại|book lại|dat lai|mua lai|book lai)/i.test(message))
+      (isAutonomousBooking || isSeatAdjustmentRequest || wantsDifferentTier || isTierOrPriceResponse || isBookingContinuationIntent(message) || /(?:đặt luôn|đặt vé|chọn vé|dat luon|dat ve|chon ve|đặt lại|mua lại|book lại|dat lai|mua lai|book lai|buy ticket|buy tickets|book ticket|book tickets|wanna buy|want to buy|purchase ticket|purchase tickets|get ticket|get tickets)/i.test(message))
     );
 
     const toolExecutionContext = {
@@ -3726,9 +3825,19 @@ Bạn hãy xác nhận đã chuyển sang sự kiện "${activeEvent.title}", gi
         }, toolExecutionContext);
 
         if (directToolRes?.status === 'SUCCESS' && toolExecutionContext.lastGeneratedActionTag) {
-          const seatsStr = directToolRes.proposal?.seats ? `với các vị trí ghế: **[${directToolRes.proposal.seats}]**` : '';
-          const totalStr = directToolRes.proposal?.totalAmount ? `, tổng thanh toán: **${Number(directToolRes.proposal.totalAmount).toLocaleString('vi-VN')}đ**` : '';
-          const directReply = `Dạ Eve đã tạo Đề Xuất Đặt Vé cho sự kiện **${activeEvent.title}** (Số lượng: ${effQty} vé) ${seatsStr}${totalStr} rồi nhé.\n\nBạn hãy kiểm tra lại thông tin trên thẻ đề xuất bên dưới và nhấn nút **"Xác nhận & Đi tới Thanh toán"** để giữ chỗ nha. Nếu bạn muốn đổi vị trí ghế hoặc tự chọn trên sơ đồ, Eve luôn sẵn lòng hỗ trợ bạn.\n\n${toolExecutionContext.lastGeneratedActionTag}`;
+          const isEn = clientContext?.locale === 'en';
+          const seatsStr = directToolRes.proposal?.seats 
+            ? (isEn ? `with seats: **[${directToolRes.proposal.seats}]**` : `với các vị trí ghế: **[${directToolRes.proposal.seats}]**`) 
+            : '';
+          const totalStr = directToolRes.proposal?.totalAmount 
+            ? (isEn 
+                ? `, total payment: **${Number(directToolRes.proposal.totalAmount).toLocaleString('en-US')} VND**` 
+                : `, tổng thanh toán: **${Number(directToolRes.proposal.totalAmount).toLocaleString('vi-VN')}đ**`) 
+            : '';
+          const eventTitle = isEn && (eventDetail?.title_en || activeEvent.title_en) ? (eventDetail?.title_en || activeEvent.title_en) : (eventDetail?.title || activeEvent.title);
+          const directReply = isEn
+            ? `Eve has created a Smart Booking Proposal for **${eventTitle}** (Quantity: ${effQty} ${effQty > 1 ? 'tickets' : 'ticket'}) ${seatsStr}${totalStr}.\n\nPlease review the details on the proposal card below and click **"Confirm & Proceed to Payment"** to hold your seats. If you would like to change your seating or choose from the seat map, Eve is always happy to assist you.\n\n${toolExecutionContext.lastGeneratedActionTag}`
+            : `Dạ Eve đã tạo Đề Xuất Đặt Vé cho sự kiện **${activeEvent.title}** (Số lượng: ${effQty} vé) ${seatsStr}${totalStr} rồi nhé.\n\nBạn hãy kiểm tra lại thông tin trên thẻ đề xuất bên dưới và nhấn nút **"Xác nhận & Đi tới Thanh toán"** để giữ chỗ nha. Nếu bạn muốn đổi vị trí ghế hoặc tự chọn trên sơ đồ, Eve luôn sẵn lòng hỗ trợ bạn.\n\n${toolExecutionContext.lastGeneratedActionTag}`;
           
           this._logConversationSample(messages, directReply);
           return {
@@ -3899,9 +4008,12 @@ ${getRemainingTicketsDescription(detectedTickets, collectedAttendees.length)}`
       }
 
       if (!response) {
+        const isEn = clientContext?.locale === 'en';
         // Fallback: If Ollama is completely unreachable or timed out
         if (toolExecutionContext.lastGeneratedActionTag) {
-          finalContent = `Eve đã tạo đề xuất đặt vé thành công cho bạn rồi nhé! Bạn kiểm tra thông tin trên thẻ bên dưới và nhấn "Xác nhận & Đi tới Thanh toán" nhé! 🎉\n\n${toolExecutionContext.lastGeneratedActionTag}`;
+          finalContent = isEn
+            ? `Eve has successfully created a booking proposal for you! Please review the details below and click "Confirm & Proceed to Payment"! 🎉\n\n${toolExecutionContext.lastGeneratedActionTag}`
+            : `Eve đã tạo đề xuất đặt vé thành công cho bạn rồi nhé! Bạn kiểm tra thông tin trên thẻ bên dưới và nhấn "Xác nhận & Đi tới Thanh toán" nhé! 🎉\n\n${toolExecutionContext.lastGeneratedActionTag}`;
           break;
         } else if (isBookingFlowActive && activeEvent) {
           try {
@@ -3916,7 +4028,9 @@ ${getRemainingTicketsDescription(detectedTickets, collectedAttendees.length)}`
               ticketTypeName: effTargetTier?.name
             }, toolExecutionContext);
             if (toolExecutionContext.lastGeneratedActionTag) {
-              finalContent = `Eve đã tạo Đề xuất Đặt vé thành công cho bạn nè! 🎉 Bạn vui lòng kiểm tra thông tin trên thẻ đề xuất bên dưới và nhấn "Xác nhận & Đi tới Thanh toán" nhé!\n\n${toolExecutionContext.lastGeneratedActionTag}`;
+              finalContent = isEn
+                ? `Eve has successfully created a Smart Booking Proposal for you! 🎉 Please review the details on the card below and click "Confirm & Proceed to Payment"!\n\n${toolExecutionContext.lastGeneratedActionTag}`
+                : `Eve đã tạo Đề xuất Đặt vé thành công cho bạn nè! 🎉 Bạn vui lòng kiểm tra thông tin trên thẻ đề xuất bên dưới và nhấn "Xác nhận & Đi tới Thanh toán" nhé!\n\n${toolExecutionContext.lastGeneratedActionTag}`;
               break;
             }
           } catch (fbErr) {
@@ -3925,9 +4039,11 @@ ${getRemainingTicketsDescription(detectedTickets, collectedAttendees.length)}`
         }
 
         if (activeEvent && isEventInfoInquiry(message)) {
-          finalContent = formatEventDetailResponse(eventDetail, activeEvent);
+          finalContent = formatEventDetailResponse(eventDetail, activeEvent, isEn);
         } else {
-          finalContent = "Dạ Eve luôn sẵn sàng đồng hành cùng bạn để khám phá sự kiện và hỗ trợ đặt vé nhanh nhất trên EventHub nè! 🥰\n\nBạn quan tâm đến sự kiện nào hoặc cần Eve hỗ trợ điều gì cứ nhắn Eve nhé! 🎉";
+          finalContent = isEn
+            ? "Eve is always ready to assist you with exploring events and booking tickets on EventHub! 🎉\n\nPlease let Eve know what event you are interested in or what you need assistance with!"
+            : "Dạ Eve luôn sẵn sàng đồng hành cùng bạn để khám phá sự kiện và hỗ trợ đặt vé nhanh nhất trên EventHub nè! 🥰\n\nBạn quan tâm đến sự kiện nào hoặc cần Eve hỗ trợ điều gì cứ nhắn Eve nhé! 🎉";
         }
         break;
       }
@@ -4084,14 +4200,21 @@ ${getRemainingTicketsDescription(detectedTickets, collectedAttendees.length)}`
       finalContent = finalContent.replace(/\[ACTION:[A-Z_]+:?[\s\S]*?(?:\]|$)/gi, '').trim();
 
       // If the model ended with a pending/waiting phrase like "Vui lòng đợi một chút nhé", make it clear and helpful
-      if (/vui lòng đợi|đang xử lý|đang chuyển|hãy đợi|chuyển bạn đến trang/i.test(finalContent)) {
-        finalContent = finalContent.replace(/(?:👉\s*)?(?:\*{1,2})?(?:vui lòng đợi|đang xử lý|đang chuyển|hãy đợi|chuyển bạn đến trang)[\s\S]*$/i, '').trim();
+      const isEn = clientContext?.locale === 'en';
+      if (/vui lòng đợi|đang xử lý|đang chuyển|hãy đợi|chuyển bạn đến trang|please wait|processing/i.test(finalContent)) {
+        finalContent = finalContent.replace(/(?:👉\s*)?(?:\*{1,2})?(?:vui lòng đợi|đang xử lý|đang chuyển|hãy đợi|chuyển bạn đến trang|please wait|processing)[\s\S]*$/i, '').trim();
         if (toolExecutionContext.lastGeneratedActionTag.includes('BOOKING_PROPOSAL')) {
-          finalContent += '\n\nEve đã tạo đề xuất đặt vé cho bạn rồi nè. Bạn kiểm tra thông tin trên thẻ bên dưới và nhấn "Xác nhận & Đi tới Thanh toán" nhé.';
+          finalContent += isEn
+            ? '\n\nEve has created a Smart Booking Proposal for you below. Please review the details on the card and click "Confirm & Proceed to Payment".'
+            : '\n\nEve đã tạo đề xuất đặt vé cho bạn rồi nè. Bạn kiểm tra thông tin trên thẻ bên dưới và nhấn "Xác nhận & Đi tới Thanh toán" nhé.';
         } else if (hasSeatMap) {
-          finalContent += `\n\nEve đã ghi nhận thông tin người tham gia cho bạn rồi nhé. Bạn nhấn vào nút bên dưới để chọn đúng ${effectiveSeatedQty} vị trí ghế ưng ý trên sơ đồ, sau đó hệ thống sẽ tự động đưa bạn đến thẳng trang thanh toán nha.`;
+          finalContent += isEn
+            ? `\n\nEve has recorded attendee info for you. Please click the button below to select your ${effectiveSeatedQty} seat(s) on the seat map.`
+            : `\n\nEve đã ghi nhận thông tin người tham gia cho bạn rồi nhé. Bạn nhấn vào nút bên dưới để chọn đúng ${effectiveSeatedQty} vị trí ghế ưng ý trên sơ đồ, sau đó hệ thống sẽ tự động đưa bạn đến thẳng trang thanh toán nha.`;
         } else {
-          finalContent += '\n\nEve đã tạo thông tin vé giúp bạn rồi nè. Bạn nhấn vào nút bên dưới để chuyển thẳng đến trang xác nhận và thanh toán vé nha.';
+          finalContent += isEn
+            ? '\n\nEve has prepared ticket info for you. Please click the button below to proceed to checkout.'
+            : '\n\nEve đã tạo thông tin vé giúp bạn rồi nè. Bạn nhấn vào nút bên dưới để chuyển thẳng đến trang xác nhận và thanh toán vé nha.';
         }
       }
 
@@ -4101,7 +4224,10 @@ ${getRemainingTicketsDescription(detectedTickets, collectedAttendees.length)}`
     // Final safety net
     if (!finalContent || finalContent.trim() === '') {
       logger.info(`[AgentLoop] Empty content after stripping think blocks.`);
-      finalContent = "Dạ Eve luôn sẵn sàng đồng hành cùng bạn để khám phá sự kiện và hỗ trợ đặt vé nhanh nhất trên EventHub nè.\n\nBạn quan tâm đến sự kiện nào hoặc cần Eve hỗ trợ điều gì cứ nhắn Eve nhé.";
+      const isEn = clientContext?.locale === 'en';
+      finalContent = isEn
+        ? "Eve is always ready to assist you with exploring events and booking tickets on EventHub! 🎉\n\nPlease let Eve know which event you're interested in or need help booking tickets for."
+        : "Dạ Eve luôn sẵn sàng đồng hành cùng bạn để khám phá sự kiện và hỗ trợ đặt vé nhanh nhất trên EventHub nè.\n\nBạn quan tâm đến sự kiện nào hoặc cần Eve hỗ trợ điều gì cứ nhắn Eve nhé.";
     }
 
     finalContent = stripIcons(scrubTechnicalJargon(finalContent));
@@ -4115,9 +4241,12 @@ ${getRemainingTicketsDescription(detectedTickets, collectedAttendees.length)}`
     };
   } catch (fatalErr) {
     logger.error(`[AiAssistant] Unhandled error in chat(): ${fatalErr.message}\n${fatalErr.stack}`);
+    const isEn = clientContext?.locale === 'en';
     return {
       role: 'assistant',
-      content: 'Dạ Eve vừa gặp một chút gián đoạn kỹ thuật khi xử lý yêu cầu. Bạn hãy nhắn lại hoặc tải lại trang web (F5) để Eve phục vụ bạn tốt nhất nhé.'
+      content: isEn
+        ? 'Eve encountered a minor technical interruption while processing your request. Please message again or refresh the page (F5) so Eve can best assist you.'
+        : 'Dạ Eve vừa gặp một chút gián đoạn kỹ thuật khi xử lý yêu cầu. Bạn hãy nhắn lại hoặc tải lại trang web (F5) để Eve phục vụ bạn tốt nhất nhé.'
     };
   }
 }
