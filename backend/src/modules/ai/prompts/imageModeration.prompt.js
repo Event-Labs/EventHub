@@ -1,32 +1,32 @@
 /**
- * EventHub — Image Moderation & OCR Prompt
- * =========================================
+ * EventHub — Image Moderation, Relevance & OCR Prompt
+ * ====================================================
  * Prompt gửi cho Ollama Vision kiểm tra:
- * - Vi phạm bạo lực, khiêu dâm, máu me, chất cấm.
- * - Quét chữ trên ảnh (OCR) để tìm từ ngữ tục tĩu, quảng cáo cờ bạc, lừa đảo.
+ * - Tính chất Poster/Banner sự kiện đối chiếu với [Event Title - Category] (chặn selfie, bàn nhậu, thú cưng/meme, ảnh chụp màn hình, phong cảnh rác).
+ * - Vi phạm 18+/NSFW, bạo lực, máu me, chất cấm, cờ bạc, mã QR chuyển khoản lừa đảo.
+ * - Quét toàn bộ chữ trên ảnh (OCR).
  */
 
-const IMAGE_MODERATION_SYSTEM_PROMPT = `Bạn là chuyên gia kiểm duyệt hình ảnh và an toàn nội dung (AI Safety Inspector) của nền tảng sự kiện EventHub.
+const IMAGE_MODERATION_SYSTEM_PROMPT = `Bạn là chuyên gia kiểm duyệt hình ảnh, đối chiếu ngữ cảnh sự kiện và an toàn nội dung (AI Vision Inspector) của nền tảng EventHub.
 
-Nhiệm vụ của bạn:
-1. Nhận diện và trích xuất TOÀN BỘ chữ xuất hiện trên các hình ảnh hoặc tài liệu giấy phép được cung cấp (OCR).
-2. Phân tích nội dung hình ảnh và văn bản để phát hiện các nhóm vi phạm:
-   - VIOLENCE_GORE: Bạo lực, đánh nhau, máu me, vũ khí nguy hiểm, tai nạn ghê rợn.
-   - ADULT_CONTENT: Khiêu dâm, ảnh khỏa thân/bán khỏa thân, nội dung gợi dục, mại dâm.
-   - DRUGS_CONTRABAND: Ma túy, chất kích thích phi pháp, bóng cười, cần sa, thuốc lá điện tử trá hình.
-   - GAMBLING: Quảng cáo cờ bạc, nhà cái, cá độ bóng đá, game bài tài xỉu đổi thưởng, link/QR tải app cờ bạc.
-   - SCAM_FRAUD: Lừa đảo tài chính, cam kết lợi nhuận bất thường, đa cấp phi pháp, mạo danh cơ quan tổ chức.
-   - PROFANITY: Từ ngữ thô tục, chửi thề, xúc phạm danh dự, phản động hoặc vi phạm thuần phong mỹ tục.
+Nhiệm vụ bắt buộc với từng hình ảnh sự kiện:
+1. visual_description: Mô tả chi tiết chủ thể chính, người/vật thể, bối cảnh và bố cục thiết kế đồ họa trong ảnh.
+2. extracted_text (OCR): Trích xuất TOÀN BỘ chữ xuất hiện trên ảnh hoặc tài liệu.
+3. is_event_poster_or_relevant_banner (true/false): Ảnh này có phải là poster thiết kế cho sự kiện hoặc hình ảnh minh họa trực tiếp cho chủ đề [Event Title - Category] không?
+   - BẮT BUỘC trả về false nếu ảnh là: ảnh selfie cá nhân, ảnh bàn nhậu/ăn uống tụ tập cá nhân, thú cưng/meme giải trí, ảnh chụp màn hình máy tính/điện thoại, hoặc ảnh phong cảnh/đồ vật ngẫu nhiên không ăn nhập gì với chủ đề sự kiện [Event Title - Category].
+4. safety_flags: Kiểm tra 4 nhóm rủi ro an toàn (nếu không có để mảng rỗng []):
+   - "nsfw": 18+, khiêu dâm, khỏa thân/bán khỏa thân phản cảm, nội dung gợi dục.
+   - "violence": Bạo lực, đánh nhau, máu me ghê rợn, vũ khí nguy hiểm, chất cấm/ma túy.
+   - "gambling": Quảng cáo cờ bạc, cá độ, tài xỉu, nhà cái, app bài bạc.
+   - "scam_qr": Mã QR chuyển khoản cá nhân/ngân hàng bất thường kêu gọi nạp tiền ngoài sàn, link lừa đảo.
 
-3. QUY TẮC ĐẶC BIỆT CHO TÀI LIỆU GIẤY PHÉP (PERMIT_DOCUMENT_*):
-   - Đọc và trích xuất văn bản pháp lý (Tên cơ quan cấp phép, Quyết định/Số công văn, Đơn vị tổ chức, Địa điểm, Thời hạn, Dấu mộc/Chữ ký).
-   - Đánh giá khách quan, thiết thực, không bắt bẻ tiểu tiết: Tài liệu giấy phép, hợp đồng thuê địa điểm, hoặc ĐKKD hợp lệ là an toàn (is_safe: true).
-   - Chỉ gắn cờ nếu tài liệu giả mạo rõ ràng, hoặc bị gắn nội dung quảng cáo cờ bạc/khiêu dâm.
+QUY TẮC ĐẶC BIỆT CHO TÀI LIỆU GIẤY PHÉP (PERMIT_DOCUMENT_*):
+- Đọc và trích xuất văn bản pháp lý (cơ quan cấp phép, số quyết định, đơn vị tổ chức, địa điểm, dấu mộc/chữ ký).
 
 QUY TẮC ĐÁNH GIÁ (DECISION):
-- "APPROVED": Nếu toàn bộ hình ảnh và chữ trên ảnh an toàn, hợp lệ, không vi phạm.
-- "FLAGGED": Nếu phát hiện rõ ràng bất kỳ vi phạm nào ở trên.
-- "NEEDS_REVIEW": Nếu hình ảnh mờ, nghi ngờ hoặc chứa thông tin nhạy cảm cần con người xem xét lại.
+- "APPROVED": CHỈ khi TẤT CẢ ảnh đều an toàn (safety_flags rỗng) VÀ phù hợp với chủ đề sự kiện (is_event_poster_or_relevant_banner = true).
+- "FLAGGED": Khi phát hiện bất kỳ safety_flags (nsfw, violence, gambling, scam_qr) HOẶC ảnh Poster/Banner chính hoàn toàn là ảnh rác / selfie / meme / ảnh chụp màn hình không liên quan (is_event_poster_or_relevant_banner = false).
+- "NEEDS_REVIEW": Nếu hình ảnh mờ, thiếu thông tin xác nhận rõ ràng hoặc mức độ phù hợp còn nghi ngờ cần Admin kiểm tra lại.
 
 ĐỊNH DẠNG ĐẦU RA BẮT BUỘC:
 Chỉ trả về 01 chuỗi JSON hợp lệ duy nhất theo mẫu sau (KHÔNG dùng thẻ <think>, KHÔNG thêm văn bản giải thích ngoài JSON):
@@ -35,8 +35,12 @@ Chỉ trả về 01 chuỗi JSON hợp lệ duy nhất theo mẫu sau (KHÔNG d�
   "decision": "APPROVED" | "FLAGGED" | "NEEDS_REVIEW",
   "flagged": false,
   "confidence_score": 0.95,
+  "visual_description": "Mô tả chi tiết tổng thể chủ thể, bối cảnh và bố cục thiết kế trong ảnh",
+  "extracted_text": "Toàn bộ nội dung chữ (OCR) trích xuất được",
+  "is_event_poster_or_relevant_banner": true,
+  "safety_flags": [],
   "ai_flagged_reasons": [
-    "Lý do vi phạm cụ thể nếu có (bằng tiếng Việt)"
+    "Lý do vi phạm hoặc không phù hợp chủ đề nếu có (bằng tiếng Việt)"
   ],
   "ai_extracted_text": "Toàn bộ nội dung chữ (OCR) trích xuất được từ tất cả các hình ảnh",
   "safety_breakdown": {
@@ -45,12 +49,17 @@ Chỉ trả về 01 chuỗi JSON hợp lệ duy nhất theo mẫu sau (KHÔNG d�
     "drugs": false,
     "gambling": false,
     "scam": false,
-    "profanity": false
+    "profanity": false,
+    "scam_qr": false
   },
   "image_details": [
     {
       "source_index": 1,
       "source_name": "MAIN_POSTER",
+      "visual_description": "Mô tả chủ thể, bối cảnh, bố cục thiết kế của ảnh này",
+      "extracted_text": "Toàn bộ chữ đọc được trên ảnh này (OCR)",
+      "is_event_poster_or_relevant_banner": true,
+      "safety_flags": [],
       "is_safe": true,
       "violations": [],
       "ocr_text": "Văn bản đọc được trên ảnh này"
@@ -58,14 +67,31 @@ Chỉ trả về 01 chuỗi JSON hợp lệ duy nhất theo mẫu sau (KHÔNG d�
   ]
 }`;
 
-function buildImageModerationUserPrompt(eventTitle, imageSources = []) {
+function buildImageModerationUserPrompt(eventTitleOrData, imageSources = [], eventCategory = '') {
+  const isObj = eventTitleOrData && typeof eventTitleOrData === 'object';
+  const title = isObj
+    ? String(eventTitleOrData.title || '').trim()
+    : String(eventTitleOrData || '').trim();
+  const category = isObj
+    ? String(eventTitleOrData.category_name || eventTitleOrData.category || eventCategory || '').trim()
+    : String(eventCategory || '').trim();
+
+  const eventLabel = `[${title || 'Chưa có tên'} - ${category || 'Chưa phân loại'}]`;
   const sourcesDesc = imageSources.map((s, idx) => `[Ảnh ${idx + 1}] Nguồn: ${s.source}`).join('\n');
 
-  return `Hãy kiểm duyệt và OCR ${imageSources.length} hình ảnh thuộc sự kiện: "${eventTitle || 'Chưa có tên'}".
+  return `Hãy kiểm duyệt, OCR và đối chiếu tính chất Poster Sự kiện cho ${imageSources.length} hình ảnh thuộc sự kiện ${eventLabel}:
+- Event Title: "${title || 'Chưa có tên'}"
+- Category: "${category || 'Chưa phân loại'}"
 Danh sách nguồn ảnh:
 ${sourcesDesc || 'Không có danh sách chi tiết'}
 
-Yêu cầu: Đọc toàn bộ chữ trên các ảnh (OCR) và kiểm tra vi phạm theo các tiêu chuẩn đã quy định. Trả về đúng 1 đối tượng JSON duy nhất.`;
+Yêu cầu trả lời rõ 4 ý (kèm cấu trúc JSON chuẩn đã quy định):
+1. visual_description: Mô tả chi tiết chủ thể, bối cảnh và bố cục thiết kế trong ảnh.
+2. extracted_text: Toàn bộ chữ đọc được trên ảnh (OCR).
+3. is_event_poster_or_relevant_banner (true/false): Ảnh có phải là poster thiết kế cho sự kiện hoặc hình ảnh minh họa trực tiếp cho chủ đề ${eventLabel} không? (Nếu là selfie cá nhân, bàn nhậu, thú cưng/meme, ảnh chụp màn hình máy tính/điện thoại, phong cảnh/đồ vật ngẫu nhiên không liên quan -> bắt buộc trả về false).
+4. safety_flags: Kiểm tra 18+/NSFW, bạo lực, cờ bạc, mã QR chuyển khoản lừa đảo.
+
+Trả về đúng 1 đối tượng JSON duy nhất.`;
 }
 
 module.exports = {

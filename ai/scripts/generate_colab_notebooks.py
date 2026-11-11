@@ -321,12 +321,13 @@ for split_name in ["train", "validation", "test"]:
     print(f"[{split_name.upper()}] Đã chuyển đổi {len(converted)} mẫu -> {out_file}")
     print(f"  - Min tokens: {min(split_tokens)} | Max tokens: {max(split_tokens)} | Avg tokens: {sum(split_tokens)/len(split_tokens):.1f}")
 """),
-        code_cell("""# [5] Vẽ biểu đồ phân phối độ dài Token & Kiểm tra Truncation
+        code_cell("""# [5] Vẽ biểu đồ phân phối độ dài Token & Kiểm tra Truncation (ngưỡng >= 4096)
 if all_token_counts:
     plt.figure(figsize=(10, 5))
     plt.hist(all_token_counts, bins=25, color='royalblue', edgecolor='black', alpha=0.7)
-    plt.axvline(2048, color='red', linestyle='--', linewidth=2, label='Ngưỡng Context 2048 tokens')
-    plt.title('Phân phối độ dài Token (Chat Template Qwen) trên toàn bộ Dataset V2')
+    plt.axvline(4096, color='red', linestyle='--', linewidth=2, label='Ngưỡng Context 4096 tokens')
+    plt.axvline(6144, color='orange', linestyle=':', linewidth=2, label='Ngưỡng Colab L4/T4 6144 tokens')
+    plt.title('Phân phối độ dài Token (Chat Template Qwen) trên toàn bộ Dataset')
     plt.xlabel('Số lượng tokens')
     plt.ylabel('Số lượng mẫu')
     plt.legend()
@@ -335,10 +336,12 @@ if all_token_counts:
 
     max_tok = max(all_token_counts)
     print(f"Token dài nhất: {max_tok}")
-    if max_tok <= 2048:
-        print("✅ AN TOÀN TUYỆT ĐỐI: 100% mẫu huấn luyện đều nhỏ hơn 2048 tokens, không bị mất thông tin khi huấn luyện.")
+    if max_tok <= 4096:
+        print("✅ AN TOÀN TUYỆT ĐỐI: 100% mẫu huấn luyện <= 4096 tokens, vừa khít RTX 3070 8GB & Colab T4/L4.")
+    elif max_tok <= 6144:
+        print(f"⚠️ LƯU Ý: Có mẫu từ 4097..6144 tokens ({max_tok}). Dùng max_seq_length = 6144 trên Colab L4/T4.")
     else:
-        print(f"⚠️ CẢNH BÁO: Có mẫu vượt quá 2048 tokens ({max_tok}). Cần cấu hình max_seq_length = 4096.")
+        print(f"❌ CẢNH BÁO: Có mẫu vượt quá 6144 tokens ({max_tok}). Cần rút gọn mô tả HTML trước khi train.")
 """)
     ]
 
@@ -346,18 +349,18 @@ if all_token_counts:
     # NOTEBOOK 3: 03_train_qwen3_eventhub.ipynb
     # ==========================================
     nb3_cells = [
-        md_cell("""# EventHub AI Create Event V2 — Pipeline 03: Fine-Tune Qwen3-4B with QLoRA
+        md_cell("""# EventHub AI — Pipeline 03: Fine-Tune Qwen2.5/Qwen3 with 2-Stage QLoRA (SFT + DPO)
 ### Phương pháp huấn luyện:
 - Model nền: `Qwen/Qwen2.5-3B-Instruct` / `Qwen/Qwen3-4B`
-- Kỹ thuật: **QLoRA (4-bit NF4 Quantization + LoRA Adapters)**
-- Thư viện tối ưu: `transformers`, `peft`, `bitsandbytes`, `accelerate`, `trl (SFTTrainer)`
-- Quản lý bộ nhớ: Gradient Checkpointing, Gradient Accumulation, 16-bit Mixed Precision
-- Lưu trữ: Tự động lưu checkpoint, adapter tốt nhất (Best Eval Loss) và cấu hình run vào Google Drive.
+- Kỹ thuật: **Stage 1: SFT (4-bit NF4 QLoRA, `max_seq_length = 4096` hoặc `6144` cho L4/T4)** -> **Stage 2: DPO Alignment (`TRL DPOTrainer`)** trên dữ liệu Admin duyệt đè (`dpo_override_dataset.jsonl`)
+- Quản lý bộ nhớ: Gradient Checkpointing (`use_reentrant=False`), Gradient Accumulation, 16-bit Mixed Precision
+- Lưu trữ: Tự động lưu SFT Adapter và DPO Final Adapter vào Google Drive.
 """),
-        code_cell("""# [1] Cài đặt dependencies tương thích cho QLoRA trên Colab
+        code_cell("""# [1] Cài đặt dependencies tương thích cho QLoRA & DPO trên Colab
 !pip install -q -U torch transformers datasets peft bitsandbytes trl accelerate
 
 import os
+import inspect
 import torch
 import transformers
 import peft
@@ -369,35 +372,38 @@ print(f"PEFT version: {peft.__version__}")
 print(f"BitsAndBytes version: {bnb.__version__}")
 print(f"CUDA available: {torch.cuda.is_available()}")
 """),
-        code_cell("""# [2] Kiểm tra GPU và tính toán cấu hình bộ nhớ VRAM tự động
+        code_cell("""# [2] Kiểm tra GPU và tính toán cấu hình bộ nhớ VRAM tự động (>=4096 / 6144 context)
 if torch.cuda.is_available():
     device_name = torch.cuda.get_device_name(0)
     total_memory = torch.cuda.get_device_properties(0).total_memory / (1024**3)
     print(f"Phát hiện GPU: {device_name}")
     print(f"Tổng dung lượng VRAM: {total_memory:.2f} GB")
 
-    # Cấu hình siêu tham số động theo tài nguyên phần cứng
-    if total_memory >= 24: # A100 / L4
-        BATCH_SIZE = 4
-        GRAD_ACCUM = 4
-        FP16_MODE = False
-        BF16_MODE = True
-    elif total_memory >= 14: # T4 / V100
+    # Cấu hình siêu tham số & context window theo phần cứng (tối thiểu 4096, Colab L4/A100 -> 6144)
+    if total_memory >= 22: # A100 / L4 (24GB+)
         BATCH_SIZE = 2
         GRAD_ACCUM = 8
-        FP16_MODE = True
-        BF16_MODE = False
-    else:
+        FP16_MODE = False
+        BF16_MODE = True
+        MAX_SEQ_LENGTH = 6144
+    elif total_memory >= 14: # T4 / V100 (15-16GB)
         BATCH_SIZE = 1
         GRAD_ACCUM = 16
         FP16_MODE = True
         BF16_MODE = False
+        MAX_SEQ_LENGTH = 4096 # Có thể tăng lên 6144 nếu batch=1 với Gradient Checkpointing
+    else: # GPU 8GB VRAM (RTX 3070...)
+        BATCH_SIZE = 1
+        GRAD_ACCUM = 16
+        FP16_MODE = True
+        BF16_MODE = False
+        MAX_SEQ_LENGTH = 4096
 
-    print(f"Cấu hình đề xuất: Batch Size={BATCH_SIZE}, Gradient Accumulation={GRAD_ACCUM}, Effective Batch Size={BATCH_SIZE*GRAD_ACCUM}")
+    print(f"Cấu hình đề xuất: Batch={BATCH_SIZE}, GradAccum={GRAD_ACCUM}, EffectiveBatch={BATCH_SIZE*GRAD_ACCUM}, MAX_SEQ_LENGTH={MAX_SEQ_LENGTH}")
 else:
-    raise RuntimeError("Notebook yêu cầu GPU để huấn luyện. Vui lòng vào Runtime -> Change runtime type -> Chọn T4 GPU.")
+    raise RuntimeError("Notebook yêu cầu GPU để huấn luyện. Vui lòng vào Runtime -> Change runtime type -> Chọn T4/L4 GPU.")
 """),
-        code_cell("""# [3] Mount Google Drive và chuẩn bị thư mục lưu Checkpoint
+        code_cell("""# [3] Mount Google Drive và chuẩn bị thư mục lưu Checkpoint (SFT + DPO)
 from google.colab import drive
 import json
 
@@ -405,39 +411,45 @@ drive.mount('/content/drive')
 
 DRIVE_ROOT = '/content/drive/MyDrive/EventHub_AI'
 DATASET_SFT_DIR = os.path.join(DRIVE_ROOT, 'dataset/cleaned/eventhub_v2/sft')
-CHECKPOINT_DIR = os.path.join(DRIVE_ROOT, 'checkpoints/eventhub_qwen_v2')
-ADAPTER_DIR = os.path.join(DRIVE_ROOT, 'adapters/eventhub_qwen_v2')
+REVIEW_SFT_FILE = os.path.join(DRIVE_ROOT, 'datasets/sft_events_dataset.jsonl')
+DPO_OVERRIDE_FILE = os.path.join(DRIVE_ROOT, 'datasets/dpo_override_dataset.jsonl')
+CHECKPOINT_DIR = os.path.join(DRIVE_ROOT, 'checkpoints/eventhub_qwen_sft')
+ADAPTER_DIR = os.path.join(DRIVE_ROOT, 'adapters/eventhub_qwen_sft')
+DPO_CHECKPOINT_DIR = os.path.join(DRIVE_ROOT, 'checkpoints/eventhub_qwen_dpo')
+DPO_ADAPTER_DIR = os.path.join(DRIVE_ROOT, 'adapters/eventhub_qwen_dpo_final')
 LOG_DIR = os.path.join(DRIVE_ROOT, 'logs')
 
-os.makedirs(CHECKPOINT_DIR, exist_ok=True)
-os.makedirs(ADAPTER_DIR, exist_ok=True)
-os.makedirs(LOG_DIR, exist_ok=True)
+for d in [CHECKPOINT_DIR, ADAPTER_DIR, DPO_CHECKPOINT_DIR, DPO_ADAPTER_DIR, LOG_DIR]:
+    os.makedirs(d, exist_ok=True)
 
-train_file = os.path.join(DATASET_SFT_DIR, 'train_sft.jsonl')
-val_file = os.path.join(DATASET_SFT_DIR, 'validation_sft.jsonl')
+# Ưu tiên tập Review SFT mới nhất (datasets/sft_events_dataset.jsonl) nếu có, hoặc dùng split cũ
+train_file = REVIEW_SFT_FILE if os.path.exists(REVIEW_SFT_FILE) else os.path.join(DATASET_SFT_DIR, 'train_sft.jsonl')
+val_file = os.path.join(DATASET_SFT_DIR, 'validation_sft.jsonl') if os.path.exists(os.path.join(DATASET_SFT_DIR, 'validation_sft.jsonl')) else None
 
-if not os.path.exists(train_file) or not os.path.exists(val_file):
-    raise FileNotFoundError(f"Không tìm thấy tập dữ liệu SFT tại: {train_file} hoặc {val_file}. Vui lòng chạy Pipeline 02 trước.")
+if not os.path.exists(train_file):
+    raise FileNotFoundError(f"Không tìm thấy dữ liệu SFT tại: {train_file}")
 
-print(f"Train data: {train_file}")
-print(f"Validation data: {val_file}")
+print(f"Stage 1 SFT Train data : {train_file}")
+print(f"Stage 1 SFT Val data   : {val_file}")
+print(f"Stage 2 DPO Override   : {DPO_OVERRIDE_FILE} (tồn tại={os.path.exists(DPO_OVERRIDE_FILE)})")
 """),
-        code_cell("""# [4] Tải và chuẩn bị Dataset bằng thư viện datasets
+        code_cell("""# [4] Tải và chuẩn bị Dataset SFT bằng thư viện datasets
 from datasets import load_dataset
 
-dataset = load_dataset("json", data_files={
-    "train": train_file,
-    "validation": val_file
-})
+data_files = {"train": train_file}
+if val_file:
+    data_files["validation"] = val_file
 
-print(f"Dataset train: {len(dataset['train'])} mẫu")
-print(f"Dataset validation: {len(dataset['validation'])} mẫu")
+dataset = load_dataset("json", data_files=data_files)
+print(f"Dataset SFT train: {len(dataset['train'])} mẫu")
+if "validation" in dataset:
+    print(f"Dataset SFT validation: {len(dataset['validation'])} mẫu")
 """),
-        code_cell("""# [5] Tải Mô hình Nền với cấu hình 4-bit NormalFloat (NF4)
+        code_cell("""# [5] Tải Mô hình Nền với cấu hình 4-bit NormalFloat (NF4) + Gradient Checkpointing
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 from peft import prepare_model_for_kbit_training
 
-MODEL_ID = "Qwen/Qwen2.5-3B-Instruct" # Có thể thay thế bằng "Qwen/Qwen3-4B" khi chính thức phát hành
+MODEL_ID = "Qwen/Qwen2.5-3B-Instruct"
 
 bnb_config = BitsAndBytesConfig(
     load_in_4bit=True,
@@ -446,7 +458,7 @@ bnb_config = BitsAndBytesConfig(
     bnb_4bit_compute_dtype=torch.bfloat16 if BF16_MODE else torch.float16
 )
 
-print(f"Đang tải Base Model: {MODEL_ID} (4-bit NF4)...")
+print(f"Đang tải Base Model: {MODEL_ID} (4-bit NF4, context={MAX_SEQ_LENGTH})...")
 tokenizer = AutoTokenizer.from_pretrained(MODEL_ID, trust_remote_code=True)
 if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
@@ -459,9 +471,10 @@ model = AutoModelForCausalLM.from_pretrained(
     trust_remote_code=True
 )
 
-model = prepare_model_for_kbit_training(model)
+model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=True)
+model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
 model.config.use_cache = False
-print("Đã tải và lượng tử hóa Base Model thành công!")
+print("Đã tải Base Model & bật Gradient Checkpointing thành công!")
 """),
         code_cell("""# [6] Cấu hình LoRA Adapter (PEFT)
 from peft import LoraConfig, get_peft_model
@@ -478,74 +491,139 @@ lora_config = LoraConfig(
 peft_model = get_peft_model(model, lora_config)
 peft_model.print_trainable_parameters()
 """),
-        code_cell("""# [7] Định nghĩa Training Arguments và Khởi tạo SFTTrainer
+        code_cell("""# [7] Giai đoạn 1 (Stage 1): Định nghĩa SFTConfig (MAX_SEQ_LENGTH >= 4096) & Khởi tạo SFTTrainer
 from trl import SFTTrainer, SFTConfig
 
-training_args = SFTConfig(
-    output_dir=CHECKPOINT_DIR,
-    per_device_train_batch_size=BATCH_SIZE,
-    per_device_eval_batch_size=BATCH_SIZE,
-    gradient_accumulation_steps=GRAD_ACCUM,
-    learning_rate=1e-4,
-    lr_scheduler_type="cosine",
-    warmup_ratio=0.05,
-    num_train_epochs=3,
-    eval_strategy="epoch",
-    save_strategy="epoch",
-    save_total_limit=2,
-    load_best_model_at_end=True,
-    metric_for_best_model="eval_loss",
-    fp16=FP16_MODE,
-    bf16=BF16_MODE,
-    gradient_checkpointing=True,
-    logging_steps=10,
-    report_to="none",
-    max_seq_length=2048,
-    dataset_text_field=None # TRL sẽ tự format qua messages formatting_func
-)
+def filter_valid_kwargs(cls, kwargs):
+    sig = inspect.signature(cls.__init__)
+    params = sig.parameters
+    if any(p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values()):
+        return kwargs
+    return {k: v for k, v in kwargs.items() if k in params}
 
-def format_prompts(batch):
-    formatted = []
-    for msgs in batch["messages"]:
-        text = tokenizer.apply_chat_template(msgs, tokenize=False)
-        formatted.append(text)
-    return formatted
+has_val = "validation" in dataset
+sft_candidates = {
+    "output_dir": CHECKPOINT_DIR,
+    "per_device_train_batch_size": BATCH_SIZE,
+    "per_device_eval_batch_size": BATCH_SIZE,
+    "gradient_accumulation_steps": GRAD_ACCUM,
+    "learning_rate": 1e-4,
+    "lr_scheduler_type": "cosine",
+    "warmup_ratio": 0.05,
+    "num_train_epochs": 3,
+    "eval_strategy": "epoch" if has_val else "no",
+    "save_strategy": "epoch",
+    "save_total_limit": 2,
+    "load_best_model_at_end": has_val,
+    "metric_for_best_model": "eval_loss" if has_val else None,
+    "fp16": FP16_MODE,
+    "bf16": BF16_MODE,
+    "gradient_checkpointing": True,
+    "gradient_checkpointing_kwargs": {"use_reentrant": False},
+    "logging_steps": 10,
+    "report_to": "none",
+    "max_length": MAX_SEQ_LENGTH,
+    "max_seq_length": MAX_SEQ_LENGTH,
+    "dataset_text_field": "text",
+    "packing": False,
+}
+training_args = SFTConfig(**filter_valid_kwargs(SFTConfig, {k: v for k, v in sft_candidates.items() if v is not None}))
 
-trainer = SFTTrainer(
-    model=peft_model,
-    train_dataset=dataset["train"],
-    eval_dataset=dataset["validation"],
-    formatting_func=format_prompts,
-    tokenizer=tokenizer,
-    args=training_args
-)
+def add_chat_text(example):
+    return {"text": tokenizer.apply_chat_template(example["messages"], tokenize=False, add_generation_prompt=False)}
 
-print("SFTTrainer đã sẵn sàng khởi động quá trình huấn luyện!")
+train_sft_ds = dataset["train"].map(add_chat_text)
+val_sft_ds = dataset["validation"].map(add_chat_text) if has_val else None
+
+sft_trainer_candidates = {
+    "model": peft_model,
+    "train_dataset": train_sft_ds,
+    "eval_dataset": val_sft_ds,
+    "processing_class": tokenizer,
+    "tokenizer": tokenizer,
+    "args": training_args,
+}
+trainer = SFTTrainer(**filter_valid_kwargs(SFTTrainer, sft_trainer_candidates))
+
+print(f"Stage 1 SFTTrainer sẵn sàng (MAX_SEQ_LENGTH={MAX_SEQ_LENGTH})!")
 """),
-        code_cell("""# [8] Tiến hành Huấn luyện (Train Loop)
-print("🚀 Bắt đầu quá trình huấn luyện QLoRA...")
+        code_cell("""# [8] Tiến hành Huấn luyện Giai đoạn 1 (Stage 1: SFT)
+print("🚀 Bắt đầu Stage 1 SFT QLoRA...")
 train_result = trainer.train()
 
-print(f"Huấn luyện hoàn tất! Train Loss: {train_result.training_loss:.4f}")
-"""),
-        code_cell("""# [9] Lưu Adapter và Tokenizer vào Google Drive
-print(f"Đang lưu Best Adapter vào: {ADAPTER_DIR}")
+print(f"Stage 1 SFT hoàn tất! Train Loss: {train_result.training_loss:.4f}")
 trainer.model.save_pretrained(ADAPTER_DIR)
 tokenizer.save_pretrained(ADAPTER_DIR)
+print(f"✅ Đã lưu Stage 1 SFT Adapter vào: {ADAPTER_DIR}")
+"""),
+        code_cell("""# [9] Giai đoạn 2 (Stage 2): Huấn luyện DPO bằng TRL DPOTrainer trên dữ liệu Admin duyệt đè
+from trl import DPOTrainer, DPOConfig
 
+if os.path.exists(DPO_OVERRIDE_FILE) and os.path.getsize(DPO_OVERRIDE_FILE) > 0:
+    dpo_raw = load_dataset("json", data_files={"train": DPO_OVERRIDE_FILE})["train"]
+    print(f"🚀 Bắt đầu Stage 2 DPO với {len(dpo_raw)} cặp Admin override (beta=0.1, max_length={MAX_SEQ_LENGTH})...")
+
+    max_prompt_len = min(MAX_SEQ_LENGTH - 512, int(MAX_SEQ_LENGTH * 0.78))
+    dpo_candidates = {
+        "output_dir": DPO_CHECKPOINT_DIR,
+        "per_device_train_batch_size": 1,
+        "gradient_accumulation_steps": max(4, GRAD_ACCUM),
+        "learning_rate": 5e-6,
+        "lr_scheduler_type": "cosine",
+        "warmup_ratio": 0.1,
+        "num_train_epochs": 2,
+        "beta": 0.1,
+        "loss_type": "sigmoid",
+        "fp16": FP16_MODE,
+        "bf16": BF16_MODE,
+        "gradient_checkpointing": True,
+        "gradient_checkpointing_kwargs": {"use_reentrant": False},
+        "logging_steps": 5,
+        "save_strategy": "epoch",
+        "report_to": "none",
+        "max_length": MAX_SEQ_LENGTH,
+        "max_prompt_length": max_prompt_len,
+        "remove_unused_columns": False,
+    }
+    dpo_args = DPOConfig(**filter_valid_kwargs(DPOConfig, dpo_candidates))
+
+    dpo_trainer_candidates = {
+        "model": trainer.model,
+        "ref_model": None,
+        "args": dpo_args,
+        "train_dataset": dpo_raw,
+        "processing_class": tokenizer,
+        "tokenizer": tokenizer,
+    }
+    dpo_trainer = DPOTrainer(**filter_valid_kwargs(DPOTrainer, dpo_trainer_candidates))
+    dpo_result = dpo_trainer.train()
+
+    print(f"Stage 2 DPO hoàn tất! DPO Loss: {dpo_result.training_loss:.4f}")
+    dpo_trainer.model.save_pretrained(DPO_ADAPTER_DIR)
+    tokenizer.save_pretrained(DPO_ADAPTER_DIR)
+    final_adapter = DPO_ADAPTER_DIR
+    dpo_loss_val = dpo_result.training_loss
+else:
+    print(f"⚠️ Không tìm thấy {DPO_OVERRIDE_FILE}; bỏ qua Stage 2 DPO và dùng Adapter Stage 1.")
+    final_adapter = ADAPTER_DIR
+    dpo_loss_val = None
+"""),
+        code_cell("""# [10] Lưu Training Metadata vào Google Drive
 run_metadata = {
     "base_model": MODEL_ID,
-    "train_samples": len(dataset['train']),
-    "eval_samples": len(dataset['validation']),
-    "training_loss": train_result.training_loss,
-    "adapter_path": ADAPTER_DIR
+    "max_seq_length": MAX_SEQ_LENGTH,
+    "sft_train_samples": len(dataset['train']),
+    "sft_loss": train_result.training_loss,
+    "dpo_loss": dpo_loss_val,
+    "sft_adapter_path": ADAPTER_DIR,
+    "final_adapter_path": final_adapter
 }
 
-meta_path = os.path.join(ADAPTER_DIR, 'training_metadata.json')
+meta_path = os.path.join(final_adapter, 'training_metadata.json')
 with open(meta_path, 'w', encoding='utf-8') as f:
     json.dump(run_metadata, f, ensure_ascii=False, indent=2)
 
-print(f"✅ Đã lưu Adapter và Metadata thành công vào Google Drive: {meta_path}")
+print(f"✅ Đã lưu Metadata & Adapter hoàn chỉnh vào Google Drive: {meta_path}")
 """)
     ]
 
