@@ -57,6 +57,9 @@ import {
 } from '@/services/adminEvents.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
+import { translatePhrase } from '@/i18n/phraseDictionary.js'
+import { cleanAndFormatVenue, translateEventHtmlDescription } from '@/i18n/eventTranslations.js'
 import { Page, Panel, Badge, StatusBadge, ImagePlaceholder } from './AdminComponents.jsx'
 import { AdminReviewCriteriaModal } from './AdminReviewCriteriaModal.jsx'
 import { AdminSuspendModal } from './AdminSuspendModal.jsx'
@@ -123,7 +126,7 @@ function formatShortDate(value) {
 
 const getAutoLocale = () =>
   ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
-   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
+    (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
     ? 'en-US'
     : 'vi-VN'
 
@@ -144,6 +147,8 @@ function formatDate(value) {
 // AI Review Sub-components (3 Core Colors: Green / Amber / Red on Neutral Slate)
 // ---------------------------------------------------------------------------
 function StatusBanner({ recommendation, summary }) {
+  const { isEnglish } = useLanguage()
+
   if (recommendation === 'APPROVE') {
     return (
       <div className="mb-4 rounded-2xl border border-emerald-500/30 bg-emerald-950/25 p-4 shadow-sm backdrop-blur-sm">
@@ -154,14 +159,14 @@ function StatusBanner({ recommendation, summary }) {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               <span className="inline-block rounded-md bg-emerald-500/20 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-300">
-                Khuyến nghị: Phê duyệt
+                {isEnglish ? 'RECOMMENDATION: APPROVE' : 'Khuyến nghị: Phê duyệt'}
               </span>
             </div>
             <h4 className="mt-1 font-display text-sm font-bold text-emerald-300">
-              Đủ điều kiện phê duyệt
+              {isEnglish ? 'Eligible for approval' : 'Đủ điều kiện phê duyệt'}
             </h4>
             <p className="mt-1 text-xs text-slate-300 leading-relaxed">
-              {summary || 'Sự kiện tuân thủ các điều khoản & chính sách cốt lõi của EventHub.'}
+              {translatePhrase(summary, isEnglish ? 'en' : 'vi') || (isEnglish ? 'Event complies with core EventHub platform terms and policies.' : 'Sự kiện tuân thủ các điều khoản & chính sách cốt lõi của EventHub.')}
             </p>
           </div>
         </div>
@@ -179,14 +184,14 @@ function StatusBanner({ recommendation, summary }) {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               <span className="inline-block rounded-md bg-rose-500/20 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-rose-300">
-                Khuyến nghị: Từ chối yêu cầu
+                {isEnglish ? 'RECOMMENDATION: REFUSE THE REQUEST' : 'Khuyến nghị: Từ chối yêu cầu'}
               </span>
             </div>
             <h4 className="mt-1 font-display text-sm font-bold text-rose-300">
-              Phát hiện vi phạm nghiêm trọng
+              {isEnglish ? 'Critical violations detected' : 'Phát hiện vi phạm nghiêm trọng'}
             </h4>
             <p className="mt-1 text-xs text-slate-300 leading-relaxed">
-              {summary || 'Phát hiện điều khoản vi phạm chính sách nền tảng. Đề xuất từ chối hoặc yêu cầu điều chỉnh lại.'}
+              {translatePhrase(summary, isEnglish ? 'en' : 'vi') || (isEnglish ? 'Mandatory policy violations detected. Not eligible for approval.' : 'Phát hiện điều khoản vi phạm chính sách nền tảng. Đề xuất từ chối hoặc yêu cầu điều chỉnh lại.')}
             </p>
           </div>
         </div>
@@ -204,14 +209,14 @@ function StatusBanner({ recommendation, summary }) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="inline-block rounded-md bg-amber-500/20 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-300">
-              Khuyến nghị: Cần đối chiếu
+              {isEnglish ? 'RECOMMENDATION: NEEDS COMPARISON' : 'Khuyến nghị: Cần đối chiếu'}
             </span>
           </div>
           <h4 className="mt-1 font-display text-sm font-bold text-amber-300">
-            Cần quản trị viên xem xét
+            {isEnglish ? 'Requires administrator review' : 'Cần quản trị viên xem xét'}
           </h4>
           <p className="mt-1 text-xs text-slate-300 leading-relaxed">
-            {summary || 'Sự kiện có một số thiếu sót hoặc điều kiện cần lưu ý trước khi quyết định phê duyệt.'}
+            {translatePhrase(summary, isEnglish ? 'en' : 'vi') || (isEnglish ? 'Event has minor conditions or notices requiring administrator review before making a decision.' : 'Sự kiện có một số thiếu sót hoặc điều kiện cần lưu ý trước khi quyết định phê duyệt.')}
           </p>
         </div>
       </div>
@@ -220,16 +225,18 @@ function StatusBanner({ recommendation, summary }) {
 }
 
 function PolicyViolationCard({ item, onClick }) {
-  const policy = item.policy_code || 'CHÍNH SÁCH'
-  const issue = item.issue || item.message || (typeof item === 'string' ? item : '')
+  const { isEnglish } = useLanguage()
+  const policy = item.policy_code || (isEnglish ? 'POLICY' : 'CHÍNH SÁCH')
+  const rawIssue = item.issue || item.message || (typeof item === 'string' ? item : '')
+  const issue = isEnglish ? (translatePhrase(rawIssue, 'en') || rawIssue) : rawIssue
   const quote = item.highlighted_text
 
   return (
     <button
       type="button"
-      onClick={() => onClick?.(`[Vi phạm ${policy}] ${issue}`)}
+      onClick={() => onClick?.(`[${isEnglish ? 'Violation' : 'Vi phạm'} ${policy}] ${issue}`)}
       className="group relative flex w-full cursor-pointer flex-col gap-2 rounded-xl border border-rose-500/30 bg-slate-900/90 p-3.5 text-left transition hover:border-rose-500/60 hover:bg-rose-950/20 shadow-sm"
-      title="Bấm để sao chép vào ghi chú"
+      title={isEnglish ? 'Click to copy to notes' : 'Bấm để sao chép vào ghi chú'}
     >
       <div className="flex items-center justify-between gap-2">
         <span className="inline-flex items-center gap-1.5 rounded-md bg-rose-500/20 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-rose-300 border border-rose-500/30">
@@ -237,13 +244,13 @@ function PolicyViolationCard({ item, onClick }) {
           {policy}
         </span>
         <span className="text-[10px] font-semibold text-rose-400/80 group-hover:text-rose-300 transition">
-          + Thêm vào ghi chú
+          {isEnglish ? '+ Add to notes' : '+ Thêm vào ghi chú'}
         </span>
       </div>
       <p className="text-xs font-semibold text-slate-100 leading-snug">{issue}</p>
       {quote && (
         <div className="mt-1 rounded-lg border-l-2 border-rose-500 bg-slate-950/80 px-3 py-2 text-[11px] italic text-slate-300">
-          <span className="font-semibold text-rose-400 not-italic mr-1.5">Trích dẫn:</span>
+          <span className="font-semibold text-rose-400 not-italic mr-1.5">{isEnglish ? 'Quote:' : 'Trích dẫn:'}</span>
           &ldquo;{quote}&rdquo;
         </div>
       )}
@@ -252,16 +259,18 @@ function PolicyViolationCard({ item, onClick }) {
 }
 
 function PolicyWarningCard({ item, onClick }) {
-  const policy = item.policy_code || 'LƯU Ý'
-  const issue = item.issue || item.message || (typeof item === 'string' ? item : '')
+  const { isEnglish } = useLanguage()
+  const policy = item.policy_code || (isEnglish ? 'NOTICE' : 'LƯU Ý')
+  const rawIssue = item.issue || item.message || (typeof item === 'string' ? item : '')
+  const issue = isEnglish ? (translatePhrase(rawIssue, 'en') || rawIssue) : rawIssue
   const quote = item.highlighted_text
 
   return (
     <button
       type="button"
-      onClick={() => onClick?.(`[Lưu ý ${policy}] ${issue}`)}
+      onClick={() => onClick?.(`[${isEnglish ? 'Notice' : 'Lưu ý'} ${policy}] ${issue}`)}
       className="group relative flex w-full cursor-pointer flex-col gap-2 rounded-xl border border-amber-500/30 bg-slate-900/90 p-3.5 text-left transition hover:border-amber-500/60 hover:bg-amber-950/20 shadow-sm"
-      title="Bấm để sao chép vào ghi chú"
+      title={isEnglish ? 'Click to copy to notes' : 'Bấm để sao chép vào ghi chú'}
     >
       <div className="flex items-center justify-between gap-2">
         <span className="inline-flex items-center gap-1.5 rounded-md bg-amber-500/20 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-300 border border-amber-500/30">
@@ -269,13 +278,13 @@ function PolicyWarningCard({ item, onClick }) {
           {policy}
         </span>
         <span className="text-[10px] font-semibold text-amber-400/80 group-hover:text-amber-300 transition">
-          + Thêm vào ghi chú
+          {isEnglish ? '+ Add to notes' : '+ Thêm vào ghi chú'}
         </span>
       </div>
       <p className="text-xs font-medium text-slate-200 leading-snug">{issue}</p>
       {quote && (
         <div className="mt-1 rounded-lg border-l-2 border-amber-500 bg-slate-950/80 px-3 py-2 text-[11px] italic text-slate-300">
-          <span className="font-semibold text-amber-400 not-italic mr-1.5">Trích dẫn:</span>
+          <span className="font-semibold text-amber-400 not-italic mr-1.5">{isEnglish ? 'Quote:' : 'Trích dẫn:'}</span>
           &ldquo;{quote}&rdquo;
         </div>
       )}
@@ -284,7 +293,9 @@ function PolicyWarningCard({ item, onClick }) {
 }
 
 function CompliantCheckItem({ check }) {
-  const text = typeof check === 'string' ? check : check.title || check.issue || JSON.stringify(check)
+  const { isEnglish } = useLanguage()
+  const rawText = typeof check === 'string' ? check : check.title || check.issue || JSON.stringify(check)
+  const text = isEnglish ? (translatePhrase(rawText, 'en') || rawText) : rawText
   return (
     <div className="flex items-start gap-2.5 rounded-xl border border-emerald-500/20 bg-slate-900/80 p-2.5 text-left">
       <CheckCircle2 className="size-4 shrink-0 text-emerald-400 mt-0.5" />
@@ -294,19 +305,21 @@ function CompliantCheckItem({ check }) {
 }
 
 function SuggestionCard({ suggestion, onClick }) {
-  const text = typeof suggestion === 'string' ? suggestion : suggestion.text || JSON.stringify(suggestion)
+  const { isEnglish } = useLanguage()
+  const rawText = typeof suggestion === 'string' ? suggestion : suggestion.text || JSON.stringify(suggestion)
+  const text = isEnglish ? (translatePhrase(rawText, 'en') || rawText) : rawText
   return (
     <button
       type="button"
-      onClick={() => onClick?.(`[Gợi ý] ${text}`)}
+      onClick={() => onClick?.(isEnglish ? `[Suggestion] ${text}` : `[Gợi ý] ${text}`)}
       className="group flex w-full cursor-pointer items-start gap-2.5 rounded-xl border border-amber-500/20 bg-slate-900/80 p-3 text-left transition hover:border-amber-500/40 hover:bg-amber-950/15 shadow-sm"
-      title="Bấm để sao chép vào ghi chú"
+      title={isEnglish ? 'Click to copy into notes' : 'Bấm để sao chép vào ghi chú'}
     >
       <Sparkles className="size-4 shrink-0 text-amber-400 mt-0.5" />
       <div className="flex-1 min-w-0">
         <p className="text-xs text-slate-200 leading-relaxed">{text}</p>
         <span className="mt-1 inline-block text-[10px] font-semibold text-amber-400/80 group-hover:text-amber-300">
-          + Thêm vào ghi chú
+          {isEnglish ? '+ Add to notes' : '+ Thêm vào ghi chú'}
         </span>
       </div>
     </button>
@@ -546,13 +559,12 @@ function DocumentModerationAuditCard({ documentReview, documentAnalysis, onPrevi
           <FileCheck className="size-4 text-indigo-400" />
           Kiểm duyệt Tài liệu Giấy phép ({items.length || docAnalysisList.length} tệp)
         </span>
-        <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${
-          overallVerdict === 'VIOLATION'
+        <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${overallVerdict === 'VIOLATION'
             ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
             : overallVerdict === 'WARNING'
               ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
               : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-        }`}>
+          }`}>
           {overallVerdict === 'VIOLATION' ? 'Có vi phạm' : overallVerdict === 'WARNING' ? 'Cần lưu ý' : 'Hợp lệ'}
         </span>
       </div>
@@ -731,11 +743,10 @@ function VisualCoTOcrSection({ ocrReasoning, extractedTexts }) {
                     </span>
                   )}
                   {t.confidence && (
-                    <span className={`rounded px-1.5 py-0.5 text-[9px] font-bold ${
-                      t.confidence === 'HIGH'
+                    <span className={`rounded px-1.5 py-0.5 text-[9px] font-bold ${t.confidence === 'HIGH'
                         ? 'bg-emerald-500/20 text-emerald-300'
                         : 'bg-amber-500/20 text-amber-300'
-                    }`}>
+                      }`}>
                       {t.confidence === 'HIGH' ? 'Tin cậy cao' : 'Tin cậy TB'}
                     </span>
                   )}
@@ -845,10 +856,10 @@ function ImageModerationAuditCard({ imageReview, visionAnalysis, onClick }) {
           Kiểm duyệt Hình ảnh ({items.length || visionItems.length} ảnh)
         </span>
         <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${overallVerdict === 'VIOLATION'
-            ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-            : overallVerdict === 'WARNING'
-              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-              : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+          ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+          : overallVerdict === 'WARNING'
+            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+            : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
           }`}>
           {overallVerdict === 'VIOLATION' ? 'Có vi phạm' : overallVerdict === 'WARNING' ? 'Cần lưu ý' : 'An toàn'}
         </span>
@@ -1033,6 +1044,7 @@ function parseAiReviewData(aiData) {
 // Main Component
 // ---------------------------------------------------------------------------
 export function AdminEventReviewDetailPage() {
+  const { isEnglish } = useLanguage()
   const { eventId } = useParams()
   const navigate = useNavigate()
   const toast = useToast()
@@ -1370,7 +1382,7 @@ export function AdminEventReviewDetailPage() {
     onSuccess: (res) => {
       toast.success(res.message || 'Đã gửi lệnh dừng tiến trình quét AI.')
       setIsScanningActive(false)
-      try { localStorage.removeItem(`eh_ai_scanning_${eventId}`) } catch {}
+      try { localStorage.removeItem(`eh_ai_scanning_${eventId}`) } catch { }
       queryClient.setQueryData(['admin-auto-review-scan-status'], { isRunning: false })
       queryClient.invalidateQueries({ queryKey: ['admin-auto-review-scan-status'] })
       queryClient.invalidateQueries({ queryKey: ['admin-ai-review', eventId] })
@@ -1386,7 +1398,7 @@ export function AdminEventReviewDetailPage() {
     mutationFn: () => runAdminAiReview(event),
     onSuccess: (data) => {
       setIsScanningActive(false)
-      try { localStorage.removeItem(`eh_ai_scanning_${eventId}`) } catch {}
+      try { localStorage.removeItem(`eh_ai_scanning_${eventId}`) } catch { }
       if (isManuallyCancelled || data?.cancelled) {
         toast.info(data?.message || 'Tiến trình quét đã được dừng theo yêu cầu.')
       } else {
@@ -1398,7 +1410,7 @@ export function AdminEventReviewDetailPage() {
     },
     onError: (err) => {
       setIsScanningActive(false)
-      try { localStorage.removeItem(`eh_ai_scanning_${eventId}`) } catch {}
+      try { localStorage.removeItem(`eh_ai_scanning_${eventId}`) } catch { }
       if (isManuallyCancelled) return
       toast.error(err.response?.data?.message || 'Không thể chạy phân tích AI.')
       queryClient.invalidateQueries({ queryKey: ['admin-auto-review-scan-status'] })
@@ -1416,14 +1428,14 @@ export function AdminEventReviewDetailPage() {
   const handleStartAi = () => {
     setIsManuallyCancelled(false)
     setIsScanningActive(true)
-    try { localStorage.setItem(`eh_ai_scanning_${eventId}`, 'true') } catch {}
+    try { localStorage.setItem(`eh_ai_scanning_${eventId}`, 'true') } catch { }
     runAiMutation.mutate()
   }
 
   const handleCancelAi = () => {
     setIsManuallyCancelled(true)
     setIsScanningActive(false)
-    try { localStorage.removeItem(`eh_ai_scanning_${eventId}`) } catch {}
+    try { localStorage.removeItem(`eh_ai_scanning_${eventId}`) } catch { }
     runAiMutation.reset()
     cancelAiMutation.mutate()
     queryClient.setQueryData(['admin-auto-review-scan-status'], { isRunning: false })
@@ -1434,7 +1446,7 @@ export function AdminEventReviewDetailPage() {
   useEffect(() => {
     if (prevScanningRef.current && !scanStatus?.isRunning) {
       setIsScanningActive(false)
-      try { localStorage.removeItem(`eh_ai_scanning_${eventId}`) } catch {}
+      try { localStorage.removeItem(`eh_ai_scanning_${eventId}`) } catch { }
       queryClient.invalidateQueries({ queryKey: ['admin-ai-review', eventId] })
       queryClient.invalidateQueries({ queryKey: ['admin-event-detail', eventId] })
     }
@@ -1444,7 +1456,7 @@ export function AdminEventReviewDetailPage() {
   useEffect(() => {
     if ((aiReviewQuery.data || event?.aiReview) && !runAiMutation.isPending && !scanStatus?.isRunning) {
       setIsScanningActive(false)
-      try { localStorage.removeItem(`eh_ai_scanning_${eventId}`) } catch {}
+      try { localStorage.removeItem(`eh_ai_scanning_${eventId}`) } catch { }
     }
   }, [aiReviewQuery.data, event?.aiReview, runAiMutation.isPending, scanStatus?.isRunning, eventId])
 
@@ -1771,20 +1783,20 @@ export function AdminEventReviewDetailPage() {
   const totalIssuesCount = (aiData?.critical_violations?.length || 0) + (aiData?.warnings?.length || 0)
 
   return (
-    <div className="flex h-[calc(100vh-130px)] flex-col gap-4">
+    <div className={`space-y-4 pb-8 ${!isPendingReview ? 'max-w-5xl mx-auto' : ''}`}>
       {/* Top Header - Tách hoàn toàn ra ngoài khung lớn, không viền khung bọc */}
       <div className="flex shrink-0 items-center justify-between gap-4 px-1 py-1">
         <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 sm:gap-3.5 min-w-0">
           <button
             type="button"
             onClick={() => navigate('/admin/events/review')}
-            className="grid size-9 sm:size-10 shrink-0 place-items-center rounded-full bg-white/5 text-slate-300 transition hover:bg-white/15 hover:text-white border border-white/10 shadow-sm cursor-pointer"
+            className="grid size-9 sm:size-10 shrink-0 place-items-center rounded-full bg-white/5 text-slate-300 transition hover:bg-white/15 hover:text-white border border-white/10 shadow-sm cursor-pointer [html.light_&]:bg-white [html.light_&]:border-slate-300 [html.light_&]:text-[#0D1B2A] [html.light_&]:hover:bg-slate-100"
             title="Quay lại danh sách duyệt sự kiện"
           >
             <ArrowLeft className="size-4 sm:size-5" />
           </button>
-          <h1 className="font-display text-base sm:text-xl font-black text-white drop-shadow-sm line-clamp-2 max-w-2xl">
-            {event.title}
+          <h1 className="font-display text-base sm:text-xl font-black text-white drop-shadow-sm line-clamp-2 max-w-2xl [html.light_&]:text-[#0D1B2A]">
+            {isEnglish ? (translatePhrase(event.title, 'en') || event.title) : event.title}
           </h1>
           {event.status === 'CANCELLED' ? (
             <Badge tone="red">Đã hủy</Badge>
@@ -1824,34 +1836,12 @@ export function AdminEventReviewDetailPage() {
       </div>
 
       {/* Main Split Screen */}
-      <div className="flex flex-1 gap-5 overflow-hidden">
+      <div className="flex flex-col lg:flex-row gap-6 items-start">
         {/* Left Column: Event Details */}
-        <div className={`overflow-y-auto pr-1.5 flex-1 min-w-0 ${customScrollbar} ${!isPendingReview ? 'max-w-5xl mx-auto' : ''}`}>
-          {/* Priority Support Banner */}
-          {event.is_priority_support && (
-            <div className="mb-4 rounded-xl border border-amber-500/20 bg-amber-500/[0.04] px-4 py-3 text-slate-200 flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                  <Sparkles className="size-4" />
-                </span>
-                <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-                  <span className="font-semibold text-xs text-white">Ban tổ chức có hỗ trợ ưu tiên</span>
-                  {event.organizer_plan_name && (
-                    <span className="rounded bg-white/5 border border-white/10 px-2 py-0.5 text-[10px] font-medium text-amber-300">
-                      {event.organizer_plan_name}
-                    </span>
-                  )}
-                  <span className="text-[11px] text-slate-400">
-                    (Hàng đợi ưu tiên cao của hệ thống)
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
-
+        <div className="flex-1 min-w-0 w-full space-y-6">
           {/* Cancellation Request Banner */}
           {event.cancel_request?.status === 'PENDING' && (
-            <div className="mb-6 rounded-xl border border-rose-500/30 bg-[#141b2d] p-5 shadow-sm">
+            <div className="mb-6 rounded-xl border border-rose-500/30 bg-[#141b2d] p-5 shadow-sm [html.light_&]:bg-rose-50/70 [html.light_&]:border-rose-200">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-start gap-3.5">
                   <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-rose-500/10 text-rose-300 border border-rose-500/20">
@@ -1859,12 +1849,12 @@ export function AdminEventReviewDetailPage() {
                   </span>
                   <div>
                     <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-bold text-white">Yêu cầu hủy sự kiện từ Ban tổ chức</h3>
+                      <h3 className="text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">Yêu cầu hủy sự kiện từ Ban tổ chức</h3>
                       <span className="rounded-full bg-rose-500/15 px-2.5 py-0.5 text-[10px] font-semibold text-rose-300 border border-rose-500/25">
                         Chờ duyệt hủy
                       </span>
                     </div>
-                    <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                    <p className="text-xs text-slate-400 [html.light_&]:text-slate-600 mt-1 leading-relaxed">
                       Sự kiện này đang có yêu cầu hủy và tạm dừng bán vé.
                     </p>
                   </div>
@@ -1881,23 +1871,23 @@ export function AdminEventReviewDetailPage() {
                 </button>
               </div>
 
-              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs bg-black/20 p-3 rounded-lg border border-white/5">
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs bg-black/20 p-3 rounded-lg border border-white/5 [html.light_&]:bg-white [html.light_&]:border-rose-100">
                 <div>
-                  <span className="text-slate-400 font-medium">Lý do hủy:</span>{' '}
-                  <strong className="text-white">
+                  <span className="text-slate-400 [html.light_&]:text-slate-600 font-medium">Lý do hủy:</span>{' '}
+                  <strong className="text-white [html.light_&]:text-[#0D1B2A]">
                     {event.cancel_request.reason_code === 'FORCE_MAJEURE' ? 'Bất khả kháng (Thiên tai, dịch bệnh, pháp lý)' : 'Lý do từ Ban tổ chức (Kế hoạch, lịch trình, tài chính)'}
                   </strong>
                 </div>
                 <div>
-                  <span className="text-slate-400 font-medium">Phương thức hoàn tiền:</span>{' '}
-                  <strong className="text-white">
-                    {event.cancel_request.refund_mode === 'MODE_A' ? 'Tự động qua payOS' : 'Chuyển khoản thủ công VietQR'}
+                  <span className="text-slate-400 [html.light_&]:text-slate-600 font-medium">Phương thức hoàn tiền:</span>{' '}
+                  <strong className="text-white [html.light_&]:text-[#0D1B2A]">
+                    {event.cancel_request.refund_mode === 'MODE_A' ? (isEnglish ? 'Automatic via payOS' : 'Tự động qua payOS') : (isEnglish ? 'Manual transfer VietQR' : 'Chuyển khoản thủ công VietQR')}
                   </strong>
                 </div>
                 <div className="md:col-span-2">
-                  <span className="text-slate-400 font-medium">Giải trình:</span>
-                  <p className="mt-1 text-slate-300 bg-white/[0.03] p-2 rounded border border-white/5 italic">
-                    "{event.cancel_request.reason_note || event.cancel_request.note || event.cancel_request.reason || 'Không có giải trình chi tiết'}"
+                  <span className="text-slate-400 [html.light_&]:text-slate-600 font-medium">{isEnglish ? 'Explanation:' : 'Giải trình:'}</span>
+                  <p className="mt-1 text-slate-300 bg-white/[0.03] p-2 rounded border border-white/5 italic [html.light_&]:bg-rose-100/40 [html.light_&]:border-rose-200 [html.light_&]:text-[#0D1B2A]">
+                    "{event.cancel_request.reason_note || event.cancel_request.note || event.cancel_request.reason || (isEnglish ? 'No detailed explanation' : 'Không có giải trình chi tiết')}"
                   </p>
                 </div>
               </div>
@@ -1906,15 +1896,15 @@ export function AdminEventReviewDetailPage() {
 
           {/* Pending Revision Banner */}
           {event.pending_revision && (
-            <div className="mb-6 rounded-xl border border-white/10 bg-[#121c38]/90 p-4 sm:p-5 shadow-sm">
+            <div className="mb-6 rounded-xl border border-white/10 bg-[#121c38]/90 p-4 sm:p-5 shadow-sm [html.light_&]:bg-white [html.light_&]:border-[#C99A47]/30 [html.light_&]:shadow-md">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-white/5 text-amber-300 border border-white/10">
+                  <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-white/5 text-amber-300 border border-white/10 [html.light_&]:bg-amber-50 [html.light_&]:border-amber-200">
                     <Sparkles className="size-4" />
                   </span>
                   <div>
-                    <h3 className="text-sm font-bold text-white">Bản sửa đổi sự kiện chờ duyệt</h3>
-                    <p className="text-xs text-slate-400 mt-0.5">
+                    <h3 className="text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">Bản sửa đổi sự kiện chờ duyệt</h3>
+                    <p className="text-xs text-slate-400 [html.light_&]:text-slate-600 mt-0.5">
                       Ban tổ chức đã đề xuất các thay đổi đối với sự kiện. Vui lòng kiểm tra và duyệt nội dung.
                     </p>
                   </div>
@@ -1926,9 +1916,9 @@ export function AdminEventReviewDetailPage() {
 
               {/* Proposed Changes Diff */}
               <div className="mt-4 space-y-3">
-                <div className="text-xs bg-black/25 p-3.5 rounded-lg border border-white/5 space-y-3">
+                <div className="text-xs bg-black/25 p-3.5 rounded-lg border border-white/5 space-y-3 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
                   <div className="flex items-center justify-between">
-                    <p className="font-semibold text-slate-300 uppercase tracking-wide text-[11px]">
+                    <p className="font-semibold text-slate-300 [html.light_&]:text-slate-700 uppercase tracking-wide text-[11px]">
                       Nội dung thay đổi đề xuất:
                     </p>
                   </div>
@@ -1936,57 +1926,57 @@ export function AdminEventReviewDetailPage() {
                   {/* 1. Ticket Changes */}
                   {revisionDetails?.ticketChanges && revisionDetails.ticketChanges.length > 0 && (
                     <div className="space-y-2 pt-1">
-                      <p className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                      <p className="text-xs font-semibold text-slate-300 [html.light_&]:text-slate-700 flex items-center gap-1.5">
                         <Ticket className="size-3.5 text-amber-400" />
                         Thay đổi loại vé ({revisionDetails.ticketChanges.length}):
                       </p>
                       <div className="grid gap-2">
                         {revisionDetails.ticketChanges.map((tc, idx) => (
-                          <div key={tc.id || idx} className="rounded-lg border border-white/10 bg-white/[0.02] p-3 text-xs space-y-1.5">
+                          <div key={tc.id || idx} className="rounded-lg border border-white/10 bg-white/[0.02] p-3 text-xs space-y-1.5 [html.light_&]:bg-white [html.light_&]:border-slate-200">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
-                                <span className="font-bold text-white text-sm">{tc.name}</span>
+                                <span className="font-bold text-white [html.light_&]:text-[#0D1B2A] text-sm">{tc.name}</span>
                                 {tc.nameChanged && tc.oldName && (
-                                  <span className="text-[11px] text-slate-400">(Tên cũ: {tc.oldName})</span>
+                                  <span className="text-[11px] text-slate-400 [html.light_&]:text-slate-500">(Tên cũ: {tc.oldName})</span>
                                 )}
                               </div>
-                              <span className="rounded bg-white/5 px-2 py-0.5 text-[10px] font-medium text-slate-300 border border-white/10">
+                              <span className="rounded bg-white/5 px-2 py-0.5 text-[10px] font-medium text-slate-300 border border-white/10 [html.light_&]:bg-slate-100 [html.light_&]:text-slate-700 [html.light_&]:border-slate-300">
                                 {tc.typeLabel}
                               </span>
                             </div>
                             {tc.priceChanged && (
                               <div className="flex items-center gap-2 pt-0.5">
-                                <span className="text-slate-400">Giá vé:</span>
+                                <span className="text-slate-400 [html.light_&]:text-slate-600">Giá vé:</span>
                                 <span className="text-slate-500 line-through">
                                   {tc.oldPrice.toLocaleString('vi-VN')} đ
                                 </span>
                                 <span className="text-slate-400 font-bold">→</span>
-                                <span className="text-emerald-400 font-bold text-sm">
+                                <span className="text-emerald-400 font-bold text-sm [html.light_&]:text-emerald-700">
                                   {tc.newPrice.toLocaleString('vi-VN')} đ
                                 </span>
                               </div>
                             )}
                             {tc.qtyChanged && (
                               <div className="flex items-center gap-2">
-                                <span className="text-slate-400">Số lượng mở bán:</span>
+                                <span className="text-slate-400 [html.light_&]:text-slate-600">Số lượng mở bán:</span>
                                 <span className="text-slate-500">
                                   {tc.oldQuantity.toLocaleString('vi-VN')} vé
                                 </span>
                                 <span className="text-slate-400 font-bold">→</span>
-                                <span className="text-white font-medium">
+                                <span className="text-white [html.light_&]:text-[#0D1B2A] font-medium">
                                   {tc.newQuantity.toLocaleString('vi-VN')} vé
                                 </span>
                               </div>
                             )}
                             {tc.isAdded && (
-                              <div className="text-xs text-slate-300 flex items-center gap-2">
-                                <span>Giá mở bán: <strong className="text-emerald-400">{tc.newPrice.toLocaleString('vi-VN')} đ</strong></span>
+                              <div className="text-xs text-slate-300 [html.light_&]:text-slate-700 flex items-center gap-2">
+                                <span>Giá mở bán: <strong className="text-emerald-400 [html.light_&]:text-emerald-700">{tc.newPrice.toLocaleString('vi-VN')} đ</strong></span>
                                 <span>•</span>
-                                <span>Số lượng: <strong className="text-white">{tc.newQuantity.toLocaleString('vi-VN')} vé</strong></span>
+                                <span>Số lượng: <strong className="text-white [html.light_&]:text-[#0D1B2A]">{tc.newQuantity.toLocaleString('vi-VN')} vé</strong></span>
                               </div>
                             )}
                             {tc.isRemoved && (
-                              <div className="text-xs text-rose-300">
+                              <div className="text-xs text-rose-300 [html.light_&]:text-rose-700">
                                 Đã xoá loại vé này khỏi sự kiện
                               </div>
                             )}
@@ -1999,18 +1989,18 @@ export function AdminEventReviewDetailPage() {
                   {/* 2. Session Changes (Only if sessions actually changed or added) */}
                   {revisionDetails?.sessionChanges && revisionDetails.sessionChanges.length > 0 && (
                     <div className="space-y-2 pt-1">
-                      <p className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                      <p className="text-xs font-semibold text-slate-300 [html.light_&]:text-slate-700 flex items-center gap-1.5">
                         <Calendar className="size-3.5 text-amber-400" />
                         Điều chỉnh suất diễn ({revisionDetails.sessionChanges.length}):
                       </p>
                       <div className="grid gap-2">
                         {revisionDetails.sessionChanges.map((sess, idx) => (
-                          <div key={idx} className="rounded-lg border border-white/10 bg-white/[0.02] p-2.5 text-xs text-slate-200 flex flex-wrap items-center justify-between gap-2">
-                            <span className="font-semibold text-white">{sess.name}</span>
-                            <div className="flex items-center gap-3 text-slate-300">
-                              <span>Bắt đầu: <strong className="text-white">{formatDate(sess.startTime)}</strong></span>
+                          <div key={idx} className="rounded-lg border border-white/10 bg-white/[0.02] p-2.5 text-xs text-slate-200 flex flex-wrap items-center justify-between gap-2 [html.light_&]:bg-white [html.light_&]:border-slate-200">
+                            <span className="font-semibold text-white [html.light_&]:text-[#0D1B2A]">{sess.name}</span>
+                            <div className="flex items-center gap-3 text-slate-300 [html.light_&]:text-slate-600">
+                              <span>Bắt đầu: <strong className="text-white [html.light_&]:text-[#0D1B2A]">{formatDate(sess.startTime)}</strong></span>
                               <span>•</span>
-                              <span>Kết thúc: <strong className="text-white">{formatDate(sess.endTime)}</strong></span>
+                              <span>Kết thúc: <strong className="text-white [html.light_&]:text-[#0D1B2A]">{formatDate(sess.endTime)}</strong></span>
                             </div>
                           </div>
                         ))}
@@ -2020,40 +2010,40 @@ export function AdminEventReviewDetailPage() {
 
                   {/* Fallback if no specific ticket/session diff detected but raw sessions exist */}
                   {(!revisionDetails?.ticketChanges || revisionDetails.ticketChanges.length === 0) &&
-                   (!revisionDetails?.sessionChanges || revisionDetails.sessionChanges.length === 0) &&
-                   event.pending_revision.payload_after?.sessions && (
-                    <div className="space-y-2 pt-1">
-                      <p className="text-xs font-semibold text-slate-300">Suất diễn mới:</p>
-                      <div className="grid gap-2">
-                        {event.pending_revision.payload_after.sessions.map((sess, idx) => (
-                          <div key={sess.id || idx} className="rounded-lg border border-white/10 bg-white/[0.02] p-2.5 text-xs text-slate-200 flex flex-wrap items-center justify-between gap-2">
-                            <span className="font-semibold text-white">{sess.session_name || `Suất #${idx + 1}`}</span>
-                            <div className="flex items-center gap-3 text-slate-300">
-                              <span>Bắt đầu: <strong className="text-white">{formatDate(sess.start_time)}</strong></span>
-                              <span>•</span>
-                              <span>Kết thúc: <strong className="text-white">{formatDate(sess.end_time)}</strong></span>
+                    (!revisionDetails?.sessionChanges || revisionDetails.sessionChanges.length === 0) &&
+                    event.pending_revision.payload_after?.sessions && (
+                      <div className="space-y-2 pt-1">
+                        <p className="text-xs font-semibold text-slate-300 [html.light_&]:text-slate-700">Suất diễn mới:</p>
+                        <div className="grid gap-2">
+                          {event.pending_revision.payload_after.sessions.map((sess, idx) => (
+                            <div key={sess.id || idx} className="rounded-lg border border-white/10 bg-white/[0.02] p-2.5 text-xs text-slate-200 flex flex-wrap items-center justify-between gap-2 [html.light_&]:bg-white [html.light_&]:border-slate-200">
+                              <span className="font-semibold text-white [html.light_&]:text-[#0D1B2A]">{sess.session_name || `Suất #${idx + 1}`}</span>
+                              <div className="flex items-center gap-3 text-slate-300 [html.light_&]:text-slate-600">
+                                <span>Bắt đầu: <strong className="text-white [html.light_&]:text-[#0D1B2A]">{formatDate(sess.start_time)}</strong></span>
+                                <span>•</span>
+                                <span>Kết thúc: <strong className="text-white [html.light_&]:text-[#0D1B2A]">{formatDate(sess.end_time)}</strong></span>
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
 
                   {/* 3. General Field Changes */}
                   {revisionDetails?.generalChanges && revisionDetails.generalChanges.length > 0 && (
                     <div className="space-y-1.5 pt-1">
                       {revisionDetails.generalChanges.map((gc) => (
-                        <div key={gc.field} className="text-xs text-slate-300 bg-white/[0.02] rounded-lg p-2.5 border border-white/5 flex flex-wrap items-center justify-between gap-2">
-                          <span className="font-medium text-slate-300">{gc.label}:</span>
+                        <div key={gc.field} className="text-xs text-slate-300 bg-white/[0.02] rounded-lg p-2.5 border border-white/5 flex flex-wrap items-center justify-between gap-2 [html.light_&]:bg-white [html.light_&]:border-slate-200">
+                          <span className="font-medium text-slate-300 [html.light_&]:text-slate-700">{gc.label}:</span>
                           {typeof gc.newValue === 'object' && gc.newValue !== null ? (
-                            <span className="text-slate-400">Đã cập nhật nội dung mới</span>
+                            <span className="text-slate-400 [html.light_&]:text-slate-500">Đã cập nhật nội dung mới</span>
                           ) : (
                             <div className="flex items-center gap-2">
                               {gc.oldValue !== undefined && gc.oldValue !== null && (
                                 <span className="line-through text-slate-500">{String(gc.oldValue)}</span>
                               )}
                               <span className="text-slate-400 font-bold">→</span>
-                              <strong className="text-white">{String(gc.newValue)}</strong>
+                              <strong className="text-white [html.light_&]:text-[#0D1B2A]">{String(gc.newValue)}</strong>
                             </div>
                           )}
                         </div>
@@ -2063,13 +2053,13 @@ export function AdminEventReviewDetailPage() {
                 </div>
 
                 {/* Revision Note Input & Action Buttons */}
-                <div className="pt-2 border-t border-white/10 flex flex-col sm:flex-row items-center gap-2.5">
+                <div className="pt-2 border-t border-white/10 [html.light_&]:border-slate-200 flex flex-col sm:flex-row items-center gap-2.5">
                   <input
                     type="text"
                     value={revisionNote}
                     onChange={(e) => setRevisionNote(e.target.value)}
                     placeholder="Ghi chú duyệt sửa đổi (tuỳ chọn)..."
-                    className="flex-1 w-full h-9 rounded-lg border border-white/10 bg-black/30 px-3 text-xs text-white placeholder:text-slate-500 outline-none focus:border-white/25"
+                    className="flex-1 w-full h-9 rounded-lg border border-white/10 bg-black/30 px-3 text-xs text-white placeholder:text-slate-500 outline-none focus:border-white/25 [html.light_&]:bg-white [html.light_&]:border-slate-300 [html.light_&]:text-[#0D1B2A] [html.light_&]:placeholder:text-slate-400"
                   />
                   <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
                     <button
@@ -2103,7 +2093,7 @@ export function AdminEventReviewDetailPage() {
             </div>
           )}
 
-          <div className="mb-8 overflow-hidden rounded-[32px] border border-white/5 bg-white/[0.02] shadow-[0_8px_32px_rgba(0,0,0,0.2)] backdrop-blur-xl">
+          <div className="mb-8 overflow-hidden rounded-[32px] border border-white/5 bg-white/[0.02] shadow-[0_8px_32px_rgba(0,0,0,0.2)] backdrop-blur-xl [html.light_&]:bg-white [html.light_&]:border-[#C99A47]/30 [html.light_&]:shadow-md">
             {event.banner_url ? (
               <div className="p-4 pb-0">
                 <img
@@ -2120,55 +2110,62 @@ export function AdminEventReviewDetailPage() {
             <div className="p-6">
 
 
-              <h2 className="mb-2 font-display text-3xl font-black tracking-tight text-white drop-shadow-md">
-                {typeof event.title === 'string' ? event.title : 'Chi tiết sự kiện'}
+              <h2 className="mb-2 font-display text-3xl font-black tracking-tight text-white drop-shadow-md [html.light_&]:text-[#0D1B2A]">
+                {typeof event.title === 'string' ? (isEnglish ? (translatePhrase(event.title, 'en') || event.title) : event.title) : (isEnglish ? 'Event Details' : 'Chi tiết sự kiện')}
               </h2>
               {event.short_description && (
-                <p className="mb-8 text-base font-medium text-slate-400">
-                  {typeof event.short_description === 'string' ? event.short_description : ''}
+                <p className="mb-8 text-base font-medium text-slate-400 [html.light_&]:text-slate-600">
+                  {typeof event.short_description === 'string' ? (isEnglish ? (translatePhrase(event.short_description, 'en') || event.short_description) : event.short_description) : ''}
                 </p>
               )}
 
               <div className="mb-8 grid gap-4 sm:grid-cols-2">
-                <div className="flex items-start gap-4 rounded-[24px] border border-white/5 bg-white/[0.02] p-5 shadow-inner transition hover:-translate-y-1 hover:bg-white/[0.04]">
-                  <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-indigo-500/10 text-indigo-400 ring-1 ring-indigo-500/20">
+                <div className="flex items-start gap-4 rounded-[24px] border border-white/5 bg-white/[0.02] p-5 shadow-inner transition hover:-translate-y-1 hover:bg-white/[0.04] [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                  <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-indigo-500/10 text-indigo-400 ring-1 ring-indigo-500/20 [html.light_&]:bg-indigo-50 [html.light_&]:text-indigo-600">
                     <Calendar className="size-6" />
                   </div>
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
-                      Thời gian
+                    <p className="text-xs font-black uppercase tracking-widest text-white [html.light_&]:text-slate-700">
+                      {isEnglish ? 'Time' : 'Thời gian'}
                     </p>
-                    <p className="mt-1 text-sm font-bold text-white">
-                      Bắt đầu: <span className="font-semibold text-slate-300">{formatDate(event.start_time)}</span>
+                    <p className="mt-1 text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">
+                      {isEnglish ? 'Start:' : 'Bắt đầu:'} <span className="font-semibold text-slate-300 [html.light_&]:text-slate-700">{formatDate(event.start_time)}</span>
                     </p>
-                    <p className="text-sm font-bold text-white">
-                      Kết thúc: <span className="font-semibold text-slate-300">{formatDate(event.end_time)}</span>
+                    <p className="text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">
+                      {isEnglish ? 'End:' : 'Kết thúc:'} <span className="font-semibold text-slate-300 [html.light_&]:text-slate-700">{formatDate(event.end_time)}</span>
                     </p>
                   </div>
                 </div>
-                  <div className="flex items-start gap-4 rounded-[24px] border border-white/5 bg-white/[0.02] p-5 shadow-inner transition hover:-translate-y-1 hover:bg-white/[0.04]">
-                    <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-rose-500/10 text-rose-400 ring-1 ring-rose-500/20">
-                      <MapPin className="size-6" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">
-                        Địa điểm
-                      </p>
-                      <p className="mt-1 text-sm font-medium text-slate-300">
-                        {event.venue?.name || event.location_name || 'Địa điểm trực tiếp'}
-                      </p>
-                    </div>
+                <div className="flex items-start gap-4 rounded-[24px] border border-white/5 bg-white/[0.02] p-5 shadow-inner transition hover:-translate-y-1 hover:bg-white/[0.04] [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                  <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-rose-500/10 text-rose-400 ring-1 ring-rose-500/20 [html.light_&]:bg-rose-50 [html.light_&]:text-rose-600">
+                    <MapPin className="size-6" />
                   </div>
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-widest text-white [html.light_&]:text-slate-700">
+                      {isEnglish ? 'Location' : 'Địa điểm'}
+                    </p>
+                    <p className="mt-1 text-sm font-medium text-slate-300 [html.light_&]:text-slate-700">
+                      {cleanAndFormatVenue(
+                        event.venue ||
+                        event.venue_name ||
+                        (event.sessions?.find((s) => s?.venue)?.venue) ||
+                        event.location_name ||
+                        event.address,
+                        isEnglish
+                      )}
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <div className="mb-10">
-                <h3 className="mb-5 font-display text-lg font-black text-white drop-shadow-sm">
-                  Mô tả chi tiết
+                <h3 className="mb-5 font-display text-lg font-black text-white drop-shadow-sm [html.light_&]:text-[#0D1B2A]">
+                  {isEnglish ? 'Detailed Description' : 'Mô tả chi tiết'}
                 </h3>
                 {event.description ? (
                   <div
-                    className="prose prose-sm prose-invert max-w-none text-slate-300 break-words [&_*]:max-w-full [&_table]:block [&_table]:overflow-x-auto"
-                    dangerouslySetInnerHTML={{ __html: typeof event.description === 'string' ? event.description : '' }}
+                    className="prose prose-sm prose-invert max-w-none text-slate-300 break-words [&_*]:max-w-full [&_table]:block [&_table]:overflow-x-auto [html.light_&]:prose-neutral [html.light_&]:text-[#0D1B2A]"
+                    dangerouslySetInnerHTML={{ __html: translateEventHtmlDescription(typeof event.description === 'string' ? event.description : '', isEnglish) }}
                   />
                 ) : (
                   <p className="text-sm italic text-slate-500">Không có mô tả.</p>
@@ -2186,14 +2183,14 @@ export function AdminEventReviewDetailPage() {
                       : []
 
                   return (
-                    <div className="rounded-[24px] border border-white/5 bg-white/[0.02] p-5 shadow-inner space-y-4">
-                      <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                    <div className="rounded-[24px] border border-white/5 bg-white/[0.02] p-5 shadow-inner space-y-4 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                      <div className="flex items-center justify-between border-b border-white/10 [html.light_&]:border-slate-200 pb-3">
                         <div className="flex items-center gap-2">
                           <ShieldCheck className="size-5 text-indigo-400" />
-                          <h3 className="font-display text-base font-black text-white">Giấy phép & Tài liệu đính kèm</h3>
+                          <h3 className="font-display text-base font-black text-white [html.light_&]:text-[#0D1B2A]">Giấy phép & Tài liệu đính kèm</h3>
                         </div>
                         {permitsList.length > 0 && (
-                          <span className="rounded-full bg-indigo-500/15 px-2.5 py-0.5 text-[11px] font-bold text-indigo-300 border border-indigo-500/20">
+                          <span className="rounded-full bg-indigo-500/15 px-2.5 py-0.5 text-[11px] font-bold text-indigo-300 border border-indigo-500/20 [html.light_&]:bg-indigo-50 [html.light_&]:text-indigo-700 [html.light_&]:border-indigo-200">
                             {permitsList.length} tài liệu
                           </span>
                         )}
@@ -2207,10 +2204,10 @@ export function AdminEventReviewDetailPage() {
                             return (
                               <div
                                 key={permit.id || idx}
-                                className="group flex items-center justify-between py-2.5 px-2 rounded-xl transition hover:bg-white/[0.04]"
+                                className="group flex items-center justify-between py-2.5 px-2 rounded-xl transition hover:bg-white/[0.04] [html.light_&]:hover:bg-slate-100"
                               >
                                 <div className="flex items-center gap-3 overflow-hidden min-w-0">
-                                  <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-indigo-500/10 text-indigo-400 ring-1 ring-indigo-500/20">
+                                  <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-indigo-500/10 text-indigo-400 ring-1 ring-indigo-500/20 [html.light_&]:bg-indigo-50 [html.light_&]:text-indigo-600">
                                     {permit.type.includes('pdf') ? (
                                       <FileText className="size-4" />
                                     ) : permit.type.includes('image') ? (
@@ -2220,10 +2217,10 @@ export function AdminEventReviewDetailPage() {
                                     )}
                                   </div>
                                   <div className="min-w-0">
-                                    <span className="truncate block text-sm font-bold text-white group-hover:text-indigo-200 transition" title={permit.name}>
+                                    <span className="truncate block text-sm font-bold text-white [html.light_&]:text-[#0D1B2A] group-hover:text-indigo-200 transition" title={permit.name}>
                                       {permit.name}
                                     </span>
-                                    <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-0.5">
+                                    <div className="flex items-center gap-1.5 text-xs text-slate-400 [html.light_&]:text-slate-500 mt-0.5">
                                       <span>{permit.type.includes('pdf') ? 'PDF' : permit.type.includes('image') ? 'Ảnh' : 'Tài liệu'}</span>
                                       {permit.size && (
                                         <>
@@ -2243,8 +2240,8 @@ export function AdminEventReviewDetailPage() {
                                         onClick={() => {
                                           const matchingDocAnalysis = aiData?.document_analysis?.find(
                                             (d) => (permit.url && d.url === permit.url) ||
-                                                   (permit.name && d.fileName === permit.name) ||
-                                                   (d.source && d.source.includes(String(idx + 1)))
+                                              (permit.name && d.fileName === permit.name) ||
+                                              (d.source && d.source.includes(String(idx + 1)))
                                           )
                                           const matchingVision = aiData?.vision_analysis?.find(
                                             (v) => (permit.url && v.url === permit.url) ||
@@ -2278,10 +2275,10 @@ export function AdminEventReviewDetailPage() {
                 })()}
 
                 {/* Event Sessions */}
-                <div className="rounded-[24px] border border-white/5 bg-white/[0.02] p-5 shadow-inner space-y-4">
-                  <div className="flex items-center gap-2 border-b border-white/10 pb-3">
+                <div className="rounded-[24px] border border-white/5 bg-white/[0.02] p-5 shadow-inner space-y-4 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                  <div className="flex items-center gap-2 border-b border-white/10 [html.light_&]:border-slate-200 pb-3">
                     <Calendar className="size-5 text-indigo-400" />
-                    <h3 className="font-display text-base font-black text-white">Lịch trình các phiên</h3>
+                    <h3 className="font-display text-base font-black text-white [html.light_&]:text-[#0D1B2A]">Lịch trình các phiên</h3>
                   </div>
                   {event.sessions && event.sessions.length > 0 ? (
                     <div className="space-y-3">
@@ -2292,9 +2289,9 @@ export function AdminEventReviewDetailPage() {
                           : `Phiên ${idx + 1}`
 
                         return (
-                          <div key={idx} className="rounded-xl border border-white/5 bg-white/[0.03] p-3.5 text-slate-300">
-                            <div className="text-sm font-bold text-white">{sessionTitle}</div>
-                            <div className="mt-1 text-xs sm:text-[13px] font-medium text-slate-300">
+                          <div key={idx} className="rounded-xl border border-white/5 bg-white/[0.03] p-3.5 text-slate-300 [html.light_&]:bg-white [html.light_&]:border-slate-200">
+                            <div className="text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">{sessionTitle}</div>
+                            <div className="mt-1 text-xs sm:text-[13px] font-medium text-slate-300 [html.light_&]:text-slate-600">
                               {formatDate(session?.start_time)} - {formatDate(session?.end_time)}
                             </div>
                           </div>
@@ -2307,23 +2304,40 @@ export function AdminEventReviewDetailPage() {
                 </div>
 
                 {/* Ticket Types */}
-                <div className="rounded-[24px] border border-white/5 bg-white/[0.02] p-5 shadow-inner space-y-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-3">
-                    <div className="flex items-center gap-2">
-                      <Tag className="size-5 text-indigo-400" />
-                      <h3 className="font-display text-base font-black text-white">Cơ cấu loại vé (Tickets)</h3>
+                <div className="rounded-[24px] border border-white/5 bg-white/[0.02] p-5 shadow-inner space-y-4 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                  <div className="flex items-center justify-between gap-3 border-b border-white/10 [html.light_&]:border-slate-200 pb-3 flex-nowrap overflow-x-auto">
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Tag className="size-5 text-indigo-400 shrink-0" />
+                      <h3 className="font-display text-base font-black text-white [html.light_&]:text-[#0D1B2A] whitespace-nowrap">
+                        {isEnglish ? 'Ticket Structure' : 'Cơ cấu loại vé'}
+                      </h3>
                     </div>
 
-                    <div className="flex items-center gap-3 flex-wrap">
+                    <div className="flex items-center gap-2.5 sm:gap-3 flex-nowrap shrink-0">
                       {groupedTickets.length > 0 && (
-                        <div className="flex items-center gap-2 text-xs text-slate-400">
-                          <span className="font-semibold text-slate-300">{groupedTickets.length} loại vé</span>
+                        <div className="flex items-center gap-1.5 sm:gap-2 text-xs text-slate-400 [html.light_&]:text-slate-600 whitespace-nowrap">
+                          <span className="font-semibold text-slate-300 [html.light_&]:text-slate-700">
+                            {isEnglish
+                              ? `${groupedTickets.length} tiers`
+                              : `${groupedTickets.length} loại vé`}
+                          </span>
                           <span>•</span>
-                          <span>Tổng: <strong className="text-white">{totalTicketsCount.toLocaleString('vi-VN')}</strong> vé</span>
+                          <span>
+                            {isEnglish ? 'Total: ' : 'Tổng: '}
+                            <strong className="text-white [html.light_&]:text-[#0D1B2A]">
+                              {totalTicketsCount.toLocaleString(isEnglish ? 'en-US' : 'vi-VN')}
+                            </strong>{' '}
+                            {isEnglish ? 'tickets' : 'vé'}
+                          </span>
                           {totalTicketsRevenue > 0 && (
                             <>
                               <span>•</span>
-                              <span>Dự thu: <strong className="text-emerald-400">{totalTicketsRevenue.toLocaleString('vi-VN')} đ</strong></span>
+                              <span>
+                                {isEnglish ? 'Est. revenue: ' : 'Dự thu: '}
+                                <strong className="text-emerald-400 [html.light_&]:text-emerald-700">
+                                  {totalTicketsRevenue.toLocaleString(isEnglish ? 'en-US' : 'vi-VN')} {isEnglish ? '₫' : 'đ'}
+                                </strong>
+                              </span>
                             </>
                           )}
                         </div>
@@ -2331,32 +2345,28 @@ export function AdminEventReviewDetailPage() {
 
                       {/* View mode toggle (Cards vs Matrix Table) */}
                       {event.sessions && event.sessions.length > 1 && (
-                        <div className="flex items-center rounded-lg border border-white/10 bg-black/40 p-0.5">
+                        <div className="flex items-center rounded-lg border border-white/10 bg-black/40 p-0.5 [html.light_&]:bg-slate-100 [html.light_&]:border-slate-300 shrink-0">
                           <button
                             type="button"
                             onClick={() => setTicketViewMode('grid')}
-                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition ${
-                              ticketViewMode === 'grid'
-                                ? 'bg-indigo-600 text-white shadow-sm'
-                                : 'text-slate-400 hover:text-slate-200'
-                            }`}
-                            title="Xem dạng thẻ chi tiết"
+                            className={`flex items-center px-2.5 py-1 rounded-md text-xs font-bold transition whitespace-nowrap ${ticketViewMode === 'grid'
+                                ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-sm'
+                                : 'text-slate-400 hover:text-white [html.light_&]:text-slate-600 [html.light_&]:hover:text-[#0D1B2A]'
+                              }`}
+                            title={isEnglish ? 'View detailed card format' : 'Xem dạng thẻ chi tiết'}
                           >
-                            <LayoutGrid className="size-3.5" />
-                            <span>Dạng thẻ</span>
+                            <span>{isEnglish ? 'Card format' : 'Dạng thẻ'}</span>
                           </button>
                           <button
                             type="button"
                             onClick={() => setTicketViewMode('table')}
-                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition ${
-                              ticketViewMode === 'table'
-                                ? 'bg-indigo-600 text-white shadow-sm'
-                                : 'text-slate-400 hover:text-slate-200'
-                            }`}
-                            title="Xem bảng ma trận tổng hợp theo phiên"
+                            className={`flex items-center px-2.5 py-1 rounded-md text-xs font-bold transition whitespace-nowrap ${ticketViewMode === 'table'
+                                ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-sm'
+                                : 'text-slate-400 hover:text-white [html.light_&]:text-slate-600 [html.light_&]:hover:text-[#0D1B2A]'
+                              }`}
+                            title={isEnglish ? 'View matrix table by session' : 'Xem bảng ma trận tổng hợp theo phiên'}
                           >
-                            <Table className="size-3.5" />
-                            <span>Bảng ma trận</span>
+                            <span>{isEnglish ? 'Matrix table' : 'Bảng ma trận'}</span>
                           </button>
                         </div>
                       )}
@@ -2369,35 +2379,34 @@ export function AdminEventReviewDetailPage() {
                       <button
                         type="button"
                         onClick={() => setSelectedTicketSessionId('ALL')}
-                        className={`px-2.5 py-1 rounded-lg font-medium transition whitespace-nowrap ${
-                          selectedTicketSessionId === 'ALL'
-                            ? 'bg-indigo-600 text-white shadow-sm'
-                            : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
-                        }`}
+                        className={`px-3 py-1.5 rounded-lg font-bold transition whitespace-nowrap ${selectedTicketSessionId === 'ALL'
+                            ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-sm'
+                            : 'bg-white/5 text-slate-400 border border-white/10 hover:text-white hover:bg-white/10 hover:border-[#C99A47]/40 [html.light_&]:bg-white [html.light_&]:text-slate-600 [html.light_&]:border-slate-200 [html.light_&]:hover:bg-slate-100 [html.light_&]:hover:text-[#0D1B2A]'
+                          }`}
                       >
-                        Tất cả các phiên ({event.sessions.length})
+                        {isEnglish ? `All sessions (${event.sessions.length})` : `Tất cả các phiên (${event.sessions.length})`}
                       </button>
                       {event.sessions.map((sess, sIdx) => {
                         const sId = String(sess.id)
                         const isSelected = selectedTicketSessionId === sId
                         const rawTitle = sess.session_name?.trim() || ''
                         const time = formatShortDate(sess.start_time)
+                        const prefix = isEnglish ? 'Session' : 'Phiên'
                         const label = rawTitle
                           ? (/^phiên\s*\d+/i.test(rawTitle)
-                              ? `${rawTitle}${time ? ` (${time})` : ''}`
-                              : `Phiên ${sIdx + 1}: ${rawTitle}${time ? ` (${time})` : ''}`)
-                          : `Phiên ${sIdx + 1}${time ? ` (${time})` : ''}`
+                            ? (isEnglish ? rawTitle.replace(/^phiên\s*/i, 'Session ') : rawTitle) + (time ? ` (${time})` : '')
+                            : `${prefix} ${sIdx + 1}: ${rawTitle}${time ? ` (${time})` : ''}`)
+                          : `${prefix} ${sIdx + 1}${time ? ` (${time})` : ''}`
 
                         return (
                           <button
                             key={sess.id || sIdx}
                             type="button"
                             onClick={() => setSelectedTicketSessionId(sId)}
-                            className={`px-2.5 py-1 rounded-lg font-medium transition whitespace-nowrap ${
-                              isSelected
-                                ? 'bg-indigo-600 text-white shadow-sm'
-                                : 'bg-white/5 text-slate-400 hover:text-white hover:bg-white/10'
-                            }`}
+                            className={`px-3 py-1.5 rounded-lg font-bold transition whitespace-nowrap ${isSelected
+                                ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-sm'
+                                : 'bg-white/5 text-slate-400 border border-white/10 hover:text-white hover:bg-white/10 hover:border-[#C99A47]/40 [html.light_&]:bg-white [html.light_&]:text-slate-600 [html.light_&]:border-slate-200 [html.light_&]:hover:bg-slate-100 [html.light_&]:hover:text-[#0D1B2A]'
+                              }`}
                           >
                             {label}
                           </button>
@@ -2407,95 +2416,95 @@ export function AdminEventReviewDetailPage() {
                   )}
 
                   {groupedTickets.length === 0 ? (
-                    <p className="text-xs italic text-slate-500">Chưa tạo loại vé nào.</p>
+                    <p className="text-xs italic text-slate-500">{isEnglish ? 'No ticket types created yet.' : 'Chưa tạo loại vé nào.'}</p>
                   ) : ticketViewMode === 'table' && event.sessions && event.sessions.length > 1 ? (
                     /* MATRIX TABLE VIEW */
-                    <div className="overflow-x-auto rounded-xl border border-white/10 bg-slate-950/60 shadow-inner">
+                    <div className="overflow-x-auto rounded-xl border border-white/10 bg-slate-950/60 shadow-inner [html.light_&]:bg-white [html.light_&]:border-slate-200">
                       <table className="w-full text-left text-xs text-slate-300 border-collapse">
                         <thead>
-                          <tr className="border-b border-white/10 bg-white/[0.04] text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                            <th className="py-3 px-3.5 whitespace-nowrap">Hạng vé</th>
-                            <th className="py-3 px-3.5 text-right whitespace-nowrap">Đơn giá</th>
-                            <th className="py-3 px-3.5 text-center whitespace-nowrap min-w-[100px]">Hình thức</th>
+                          <tr className="border-b border-white/10 bg-white/[0.04] text-[11px] font-bold uppercase tracking-wider text-slate-400 [html.light_&]:bg-slate-100 [html.light_&]:border-slate-200 [html.light_&]:text-slate-600">
+                            <th className="py-3 px-3.5 whitespace-nowrap">{isEnglish ? 'Ticket Tier' : 'Hạng vé'}</th>
+                            <th className="py-3 px-3.5 text-right whitespace-nowrap">{isEnglish ? 'Price' : 'Đơn giá'}</th>
+                            <th className="py-3 px-3.5 text-center whitespace-nowrap min-w-[100px]">{isEnglish ? 'Type' : 'Hình thức'}</th>
                             {event.sessions.map((sess, sIdx) => {
                               const time = formatShortDate(sess.start_time)
                               const rawTitle = sess.session_name?.trim() || ''
+                              const prefix = isEnglish ? 'Session' : 'Phiên'
                               const sessionTitle = rawTitle && !/^phiên\s*\d+/i.test(rawTitle)
-                                ? `Phiên ${sIdx + 1}: ${rawTitle}`
-                                : `Phiên ${sIdx + 1}`
+                                ? `${prefix} ${sIdx + 1}: ${rawTitle}`
+                                : `${prefix} ${sIdx + 1}`
 
                               return (
                                 <th key={sess.id || sIdx} className="py-3 px-3.5 text-center min-w-[130px] whitespace-nowrap">
-                                  <div className="font-bold text-white">{sessionTitle}</div>
-                                  {time && <div className="text-[10px] font-normal text-slate-400 font-mono mt-0.5">{time}</div>}
+                                  <div className="font-bold text-white [html.light_&]:text-[#0D1B2A]">{sessionTitle}</div>
+                                  {time && <div className="text-[10px] font-normal text-slate-400 [html.light_&]:text-slate-500 font-mono mt-0.5">{time}</div>}
                                 </th>
                               )
                             })}
-                            <th className="py-3 px-3.5 text-right font-black text-white whitespace-nowrap">Tổng vé</th>
-                            <th className="py-3 px-3.5 text-right font-black text-emerald-400 whitespace-nowrap">Dự thu</th>
+                            <th className="py-3 px-3.5 text-right font-black text-white [html.light_&]:text-[#0D1B2A] whitespace-nowrap">{isEnglish ? 'Total tickets' : 'Tổng vé'}</th>
+                            <th className="py-3 px-3.5 text-right font-black text-emerald-400 whitespace-nowrap">{isEnglish ? 'Est. revenue' : 'Dự thu'}</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-white/5 font-medium">
+                        <tbody className="divide-y divide-white/5 [html.light_&]:divide-slate-200 font-medium">
                           {groupedTickets.map((t) => {
                             const sessionQtyMap = new Map(t.sessions.map((s) => [String(s.sessionId), s.quantity]))
                             const revenue = t.totalQuantity * t.price
 
                             return (
-                              <tr key={t.key} className="hover:bg-white/[0.02] transition">
-                                <td className="py-3 px-3.5 font-bold text-white whitespace-nowrap">
-                                  {t.name}
+                              <tr key={t.key} className="hover:bg-white/[0.02] [html.light_&]:hover:bg-slate-50 transition">
+                                <td className="py-3 px-3.5 font-bold text-white [html.light_&]:text-[#0D1B2A] whitespace-nowrap">
+                                  {isEnglish ? (translatePhrase(t.name, 'en') || t.name) : t.name}
                                 </td>
                                 <td className="py-3 px-3.5 text-right text-emerald-400 font-semibold whitespace-nowrap">
-                                  {Number(t.price) === 0 ? 'Miễn phí' : `${Number(t.price).toLocaleString('vi-VN')} đ`}
+                                  {Number(t.price) === 0 ? (isEnglish ? 'Free' : 'Miễn phí') : `${Number(t.price).toLocaleString(isEnglish ? 'en-US' : 'vi-VN')} ${isEnglish ? 'VND' : 'đ'}`}
                                 </td>
                                 <td className="py-3 px-3.5 text-center whitespace-nowrap">
-                                  <span className={`inline-flex items-center justify-center whitespace-nowrap text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
-                                    t.is_seated
+                                  <span className={`inline-flex items-center justify-center whitespace-nowrap text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${t.is_seated
                                       ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30'
                                       : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-                                  }`}>
-                                    {t.is_seated ? 'Ghế ngồi' : 'Vé tự do'}
+                                    }`}>
+                                    {t.is_seated ? (isEnglish ? 'Seat' : 'Ghế ngồi') : (isEnglish ? 'Standing' : 'Vé tự do')}
                                   </span>
                                 </td>
                                 {event.sessions.map((sess, sIdx) => {
                                   const qty = sessionQtyMap.get(String(sess.id)) || 0
                                   return (
                                     <td key={sess.id || sIdx} className="py-3 px-3.5 text-center whitespace-nowrap">
-                                      <span className="font-bold text-slate-200">{qty.toLocaleString('vi-VN')}</span>
-                                      <span className="text-slate-500 text-[10px] ml-1">vé</span>
+                                      <span className="font-bold text-slate-200 [html.light_&]:text-slate-800">{qty.toLocaleString(isEnglish ? 'en-US' : 'vi-VN')}</span>
+                                      <span className="text-slate-500 text-[10px] ml-1">{isEnglish ? 'tickets' : 'vé'}</span>
                                     </td>
                                   )
                                 })}
-                                <td className="py-3 px-3 text-right font-bold text-white whitespace-nowrap">
-                                  {t.totalQuantity.toLocaleString('vi-VN')} vé
+                                <td className="py-3 px-3 text-right font-bold text-white [html.light_&]:text-[#0D1B2A] whitespace-nowrap">
+                                  {t.totalQuantity.toLocaleString(isEnglish ? 'en-US' : 'vi-VN')} {isEnglish ? 'tickets' : 'vé'}
                                 </td>
                                 <td className="py-3 px-3 text-right font-bold text-emerald-400 whitespace-nowrap">
-                                  {revenue.toLocaleString('vi-VN')} đ
+                                  {revenue.toLocaleString(isEnglish ? 'en-US' : 'vi-VN')} {isEnglish ? 'VND' : 'đ'}
                                 </td>
                               </tr>
                             )
                           })}
                         </tbody>
                         <tfoot>
-                          <tr className="border-t border-white/10 bg-white/[0.04] text-xs font-black text-white">
+                          <tr className="border-t border-white/10 bg-white/[0.04] text-xs font-black text-white [html.light_&]:bg-slate-100 [html.light_&]:border-slate-200 [html.light_&]:text-[#0D1B2A]">
                             <td className="py-3 px-3.5 whitespace-nowrap" colSpan={3}>
-                              TỔNG CỘNG
+                              {isEnglish ? 'TOTAL' : 'TỔNG CỘNG'}
                             </td>
                             {event.sessions.map((sess, sIdx) => {
                               const sessTotal = (event.ticket_types || [])
                                 .filter((tt) => String(tt.event_session_id) === String(sess.id))
                                 .reduce((sum, tt) => sum + Number(tt.quantity || 0), 0)
                               return (
-                                <td key={sess.id || sIdx} className="py-3 px-3.5 text-center text-indigo-300 whitespace-nowrap font-bold">
-                                  {sessTotal.toLocaleString('vi-VN')} vé
+                                <td key={sess.id || sIdx} className="py-3 px-3.5 text-center text-indigo-300 [html.light_&]:text-indigo-700 whitespace-nowrap font-bold">
+                                  {sessTotal.toLocaleString(isEnglish ? 'en-US' : 'vi-VN')} {isEnglish ? 'tickets' : 'vé'}
                                 </td>
                               )
                             })}
-                            <td className="py-3 px-3.5 text-right text-white whitespace-nowrap">
-                              {totalTicketsCount.toLocaleString('vi-VN')} vé
+                            <td className="py-3 px-3.5 text-right text-white [html.light_&]:text-[#0D1B2A] whitespace-nowrap">
+                              {totalTicketsCount.toLocaleString(isEnglish ? 'en-US' : 'vi-VN')} {isEnglish ? 'tickets' : 'vé'}
                             </td>
                             <td className="py-3 px-3.5 text-right text-emerald-400 whitespace-nowrap">
-                              {totalTicketsRevenue.toLocaleString('vi-VN')} đ
+                              {totalTicketsRevenue.toLocaleString(isEnglish ? 'en-US' : 'vi-VN')} {isEnglish ? 'VND' : 'đ'}
                             </td>
                           </tr>
                         </tfoot>
@@ -2513,91 +2522,98 @@ export function AdminEventReviewDetailPage() {
                         return (
                           <div
                             key={ticket.key}
-                            className="flex flex-col rounded-2xl border border-white/10 bg-white/[0.02] p-4 space-y-3 transition hover:border-white/20 hover:bg-white/[0.03] shadow-sm"
+                            className="flex flex-col rounded-2xl border border-white/10 bg-white/[0.02] p-4 space-y-3 transition hover:border-white/20 hover:bg-white/[0.03] shadow-sm [html.light_&]:bg-white [html.light_&]:border-slate-200"
                           >
                             {/* Header: Name, Seating Badge & Price */}
                             <div className="flex items-start justify-between gap-2">
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                  <h4 className="text-sm font-bold text-white tracking-wide">
-                                    {ticket.name}
+                                  <h4 className="text-sm font-bold text-white [html.light_&]:text-[#0D1B2A] tracking-wide">
+                                    {isEnglish ? (translatePhrase(ticket.name, 'en') || ticket.name) : ticket.name}
                                   </h4>
                                   <span
-                                    className={`inline-flex items-center whitespace-nowrap text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
-                                      ticket.is_seated
+                                    className={`inline-flex items-center whitespace-nowrap text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${ticket.is_seated
                                         ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30'
                                         : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-                                    }`}
+                                      }`}
                                   >
-                                    {ticket.is_seated ? 'Ghế ngồi' : 'Vé tự do'}
+                                    {ticket.is_seated ? (isEnglish ? 'Seat' : 'Ghế ngồi') : (isEnglish ? 'Standing' : 'Vé tự do')}
                                   </span>
                                 </div>
                                 {ticket.description && (
-                                  <p className="text-[11px] text-slate-400 italic mt-1 line-clamp-2">
+                                  <p className="text-[11px] text-slate-400 [html.light_&]:text-slate-500 italic mt-1 line-clamp-2">
                                     {ticket.description}
                                   </p>
                                 )}
                               </div>
                               <div className="text-right shrink-0">
                                 <span className="text-sm font-black text-emerald-400">
-                                  {Number(ticket.price) === 0 ? 'Miễn phí' : `${Number(ticket.price).toLocaleString('vi-VN')} đ`}
+                                  {Number(ticket.price) === 0 ? (isEnglish ? 'Free' : 'Miễn phí') : `${Number(ticket.price).toLocaleString(isEnglish ? 'en-US' : 'vi-VN')} ${isEnglish ? 'VND' : 'đ'}`}
                                 </span>
                               </div>
                             </div>
 
                             {/* Stat Metrics Bar (Đồng bộ số liệu) */}
-                            <div className="grid grid-cols-2 gap-2 rounded-xl bg-black/40 border border-white/5 p-2.5 text-xs">
+                            <div className="grid grid-cols-2 gap-2 rounded-xl bg-black/40 border border-white/5 p-2.5 text-xs [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
                               <div>
-                                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">
-                                  Tổng số lượng vé
+                                <span className="text-[10px] uppercase font-bold text-white [html.light_&]:text-slate-700 tracking-wider block">
+                                  {isEnglish ? 'Total number of tickets' : 'Tổng số lượng vé'}
                                 </span>
-                                <div className="font-extrabold text-white text-sm mt-0.5">
-                                  {ticket.totalQuantity.toLocaleString('vi-VN')}{' '}
-                                  <span className="text-xs font-normal text-slate-400">vé</span>
+                                <div className="font-extrabold text-white [html.light_&]:text-[#0D1B2A] text-sm mt-0.5">
+                                  {ticket.totalQuantity.toLocaleString(isEnglish ? 'en-US' : 'vi-VN')}{' '}
+                                  <span className="text-xs font-normal text-slate-400 [html.light_&]:text-slate-500">{isEnglish ? 'tickets' : 'vé'}</span>
                                 </div>
                               </div>
                               <div className="text-right">
-                                <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">
-                                  {isMultiSession ? 'Định mức / Phiên' : 'Số lượng bán'}
+                                <span className="text-[10px] uppercase font-bold text-white [html.light_&]:text-slate-700 tracking-wider block">
+                                  {isEnglish
+                                    ? (isMultiSession ? 'Norms / Session' : 'Sales quantity')
+                                    : (isMultiSession ? 'Định mức / Phiên' : 'Số lượng bán')}
                                 </span>
-                                <div className="font-extrabold text-slate-200 text-sm mt-0.5">
+                                <div className="font-extrabold text-slate-200 [html.light_&]:text-slate-800 text-sm mt-0.5">
                                   {isMultiSession
-                                    ? (isUniform ? `${sampleQty} vé / phiên` : `${ticket.sessions.length} phiên`)
-                                    : `${ticket.totalQuantity.toLocaleString('vi-VN')} vé`}
+                                    ? (isUniform
+                                      ? `${sampleQty} ${isEnglish ? 'tickets / session' : 'vé / phiên'}`
+                                      : `${ticket.sessions.length} ${isEnglish ? (ticket.sessions.length > 1 ? 'sessions' : 'session') : 'phiên'}`)
+                                    : `${ticket.totalQuantity.toLocaleString(isEnglish ? 'en-US' : 'vi-VN')} ${isEnglish ? 'tickets' : 'vé'}`}
                                 </div>
                               </div>
                             </div>
 
                             {/* Multi-session Breakdown List */}
                             {isMultiSession && selectedTicketSessionId === 'ALL' && (
-                              <div className="space-y-1.5 pt-1 border-t border-white/5">
-                                <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1">
-                                  <span>Phân bổ theo phiên ({ticket.sessions.length} phiên)</span>
-                                  <span>Số lượng vé</span>
+                              <div className="space-y-1.5 pt-1 border-t border-white/5 [html.light_&]:border-slate-200">
+                                <div className="flex items-center justify-between text-[10px] font-bold text-white [html.light_&]:text-slate-700 uppercase tracking-wider px-1">
+                                  <span>
+                                    {isEnglish
+                                      ? `Allocation by session (${ticket.sessions.length} ${ticket.sessions.length > 1 ? 'sessions' : 'session'})`
+                                      : `Phân bổ theo phiên (${ticket.sessions.length} phiên)`}
+                                  </span>
+                                  <span>{isEnglish ? 'Ticket quantity' : 'Số lượng vé'}</span>
                                 </div>
                                 <div className="space-y-1.5">
                                   {ticket.sessions.map((s, sIdx) => (
                                     <div
                                       key={sIdx}
-                                      className="flex items-center justify-between gap-2.5 rounded-lg bg-white/[0.02] border border-white/5 px-2.5 py-1.5 text-xs transition hover:bg-white/[0.05]"
+                                      className="flex items-center justify-between gap-2.5 rounded-lg bg-white/[0.02] border border-white/5 px-2.5 py-1.5 text-xs transition hover:bg-white/[0.05] [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200"
                                     >
                                       <div className="flex items-baseline gap-1.5 min-w-0 flex-1 flex-wrap">
-                                        <span className="font-bold text-indigo-300 shrink-0">
-                                          Phiên {s.sessionIndex}
+                                        <span className="font-bold text-indigo-300 [html.light_&]:text-indigo-700 shrink-0">
+                                          {isEnglish ? 'Session' : 'Phiên'} {s.sessionIndex}
                                         </span>
                                         {s.rawSessionName && (
-                                          <span className="text-slate-200 font-medium break-words">
+                                          <span className="text-slate-200 [html.light_&]:text-slate-800 font-medium break-words">
                                             • {s.rawSessionName}
                                           </span>
                                         )}
                                         {s.timeStr && (
-                                          <span className="text-slate-400 text-[11px] font-mono shrink-0">
+                                          <span className="text-slate-400 [html.light_&]:text-slate-500 text-[11px] font-mono shrink-0">
                                             ({s.timeStr})
                                           </span>
                                         )}
                                       </div>
                                       <div className="shrink-0 font-bold text-emerald-400 whitespace-nowrap pl-2">
-                                        {s.quantity.toLocaleString('vi-VN')} vé
+                                        {s.quantity.toLocaleString(isEnglish ? 'en-US' : 'vi-VN')} {isEnglish ? 'tickets' : 'vé'}
                                       </div>
                                     </div>
                                   ))}
@@ -2607,9 +2623,11 @@ export function AdminEventReviewDetailPage() {
 
                             {/* Single session filtered info if viewing a specific session */}
                             {selectedTicketSessionId !== 'ALL' && (
-                              <div className="rounded-lg bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-1.5 text-xs text-indigo-300 flex items-center justify-between">
-                                <span>Áp dụng cho phiên:</span>
-                                <strong className="text-white">{ticket.sessions[0]?.sessionName || 'Phiên đã chọn'}</strong>
+                              <div className="rounded-lg bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-1.5 text-xs text-indigo-300 [html.light_&]:bg-indigo-50 [html.light_&]:border-indigo-200 [html.light_&]:text-indigo-800 flex items-center justify-between">
+                                <span>{isEnglish ? 'Applied to session:' : 'Áp dụng cho phiên:'}</span>
+                                <strong className="text-white [html.light_&]:text-[#0D1B2A]">
+                                  {ticket.sessions[0]?.sessionName || (isEnglish ? 'Selected session' : 'Phiên đã chọn')}
+                                </strong>
                               </div>
                             )}
                           </div>
@@ -2620,12 +2638,12 @@ export function AdminEventReviewDetailPage() {
                 </div>
 
                 {/* Refund Policy */}
-                <div className="rounded-[24px] border border-white/5 bg-white/[0.02] p-5 shadow-inner space-y-4">
-                  <div className="flex items-center gap-2 border-b border-white/10 pb-3">
+                <div className="rounded-[24px] border border-white/5 bg-white/[0.02] p-5 shadow-inner space-y-4 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                  <div className="flex items-center gap-2 border-b border-white/10 [html.light_&]:border-slate-200 pb-3">
                     <FileText className="size-5 text-indigo-400" />
-                    <h3 className="font-display text-base font-black text-white">Chính sách hoàn tiền sự kiện</h3>
+                    <h3 className="font-display text-base font-black text-white [html.light_&]:text-[#0D1B2A]">Chính sách hoàn tiền sự kiện</h3>
                   </div>
-                  <p className="text-xs leading-relaxed text-slate-300 whitespace-pre-wrap">
+                  <p className="text-xs leading-relaxed text-slate-300 [html.light_&]:text-slate-700 whitespace-pre-wrap">
                     {typeof event.refund_policy === 'string'
                       ? event.refund_policy
                       : event.refund_policy?.description ||
@@ -2637,15 +2655,15 @@ export function AdminEventReviewDetailPage() {
                   </p>
 
                   {event.refund_policy?.policy_file_url && (
-                    <div className="mt-2 flex items-center justify-between py-2.5 px-2 rounded-xl transition hover:bg-white/[0.04]">
+                    <div className="mt-2 flex items-center justify-between py-2.5 px-2 rounded-xl transition hover:bg-white/[0.04] [html.light_&]:hover:bg-slate-100">
                       <div className="flex items-center gap-3 overflow-hidden min-w-0">
                         <FileText className="size-5 shrink-0 text-indigo-400" />
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-bold text-white">
+                          <p className="truncate text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">
                             {event.refund_policy.policy_file_name || 'Tài liệu chính sách hoàn tiền đính kèm.pdf'}
                           </p>
                           {event.refund_policy.policy_file_size && (
-                            <p className="text-xs text-slate-400 mt-0.5">
+                            <p className="text-xs text-slate-400 [html.light_&]:text-slate-500 mt-0.5">
                               {formatFileSize(event.refund_policy.policy_file_size)}
                             </p>
                           )}
@@ -2684,22 +2702,19 @@ export function AdminEventReviewDetailPage() {
         </div>
         {/* Right Column: AI Assistant & Actions - ONLY FOR PENDING_REVIEW */}
         {isPendingReview && (
-          <div className="flex w-[440px] xl:w-[480px] 2xl:w-[500px] shrink-0 flex-col gap-4 min-h-0">
+          <div className="flex w-full lg:w-[440px] xl:w-[480px] 2xl:w-[500px] shrink-0 flex-col gap-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-110px)] min-h-0">
             {/* Top Card: AI Review Panel */}
-            <div className="flex flex-1 flex-col overflow-hidden bg-slate-950/80 rounded-[28px] border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)] backdrop-blur-xl min-h-0">
+            <div className="flex flex-1 flex-col overflow-hidden bg-slate-950/80 rounded-[28px] border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)] backdrop-blur-xl min-h-0 [html.light_&]:bg-white [html.light_&]:border-[#C99A47]/30 [html.light_&]:shadow-lg">
               {/* AI Assistant Header (Fixed on top of AI card) */}
-              <div className="shrink-0 px-4 py-3 border-b border-white/10 flex items-center justify-between gap-2">
+              <div className="shrink-0 px-4 py-3 border-b border-white/10 flex items-center justify-between gap-2 [html.light_&]:border-slate-200">
                 <div className="flex items-center gap-2 min-w-0">
-                  <div className="grid size-8 place-items-center rounded-xl bg-indigo-500/10 ring-1 ring-indigo-500/20 text-indigo-400 shrink-0">
+                  <div className="grid size-8 place-items-center rounded-xl bg-indigo-500/10 ring-1 ring-indigo-500/20 text-indigo-400 shrink-0 [html.light_&]:bg-indigo-50 [html.light_&]:text-indigo-600">
                     <Bot className="size-4" />
                   </div>
                   <div className="flex items-center gap-1.5 min-w-0">
-                    <h2 className="font-display text-xs sm:text-sm font-black text-white drop-shadow-sm tracking-tight uppercase truncate">
+                    <h2 className="font-display text-xs sm:text-sm font-black text-white drop-shadow-sm tracking-tight uppercase truncate [html.light_&]:text-[#0D1B2A]">
                       AI Review Assistant
                     </h2>
-                    <span className="hidden sm:inline-block rounded bg-indigo-500/20 px-1.5 py-0.5 text-[9px] font-bold text-indigo-300 shrink-0">
-                      eventhub-qwen3
-                    </span>
                   </div>
                 </div>
 
@@ -2707,10 +2722,10 @@ export function AdminEventReviewDetailPage() {
                   <button
                     type="button"
                     onClick={() => setIsCriteriaOpen(true)}
-                    className="inline-flex items-center gap-1.5 h-8 rounded-xl border border-white/10 bg-white/5 px-2.5 text-xs font-semibold text-slate-200 shadow-sm transition hover:bg-white/10 hover:text-white hover:border-white/20 active:scale-95 cursor-pointer whitespace-nowrap"
+                    className="inline-flex items-center gap-1.5 h-8 rounded-xl border border-white/10 bg-white/5 px-2.5 text-xs font-semibold text-slate-200 shadow-sm transition hover:bg-white/10 hover:text-white hover:border-white/20 active:scale-95 cursor-pointer whitespace-nowrap [html.light_&]:bg-slate-100 [html.light_&]:border-slate-300 [html.light_&]:text-[#0D1B2A] [html.light_&]:hover:bg-slate-200"
                     title="Cấu hình bộ tiêu chí & điều khoản AI"
                   >
-                    <ShieldCheck className="size-3.5 text-indigo-400 shrink-0" />
+                    <ShieldCheck className="size-3.5 text-indigo-400 [html.light_&]:text-indigo-600 shrink-0" />
                     <span>Điều khoản AI</span>
                   </button>
 
@@ -2746,22 +2761,22 @@ export function AdminEventReviewDetailPage() {
               <div className={`flex-1 overflow-y-auto p-5 ${customScrollbar}`}>
                 {/* Active AI Scanning Progress State */}
                 {isScanningThisEvent && (
-                  <div className="mb-4 rounded-2xl border border-indigo-500/30 bg-slate-900/90 p-4 shadow-sm backdrop-blur-md">
+                  <div className="mb-4 rounded-2xl border border-indigo-500/30 bg-slate-900/90 p-4 shadow-sm backdrop-blur-md [html.light_&]:bg-indigo-50 [html.light_&]:border-indigo-200">
                     <div className="flex items-start gap-3">
-                      <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-indigo-500/20 text-indigo-400 mt-0.5">
+                      <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-indigo-500/20 text-indigo-400 mt-0.5 [html.light_&]:bg-indigo-100 [html.light_&]:text-indigo-700">
                         <RefreshCw className="size-4 animate-spin" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
-                          <h4 className="text-xs font-bold text-indigo-300">
+                          <h4 className="text-xs font-bold text-indigo-300 [html.light_&]:text-indigo-900">
                             AI đang phân tích & kiểm duyệt sự kiện...
                           </h4>
-                          <span className="flex items-center gap-1.5 text-[11px] font-semibold text-rose-300 bg-rose-950/40 border border-rose-500/30 px-2.5 py-0.5 rounded-lg">
+                          <span className="flex items-center gap-1.5 text-[11px] font-semibold text-rose-300 bg-rose-950/40 border border-rose-500/30 px-2.5 py-0.5 rounded-lg [html.light_&]:bg-rose-50 [html.light_&]:text-rose-700 [html.light_&]:border-rose-200">
                             <span className="size-1.5 rounded-full bg-rose-400 animate-ping" />
                             Có thể bấm "Hủy quét" ở trên để dừng
                           </span>
                         </div>
-                        <div className="mt-2 space-y-1.5 text-xs text-slate-300">
+                        <div className="mt-2 space-y-1.5 text-xs text-slate-300 [html.light_&]:text-slate-700">
                           <p className="flex items-center gap-2">
                             <span className="inline-block size-1.5 rounded-full bg-indigo-400 animate-ping" />
                             <span><strong>Giai đoạn 1:</strong> Vision Model quét và kiểm tra an toàn từng hình ảnh...</span>
@@ -2771,7 +2786,7 @@ export function AdminEventReviewDetailPage() {
                             <span><strong>Giai đoạn 2:</strong> Qwen3 8B rà soát chính tả & đối chiếu bộ điều khoản...</span>
                           </p>
                         </div>
-                        <p className="mt-2 text-[10px] text-slate-400 italic">
+                        <p className="mt-2 text-[10px] text-slate-400 [html.light_&]:text-slate-500 italic">
                           Quá trình quét và đối chiếu toàn diện mất khoảng 30 - 60 giây. Bấm nút "Hủy quét" ở trên nếu bạn muốn dừng ngay lập tức.
                         </p>
                       </div>
@@ -2781,12 +2796,12 @@ export function AdminEventReviewDetailPage() {
 
                 {/* Empty State: AI Review Not Run Yet */}
                 {!aiData && !isScanningThisEvent && (
-                  <div className="my-6 rounded-2xl border border-slate-800 bg-slate-900/50 p-8 text-center backdrop-blur-sm">
-                    <div className="mx-auto mb-3 grid size-12 place-items-center rounded-2xl bg-indigo-500/10 text-indigo-400 ring-1 ring-indigo-500/20">
+                  <div className="my-6 rounded-2xl border border-slate-800 bg-slate-900/50 p-8 text-center backdrop-blur-sm [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                    <div className="mx-auto mb-3 grid size-12 place-items-center rounded-2xl bg-indigo-500/10 text-indigo-400 ring-1 ring-indigo-500/20 [html.light_&]:bg-indigo-50 [html.light_&]:text-indigo-600">
                       <Bot className="size-6" />
                     </div>
-                    <h3 className="font-display text-base font-bold text-white">Chưa chạy AI Đánh giá</h3>
-                    <p className="mt-1 text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
+                    <h3 className="font-display text-base font-bold text-white [html.light_&]:text-[#0D1B2A]">Chưa chạy AI Đánh giá</h3>
+                    <p className="mt-1 text-xs text-slate-400 [html.light_&]:text-slate-600 max-w-xs mx-auto leading-relaxed">
                       Sự kiện này chưa được AI kiểm duyệt. Bấm nút bên dưới để AI quét hình ảnh bằng Vision, soát lỗi chính tả và đối chiếu chính sách nền tảng.
                     </p>
                     <button
@@ -2807,13 +2822,13 @@ export function AdminEventReviewDetailPage() {
                     <StatusBanner recommendation={aiData.recommendation} summary={aiData.summary} />
 
                     {/* Quality & Risk Meters */}
-                    <div className="mb-4 grid grid-cols-2 gap-3 rounded-2xl border border-slate-800 bg-slate-900/60 p-3.5">
+                    <div className="mb-4 grid grid-cols-2 gap-3 rounded-2xl border border-slate-800 bg-slate-900/60 p-3.5 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
                       <div>
                         <div className="flex items-center justify-between text-xs">
-                          <span className="text-slate-400 font-medium">Chất lượng thông tin</span>
-                          <span className="font-bold text-emerald-400">{aiData.quality_score}/100</span>
+                          <span className="text-slate-400 [html.light_&]:text-slate-600 font-medium">Chất lượng thông tin</span>
+                          <span className="font-bold text-emerald-400 [html.light_&]:text-emerald-700">{aiData.quality_score}/100</span>
                         </div>
-                        <div className="mt-2 h-1.5 w-full rounded-full bg-slate-800 overflow-hidden">
+                        <div className="mt-2 h-1.5 w-full rounded-full bg-slate-800 [html.light_&]:bg-slate-200 overflow-hidden">
                           <div
                             className="h-full bg-emerald-500 rounded-full transition-all duration-500"
                             style={{ width: `${Math.min(100, Math.max(0, aiData.quality_score))}%` }}
@@ -2823,12 +2838,12 @@ export function AdminEventReviewDetailPage() {
 
                       <div>
                         <div className="flex items-center justify-between text-xs">
-                          <span className="text-slate-400 font-medium">Chỉ số rủi ro</span>
-                          <span className={`font-bold ${aiData.risk_score > 50 ? 'text-rose-400' : aiData.risk_score > 20 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                          <span className="text-slate-400 [html.light_&]:text-slate-600 font-medium">Chỉ số rủi ro</span>
+                          <span className={`font-bold ${aiData.risk_score > 50 ? 'text-rose-400 [html.light_&]:text-rose-700' : aiData.risk_score > 20 ? 'text-amber-400 [html.light_&]:text-amber-700' : 'text-emerald-400 [html.light_&]:text-emerald-700'}`}>
                             {aiData.risk_score}/100
                           </span>
                         </div>
-                        <div className="mt-2 h-1.5 w-full rounded-full bg-slate-800 overflow-hidden">
+                        <div className="mt-2 h-1.5 w-full rounded-full bg-slate-800 [html.light_&]:bg-slate-200 overflow-hidden">
                           <div
                             className={`h-full rounded-full transition-all duration-500 ${aiData.risk_score > 50 ? 'bg-rose-500' : aiData.risk_score > 20 ? 'bg-amber-500' : 'bg-emerald-500'}`}
                             style={{ width: `${Math.min(100, Math.max(0, aiData.risk_score))}%` }}
@@ -2838,19 +2853,19 @@ export function AdminEventReviewDetailPage() {
                     </div>
 
                     {/* Quick action header */}
-                    <div className="mb-3 flex items-center justify-between border-b border-slate-800 pb-2">
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                        Chi tiết phân tích chính sách
+                    <div className="mb-3 flex items-center justify-between border-b border-slate-800 [html.light_&]:border-slate-200 pb-2">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 [html.light_&]:text-slate-600">
+                        {isEnglish ? 'Detailed policy analysis' : 'Chi tiết phân tích chính sách'}
                       </span>
                       {totalIssuesCount > 0 && (
                         <button
                           type="button"
                           onClick={handleCopyAllIssues}
                           className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-400 hover:text-indigo-300 transition cursor-pointer"
-                          title="Sao chép toàn bộ lỗi vi phạm và cảnh báo vào ô ghi chú kiểm duyệt"
+                          title={isEnglish ? 'Copy all violations and warnings into review notes' : 'Sao chép toàn bộ lỗi vi phạm và cảnh báo vào ô ghi chú kiểm duyệt'}
                         >
                           <FileCheck className="size-3" />
-                          <span>Sao chép tất cả lỗi</span>
+                          <span>{isEnglish ? 'Copy all errors' : 'Sao chép tất cả lỗi'}</span>
                         </button>
                       )}
                     </div>
@@ -2862,7 +2877,7 @@ export function AdminEventReviewDetailPage() {
                           <div className="flex items-center justify-between">
                             <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-rose-400">
                               <ShieldAlert className="size-3.5" />
-                              Vi phạm nghiêm trọng ({aiData.critical_violations.length})
+                              {isEnglish ? 'Critical violations' : 'Vi phạm nghiêm trọng'} ({aiData.critical_violations.length})
                             </span>
                           </div>
                           <div className="space-y-2">
@@ -2874,7 +2889,7 @@ export function AdminEventReviewDetailPage() {
                       ) : (
                         <div className="flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-slate-900/80 px-3 py-2.5 text-xs text-emerald-300 font-medium">
                           <ShieldCheck className="size-4 text-emerald-400 shrink-0" />
-                          <span>Không phát hiện vi phạm chính sách nghiêm trọng (0 lỗi đỏ)</span>
+                          <span>{isEnglish ? 'No critical policy violations detected (0 red flags)' : 'Không phát hiện vi phạm chính sách nghiêm trọng (0 lỗi đỏ)'}</span>
                         </div>
                       )}
 
@@ -2884,7 +2899,7 @@ export function AdminEventReviewDetailPage() {
                           <div className="flex items-center justify-between">
                             <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-amber-400">
                               <AlertTriangle className="size-3.5" />
-                              Cảnh báo & Cần lưu ý ({aiData.warnings.length})
+                              {isEnglish ? 'Warnings & Notices' : 'Cảnh báo & Cần lưu ý'} ({aiData.warnings.length})
                             </span>
                           </div>
                           <div className="space-y-2">
@@ -2928,7 +2943,7 @@ export function AdminEventReviewDetailPage() {
                         <div className="space-y-2">
                           <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-emerald-400">
                             <CheckCircle2 className="size-3.5" />
-                            Tiêu chí đạt chuẩn ({aiData.compliant_checks.length})
+                            {isEnglish ? 'Compliant criteria' : 'Tiêu chí đạt chuẩn'} ({aiData.compliant_checks.length})
                           </span>
                           <div className="space-y-1.5">
                             {aiData.compliant_checks.map((c, idx) => (
@@ -2943,7 +2958,7 @@ export function AdminEventReviewDetailPage() {
                         <div className="space-y-2">
                           <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-amber-400">
                             <Sparkles className="size-3.5" />
-                            Gợi ý điều chỉnh cho BTC ({aiData.suggestions.length})
+                            {isEnglish ? 'Adjustment suggestions for Organizer' : 'Gợi ý điều chỉnh cho BTC'} ({aiData.suggestions.length})
                           </span>
                           <div className="space-y-1.5">
                             {aiData.suggestions.map((s, idx) => (
@@ -2955,7 +2970,7 @@ export function AdminEventReviewDetailPage() {
                     </div>
 
                     <p className="mt-4 text-center text-[10px] text-slate-500 italic">
-                      Bấm vào từng mục để tự động chèn vào ghi chú kiểm duyệt bên dưới.
+                      {isEnglish ? 'Click each item to automatically insert into review notes below.' : 'Bấm vào từng mục để tự động chèn vào ghi chú kiểm duyệt bên dưới.'}
                     </p>
                   </>
                 )}
@@ -2963,41 +2978,45 @@ export function AdminEventReviewDetailPage() {
             </div>
 
             {/* Bottom Card: Admin Action Form Area (Tách thành 1 khối riêng bên dưới) */}
-            <div className="shrink-0 bg-slate-950/95 rounded-[22px] border border-white/10 p-3.5 shadow-[0_8px_32px_rgba(0,0,0,0.4)] backdrop-blur-xl transition-all duration-300">
+            <div className="shrink-0 bg-slate-950/95 rounded-[22px] border border-white/10 p-3.5 shadow-[0_8px_32px_rgba(0,0,0,0.4)] backdrop-blur-xl transition-all duration-300 [html.light_&]:bg-white [html.light_&]:border-[#C99A47]/30 [html.light_&]:shadow-lg">
               {/* Header: Note toggle & AI suggestion */}
               <div className="flex items-center justify-between gap-2 mb-2.5">
                 <button
                   type="button"
                   onClick={() => setIsNoteExpanded(!isNoteExpanded)}
-                  className="flex items-center gap-1.5 text-xs font-bold text-slate-300 hover:text-white transition group cursor-pointer"
-                  title={isNoteExpanded ? 'Bấm để thu gọn ô ghi chú' : 'Bấm để mở rộng ô ghi chú'}
+                  className="flex items-center gap-1.5 text-xs font-bold text-slate-300 hover:text-white transition group cursor-pointer [html.light_&]:text-[#0D1B2A] [html.light_&]:hover:text-amber-800"
+                  title={isNoteExpanded ? (isEnglish ? 'Click to collapse notes' : 'Bấm để thu gọn ô ghi chú') : (isEnglish ? 'Click to expand notes' : 'Bấm để mở rộng ô ghi chú')}
                 >
-                  <FileText className="size-3.5 text-amber-400 group-hover:scale-110 transition-transform" />
-                  <span>Ghi chú kiểm duyệt</span>
+                  <span>{isEnglish ? 'Review notes' : 'Ghi chú kiểm duyệt'}</span>
                   {hasNote ? (
                     <span className="rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-black px-2 py-0.5 border border-amber-500/30 animate-pulse">
-                      {noteLinesCount} mục
+                      {noteLinesCount} {isEnglish ? (noteLinesCount > 1 ? 'items' : 'item') : 'mục'}
                     </span>
                   ) : (
-                    <span className="text-[10px] text-slate-500 font-normal group-hover:text-slate-400">
-                      (Tùy chọn)
+                    <span className="text-[10px] text-slate-500 font-normal group-hover:text-slate-400 [html.light_&]:text-slate-500">
+                      {isEnglish ? '(Optional)' : '(Tùy chọn)'}
                     </span>
                   )}
                   {isNoteExpanded ? (
-                    <ChevronUp className="size-3.5 text-slate-400 group-hover:text-white transition-transform" />
+                    <ChevronUp className="size-3.5 text-slate-400 group-hover:text-white transition-transform [html.light_&]:text-slate-600" />
                   ) : (
-                    <ChevronDown className="size-3.5 text-slate-400 group-hover:text-white transition-transform" />
+                    <ChevronDown className="size-3.5 text-slate-400 group-hover:text-white transition-transform [html.light_&]:text-slate-600" />
                   )}
                 </button>
 
                 {aiData?.recommendation && (
                   <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${aiData.recommendation === 'APPROVE'
-                      ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
-                      : aiData.recommendation === 'REJECT'
-                        ? 'border-rose-500/30 bg-rose-500/10 text-rose-400'
-                        : 'border-amber-500/30 bg-amber-500/10 text-amber-400'
+                    ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400 [html.light_&]:bg-emerald-50 [html.light_&]:text-emerald-700 [html.light_&]:border-emerald-200'
+                    : aiData.recommendation === 'REJECT'
+                      ? 'border-rose-500/30 bg-rose-500/10 text-rose-400 [html.light_&]:bg-rose-50 [html.light_&]:text-rose-700 [html.light_&]:border-rose-200'
+                      : 'border-amber-500/30 bg-amber-500/10 text-amber-400 [html.light_&]:bg-amber-50 [html.light_&]:text-amber-700 [html.light_&]:border-amber-200'
                     }`}>
-                    Gợi ý AI: {aiData.recommendation === 'APPROVE' ? 'Phê duyệt' : aiData.recommendation === 'REJECT' ? 'Từ chối' : 'Cần sửa đổi'}
+                    {isEnglish ? 'AI Suggestion: ' : 'Gợi ý AI: '}
+                    {aiData.recommendation === 'APPROVE'
+                      ? (isEnglish ? 'Approve' : 'Phê duyệt')
+                      : aiData.recommendation === 'REJECT'
+                        ? (isEnglish ? 'Reject' : 'Từ chối')
+                        : (isEnglish ? 'Needs revision' : 'Cần sửa đổi')}
                   </span>
                 )}
               </div>
@@ -3005,13 +3024,13 @@ export function AdminEventReviewDetailPage() {
               {/* Expandable Note Textarea */}
               {isNoteExpanded && (
                 <div className="mb-2.5">
-                  <div className="mb-1 text-[10px] text-slate-400">
-                    <span>Nhập hoặc bấm gợi ý AI ở trên để tự chèn vào ghi chú</span>
+                  <div className="mb-1 text-[10px] text-slate-400 [html.light_&]:text-slate-600">
+                    <span>{isEnglish ? 'Enter or click AI suggestions above to insert into notes' : 'Nhập hoặc bấm gợi ý AI ở trên để tự chèn vào ghi chú'}</span>
                   </div>
                   <textarea
                     {...register('review_note')}
-                    placeholder="Nhập ghi chú gửi cho Ban tổ chức..."
-                    className={`h-20 w-full resize-y rounded-xl border border-white/10 bg-black/50 p-2.5 text-xs font-medium text-white shadow-inner outline-none transition-all placeholder:text-slate-500 focus:border-amber-400/50 focus:bg-black/70 focus:ring-1 focus:ring-amber-400/50 ${customScrollbar}`}
+                    placeholder={isEnglish ? 'Enter review notes to send to organizer...' : 'Nhập ghi chú gửi cho Ban tổ chức...'}
+                    className={`h-20 w-full resize-y rounded-xl border border-white/10 bg-black/50 p-2.5 text-xs font-medium text-white shadow-inner outline-none transition-all placeholder:text-slate-500 focus:border-amber-400/50 focus:bg-black/70 focus:ring-1 focus:ring-amber-400/50 [html.light_&]:bg-[#FAF5EC] [html.light_&]:border-[#C99A47]/30 [html.light_&]:text-[#0D1B2A] [html.light_&]:placeholder:text-slate-400 ${customScrollbar}`}
                   />
                 </div>
               )}
@@ -3022,13 +3041,13 @@ export function AdminEventReviewDetailPage() {
                   type="button"
                   onClick={() => onSubmitReview('REJECTED')}
                   disabled={isPending}
-                  className="admin-danger w-full disabled:cursor-not-allowed disabled:opacity-50 !bg-rose-500/10 hover:!bg-rose-500/20 !border-rose-500/30 !text-rose-400 !px-0 !py-2.5 rounded-xl text-xs font-black shadow-sm transition cursor-pointer"
+                  className="w-full disabled:cursor-not-allowed disabled:opacity-50 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 hover:border-white/25 text-slate-300 hover:text-white px-0 py-2.5 text-xs font-black shadow-sm transition cursor-pointer active:scale-95 [html.light_&]:bg-slate-100 [html.light_&]:border-slate-300 [html.light_&]:text-[#0D1B2A] [html.light_&]:hover:bg-slate-200"
                 >
                   {event?.cancel_request?.status === 'PENDING'
-                    ? 'Từ chối hủy'
+                    ? (isEnglish ? 'Reject cancellation' : 'Từ chối hủy')
                     : event?.pending_revision
-                      ? 'Từ chối sửa đổi'
-                      : 'Từ chối'}
+                      ? (isEnglish ? 'Reject revision' : 'Từ chối sửa đổi')
+                      : (isEnglish ? 'Reject' : 'Từ chối')}
                 </button>
                 <button
                   type="button"
@@ -3037,10 +3056,10 @@ export function AdminEventReviewDetailPage() {
                   className="admin-primary w-full disabled:cursor-not-allowed disabled:opacity-50 !px-0 !py-2.5 rounded-xl font-black text-xs shadow-lg cursor-pointer"
                 >
                   {event?.cancel_request?.status === 'PENDING'
-                    ? 'Phê duyệt hủy'
+                    ? (isEnglish ? 'Approve cancellation' : 'Phê duyệt hủy')
                     : event?.pending_revision
-                      ? 'Phê duyệt sửa đổi'
-                      : 'Phê duyệt'}
+                      ? (isEnglish ? 'Approve revision' : 'Phê duyệt sửa đổi')
+                      : (isEnglish ? 'Approve' : 'Phê duyệt')}
                 </button>
               </div>
             </div>
@@ -3239,8 +3258,8 @@ function DocumentPreviewModal({ doc, onClose }) {
                   type="button"
                   onClick={() => setActiveTab('preview')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${activeTab === 'preview'
-                      ? 'bg-indigo-600 text-white shadow-sm'
-                      : 'text-slate-400 hover:text-slate-200'
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200'
                     }`}
                 >
                   <Eye className="size-3.5" />
@@ -3250,8 +3269,8 @@ function DocumentPreviewModal({ doc, onClose }) {
                   type="button"
                   onClick={() => setActiveTab('ai_text')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${activeTab === 'ai_text'
-                      ? 'bg-indigo-600 text-white shadow-sm'
-                      : 'text-slate-400 hover:text-slate-200'
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200'
                     }`}
                 >
                   <Sparkles className="size-3.5" />
@@ -3573,11 +3592,14 @@ function ConfirmModal({
   tone = 'primary',
   onConfirm,
   onCancel,
-  confirmText = 'Xác nhận',
-  cancelText = 'Hủy bỏ',
+  confirmText,
+  cancelText,
   confirmColor,
   isPending = false,
 }) {
+  const { isEnglish } = useLanguage()
+  const resolvedConfirmText = confirmText || (isEnglish ? 'Confirm' : 'Xác nhận')
+  const resolvedCancelText = cancelText || (isEnglish ? 'Cancel' : 'Hủy bỏ')
   if (!open) return null
 
   const getToneConfig = () => {
@@ -3614,7 +3636,7 @@ function ConfirmModal({
 
   return (
     <div className="fixed inset-0 z-[120] grid place-items-center bg-black/80 p-4 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="w-full max-w-lg rounded-2xl border border-white/15 bg-[#0b1329] p-7 shadow-2xl shadow-black/95 text-white">
+      <div className="w-full max-w-lg rounded-2xl border border-white/15 bg-[#0b1329] p-7 shadow-2xl shadow-black/95 text-white [html.light_&]:bg-white [html.light_&]:border-slate-200 [html.light_&]:text-[#0D1B2A] [html.light_&]:shadow-xl">
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-4">
@@ -3622,18 +3644,20 @@ function ConfirmModal({
               <ToneIcon className="size-7" />
             </span>
             <div>
-              <h3 className="text-2xl font-black text-white tracking-tight">{title}</h3>
+              <h3 className="text-2xl font-black text-white [html.light_&]:text-[#0D1B2A] tracking-tight">{title}</h3>
               {subtitle ? (
-                <p className="mt-1.5 text-sm font-medium text-slate-300">{subtitle}</p>
+                <p className="mt-1.5 text-sm font-medium text-slate-300 [html.light_&]:text-slate-600">{subtitle}</p>
               ) : (
-                <p className="mt-1.5 text-sm font-medium text-slate-400">Vui lòng kiểm tra kỹ thông tin trước khi xác nhận.</p>
+                <p className="mt-1.5 text-sm font-medium text-slate-400 [html.light_&]:text-slate-500">
+                  {isEnglish ? 'Please check information carefully before confirming.' : 'Vui lòng kiểm tra kỹ thông tin trước khi xác nhận.'}
+                </p>
               )}
             </div>
           </div>
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-xl p-1.5 text-slate-400 hover:bg-white/10 hover:text-white transition"
+            className="rounded-xl p-1.5 text-slate-400 hover:bg-white/10 hover:text-white transition [html.light_&]:text-slate-500 [html.light_&]:hover:bg-slate-100 [html.light_&]:hover:text-slate-900"
           >
             <X className="size-5 sm:size-6" />
           </button>
@@ -3641,15 +3665,17 @@ function ConfirmModal({
 
         {/* Event highlight box */}
         {eventTitle && (
-          <div className="mt-5 rounded-xl border border-white/15 bg-[#121c38]/90 p-4">
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Sự kiện xử lý:</p>
-            <p className="font-extrabold text-white text-base mt-1 truncate">{eventTitle}</p>
+          <div className="mt-5 rounded-xl border border-white/15 bg-[#121c38]/90 p-4 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-400 [html.light_&]:text-slate-600">
+              {isEnglish ? 'Target Event:' : 'Sự kiện xử lý:'}
+            </p>
+            <p className="font-extrabold text-white [html.light_&]:text-[#0D1B2A] text-base mt-1 truncate">{eventTitle}</p>
           </div>
         )}
 
         {/* Description */}
         {description && (
-          <p className="mt-4 text-base sm:text-lg font-semibold text-slate-200 leading-relaxed">
+          <p className="mt-4 text-base sm:text-lg font-semibold text-slate-200 [html.light_&]:text-slate-700 leading-relaxed">
             {description}
           </p>
         )}
@@ -3660,9 +3686,9 @@ function ConfirmModal({
             type="button"
             onClick={onCancel}
             disabled={isPending}
-            className="flex-1 rounded-xl border border-white/15 bg-slate-800/80 px-5 py-3 text-sm sm:text-base font-bold text-slate-300 transition hover:bg-slate-700/80 hover:text-white disabled:opacity-50 active:scale-95"
+            className="flex-1 rounded-xl border border-white/15 bg-slate-800/80 px-5 py-3 text-sm sm:text-base font-bold text-slate-300 transition hover:bg-slate-700/80 hover:text-white disabled:opacity-50 active:scale-95 [html.light_&]:bg-slate-100 [html.light_&]:border-slate-300 [html.light_&]:text-slate-700 [html.light_&]:hover:bg-slate-200"
           >
-            {cancelText}
+            {resolvedCancelText}
           </button>
           <button
             type="button"
@@ -3673,10 +3699,10 @@ function ConfirmModal({
             {isPending ? (
               <span className="flex items-center justify-center gap-2">
                 <span className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                <span>Đang xử lý...</span>
+                <span>{isEnglish ? 'Processing...' : 'Đang xử lý...'}</span>
               </span>
             ) : (
-              confirmText
+              resolvedConfirmText
             )}
           </button>
         </div>

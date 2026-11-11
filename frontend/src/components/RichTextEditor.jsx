@@ -2,6 +2,12 @@ import React, { useCallback, useEffect, useMemo, useRef } from 'react'
 import ReactQuill from 'react-quill-new'
 import 'react-quill-new/dist/quill.snow.css'
 import './RichTextEditor.css'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
+import { translatePhrase } from '@/i18n/phraseDictionary.js'
+
+const getAutoIsEnglish = () =>
+  (typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
+  (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en')
 
 export default function RichTextEditor({
     value,
@@ -10,6 +16,37 @@ export default function RichTextEditor({
     onImageUpload,
 }) {
     const quillRef = useRef(null)
+    const lastValueRef = useRef(value)
+    const { isEnglish = getAutoIsEnglish() } = useLanguage() || {}
+
+    const effectivePlaceholder = isEnglish
+        ? (translatePhrase(placeholder, 'en') || placeholder)
+        : placeholder
+
+    const handleEditorChange = useCallback((content, delta, source, editor) => {
+        lastValueRef.current = content
+        onChange?.(content, delta, source, editor)
+    }, [onChange])
+
+    useEffect(() => {
+        const editor = quillRef.current?.getEditor()
+        if (!editor) return
+        if (value !== undefined && value !== lastValueRef.current) {
+            lastValueRef.current = value
+            const currentHTML = editor.root.innerHTML
+            if (currentHTML !== value) {
+                const range = editor.getSelection()
+                if (typeof value === 'string') {
+                    editor.setContents(editor.clipboard.convert({ html: value }))
+                } else {
+                    editor.setContents(value)
+                }
+                if (range) {
+                    editor.setSelection(range)
+                }
+            }
+        }
+    }, [value])
 
     const imageHandler = useCallback(() => {
         const input = document.createElement('input')
@@ -119,14 +156,22 @@ export default function RichTextEditor({
         }
     }, [])
 
+    useEffect(() => {
+        const editor = quillRef.current?.getEditor()
+        if (!editor || !editor.root) return
+        if (effectivePlaceholder) {
+            editor.root.setAttribute('data-placeholder', effectivePlaceholder)
+        }
+    }, [effectivePlaceholder])
+
     return (
         <div className="rich-text-editor-container rounded-lg border border-border-soft/40 shadow-inner">
             <ReactQuill
                 ref={quillRef}
                 theme="snow"
                 value={value || ''}
-                onChange={onChange}
-                placeholder={placeholder}
+                onChange={handleEditorChange}
+                placeholder={effectivePlaceholder}
                 modules={modules}
                 formats={formats}
             />

@@ -361,6 +361,124 @@ html.light select optgroup {
   will-change: stroke-dashoffset;
 }
 
+/* ── Seat Map Editor: AI Button with Thin Crisp Running LED Border (No Black Leak) ── */
+.btn-seatmap-ai-led {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.75rem;
+  padding: 0;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  isolation: isolate;
+  box-shadow: 0 0 10px rgba(201, 154, 71, 0.25);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: visible;
+}
+
+.btn-seatmap-ai-led:hover:not(:disabled) {
+  transform: translateY(-1px) scale(1.02);
+  box-shadow: 0 0 18px rgba(230, 193, 122, 0.55), 0 0 30px rgba(201, 154, 71, 0.35);
+}
+
+.btn-seatmap-ai-led:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.btn-seatmap-ai-led:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.btn-seatmap-ai-led-content {
+  position: relative;
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  width: 100%;
+  height: 100%;
+  border-radius: 0.75rem;
+  background: linear-gradient(135deg, rgba(201, 154, 71, 0.22) 0%, rgba(13, 23, 44, 0.95) 50%, rgba(230, 193, 122, 0.18) 100%);
+  color: #E6C17A;
+  font-size: 0.75rem;
+  font-weight: 800;
+  padding: 0.5rem 0.875rem;
+  letter-spacing: 0.025em;
+  white-space: nowrap;
+  user-select: none;
+  transition: background 0.2s ease, filter 0.2s ease;
+}
+
+.btn-seatmap-ai-led:hover:not(:disabled) .btn-seatmap-ai-led-content {
+  background: linear-gradient(135deg, rgba(201, 154, 71, 0.32) 0%, rgba(18, 30, 56, 0.95) 50%, rgba(230, 193, 122, 0.26) 100%);
+  filter: brightness(1.08);
+}
+
+.btn-seatmap-ai-led-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 20;
+  pointer-events: none;
+  overflow: visible;
+  border-radius: 0.75rem;
+}
+
+.btn-seatmap-ai-led-svg rect {
+  x: 0.75px;
+  y: 0.75px;
+  width: calc(100% - 1.5px);
+  height: calc(100% - 1.5px);
+  rx: 11.25px;
+  ry: 11.25px;
+  fill: none;
+}
+
+.btn-seatmap-ai-led-track {
+  stroke: rgba(201, 154, 71, 0.45);
+  stroke-width: 1.2px;
+}
+
+.btn-seatmap-ai-led-beam-glow {
+  stroke: #FFF2C2;
+  stroke-width: 2.6px;
+  stroke-linecap: round;
+  stroke-dasharray: 28 72;
+  filter: drop-shadow(0 0 4px #F59E0B) drop-shadow(0 0 8px #FBBF24);
+  animation: ai-led-travel-glow 3s linear infinite;
+  will-change: stroke-dashoffset;
+}
+
+.btn-seatmap-ai-led-beam-core {
+  stroke: #FFFFFF;
+  stroke-width: 1.2px;
+  stroke-linecap: round;
+  stroke-dasharray: 14 86;
+  filter: drop-shadow(0 0 2px #FFFFFF);
+  animation: ai-led-travel-core 3s linear infinite;
+  will-change: stroke-dashoffset;
+}
+
+.btn-seatmap-ai-led:disabled .btn-seatmap-ai-led-beam-glow,
+.btn-seatmap-ai-led:disabled .btn-seatmap-ai-led-beam-core {
+  display: none;
+}
+
+html.light .btn-seatmap-ai-led-content {
+  background: linear-gradient(135deg, rgba(201, 154, 71, 0.12) 0%, rgba(255, 255, 255, 0.95) 50%, rgba(230, 193, 122, 0.15) 100%);
+  color: #b45309;
+}
+
+html.light .btn-seatmap-ai-led-track {
+  stroke: rgba(180, 83, 9, 0.4);
+}
+
 /* ── LED Border for Submit Review Button ("Gửi duyệt") ── */
 .btn-led-submit {
   position: relative;
@@ -2153,6 +2271,7 @@ html.light [class*="bg-[#0e162b]"],
 html.light [class*="bg-[#0e172e]"],
 html.light [class*="bg-[#0e172a]"],
 html.light [class*="bg-[#0f172a]"],
+html.light [class*="bg-[#0F172A]"],
 html.light [class*="bg-[#10172d]"],
 html.light [class*="bg-[#101c30]"],
 html.light [class*="bg-[#111a2e]"],
@@ -2163,6 +2282,8 @@ html.light [class*="bg-[#121c33]"],
 html.light [class*="bg-[#121c38]"],
 html.light [class*="bg-[#131d38]"],
 html.light [class*="bg-[#141e36]"],
+html.light [class*="bg-[#141b2d]"],
+html.light [class*="bg-[#141B2D]"],
 html.light [class*="bg-[#152042]"],
 html.light [class*="bg-[#16223d]"],
 html.light [class*="bg-[#162244]"],
@@ -2180,6 +2301,7 @@ html.light [class*="bg-[#14375f]"],
 html.light [class*="bg-[#0c3124]"],
 html.light [class*="bg-[#124533]"],
 html.light [class*="bg-[#080e1e]"],
+html.light [class*="bg-[#080f24]"],
 html.light [class*="bg-[#091124]"],
 html.light [class*="bg-[#0d1527]"],
 html.light [class*="bg-[#1e293b]"],
@@ -2218,20 +2340,34 @@ html.light [class*="bg-slate-900/40"],
 html.light [class*="bg-slate-900/50"],
 html.light [class*="bg-slate-900/60"],
 html.light [class*="bg-slate-900/70"],
+html.light [class*="bg-slate-900/80"],
+html.light [class*="bg-slate-900/90"],
+html.light [class*="bg-slate-900/95"],
 html.light [class*="bg-slate-950/40"],
+html.light [class*="bg-slate-950/50"],
 html.light [class*="bg-slate-950/60"],
 html.light [class*="bg-slate-950/70"],
+html.light [class*="bg-slate-950/80"],
+html.light [class*="bg-slate-950/90"],
+html.light [class*="bg-slate-950/95"],
 html.light [class*="bg-slate-800/40"],
 html.light [class*="bg-slate-800/50"],
 html.light [class*="bg-slate-800/60"],
-html.light [class*="bg-slate-800/80"] {
+html.light [class*="bg-slate-800/80"],
+html.light [class*="bg-black/20"],
+html.light [class*="bg-black/25"],
+html.light [class*="bg-black/30"],
+html.light [class*="bg-black/40"],
+html.light [class*="bg-black/50"] {
   background-color: #F8F3EA !important;
   border-color: rgba(201, 154, 71, 0.28) !important;
   color: #0D1B2A !important;
 }
 
 html.light [class*="bg-slate-900/50"]:hover,
-html.light [class*="bg-slate-800/80"]:hover {
+html.light [class*="bg-slate-800/80"]:hover,
+html.light [class*="bg-black/40"]:hover,
+html.light [class*="bg-black/50"]:hover {
   background-color: #F5EBDD !important;
   border-color: #C99A47 !important;
 }

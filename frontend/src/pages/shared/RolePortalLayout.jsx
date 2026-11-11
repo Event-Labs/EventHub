@@ -21,8 +21,10 @@ const NAV_LABEL_MAP = {
   'Bảng điều khiển': { vi: 'Bảng điều khiển', en: 'Dashboard' },
   'Quản lý người dùng': { vi: 'Quản lý người dùng', en: 'User Management' },
   'Người dùng': { vi: 'Người dùng', en: 'Users' },
-  'Organizer': { vi: 'Organizer', en: 'Organizers' },
-  'Yêu cầu Organizer': { vi: 'Yêu cầu Organizer', en: 'Organizer Requests' },
+  'Ban tổ chức': { vi: 'Ban tổ chức', en: 'Organizer' },
+  'Organizer': { vi: 'Ban tổ chức', en: 'Organizer' },
+  'Yêu cầu Ban tổ chức': { vi: 'Yêu cầu Ban tổ chức', en: 'Organizer Requests' },
+  'Yêu cầu Organizer': { vi: 'Yêu cầu Ban tổ chức', en: 'Organizer Requests' },
   'Sự kiện & Nội dung': { vi: 'Sự kiện & Nội dung', en: 'Events & Content' },
   'Loại sự kiện': { vi: 'Loại sự kiện', en: 'Categories' },
   'Duyệt sự kiện': { vi: 'Duyệt sự kiện', en: 'Event Approvals' },
@@ -60,7 +62,7 @@ const NAV_LABEL_MAP = {
 
 function getNavLabel(rawLabel, isVietnamese) {
   if (!rawLabel) return ''
-  if (isVietnamese) return rawLabel
+  if (isVietnamese) return NAV_LABEL_MAP[rawLabel]?.vi || rawLabel
   return NAV_LABEL_MAP[rawLabel]?.en || rawLabel
 }
 
@@ -420,7 +422,7 @@ export function RolePortalLayout({
               }`}
             >
               {Icon && <Icon className={`size-5 transition-transform ${active ? 'scale-110 drop-shadow' : ''}`} />}
-              <span className="text-[10px] mt-1 font-semibold leading-none truncate max-w-[64px] text-center">{item.label}</span>
+              <span className="text-[10px] mt-1 font-semibold leading-none truncate max-w-[64px] text-center">{getNavLabel(item.label, isVietnamese)}</span>
             </NavLink>
           )
         })}

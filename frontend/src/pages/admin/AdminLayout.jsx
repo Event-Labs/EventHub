@@ -12,7 +12,7 @@ const navSections = [
     label: 'Quản lý người dùng',
     items: [
       { label: 'Người dùng', to: '/admin/accounts', icon: Users },
-      { label: 'Organizer', to: '/admin/organizers', icon: Building2 },
+      { label: 'Ban tổ chức', to: '/admin/organizers', icon: Building2 },
       { label: 'Yêu cầu Organizer', to: '/admin/organizer-requests', icon: ClipboardList },
     ],
   },

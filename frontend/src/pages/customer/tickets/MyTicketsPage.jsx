@@ -6,6 +6,8 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { SectionHeader } from '@/components/SectionHeader.jsx'
 import { fetchMyTickets } from '@/services/tickets.js'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
+import { cleanAndFormatVenue } from '@/i18n/eventTranslations.js'
+import { translatePhrase } from '@/i18n/phraseDictionary.js'
 
 const TICKETS_PER_PAGE = 6
 
@@ -277,7 +279,9 @@ function TicketCard({ ticket }) {
   const navigate = useNavigate()
   const meta = statusMeta(ticket, isEnglish)
   const venue = venueLine(ticket)
-  const venueText = [ticket.venue?.name, venue].filter(Boolean).join(', ') || (isEnglish ? 'N/A' : 'Chưa có địa điểm')
+  const venueText = cleanAndFormatVenue(ticket.venue || venue, isEnglish) || (isEnglish ? 'N/A' : 'Chưa có địa điểm')
+  const eventTitle = isEnglish ? (translatePhrase(ticket.event?.title, 'en') || ticket.event?.title) : ticket.event?.title
+  const ticketTypeName = isEnglish ? (translatePhrase(ticket.ticket_type?.name, 'en') || ticket.ticket_type?.name) : ticket.ticket_type?.name
   const seat = ticket.seat?.label
 
   // Các vé hợp lệ hoặc chờ hoàn tiền thì hiện màu sẵn, vé hết hạn/hủy thì không còn màu
@@ -323,13 +327,13 @@ function TicketCard({ ticket }) {
           </div>
           <h2 className={`mt-3 sm:mt-4 line-clamp-2 font-display text-lg sm:text-xl font-black leading-tight transition-colors ${isVibrant ? 'text-white group-hover:text-[#E6C17A]' : 'text-slate-300 group-hover:text-white'
             }`}>
-            {ticket.event.title}
+            {eventTitle}
           </h2>
         </div>
 
         <div className={`mt-4 sm:mt-6 grid gap-2.5 sm:gap-3 text-xs sm:text-sm ${isVibrant ? 'text-slate-200' : 'text-slate-400'}`}>
           <InfoLine icon={CalendarDays} value={formatDateTime(ticket.session?.start_time, isEnglish)} iconActive={isVibrant} />
-          <InfoLine icon={Ticket} value={seat ? `${ticket.ticket_type.name} · ${isEnglish ? 'Seat' : 'Ghế'} ${seat}` : `${ticket.ticket_type.name} · ${isEnglish ? 'Standing Area' : 'Khu vực đứng'}`} iconActive={isVibrant} />
+          <InfoLine icon={Ticket} value={seat ? `${ticketTypeName} · ${isEnglish ? 'Seat' : 'Ghế'} ${seat}` : `${ticketTypeName} · ${isEnglish ? 'Standing Area' : 'Khu vực đứng'}`} iconActive={isVibrant} />
           <InfoLine icon={MapPin} value={venueText} wrap iconActive={isVibrant} />
           <InfoLine
             icon={CheckCircle2}

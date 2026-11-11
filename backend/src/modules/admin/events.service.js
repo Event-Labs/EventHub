@@ -1176,7 +1176,25 @@ class EventsAdminService {
     if (!event) {
       throw new AppError('Event not found', 404, ErrorCodes.RESOURCE_NOT_FOUND);
     }
-    return event;
+    const sessions = event.sessions || [];
+    const firstSessionVenue = sessions.find((s) => s && s.venue)?.venue || null;
+    const venueName =
+      event.venue_name ||
+      firstSessionVenue?.name ||
+      (typeof event.venue === 'string' ? event.venue : event.venue?.name) ||
+      null;
+    const address =
+      event.address ||
+      firstSessionVenue?.address_line ||
+      null;
+    const venue = event.venue || firstSessionVenue || null;
+
+    return {
+      ...event,
+      venue_name: venueName,
+      address,
+      venue,
+    };
   }
 
   async reviewEvent(adminId, eventId, payload) {

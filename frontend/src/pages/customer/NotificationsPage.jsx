@@ -32,6 +32,7 @@ import { cn } from '@/lib/utils.js'
 import { getRememberLoginPreference, setAuthSession } from '@/lib/auth.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { formatNotificationDisplay } from '@/lib/notifications.js'
+import { translateEventTitle } from '@/i18n/eventTranslations.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
 
@@ -90,7 +91,8 @@ function getStaffInvitationDetails(notification, invitationsById, isEnglish = fa
   const gate = invitation?.gate || meta.gate || null
   const zone = invitation?.zone || meta.zone || null
   const sessionName = invitation?.session_name || meta.session_name || null
-  const eventTitle = invitation?.event_title || notification.event?.title || (isEnglish ? 'event' : 'sự kiện')
+  const rawEventTitle = invitation?.event_title || notification.event?.title || (isEnglish ? 'event' : 'sự kiện')
+  const eventTitle = isEnglish ? translateEventTitle(rawEventTitle, true) : rawEventTitle
   const organizationName = invitation?.organization_name || (isEnglish ? 'Organizer' : 'Ban tổ chức')
   const locationParts = []
   if (sessionName) locationParts.push(isEnglish ? `Session: ${sessionName}` : `Phiên: ${sessionName}`)
@@ -312,7 +314,7 @@ export function NotificationsPage() {
           const isInvitation = isStaffInvitationNotification(notification)
           const invitationDetails = isInvitation ? getStaffInvitationDetails(notification, invitationsById, isEnglish) : null
           const eventPath = eventDetailPath(invitationDetails || notification)
-          const display = formatNotificationDisplay(notification)
+          const display = formatNotificationDisplay(notification, isEnglish)
           const title = invitationDetails?.title || display.title
           const content = invitationDetails?.content || display.content
           const invitationStatus = invitationDetails?.status
@@ -348,7 +350,7 @@ export function NotificationsPage() {
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="font-display text-base font-extrabold text-content sm:text-lg">
-                          {t(title)}
+                          {isEnglish ? title : t(title)}
                         </h3>
                         {!notification.is_read && (
                           <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-primary">
@@ -367,7 +369,7 @@ export function NotificationsPage() {
                           dangerouslySetInnerHTML={{ __html: content }}
                         />
                       ) : (
-                        <p className="mt-1.5 max-w-3xl text-sm leading-6 text-subtle whitespace-pre-line">{t(content)}</p>
+                        <p className="mt-1.5 max-w-3xl text-sm leading-6 text-subtle whitespace-pre-line">{isEnglish ? content : t(content)}</p>
                       )}
                       {invitationDetails?.expires_at && invitationStatus === 'PENDING' && (
                         <p className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-warning">

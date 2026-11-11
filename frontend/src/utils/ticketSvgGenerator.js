@@ -49,6 +49,11 @@ export function formatCategory(category, isEn = false) {
     'SPORTS': 'SPORTS',
     'THEATER': 'THEATER',
     'EVENT': 'EVENT',
+    'ÂM NHẠC & BIỂU DIỄN': 'MUSIC & ARTS',
+    'LỄ HỘI & VĂN HÓA': 'FESTIVALS & CULTURE',
+    'HỘI THẢO & GIÁO DỤC': 'WORKSHOPS & EDUCATION',
+    'KINH DOANH & CÔNG NGHỆ': 'BUSINESS & TECH',
+    'THỂ THAO': 'SPORTS',
   }
   const mapVi = {
     'WORKSHOP': 'HỘI THẢO',
@@ -63,6 +68,11 @@ export function formatCategory(category, isEn = false) {
     'SPORTS': 'THỂ THAO',
     'THEATER': 'KỊCH NGHỆ',
     'EVENT': 'SỰ KIỆN',
+    'MUSIC & ARTS': 'ÂM NHẠC & BIỂU DIỄN',
+    'FESTIVALS & CULTURE': 'LỄ HỘI & VĂN HÓA',
+    'WORKSHOPS & EDUCATION': 'HỘI THẢO & GIÁO DỤC',
+    'BUSINESS & TECH': 'KINH DOANH & CÔNG NGHỆ',
+    'SPORTS': 'THỂ THAO',
   }
   if (isEn && mapEn[raw]) return mapEn[raw]
   if (!isEn && mapVi[raw]) return mapVi[raw]

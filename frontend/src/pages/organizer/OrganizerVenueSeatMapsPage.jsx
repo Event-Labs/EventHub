@@ -16,6 +16,7 @@ import { fetchCurrentPlan } from '@/services/subscriptions.js'
 import { SeatMapEditor } from './SeatMapEditor.jsx'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
 
 function isLightColor(hex) {
   if (!hex || typeof hex !== 'string') return false
@@ -106,6 +107,7 @@ function renderStagePreviewShape(x, y, w, h, shape = 'RECTANGLE', color = '#3B82
 }
 
 function SeatMapPreviewModal({ open, seatMapId, onClose, onEdit }) {
+  const { isEnglish } = useLanguage()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -176,6 +178,7 @@ function SeatMapPreviewModal({ open, seatMapId, onClose, onEdit }) {
 
   // Read sm.config camelCase and snake_case properties exactly like SeatMapEditor
   const canvasBg = seatMap?.config?.canvasBg || seatMap?.config?.canvas_theme || '#0F172A'
+  const isLightCanvas = isLightColor(canvasBg)
 
   const stagePosition = seatMap?.config?.stagePosition || seatMap?.config?.stage_position || 'TOP'
   const stageShape = seatMap?.config?.stageShape || seatMap?.config?.stage_shape || 'RECTANGLE'
@@ -308,15 +311,17 @@ function SeatMapPreviewModal({ open, seatMapId, onClose, onEdit }) {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-xl font-black text-white">{seatMap?.name || 'Chi tiết sơ đồ ghế'}</h2>
+                <h2 className="text-xl font-black text-white">{seatMap?.name || (isEnglish ? 'Seat Map Details' : 'Chi tiết sơ đồ ghế')}</h2>
                 {seatMap && (
                   <Badge tone={seatMap.is_active ? 'green' : 'gray'}>
-                    {seatMap.is_active ? 'Đang hoạt động' : 'Tắt'}
+                    {seatMap.is_active ? (isEnglish ? 'Active' : 'Đang hoạt động') : (isEnglish ? 'Inactive' : 'Tắt')}
                   </Badge>
                 )}
               </div>
-              <p className="text-xs text-subtle">
-                <span className="font-extrabold text-content">{seats.length}</span> ghế ngồi · <span className="font-extrabold text-tertiary">{standingCapacity}</span> chỗ đứng · <span className="font-extrabold text-success">{grandTotalCapacity}</span> tổng chỗ
+              <p className="text-xs text-slate-400">
+                <span className="font-extrabold text-white">{seats.length}</span> {isEnglish ? 'seats' : 'ghế ngồi'} ·{' '}
+                <span className="font-extrabold text-white">{standingCapacity}</span> {isEnglish ? 'standing' : 'chỗ đứng'} ·{' '}
+                <span className="font-extrabold text-white">{grandTotalCapacity}</span> {isEnglish ? 'total capacity' : 'tổng chỗ'}
               </p>
             </div>
           </div>
@@ -339,32 +344,45 @@ function SeatMapPreviewModal({ open, seatMapId, onClose, onEdit }) {
         ) : (
           <div className="flex-1 overflow-y-auto p-6 space-y-5">
             {/* Quick KPI stats */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="rounded-xl border border-border-soft/30 bg-panel-soft/40 p-3">
-                <span className="text-xs text-muted font-medium block">Ghế ngồi</span>
-                <span className="text-lg font-extrabold text-content">{seats.length} <span className="text-xs font-normal text-muted">ghế</span></span>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+              <div className="rounded-2xl border border-white/10 bg-[#121c3b]/80 p-4 sm:p-5 shadow-sm">
+                <span className="text-xs sm:text-sm text-slate-300 font-bold block mb-1.5">{isEnglish ? 'Seated Seats' : 'Ghế ngồi'}</span>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-2xl sm:text-3xl font-black text-white">{seats.length}</span>
+                  <span className="text-xs sm:text-sm font-bold text-white">{isEnglish ? 'seats' : 'ghế'}</span>
+                </div>
               </div>
-              <div className="rounded-xl border border-border-soft/30 bg-panel-soft/40 p-3">
-                <span className="text-xs text-muted font-medium block">Chỗ đứng</span>
-                <span className="text-lg font-extrabold text-tertiary">{standingCapacity} <span className="text-xs font-normal text-muted">người</span></span>
+              <div className="rounded-2xl border border-white/10 bg-[#121c3b]/80 p-4 sm:p-5 shadow-sm">
+                <span className="text-xs sm:text-sm text-slate-300 font-bold block mb-1.5">{isEnglish ? 'Standing Capacity' : 'Chỗ đứng'}</span>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-2xl sm:text-3xl font-black text-white">{standingCapacity}</span>
+                  <span className="text-xs sm:text-sm font-bold text-white">{isEnglish ? 'people' : 'người'}</span>
+                </div>
               </div>
-              <div className="rounded-xl border border-border-soft/30 bg-panel-soft/40 p-3">
-                <span className="text-xs text-muted font-medium block">Tổng sức chứa</span>
-                <span className="text-lg font-extrabold text-success">{grandTotalCapacity} <span className="text-xs font-normal text-muted">chỗ</span></span>
+              <div className="rounded-2xl border border-white/10 bg-[#121c3b]/80 p-4 sm:p-5 shadow-sm">
+                <span className="text-xs sm:text-sm text-slate-300 font-bold block mb-1.5">{isEnglish ? 'Total Capacity' : 'Tổng sức chứa'}</span>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-2xl sm:text-3xl font-black text-white">{grandTotalCapacity}</span>
+                  <span className="text-xs sm:text-sm font-bold text-white">{isEnglish ? 'spots' : 'chỗ'}</span>
+                </div>
               </div>
-              <div className="rounded-xl border border-border-soft/30 bg-panel-soft/40 p-3">
-                <span className="text-xs text-muted font-medium block">Loại bố trí</span>
-                <span className="text-sm font-bold text-content">{seatMap?.layout_type === 'GRID' ? 'Lưới (Grid)' : 'Tự do'}</span>
+              <div className="rounded-2xl border border-white/10 bg-[#121c3b]/80 p-4 sm:p-5 shadow-sm">
+                <span className="text-xs sm:text-sm text-slate-300 font-bold block mb-1.5">{isEnglish ? 'Layout Type' : 'Loại bố trí'}</span>
+                <div className="flex items-baseline">
+                  <span className="text-base sm:text-lg font-black text-white">
+                    {seatMap?.layout_type === 'GRID' ? (isEnglish ? 'Grid' : 'Lưới (Grid)') : (isEnglish ? 'Freeform' : 'Tự do')}
+                  </span>
+                </div>
               </div>
             </div>
 
             {/* Zones & Standing Areas Legend */}
             {(zones.length > 0 || standingAreas.length > 0) && (
-              <div className="rounded-xl border border-border-soft/30 bg-panel-soft/30 p-3.5 space-y-3">
+              <div className="rounded-2xl border border-white/10 bg-[#111a36]/60 p-4 space-y-4 shadow-sm">
                 {zones.length > 0 && (
                   <div>
-                    <span className="text-xs font-extrabold uppercase tracking-wider text-subtle block mb-2">
-                      Phân khu hạng ghế (Seat Zones)
+                    <span className="text-xs font-extrabold uppercase tracking-wider text-white block mb-2.5">
+                      {isEnglish ? 'Seat Zones' : 'Phân khu hạng ghế (Seat Zones)'}
                     </span>
                     <div className="flex flex-wrap gap-2.5">
                       {zones.map((z) => {
@@ -372,26 +390,26 @@ function SeatMapPreviewModal({ open, seatMapId, onClose, onEdit }) {
                         return (
                           <div
                             key={z.id || z.localId}
-                            className="flex items-center gap-2 rounded-lg bg-surface border border-border-soft/30 px-3 py-1.5 text-xs"
+                            className="flex items-center gap-2 rounded-xl bg-slate-900/80 border border-white/15 px-3.5 py-2 text-xs"
                           >
-                            <span className="size-3 rounded-full shrink-0 shadow-xs" style={{ backgroundColor: z.color || '#3B82F6' }} />
-                            <span className="font-semibold text-content">{z.name}</span>
-                            <span className="text-muted font-bold">({count} ghế)</span>
+                            <span className="size-3 rounded-full shrink-0 shadow-xs ring-1 ring-white/20" style={{ backgroundColor: z.color || '#3B82F6' }} />
+                            <span className="font-bold text-white">{z.name}</span>
+                            <span className="text-white font-bold">({count} {isEnglish ? 'seats' : 'ghế'})</span>
                           </div>
                         )
                       })}
                       {zoneSeatCounts['unassigned'] > 0 && (
-                        <div className="flex items-center gap-2 rounded-lg bg-surface border border-border-soft/30 px-3 py-1.5 text-xs">
-                          <span className="size-3 rounded-full shrink-0 bg-gray-500" />
-                          <span className="font-semibold text-content">Chưa phân khu</span>
-                          <span className="text-muted font-bold">({zoneSeatCounts['unassigned']} ghế)</span>
+                        <div className="flex items-center gap-2 rounded-xl bg-slate-900/80 border border-white/15 px-3.5 py-2 text-xs">
+                          <span className="size-3 rounded-full shrink-0 bg-gray-500 ring-1 ring-white/20" />
+                          <span className="font-bold text-white">{isEnglish ? 'Unassigned' : 'Chưa phân khu'}</span>
+                          <span className="text-white font-bold">({zoneSeatCounts['unassigned']} {isEnglish ? 'seats' : 'ghế'})</span>
                         </div>
                       )}
                       {disabledSeatsCount > 0 && (
-                        <div className="flex items-center gap-2 rounded-lg bg-surface border border-border-soft/30 px-3 py-1.5 text-xs">
-                          <span className="size-3 rounded-full shrink-0 bg-slate-600" />
-                          <span className="font-semibold text-content">Vô hiệu hóa</span>
-                          <span className="text-muted font-bold">({disabledSeatsCount} ghế)</span>
+                        <div className="flex items-center gap-2 rounded-xl bg-slate-900/80 border border-white/15 px-3.5 py-2 text-xs">
+                          <span className="size-3 rounded-full shrink-0 bg-slate-600 ring-1 ring-white/20" />
+                          <span className="font-bold text-white">{isEnglish ? 'Disabled' : 'Vô hiệu hóa'}</span>
+                          <span className="text-white font-bold">({disabledSeatsCount} {isEnglish ? 'seats' : 'ghế'})</span>
                         </div>
                       )}
                     </div>
@@ -400,18 +418,18 @@ function SeatMapPreviewModal({ open, seatMapId, onClose, onEdit }) {
 
                 {standingAreas.length > 0 && (
                   <div>
-                    <span className="text-xs font-extrabold uppercase tracking-wider text-tertiary block mb-2">
-                      Khu vực đứng (Standing Areas)
+                    <span className="text-xs font-extrabold uppercase tracking-wider text-white block mb-2.5">
+                      {isEnglish ? 'Standing Areas' : 'Khu vực đứng (Standing Areas)'}
                     </span>
                     <div className="flex flex-wrap gap-2.5">
                       {standingAreas.map((area, idx) => (
                         <div
                           key={area.id || idx}
-                          className="flex items-center gap-2 rounded-lg bg-surface border border-border-soft/30 px-3 py-1.5 text-xs"
+                          className="flex items-center gap-2 rounded-xl bg-slate-900/80 border border-white/15 px-3.5 py-2 text-xs"
                         >
-                          <span className="size-3 rounded-full shrink-0 shadow-xs border border-white/20" style={{ backgroundColor: area.color || '#EF4444' }} />
-                          <span className="font-semibold text-content">{area.name || 'Vùng đứng'}</span>
-                          <span className="text-tertiary font-bold">({area.capacity || 0} người)</span>
+                          <span className="size-3 rounded-full shrink-0 shadow-xs ring-1 ring-white/20" style={{ backgroundColor: area.color || '#EF4444' }} />
+                          <span className="font-bold text-white">{area.name || (isEnglish ? 'Standing Area' : 'Vùng đứng')}</span>
+                          <span className="text-white font-bold">({area.capacity || 0} {isEnglish ? 'people' : 'người'})</span>
                         </div>
                       ))}
                     </div>
@@ -428,7 +446,7 @@ function SeatMapPreviewModal({ open, seatMapId, onClose, onEdit }) {
                   type="button"
                   onClick={() => setZoom((z) => Math.min(2, z + 0.15))}
                   className="p-1.5 rounded-lg hover:bg-panel-soft text-subtle hover:text-content transition"
-                  title="Phóng to"
+                  title={isEnglish ? 'Zoom in' : 'Phóng to'}
                 >
                   <ZoomIn className="size-4" />
                 </button>
@@ -436,7 +454,7 @@ function SeatMapPreviewModal({ open, seatMapId, onClose, onEdit }) {
                   type="button"
                   onClick={() => setZoom((z) => Math.max(0.3, z - 0.15))}
                   className="p-1.5 rounded-lg hover:bg-panel-soft text-subtle hover:text-content transition"
-                  title="Thu nhỏ"
+                  title={isEnglish ? 'Zoom out' : 'Thu nhỏ'}
                 >
                   <ZoomOut className="size-4" />
                 </button>
@@ -444,7 +462,7 @@ function SeatMapPreviewModal({ open, seatMapId, onClose, onEdit }) {
                   type="button"
                   onClick={() => setZoom(1)}
                   className="p-1.5 rounded-lg hover:bg-panel-soft text-subtle hover:text-content transition"
-                  title="Đặt lại zoom 100%"
+                  title={isEnglish ? 'Reset zoom 100%' : 'Đặt lại zoom 100%'}
                 >
                   <RotateCcw className="size-4" />
                 </button>
@@ -452,9 +470,9 @@ function SeatMapPreviewModal({ open, seatMapId, onClose, onEdit }) {
                   type="button"
                   onClick={autoFitZoom}
                   className="px-2 py-1 rounded-lg text-xs font-bold text-tertiary hover:bg-tertiary/10 transition"
-                  title="Tự động vừa màn hình"
+                  title={isEnglish ? 'Auto fit to frame' : 'Tự động vừa màn hình'}
                 >
-                  Vừa khung
+                  {isEnglish ? 'Fit to Frame' : 'Vừa khung'}
                 </button>
                 <span className="px-2 text-xs font-bold text-muted">{Math.round(zoom * 100)}%</span>
               </div>
@@ -671,9 +689,11 @@ function SeatMapPreviewModal({ open, seatMapId, onClose, onEdit }) {
         )}
 
         {/* Footer */}
-        <div className="flex items-center justify-between border-t border-border-soft/20 px-6 py-4 bg-panel-soft/30">
-          <span className="text-xs text-muted">
-            Khung nhìn toàn vẹn: {boxW}px × {boxH}px (Lề an toàn: 60px)
+        <div className="flex items-center justify-between border-t border-white/10 px-6 py-4 bg-[#111c3a]">
+          <span className="text-xs text-slate-400">
+            {isEnglish
+              ? `Full viewport: ${boxW}px × ${boxH}px (Safety margin: 60px)`
+              : `Khung nhìn toàn vẹn: ${boxW}px × ${boxH}px (Lề an toàn: 60px)`}
           </span>
           <div className="flex items-center gap-3">
             <button
@@ -684,15 +704,14 @@ function SeatMapPreviewModal({ open, seatMapId, onClose, onEdit }) {
               }}
               className="org-btn-secondary text-xs"
             >
-              <Pencil className="size-3.5" />
-              Chỉnh sửa sơ đồ
+              {isEnglish ? 'Edit diagram' : 'Chỉnh sửa sơ đồ'}
             </button>
             <button
               type="button"
               onClick={onClose}
               className="org-btn-primary text-xs"
             >
-              Đóng
+              {isEnglish ? 'Close' : 'Đóng'}
             </button>
           </div>
         </div>
@@ -853,12 +872,12 @@ export function OrganizerVenueSeatMapsPage() {
       ) : (
         <OrganizerTable
           minWidth="min-w-[840px]"
-          headers={['Tên sơ đồ', 'Loại', 'Cấu hình', 'Tổng số ghế', 'Khu vực', 'Trạng thái', 'Thao tác']}
+          headers={['Tên sơ đồ', 'Loại', 'Cấu hình', { label: 'Tổng số ghế', align: 'center' }, 'Khu vực', 'Trạng thái', 'Thao tác']}
           rows={seatMaps.map((sm) => [
             <span key="name" className="font-semibold text-white">{sm.name}</span>,
             <span key="type" className="whitespace-nowrap">{sm.layout_type}</span>,
             <span key="layout" className="whitespace-nowrap">{layoutLabel(sm)}</span>,
-            <span key="seats" className="whitespace-nowrap font-mono">{getSeatMapTotalSeats(sm)}</span>,
+            <span key="seats" className="whitespace-nowrap font-mono text-center">{getSeatMapTotalSeats(sm)}</span>,
             <span key="zones" className="whitespace-nowrap">{getSeatMapZoneCount(sm)}</span>,
             <StatusBadge key="status" status={sm.is_active ? 'ACTIVE' : 'INACTIVE'} />,
             <div key="actions" className="flex items-center justify-center gap-2 whitespace-nowrap">

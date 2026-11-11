@@ -66,6 +66,7 @@ import { useLanguage } from '@/i18n/LanguageContext.jsx'
 const EMPTY_TEXT = 'Chưa cập nhật'
 
 export function ProfilePage() {
+  const { isEnglish } = useLanguage()
   const [mode, setMode] = useState('view')
   const [sensitiveAccess, setSensitiveAccess] = useState(null)
   const queryClient = useQueryClient()
@@ -77,7 +78,7 @@ export function ProfilePage() {
     queryFn: async () => {
       const token = getAuthToken()
       if (!token) {
-        throw { response: { status: 401 }, message: 'Vui lòng đăng nhập để xem hồ sơ.' }
+        throw { response: { status: 401 }, message: isEnglish ? 'Please log in to view profile.' : 'Vui lòng đăng nhập để xem hồ sơ.' }
       }
       return getProfile()
     },
@@ -126,7 +127,7 @@ export function ProfilePage() {
     return (
       <div className="flex min-h-[400px] flex-col items-center justify-center gap-4">
         <Loader2 className="size-10 animate-spin text-primary" />
-        <p className="animate-pulse text-muted">Đang tải thông tin hồ sơ...</p>
+        <p className="animate-pulse text-muted">{isEnglish ? 'Loading profile information...' : 'Đang tải thông tin hồ sơ...'}</p>
       </div>
     )
   }
@@ -138,21 +139,23 @@ export function ProfilePage() {
           <AlertCircle className="size-10 text-error" />
         </div>
         <h2 className="font-display text-2xl font-bold text-content">
-          {error?.response?.status === 401 ? 'Phiên làm việc hết hạn' : 'Đã có lỗi xảy ra'}
+          {error?.response?.status === 401
+            ? (isEnglish ? 'Session expired' : 'Phiên làm việc hết hạn')
+            : (isEnglish ? 'An error occurred' : 'Đã có lỗi xảy ra')}
         </h2>
         <p className="mt-3 text-muted">
-          {error?.response?.data?.message || error?.message || 'Không thể tải thông tin hồ sơ của bạn.'}
+          {error?.response?.data?.message || error?.message || (isEnglish ? 'Unable to load your profile information.' : 'Không thể tải thông tin hồ sơ của bạn.')}
         </p>
         <div className="mt-8 flex justify-center gap-4">
           <button
             onClick={() => queryClient.invalidateQueries({ queryKey: ['profile'] })}
-            className="admin-secondary px-6 py-2 text-content hover:bg-panel-soft"
+            className="admin-secondary px-6 py-2 text-content hover:bg-panel-soft cursor-pointer"
           >
-            Thử lại
+            {isEnglish ? 'Retry' : 'Thử lại'}
           </button>
           {error?.response?.status === 401 && (
-            <a href="/login" className="rounded-md bg-primary px-6 py-2 font-bold text-white transition hover:bg-primary/90">
-              Đăng nhập ngay
+            <a href="/login" className="rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-6 py-2 font-bold text-[#0D1B2A] transition hover:brightness-110">
+              {isEnglish ? 'Log in now' : 'Đăng nhập ngay'}
             </a>
           )}
         </div>
@@ -169,12 +172,12 @@ export function ProfilePage() {
       <div className="mb-4 sm:mb-8 flex flex-col gap-2.5 sm:gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <h1 className="font-display text-2xl sm:text-4xl font-black text-white drop-shadow-sm tracking-tight">
-            {renderCosmicTitle(isOrganizer ? 'Hồ sơ Nhà tổ chức' : 'Hồ sơ Cá nhân')}
+            {renderCosmicTitle(isOrganizer ? (isEnglish ? 'Organizer Profile' : 'Hồ sơ Nhà tổ chức') : (isEnglish ? 'User Profile' : 'Hồ sơ Cá nhân'))}
           </h1>
           <p className="mt-2 text-slate-400">
             {isOrganizer
-              ? 'Xem lại toàn bộ thông tin đã gửi khi đăng ký làm nhà tổ chức.'
-              : 'Thông tin tài khoản, bảo mật và lịch sử sử dụng EventHub.'}
+              ? (isEnglish ? 'Review all information submitted during organizer registration.' : 'Xem lại toàn bộ thông tin đã gửi khi đăng ký làm nhà tổ chức.')
+              : (isEnglish ? 'Account details, security settings, and EventHub activity.' : 'Thông tin tài khoản, bảo mật và lịch sử sử dụng EventHub.')}
           </p>
         </div>
         {isOrganizer && (
@@ -186,19 +189,19 @@ export function ProfilePage() {
                 style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
               >
                 <Pencil className="size-4" />
-                Chỉnh sửa hồ sơ
+                {isEnglish ? 'Edit profile' : 'Chỉnh sửa hồ sơ'}
               </button>
             )}
             <button
               onClick={() => setMode('password')}
-              className={`inline-flex items-center gap-2 rounded-full border px-6 py-3 font-bold transition-all ${
+              className={`inline-flex items-center gap-2 rounded-full border px-6 py-3 font-bold transition-all cursor-pointer ${
                 mode === 'password'
                   ? 'border-[#E6C17A] bg-[#C99A47]/20 text-[#E6C17A]'
                   : 'border-white/15 bg-white/5 text-slate-200 hover:border-[#E6C17A]/60 hover:text-[#E6C17A]'
               }`}
             >
               <Lock className="inline size-4" />
-              Đổi mật khẩu
+              {isEnglish ? 'Change password' : 'Đổi mật khẩu'}
             </button>
           </div>
         )}
@@ -209,7 +212,7 @@ export function ProfilePage() {
           organizerQuery.isLoading ? (
             <div className="flex min-h-[240px] flex-col items-center justify-center gap-3">
               <Loader2 className="size-8 animate-spin text-primary" />
-              <p className="text-muted">Đang tải thông tin chỉnh sửa...</p>
+              <p className="text-muted">{isEnglish ? 'Loading edit information...' : 'Đang tải thông tin chỉnh sửa...'}</p>
             </div>
           ) : (
             <ProfileEdit
@@ -244,7 +247,7 @@ export function ProfilePage() {
         />
       )}
 
-      <Modal open={mode === 'password'} title="Đổi mật khẩu" onClose={() => setMode('view')} maxWidth="max-w-2xl">
+      <Modal open={mode === 'password'} title={isEnglish ? 'Change password' : 'Đổi mật khẩu'} onClose={() => setMode('view')} maxWidth="max-w-2xl">
         <ChangePassword user={user} onDone={() => setMode('view')} />
       </Modal>
     </div>
@@ -252,6 +255,7 @@ export function ProfilePage() {
 }
 
 function OrganizerTwoFactorGate({ user }) {
+  const { isEnglish } = useLanguage()
   const toast = useToast()
   const queryClient = useQueryClient()
   const userKey = getStoredUserKey(user)
@@ -279,9 +283,13 @@ function OrganizerTwoFactorGate({ user }) {
       }
       setChallenge(data)
       setCooldown(60)
-      toast.success(`Mã OTP đã được gửi đến ${data.email || 'email tài khoản'}.`)
+      toast.success(
+        isEnglish
+          ? `OTP code sent to ${data.email || 'account email'}.`
+          : `Mã OTP đã được gửi đến ${data.email || 'email tài khoản'}.`
+      )
     } catch (err) {
-      toast.error(getApiMessage(err, 'Không thể gửi mã OTP.'))
+      toast.error(getApiMessage(err, isEnglish ? 'Failed to send OTP code.' : 'Không thể gửi mã OTP.'))
     } finally {
       setSending(false)
     }
@@ -292,11 +300,15 @@ function OrganizerTwoFactorGate({ user }) {
     setVerifying(true)
     try {
       await verifyTwoFactor({ challengeId: challenge.challengeId, otp })
-      toast.success('Đã bật xác thực 2 lớp. Bạn có thể xem hồ sơ Organizer.')
+      toast.success(
+        isEnglish
+          ? '2-factor authentication enabled. You can now view your Organizer profile.'
+          : 'Đã bật xác thực 2 lớp. Bạn có thể xem hồ sơ Organizer.'
+      )
       await queryClient.invalidateQueries({ queryKey: ['account-security', userKey] })
       await queryClient.invalidateQueries({ queryKey: ['profile', userKey] })
     } catch (err) {
-      toast.error(getApiMessage(err, 'Mã OTP không hợp lệ hoặc đã hết hạn.'))
+      toast.error(getApiMessage(err, isEnglish ? 'Invalid or expired OTP code.' : 'Mã OTP không hợp lệ hoặc đã hết hạn.'))
     } finally {
       setVerifying(false)
     }
@@ -304,17 +316,23 @@ function OrganizerTwoFactorGate({ user }) {
 
   return (
     <div className="mx-auto flex min-h-[70vh] max-w-2xl items-center px-4 py-12">
-      <section className="w-full rounded-xl border border-warning/30 bg-surface p-6 text-content shadow-xl sm:p-8">
-        <div className="mx-auto grid size-16 place-items-center rounded-full bg-warning/10 text-warning">
+      <section className="w-full rounded-2xl border border-[#C99A47]/30 bg-surface p-6 text-content shadow-xl sm:p-8">
+        <div className="mx-auto grid size-16 place-items-center rounded-full bg-[#C99A47]/10 text-[#C99A47]">
           <ShieldCheck className="size-8" />
         </div>
-        <h1 className="mt-5 text-center font-display text-2xl font-extrabold">Bật xác thực 2 lớp để xem hồ sơ</h1>
+        <h1 className="mt-5 text-center font-display text-2xl font-extrabold text-white">
+          {isEnglish ? 'Turn on 2-factor authentication to view profiles' : 'Bật xác thực 2 lớp để xem hồ sơ'}
+        </h1>
         <p className="mx-auto mt-3 max-w-xl text-center text-sm leading-6 text-subtle">
-          Vì hồ sơ nhà tổ chức chứa thông tin pháp lý, EventHub bắt buộc bảo vệ tài khoản bằng OTP qua email.
+          {isEnglish
+            ? 'Because organizer profiles contain legal information, EventHub is required to protect accounts with OTP via email.'
+            : 'Vì hồ sơ nhà tổ chức chứa thông tin pháp lý, EventHub bắt buộc bảo vệ tài khoản bằng OTP qua email.'}
         </p>
 
-        <div className="mt-6 rounded-lg border border-border-soft/40 bg-background/30 p-4">
-          <p className="text-sm font-bold">Email nhận OTP</p>
+        <div className="mt-6 rounded-xl border border-border-soft/40 bg-background/30 p-4">
+          <p className="text-sm font-bold text-white">
+            {isEnglish ? 'Email to receive OTP' : 'Email nhận OTP'}
+          </p>
           <p className="mt-1 break-all text-sm text-subtle">{user?.email}</p>
 
           {!challenge ? (
@@ -322,10 +340,10 @@ function OrganizerTwoFactorGate({ user }) {
               type="button"
               onClick={sendOtp}
               disabled={sending}
-              className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-gradient-to-r from-indigo-500 to-violet-600 px-5 font-extrabold text-white shadow-lg shadow-indigo-900/20 transition hover:-translate-y-0.5 hover:from-indigo-400 hover:to-violet-500 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+              className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-5 font-extrabold text-[#0D1B2A] shadow-md shadow-[#C99A47]/20 transition hover:brightness-110 active:brightness-95 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
             >
-              {sending && <Loader2 className="size-4 animate-spin" />}
-              Gửi OTP và bật 2FA
+              {sending && <Loader2 className="size-4 animate-spin text-[#0D1B2A]" />}
+              {isEnglish ? 'Send OTP & enable 2FA' : 'Gửi OTP và bật 2FA'}
             </button>
           ) : (
             <div className="mt-4 space-y-3">
@@ -337,25 +355,27 @@ function OrganizerTwoFactorGate({ user }) {
                 value={otp}
                 onChange={(event) => setOtp(event.target.value.replace(/\D/g, '').slice(0, 6))}
                 onKeyDown={(event) => event.key === 'Enter' && enableTwoFactor()}
-                placeholder="Nhập mã OTP 6 số"
-                className="h-12 w-full rounded-md border border-border-soft/50 bg-background/40 px-4 text-center text-lg font-bold tracking-[0.35em] outline-none focus:border-primary focus:ring-4 focus:ring-primary/10"
+                placeholder={isEnglish ? 'Enter 6-digit OTP' : 'Nhập mã OTP 6 số'}
+                className="h-12 w-full rounded-xl border border-border-soft/50 bg-background/40 px-4 text-center text-lg font-bold tracking-[0.35em] text-white outline-none focus:border-primary focus:ring-4 focus:ring-primary/10"
               />
               <button
                 type="button"
                 onClick={enableTwoFactor}
                 disabled={verifying || otp.length !== 6}
-                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-gradient-to-r from-emerald-500 to-teal-600 px-5 font-extrabold text-white shadow-lg shadow-emerald-900/20 transition hover:-translate-y-0.5 hover:from-emerald-400 hover:to-teal-500 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-5 font-extrabold text-[#0D1B2A] shadow-md shadow-[#C99A47]/20 transition hover:brightness-110 active:brightness-95 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
               >
-                {verifying && <Loader2 className="size-4 animate-spin" />}
-                Xác nhận và vào hồ sơ
+                {verifying && <Loader2 className="size-4 animate-spin text-[#0D1B2A]" />}
+                {isEnglish ? 'Verify and view profile' : 'Xác nhận và vào hồ sơ'}
               </button>
               <button
                 type="button"
                 onClick={sendOtp}
                 disabled={sending || cooldown > 0}
-                className="min-h-10 w-full text-sm font-bold text-indigo-500 transition hover:text-violet-500 disabled:text-muted"
+                className="min-h-10 w-full text-sm font-bold text-[#C99A47] transition hover:text-[#E6C17A] hover:underline disabled:text-muted cursor-pointer"
               >
-                {cooldown > 0 ? `Gửi lại sau ${cooldown}s` : 'Gửi lại OTP'}
+                {cooldown > 0
+                  ? (isEnglish ? `Resend in ${cooldown}s` : `Gửi lại sau ${cooldown}s`)
+                  : (isEnglish ? 'Resend OTP' : 'Gửi lại OTP')}
               </button>
             </div>
           )}
@@ -366,6 +386,7 @@ function OrganizerTwoFactorGate({ user }) {
 }
 
 function SensitiveProfileAccessModal({ open, onClose, onVerified }) {
+  const { isEnglish } = useLanguage()
   const toast = useToast()
   const [challenge, setChallenge] = useState(null)
   const [otp, setOtp] = useState('')
@@ -387,9 +408,13 @@ function SensitiveProfileAccessModal({ open, onClose, onVerified }) {
       const data = await startOrganizerSensitiveAccess()
       setChallenge(data)
       setCooldown(60)
-      toast.success(`Mã OTP đã được gửi đến ${data.email || 'email tài khoản'}.`)
+      toast.success(
+        isEnglish
+          ? `OTP code sent to ${data.email || 'account email'}.`
+          : `Mã OTP đã được gửi đến ${data.email || 'email tài khoản'}.`
+      )
     } catch (err) {
-      toast.error(getApiMessage(err, 'Không thể gửi mã OTP.'))
+      toast.error(getApiMessage(err, isEnglish ? 'Failed to send OTP code.' : 'Không thể gửi mã OTP.'))
     } finally {
       setSending(false)
     }
@@ -400,13 +425,17 @@ function SensitiveProfileAccessModal({ open, onClose, onVerified }) {
     setVerifying(true)
     try {
       const data = await verifyOrganizerSensitiveAccess({ challengeId: challenge.challengeId, otp })
-      toast.success('Đã xác thực. Thông tin pháp lý được mở khóa trong 10 phút.')
+      toast.success(
+        isEnglish
+          ? 'Verified. Legal information unlocked for 10 minutes.'
+          : 'Đã xác thực. Thông tin pháp lý được mở khóa trong 10 phút.'
+      )
       setChallenge(null)
       setOtp('')
       setCooldown(0)
       onVerified(data)
     } catch (err) {
-      toast.error(getApiMessage(err, 'Mã OTP không hợp lệ hoặc đã hết hạn.'))
+      toast.error(getApiMessage(err, isEnglish ? 'Invalid or expired OTP code.' : 'Mã OTP không hợp lệ hoặc đã hết hạn.'))
     } finally {
       setVerifying(false)
     }
@@ -420,12 +449,14 @@ function SensitiveProfileAccessModal({ open, onClose, onVerified }) {
   }
 
   return (
-    <Modal open={open} title="Xác thực để xem thông tin pháp lý" onClose={closeModal} maxWidth="max-w-lg">
+    <Modal open={open} title={isEnglish ? 'Authenticate to view legal information' : 'Xác thực để xem thông tin pháp lý'} onClose={closeModal} maxWidth="max-w-lg">
       <div className="text-content">
-        <div className="flex gap-3 rounded-lg border border-warning/30 bg-warning/10 p-4">
-          <Lock className="mt-0.5 size-5 shrink-0 text-warning" />
+        <div className="flex gap-3 rounded-xl border border-[#C99A47]/30 bg-[#C99A47]/10 p-4">
+          <Lock className="mt-0.5 size-5 shrink-0 text-[#C99A47]" />
           <p className="text-sm leading-6 text-subtle">
-            Thông tin pháp lý và tài liệu xác minh chỉ hiển thị sau khi bạn nhập OTP gửi về email tài khoản.
+            {isEnglish
+              ? 'Legal information and verification documents are only displayed after you enter the OTP sent to your account email.'
+              : 'Thông tin pháp lý và tài liệu xác minh chỉ hiển thị sau khi bạn nhập OTP gửi về email tài khoản.'}
           </p>
         </div>
 
@@ -434,14 +465,16 @@ function SensitiveProfileAccessModal({ open, onClose, onVerified }) {
             type="button"
             onClick={sendOtp}
             disabled={sending}
-            className="mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-gradient-to-r from-indigo-500 to-violet-600 px-5 font-extrabold text-white shadow-lg shadow-indigo-900/20 transition hover:-translate-y-0.5 hover:from-indigo-400 hover:to-violet-500 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+            className="mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-5 font-extrabold text-[#0D1B2A] shadow-md shadow-[#C99A47]/20 transition hover:brightness-110 active:brightness-95 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
           >
-            {sending && <Loader2 className="size-4 animate-spin" />}
-            Gửi mã OTP qua email
+            {sending && <Loader2 className="size-4 animate-spin text-[#0D1B2A]" />}
+            {isEnglish ? 'Send OTP code via email' : 'Gửi mã OTP qua email'}
           </button>
         ) : (
           <div className="mt-5 space-y-3">
-            <p className="text-sm text-subtle">Mã đã gửi đến <strong className="text-content">{challenge.email}</strong>.</p>
+            <p className="text-sm text-subtle">
+              {isEnglish ? <>Code sent to <strong className="text-content">{challenge.email}</strong>.</> : <>Mã đã gửi đến <strong className="text-content">{challenge.email}</strong>.</>}
+            </p>
             <input
               type="text"
               inputMode="numeric"
@@ -450,25 +483,25 @@ function SensitiveProfileAccessModal({ open, onClose, onVerified }) {
               value={otp}
               onChange={(event) => setOtp(event.target.value.replace(/\D/g, '').slice(0, 6))}
               onKeyDown={(event) => event.key === 'Enter' && verifyOtp()}
-              placeholder="Nhập mã OTP 6 số"
-              className="h-12 w-full rounded-md border border-border-soft/50 bg-background/40 px-4 text-center text-lg font-bold tracking-[0.35em] outline-none focus:border-primary focus:ring-4 focus:ring-primary/10"
+              placeholder={isEnglish ? 'Enter 6-digit OTP' : 'Nhập mã OTP 6 số'}
+              className="h-12 w-full rounded-xl border border-border-soft/50 bg-background/40 px-4 text-center text-lg font-bold tracking-[0.35em] text-white outline-none focus:border-primary focus:ring-4 focus:ring-primary/10"
             />
             <button
               type="button"
               onClick={verifyOtp}
               disabled={verifying || otp.length !== 6}
-              className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-gradient-to-r from-emerald-500 to-teal-600 px-5 font-extrabold text-white shadow-lg shadow-emerald-900/20 transition hover:-translate-y-0.5 hover:from-emerald-400 hover:to-teal-500 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+              className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-5 font-extrabold text-[#0D1B2A] shadow-md shadow-[#C99A47]/20 transition hover:brightness-110 active:brightness-95 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
             >
-              {verifying && <Loader2 className="size-4 animate-spin" />}
-              Xác thực và xem thông tin
+              {verifying && <Loader2 className="size-4 animate-spin text-[#0D1B2A]" />}
+              {isEnglish ? 'Verify and view information' : 'Xác thực và xem thông tin'}
             </button>
             <button
               type="button"
               onClick={sendOtp}
               disabled={sending || cooldown > 0}
-              className="min-h-10 w-full text-sm font-bold text-indigo-500 transition hover:text-violet-500 disabled:text-muted"
+              className="min-h-10 w-full text-sm font-bold text-[#C99A47] transition hover:text-[#E6C17A] hover:underline disabled:text-muted cursor-pointer"
             >
-              {cooldown > 0 ? `Gửi lại sau ${cooldown}s` : 'Gửi lại OTP'}
+              {cooldown > 0 ? (isEnglish ? `Resend in ${cooldown}s` : `Gửi lại sau ${cooldown}s`) : (isEnglish ? 'Resend OTP' : 'Gửi lại OTP')}
             </button>
           </div>
         )}
@@ -478,6 +511,7 @@ function SensitiveProfileAccessModal({ open, onClose, onVerified }) {
 }
 
 function OrganizerProfileView({ user, organizer, isLoading, error, onRetry, onSensitiveAccessGranted }) {
+  const { isEnglish } = useLanguage()
   const queryClient = useQueryClient()
   const toast = useToast()
   const [openSections, setOpenSections] = useState(() => new Set())
@@ -486,12 +520,16 @@ function OrganizerProfileView({ user, organizer, isLoading, error, onRetry, onSe
   const profileUpdateMutation = useMutation({
     mutationFn: submitOrganizerProfileUpdateRequest,
     onSuccess: () => {
-      toast.success('Đã gửi yêu cầu cập nhật hồ sơ xác minh. Vui lòng chờ admin duyệt.')
+      toast.success(
+        isEnglish
+          ? 'Verification profile update request submitted. Awaiting admin review.'
+          : 'Đã gửi yêu cầu cập nhật hồ sơ xác minh. Vui lòng chờ admin duyệt.'
+      )
       setVerificationModalOpen(false)
       queryClient.invalidateQueries({ queryKey: ['organizer-profile'] })
     },
     onError: (err) => {
-      toast.error(getApiMessage(err, 'Không thể gửi yêu cầu cập nhật hồ sơ xác minh.'))
+      toast.error(getApiMessage(err, isEnglish ? 'Failed to submit profile update request.' : 'Không thể gửi yêu cầu cập nhật hồ sơ xác minh.'))
     },
   })
 
@@ -499,7 +537,7 @@ function OrganizerProfileView({ user, organizer, isLoading, error, onRetry, onSe
     return (
       <div className="flex min-h-[320px] flex-col items-center justify-center gap-3 rounded-lg border border-border-soft/50 bg-surface p-6 shadow-sm">
         <Loader2 className="size-8 animate-spin text-primary" />
-        <p className="text-muted">Đang tải thông tin nhà tổ chức...</p>
+        <p className="text-muted">{isEnglish ? 'Loading organizer information...' : 'Đang tải thông tin nhà tổ chức...'}</p>
       </div>
     )
   }
@@ -508,10 +546,12 @@ function OrganizerProfileView({ user, organizer, isLoading, error, onRetry, onSe
     return (
       <div className="rounded-lg border border-border-soft/50 bg-surface p-6 text-center shadow-sm">
         <AlertCircle className="mx-auto size-10 text-error" />
-        <h2 className="mt-3 font-display text-2xl font-bold text-content">Không thể tải hồ sơ nhà tổ chức</h2>
-        <p className="mt-2 text-muted">{error?.response?.data?.message || 'Vui lòng thử lại sau.'}</p>
-        <button onClick={onRetry} className="mt-5 rounded-md bg-primary px-5 py-3 font-bold text-white transition hover:bg-primary/90">
-          Tải lại
+        <h2 className="mt-3 font-display text-2xl font-bold text-content">
+          {isEnglish ? 'Failed to load organizer profile' : 'Không thể tải hồ sơ nhà tổ chức'}
+        </h2>
+        <p className="mt-2 text-muted">{error?.response?.data?.message || (isEnglish ? 'Please try again later.' : 'Vui lòng thử lại sau.')}</p>
+        <button onClick={onRetry} className="mt-5 rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-5 py-3 font-extrabold text-[#0D1B2A] shadow-md shadow-[#C99A47]/20 transition hover:brightness-110 cursor-pointer">
+          {isEnglish ? 'Retry' : 'Tải lại'}
         </button>
       </div>
     )
@@ -563,7 +603,7 @@ function OrganizerProfileView({ user, organizer, isLoading, error, onRetry, onSe
           <ProfileAvatar
             sources={[avatarUrl, user.avatar_url]}
             name={displayName}
-            alt={displayName || 'Ảnh đại diện nhà tổ chức'}
+            alt={displayName || (isEnglish ? 'Organizer Avatar' : 'Ảnh đại diện nhà tổ chức')}
             className="organizer-profile-avatar size-28 text-5xl sm:size-32"
             fallbackClassName="bg-gradient-to-br from-fuchsia-500 to-purple-700 text-white ring-4 ring-sky-400/25"
           />
@@ -584,39 +624,39 @@ function OrganizerProfileView({ user, organizer, isLoading, error, onRetry, onSe
 
         <AccordionSection
           id="overview"
-          title="Thông tin tổng quan"
+          title={isEnglish ? 'Overview Information' : 'Thông tin tổng quan'}
           icon={InfoIcon}
           isOpen={openSections.has('overview')}
           onToggle={toggleSection}
         >
           <div className="organizer-info-grid organizer-info-grid-3">
-            <Info icon={isPersonal ? UserCircle : Building2} label="Tên cá nhân/tổ chức" value={displayName} />
-            <Info icon={Users} label="Loại nhà tổ chức" value={organizerTypeLabel(type)} />
-            <Info icon={ShieldCheck} label="Trạng thái xác minh" value={requestStatusLabel(request.status || organizer?.status)} />
+            <Info icon={isPersonal ? UserCircle : Building2} label={isEnglish ? 'Individual/Organization Name' : 'Tên cá nhân/tổ chức'} value={displayName} />
+            <Info icon={Users} label={isEnglish ? 'Organizer Type' : 'Loại nhà tổ chức'} value={organizerTypeLabel(type)} />
+            <Info icon={ShieldCheck} label={isEnglish ? 'Verification Status' : 'Trạng thái xác minh'} value={requestStatusLabel(request.status || organizer?.status)} />
           </div>
           <div className="organizer-info-description border-t">
-            <Info icon={FileText} label="Mô tả/giới thiệu" value={description} multiline />
+            <Info icon={FileText} label={isEnglish ? 'Description / Introduction' : 'Mô tả/giới thiệu'} value={description} multiline />
           </div>
         </AccordionSection>
 
         <AccordionSection
           id="public"
-          title="Thông tin liên hệ"
+          title={isEnglish ? 'Contact Information' : 'Thông tin liên hệ'}
           icon={Phone}
           isOpen={openSections.has('public')}
           onToggle={toggleSection}
         >
           <div className="organizer-info-grid organizer-info-grid-3">
-            <Info icon={Mail} label="Email" value={firstValue(businessEmail, user.email)} linkType="email" />
-            <Info icon={Phone} label="Số điện thoại" value={phone} />
-            <Info icon={MapPin} label="Địa chỉ" value={address} />
-            <Info icon={ImageIcon} label="Trang web/mạng xã hội" value={firstValue(organizer?.website_url, organizer?.social_url)} linkType="url" />
+            <Info icon={Mail} label={isEnglish ? 'Email' : 'Email'} value={firstValue(businessEmail, user.email)} linkType="email" />
+            <Info icon={Phone} label={isEnglish ? 'Phone Number' : 'Số điện thoại'} value={phone} />
+            <Info icon={MapPin} label={isEnglish ? 'Address' : 'Địa chỉ'} value={address} />
+            <Info icon={ImageIcon} label={isEnglish ? 'Website / Social Media' : 'Trang web/mạng xã hội'} value={firstValue(organizer?.website_url, organizer?.social_url)} linkType="url" />
           </div>
         </AccordionSection>
 
         <AccordionSection
           id="legal"
-          title="Thông tin pháp lý và xác minh"
+          title={isEnglish ? 'Legal & Verification Information' : 'Thông tin pháp lý và xác minh'}
           icon={IdCard}
           isOpen={openSections.has('legal')}
           onToggle={toggleSection}
@@ -629,15 +669,15 @@ function OrganizerProfileView({ user, organizer, isLoading, error, onRetry, onSe
           <div className="organizer-info-grid organizer-info-grid-3">
             {isPersonal ? (
               <>
-                <Info icon={UserCircle} label="Họ tên pháp lý" value={organizer?.individual_full_name} />
-                <Info icon={IdCard} label="Số CCCD/Hộ chiếu" value={organizer?.individual_identity_number} />
-                <Info icon={IdCard} label="Mã số thuế cá nhân" value={organizer?.individual_tax_code} />
+                <Info icon={UserCircle} label={isEnglish ? 'Legal Full Name' : 'Họ tên pháp lý'} value={organizer?.individual_full_name} />
+                <Info icon={IdCard} label={isEnglish ? 'Citizen ID / Passport No.' : 'Số CCCD/Hộ chiếu'} value={organizer?.individual_identity_number} />
+                <Info icon={IdCard} label={isEnglish ? 'Personal Tax Code' : 'Mã số thuế cá nhân'} value={organizer?.individual_tax_code} />
               </>
             ) : (
               <>
-                <Info icon={UserCircle} label="Người đại diện pháp luật" value={organizer?.legal_representative_name} />
-                <Info icon={BriefcaseBusiness} label="Chức vụ người đại diện" value={organizer?.legal_representative_position} />
-                <Info icon={IdCard} label="Mã số thuế" value={organizer?.tax_code} />
+                <Info icon={UserCircle} label={isEnglish ? 'Legal Representative' : 'Người đại diện pháp luật'} value={organizer?.legal_representative_name} />
+                <Info icon={BriefcaseBusiness} label={isEnglish ? 'Representative Position' : 'Chức vụ người đại diện'} value={organizer?.legal_representative_position} />
+                <Info icon={IdCard} label={isEnglish ? 'Tax Code' : 'Mã số thuế'} value={organizer?.tax_code} />
               </>
             )}
           </div>
@@ -645,7 +685,7 @@ function OrganizerProfileView({ user, organizer, isLoading, error, onRetry, onSe
 
         <AccordionSection
           id="documents"
-          title="Hồ sơ xác minh"
+          title={isEnglish ? 'Verification Documents' : 'Hồ sơ xác minh'}
           icon={FileCheck2}
           isOpen={openSections.has('documents')}
           onToggle={toggleSection}
@@ -658,16 +698,16 @@ function OrganizerProfileView({ user, organizer, isLoading, error, onRetry, onSe
           <div className="organizer-document-list">
             {isPersonal ? (
               <>
-                <DocumentCard label="Ảnh CCCD mặt trước" url={organizer?.individual_id_front_url} uploadedAt={organizer?.updated_at || request.created_at} />
-                <DocumentCard label="Ảnh CCCD mặt sau" url={organizer?.individual_id_back_url} uploadedAt={organizer?.updated_at || request.created_at} />
-                <DocumentCard label="Ảnh chân dung/tự chụp" url={organizer?.individual_selfie_url} uploadedAt={organizer?.updated_at || request.created_at} />
+                <DocumentCard label={isEnglish ? 'Citizen ID (Front)' : 'Ảnh CCCD mặt trước'} url={organizer?.individual_id_front_url} uploadedAt={organizer?.updated_at || request.created_at} />
+                <DocumentCard label={isEnglish ? 'Citizen ID (Back)' : 'Ảnh CCCD mặt sau'} url={organizer?.individual_id_back_url} uploadedAt={organizer?.updated_at || request.created_at} />
+                <DocumentCard label={isEnglish ? 'Portrait / Selfie Photo' : 'Ảnh chân dung/tự chụp'} url={organizer?.individual_selfie_url} uploadedAt={organizer?.updated_at || request.created_at} />
               </>
             ) : (
               <>
-                <DocumentCard label="Giấy chứng nhận đăng ký doanh nghiệp" url={organizer?.legal_document_url} uploadedAt={organizer?.updated_at || request.created_at} />
-                <DocumentCard label="Giấy phép kinh doanh đặc thù" url={organizer?.business_license_url} uploadedAt={organizer?.updated_at || request.created_at} />
-                <DocumentCard label="Giấy tờ tùy thân người đại diện" url={organizer?.legal_representative_id_url} uploadedAt={organizer?.updated_at || request.created_at} />
-                <DocumentCard label="Giấy ủy quyền" url={organizer?.authorization_letter_url} uploadedAt={organizer?.updated_at || request.created_at} />
+                <DocumentCard label={isEnglish ? 'Business Registration Certificate' : 'Giấy chứng nhận đăng ký doanh nghiệp'} url={organizer?.legal_document_url} uploadedAt={organizer?.updated_at || request.created_at} />
+                <DocumentCard label={isEnglish ? 'Specialized Business License' : 'Giấy phép kinh doanh đặc thù'} url={organizer?.business_license_url} uploadedAt={organizer?.updated_at || request.created_at} />
+                <DocumentCard label={isEnglish ? "Representative's ID Document" : 'Giấy tờ tùy thân người đại diện'} url={organizer?.legal_representative_id_url} uploadedAt={organizer?.updated_at || request.created_at} />
+                <DocumentCard label={isEnglish ? 'Letter of Authorization' : 'Giấy ủy quyền'} url={organizer?.authorization_letter_url} uploadedAt={organizer?.updated_at || request.created_at} />
               </>
             )}
           </div>
@@ -675,23 +715,25 @@ function OrganizerProfileView({ user, organizer, isLoading, error, onRetry, onSe
 
         <AccordionSection
           id="commitment"
-          title="Cam kết và điều khoản"
+          title={isEnglish ? 'Commitment and Terms' : 'Cam kết và điều khoản'}
           icon={CheckCircle2}
           isOpen={openSections.has('commitment')}
           onToggle={toggleSection}
         >
           <div className="organizer-info-grid organizer-info-grid-3">
-            <Info icon={CheckCircle2} label="Trạng thái cam kết pháp lý/điều khoản" value={booleanLabel(firstDefined(request.terms_accepted, organizer?.terms_accepted))} />
-            <Info icon={Clock} label="Thời gian gửi yêu cầu" value={formatDateTime(request.created_at)} />
+            <Info icon={CheckCircle2} label={isEnglish ? 'Legal Commitment/Terms Status' : 'Trạng thái cam kết pháp lý/điều khoản'} value={booleanLabel(firstDefined(request.terms_accepted, organizer?.terms_accepted))} />
+            <Info icon={Clock} label={isEnglish ? 'Submission Time' : 'Thời gian gửi yêu cầu'} value={formatDateTime(request.created_at)} />
             <Info
               icon={ShieldCheck}
-              label="Xác thực email tổ chức"
+              label={isEnglish ? 'Organization Email Verification' : 'Xác thực email tổ chức'}
               value={emailVerificationLabel(request.business_email_verified, request.business_email_verified_at)}
             />
             <Info
               icon={FileCheck2}
-              label="Nội dung cam kết"
-              value="Nhà tổ chức đã xác nhận thông tin cung cấp là chính xác và đồng ý với điều khoản dịch vụ dành cho nhà tổ chức, quy chế sự kiện, quy chế bán vé và chính sách hoàn tiền của EventHub."
+              label={isEnglish ? 'Commitment Content' : 'Nội dung cam kết'}
+              value={isEnglish
+                ? 'The organizer confirms that the information provided is accurate and agrees to EventHub terms of service for organizers, event regulations, ticketing regulations, and refund policies.'
+                : 'Nhà tổ chức đã xác nhận thông tin cung cấp là chính xác và đồng ý với điều khoản dịch vụ dành cho nhà tổ chức, quy chế sự kiện, quy chế bán vé và chính sách hoàn tiền của EventHub.'}
               className="md:col-span-2"
               multiline
             />
@@ -700,7 +742,7 @@ function OrganizerProfileView({ user, organizer, isLoading, error, onRetry, onSe
 
         <AccordionSection
           id="history"
-          title="Lịch sử xét duyệt"
+          title={isEnglish ? 'Approval History' : 'Lịch sử xét duyệt'}
           icon={History}
           isOpen={openSections.has('history')}
           onToggle={toggleSection}
@@ -710,7 +752,7 @@ function OrganizerProfileView({ user, organizer, isLoading, error, onRetry, onSe
               history.map((item, index) => <ReviewHistoryCard key={item.id || index} request={item} index={index} />)
             ) : (
               <div className="organizer-history-card rounded-lg border p-4 text-sm font-semibold">
-                <span className="organizer-info-empty">Chưa cập nhật</span>
+                <span className="organizer-info-empty">{isEnglish ? 'No history recorded' : 'Chưa cập nhật'}</span>
               </div>
             )}
           </div>
@@ -728,7 +770,7 @@ function OrganizerProfileView({ user, organizer, isLoading, error, onRetry, onSe
 
       <Modal
         open={verificationModalOpen}
-        title="Yêu cầu cập nhật hồ sơ xác minh"
+        title={isEnglish ? 'Request Verification Profile Update' : 'Yêu cầu cập nhật hồ sơ xác minh'}
         onClose={() => setVerificationModalOpen(false)}
         maxWidth="max-w-4xl"
       >
@@ -747,26 +789,29 @@ function OrganizerProfileView({ user, organizer, isLoading, error, onRetry, onSe
 }
 
 function VerificationUpdateHeader({ pending, onOpen }) {
+  const { isEnglish } = useLanguage()
   return (
     <div className="mb-4 flex flex-col gap-3 rounded-lg border border-border-soft/40 bg-panel-soft p-4 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <p className="text-sm font-bold text-content">
-          {pending ? 'Yêu cầu cập nhật đang chờ admin duyệt' : 'Thông tin này chỉ thay đổi sau khi admin duyệt'}
+          {pending
+            ? (isEnglish ? 'Update request is pending admin approval' : 'Yêu cầu cập nhật đang chờ admin duyệt')
+            : (isEnglish ? 'This information can only be changed after admin approval' : 'Thông tin này chỉ thay đổi sau khi admin duyệt')}
         </p>
         <p className="mt-1 text-sm text-subtle">
           {pending
-            ? `Nội dung chờ duyệt: ${valueOrEmpty(pending.change_summary)}`
-            : 'Bạn có thể gửi yêu cầu cập nhật hồ sơ pháp lý và hồ sơ xác minh tại đây.'}
+            ? (isEnglish ? `Pending content: ${valueOrEmpty(pending.change_summary)}` : `Nội dung chờ duyệt: ${valueOrEmpty(pending.change_summary)}`)
+            : (isEnglish ? 'You can submit requests to update legal information and verification documents here.' : 'Bạn có thể gửi yêu cầu cập nhật hồ sơ pháp lý và hồ sơ xác minh tại đây.')}
         </p>
       </div>
       <button
         type="button"
         onClick={onOpen}
         disabled={Boolean(pending)}
-        className="inline-flex items-center justify-center gap-2 rounded-md border border-sky-300/40 bg-gradient-to-r from-sky-500 to-indigo-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-sky-900/20 transition-all hover:-translate-y-0.5 hover:from-sky-400 hover:to-indigo-500 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+        className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-4 py-2.5 text-sm font-extrabold text-[#0D1B2A] shadow-md shadow-[#C99A47]/20 transition hover:brightness-110 active:brightness-95 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
       >
         <Pencil className="size-4" />
-        Yêu cầu cập nhật
+        {isEnglish ? 'Request update' : 'Yêu cầu cập nhật'}
       </button>
     </div>
   )
@@ -781,6 +826,7 @@ function OrganizerVerificationUpdateForm({
   onCancel,
   onSubmit,
 }) {
+  const { isEnglish } = useLanguage()
   const toast = useToast()
   const [form, setForm] = useState(() => ({
     individual_full_name: firstValue(organizer?.individual_full_name, request?.individual_full_name, ''),
@@ -858,7 +904,7 @@ function OrganizerVerificationUpdateForm({
         ...documentUrls,
       })
     } catch (err) {
-      toast.error(err.message || 'Không thể tải hồ sơ xác minh lên Cloudinary.')
+      toast.error(getApiMessage(err, isEnglish ? 'Unable to upload verification documents.' : 'Không thể tải hồ sơ xác minh lên Cloudinary.'))
     } finally {
       setIsUploadingDocuments(false)
     }
@@ -867,11 +913,11 @@ function OrganizerVerificationUpdateForm({
   if (pending) {
     return (
       <div className="rounded-lg border border-warning/30 bg-warning/10 p-5 text-content">
-        <p className="font-bold">Bạn đã có yêu cầu cập nhật đang chờ duyệt.</p>
-        <p className="mt-2 text-sm text-subtle">Nội dung chờ duyệt: {valueOrEmpty(pending.change_summary)}</p>
+        <p className="font-bold">{isEnglish ? 'You already have an update request pending approval.' : 'Bạn đã có yêu cầu cập nhật đang chờ duyệt.'}</p>
+        <p className="mt-2 text-sm text-subtle">{isEnglish ? 'Pending content:' : 'Nội dung chờ duyệt:'} {valueOrEmpty(pending.change_summary, isEnglish)}</p>
         <div className="mt-5 flex justify-end">
-          <button type="button" onClick={onCancel} className="admin-secondary px-5 py-3 text-content hover:bg-panel-soft">
-            Đóng
+          <button type="button" onClick={onCancel} className="admin-secondary px-5 py-3 text-content hover:bg-panel-soft cursor-pointer">
+            {isEnglish ? 'Close' : 'Đóng'}
           </button>
         </div>
       </div>
@@ -886,23 +932,23 @@ function OrganizerVerificationUpdateForm({
             <IdCard className="size-5" />
           </span>
           <div>
-            <h3 className="font-display text-xl font-bold text-content">Thông tin pháp lý</h3>
-            <p className="mt-1 text-sm text-subtle">Thông tin mới sẽ được gửi cho admin duyệt trước khi trở thành chính thức.</p>
+            <h3 className="font-display text-xl font-bold text-content">{isEnglish ? 'Legal Information' : 'Thông tin pháp lý'}</h3>
+            <p className="mt-1 text-sm text-subtle">{isEnglish ? 'New information will be sent to the admin for review before taking effect.' : 'Thông tin mới sẽ được gửi cho admin duyệt trước khi trở thành chính thức.'}</p>
           </div>
         </div>
 
         <div className="grid gap-5 md:grid-cols-2">
           {isPersonal ? (
             <>
-              <Input label="Họ tên pháp lý" value={form.individual_full_name} onChange={(event) => updateField('individual_full_name', event.target.value)} />
-              <Input label="Số CCCD/Hộ chiếu" value={form.individual_identity_number} onChange={(event) => updateField('individual_identity_number', event.target.value)} />
-              <Input label="Mã số thuế cá nhân" value={form.individual_tax_code} onChange={(event) => updateField('individual_tax_code', event.target.value)} />
+              <Input label={isEnglish ? 'Legal Full Name' : 'Họ tên pháp lý'} value={form.individual_full_name} onChange={(event) => updateField('individual_full_name', event.target.value)} />
+              <Input label={isEnglish ? 'Citizen ID / Passport Number' : 'Số CCCD/Hộ chiếu'} value={form.individual_identity_number} onChange={(event) => updateField('individual_identity_number', event.target.value)} />
+              <Input label={isEnglish ? 'Personal Tax Code' : 'Mã số thuế cá nhân'} value={form.individual_tax_code} onChange={(event) => updateField('individual_tax_code', event.target.value)} />
             </>
           ) : (
             <>
-              <Input label="Người đại diện pháp luật" value={form.legal_representative_name} onChange={(event) => updateField('legal_representative_name', event.target.value)} />
-              <Input label="Chức vụ người đại diện" value={form.legal_representative_position} onChange={(event) => updateField('legal_representative_position', event.target.value)} />
-              <Input label="Mã số thuế" value={form.tax_code} onChange={(event) => updateField('tax_code', event.target.value)} />
+              <Input label={isEnglish ? 'Legal Representative' : 'Người đại diện pháp luật'} value={form.legal_representative_name} onChange={(event) => updateField('legal_representative_name', event.target.value)} />
+              <Input label={isEnglish ? 'Representative Position' : 'Chức vụ người đại diện'} value={form.legal_representative_position} onChange={(event) => updateField('legal_representative_position', event.target.value)} />
+              <Input label={isEnglish ? 'Tax Code' : 'Mã số thuế'} value={form.tax_code} onChange={(event) => updateField('tax_code', event.target.value)} />
             </>
           )}
         </div>
@@ -913,34 +959,34 @@ function OrganizerVerificationUpdateForm({
           <span className="grid size-9 place-items-center rounded-lg bg-primary/10 text-primary">
             <FileCheck2 className="size-5" />
           </span>
-          <h3 className="font-display text-xl font-bold text-content">Hồ sơ xác minh</h3>
+          <h3 className="font-display text-xl font-bold text-content">{isEnglish ? 'Verification Documents' : 'Hồ sơ xác minh'}</h3>
         </div>
 
         <div className="grid gap-5 md:grid-cols-2">
           {isPersonal ? (
             <>
-              <DocumentUploadInput label="Ảnh CCCD mặt trước" file={selectedDocuments.individual_id_front_url} existingUrl={form.individual_id_front_url} imageOnly onChange={(file) => updateDocument('individual_id_front_url', file)} />
-              <DocumentUploadInput label="Ảnh CCCD mặt sau" file={selectedDocuments.individual_id_back_url} existingUrl={form.individual_id_back_url} imageOnly onChange={(file) => updateDocument('individual_id_back_url', file)} />
-              <DocumentUploadInput label="Ảnh chân dung/tự chụp" file={selectedDocuments.individual_selfie_url} existingUrl={form.individual_selfie_url} imageOnly onChange={(file) => updateDocument('individual_selfie_url', file)} />
+              <DocumentUploadInput label={isEnglish ? 'Front Citizen ID Photo' : 'Ảnh CCCD mặt trước'} file={selectedDocuments.individual_id_front_url} existingUrl={form.individual_id_front_url} imageOnly onChange={(file) => updateDocument('individual_id_front_url', file)} />
+              <DocumentUploadInput label={isEnglish ? 'Back Citizen ID Photo' : 'Ảnh CCCD mặt sau'} file={selectedDocuments.individual_id_back_url} existingUrl={form.individual_id_back_url} imageOnly onChange={(file) => updateDocument('individual_id_back_url', file)} />
+              <DocumentUploadInput label={isEnglish ? 'Portrait / Selfie Photo' : 'Ảnh chân dung/tự chụp'} file={selectedDocuments.individual_selfie_url} existingUrl={form.individual_selfie_url} imageOnly onChange={(file) => updateDocument('individual_selfie_url', file)} />
             </>
           ) : (
             <>
-              <DocumentUploadInput label="Giấy chứng nhận đăng ký doanh nghiệp" file={selectedDocuments.legal_document_url} existingUrl={form.legal_document_url} onChange={(file) => updateDocument('legal_document_url', file)} />
-              <DocumentUploadInput label="Giấy phép kinh doanh đặc thù" file={selectedDocuments.business_license_url} existingUrl={form.business_license_url} onChange={(file) => updateDocument('business_license_url', file)} />
-              <DocumentUploadInput label="Giấy tờ tùy thân người đại diện" file={selectedDocuments.legal_representative_id_url} existingUrl={form.legal_representative_id_url} imageOnly onChange={(file) => updateDocument('legal_representative_id_url', file)} />
-              <DocumentUploadInput label="Giấy ủy quyền" file={selectedDocuments.authorization_letter_url} existingUrl={form.authorization_letter_url} onChange={(file) => updateDocument('authorization_letter_url', file)} />
+              <DocumentUploadInput label={isEnglish ? 'Business Registration Certificate' : 'Giấy chứng nhận đăng ký doanh nghiệp'} file={selectedDocuments.legal_document_url} existingUrl={form.legal_document_url} onChange={(file) => updateDocument('legal_document_url', file)} />
+              <DocumentUploadInput label={isEnglish ? 'Specialized Business License' : 'Giấy phép kinh doanh đặc thù'} file={selectedDocuments.business_license_url} existingUrl={form.business_license_url} onChange={(file) => updateDocument('business_license_url', file)} />
+              <DocumentUploadInput label={isEnglish ? 'Representative Identity Document' : 'Giấy tờ tùy thân người đại diện'} file={selectedDocuments.legal_representative_id_url} existingUrl={form.legal_representative_id_url} imageOnly onChange={(file) => updateDocument('legal_representative_id_url', file)} />
+              <DocumentUploadInput label={isEnglish ? 'Power of Attorney' : 'Giấy ủy quyền'} file={selectedDocuments.authorization_letter_url} existingUrl={form.authorization_letter_url} onChange={(file) => updateDocument('authorization_letter_url', file)} />
             </>
           )}
         </div>
       </div>
 
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-        <button type="button" onClick={onCancel} className="admin-secondary px-5 py-3 text-content hover:bg-panel-soft" disabled={isSubmitting || isUploadingDocuments}>
-          Hủy
+        <button type="button" onClick={onCancel} className="admin-secondary px-5 py-3 text-content hover:bg-panel-soft cursor-pointer" disabled={isSubmitting || isUploadingDocuments}>
+          {isEnglish ? 'Cancel' : 'Hủy'}
         </button>
-        <button type="submit" disabled={isSubmitting || isUploadingDocuments} className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-6 py-3 font-bold text-white transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70">
-          {isSubmitting || isUploadingDocuments ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
-          {isUploadingDocuments ? 'Đang tải file...' : isSubmitting ? 'Đang gửi...' : 'Gửi yêu cầu duyệt'}
+        <button type="submit" disabled={isSubmitting || isUploadingDocuments} className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-6 py-3 font-extrabold text-[#0D1B2A] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70 cursor-pointer shadow-md shadow-[#C99A47]/20">
+          {isSubmitting || isUploadingDocuments ? <Loader2 className="size-4 animate-spin text-[#0D1B2A]" /> : <Save className="size-4" />}
+          {isUploadingDocuments ? (isEnglish ? 'Uploading file...' : 'Đang tải file...') : isSubmitting ? (isEnglish ? 'Sending...' : 'Đang gửi...') : (isEnglish ? 'Submit for Review' : 'Gửi yêu cầu duyệt')}
         </button>
       </div>
     </form>
@@ -948,6 +994,7 @@ function OrganizerVerificationUpdateForm({
 }
 
 function DocumentUploadInput({ label, file, existingUrl, imageOnly = false, onChange }) {
+  const { isEnglish } = useLanguage()
   const previewUrl = useMemo(
     () => (file?.type?.startsWith('image/') ? URL.createObjectURL(file) : ''),
     [file],
@@ -969,7 +1016,7 @@ function DocumentUploadInput({ label, file, existingUrl, imageOnly = false, onCh
           <img src={preview} alt={file?.name || label} className="mb-3 h-40 w-full rounded-md border border-border-soft/50 object-cover" />
         ) : (
           <div className="mb-3 grid h-40 place-items-center rounded-md border border-dashed border-border-soft/60 bg-panel-soft px-3 text-center text-sm font-semibold text-subtle">
-            {file?.name || (hasExisting ? 'Đã có file hồ sơ' : 'Chưa chọn file')}
+            {file?.name || (hasExisting ? (isEnglish ? 'Existing document on file' : 'Đã có file hồ sơ') : (isEnglish ? 'No file selected' : 'Chưa chọn file'))}
           </div>
         )}
         <div className="flex flex-col gap-2 sm:flex-row">
@@ -983,14 +1030,16 @@ function DocumentUploadInput({ label, file, existingUrl, imageOnly = false, onCh
             <button
               type="button"
               onClick={() => onChange(null)}
-              className="rounded-md border border-border-soft/50 px-3 py-2 text-sm font-bold text-content transition hover:bg-panel-soft"
+              className="rounded-md border border-border-soft/50 px-3 py-2 text-sm font-bold text-content transition hover:bg-panel-soft cursor-pointer"
             >
-              Bỏ chọn
+              {isEnglish ? 'Deselect' : 'Bỏ chọn'}
             </button>
           )}
         </div>
         <p className="mt-2 text-xs text-subtle">
-          {imageOnly ? 'Chọn ảnh JPG, PNG hoặc WEBP.' : 'Chọn PDF, DOCX hoặc ảnh JPG/PNG/WEBP.'}
+          {imageOnly
+            ? (isEnglish ? 'Choose JPG, PNG or WEBP image.' : 'Chọn ảnh JPG, PNG hoặc WEBP.')
+            : (isEnglish ? 'Choose PDF, DOCX or JPG/PNG/WEBP image.' : 'Chọn PDF, DOCX hoặc ảnh JPG/PNG/WEBP.')}
         </p>
       </div>
     </label>
@@ -998,6 +1047,7 @@ function DocumentUploadInput({ label, file, existingUrl, imageOnly = false, onCh
 }
 
 function AccordionSection({ id, title, icon: Icon, isOpen, onToggle, locked = false, children }) {
+  const { isEnglish } = useLanguage()
   return (
     <section className="organizer-profile-panel overflow-hidden rounded-lg border">
       <button
@@ -1013,7 +1063,7 @@ function AccordionSection({ id, title, icon: Icon, isOpen, onToggle, locked = fa
         {locked ? (
           <span className="inline-flex shrink-0 items-center gap-2 text-xs font-bold text-warning">
             <Lock className="size-4" />
-            Xác thực OTP để xem
+            {isEnglish ? 'Verify OTP to view' : 'Xác thực OTP để xem'}
           </span>
         ) : (
           <ChevronDown className={`organizer-panel-chevron size-5 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
@@ -1039,7 +1089,7 @@ function getInitialFormData(user) {
 }
 
 function ProfileView({ user, tickets = [], ticketsLoading = false, favorites = [], favoritesLoading = false, onChangePassword }) {
-  const { language, setLanguage, isVietnamese, t } = useLanguage()
+  const { language, setLanguage, isVietnamese, isEnglish, t } = useLanguage()
   const [isEditing, setIsEditing] = useState(false)
   const [formData, setFormData] = useState(() => getInitialFormData(user))
   const [errors, setErrors] = useState({})
@@ -1056,15 +1106,15 @@ function ProfileView({ user, tickets = [], ticketsLoading = false, favorites = [
       .filter(Boolean)
       .map(String),
   )
-  const displayName = valueOrEmpty(isEditing ? (formData.full_name || user?.full_name) : (user?.full_name || user?.email))
-  const joinedDate = formatDate(user?.created_at || user?.createdAt)
-  const roleText = roleLabel(user?.roles || user?.role)
+  const displayName = valueOrEmpty(isEditing ? (formData.full_name || user?.full_name) : (user?.full_name || user?.email), null, isEnglish)
+  const joinedDate = formatDate(user?.created_at || user?.createdAt, isEnglish)
+  const roleText = roleLabel(user?.roles || user?.role, isEnglish)
 
   const handleAvatarChange = (e) => {
     const file = e.target.files?.[0]
     if (file) {
       if (!file.type.startsWith('image/')) {
-        toast.error('Vui lòng chọn tệp ảnh hợp lệ (JPG, PNG).')
+        toast.error(isEnglish ? 'Please select a valid image file (JPG, PNG).' : 'Vui lòng chọn tệp ảnh hợp lệ (JPG, PNG).')
         return
       }
       setSelectedAvatarFile(file)
@@ -1092,12 +1142,12 @@ function ProfileView({ user, tickets = [], ticketsLoading = false, favorites = [
     e?.preventDefault()
     const newErrors = {}
     if (!formData.full_name.trim()) {
-      newErrors.full_name = 'Vui lòng nhập họ và tên.'
+      newErrors.full_name = isEnglish ? 'Please enter full name.' : 'Vui lòng nhập họ và tên.'
     }
     if (formData.phone.trim()) {
       const phoneRegex = /^(0|\+84)(3|5|7|8|9)[0-9]{8}$/
       if (!phoneRegex.test(formData.phone)) {
-        newErrors.phone = 'Số điện thoại không đúng định dạng Việt Nam.'
+        newErrors.phone = isEnglish ? 'Invalid Vietnam phone number format.' : 'Số điện thoại không đúng định dạng Việt Nam.'
       }
     }
     if (Object.keys(newErrors).length > 0) {
@@ -1125,12 +1175,12 @@ function ProfileView({ user, tickets = [], ticketsLoading = false, favorites = [
       const updatedUser = await updateProfile(userPayload)
       updateStoredUser(updatedUser)
       await queryClient.invalidateQueries({ queryKey: ['profile'] })
-      toast.success('Cập nhật hồ sơ thành công.')
+      toast.success(isEnglish ? 'Profile updated successfully.' : 'Cập nhật hồ sơ thành công.')
       setIsEditing(false)
       setSelectedAvatarFile(null)
       setPreviewAvatar(null)
     } catch (err) {
-      toast.error(getApiMessage(err, 'Không thể cập nhật hồ sơ.'))
+      toast.error(getApiMessage(err, isEnglish ? 'Could not update profile.' : 'Không thể cập nhật hồ sơ.'))
     } finally {
       setIsSubmitting(false)
     }
@@ -1147,8 +1197,8 @@ function ProfileView({ user, tickets = [], ticketsLoading = false, favorites = [
             <div className="relative mx-auto size-32 shrink-0 sm:mx-0 sm:size-36">
               <ProfileAvatar
                 sources={previewAvatar || user?.avatar_url}
-                name={formData.full_name || user?.full_name || user?.email || 'Khách hàng'}
-                alt="Ảnh đại diện khách hàng"
+                name={formData.full_name || user?.full_name || user?.email || (isEnglish ? 'Customer' : 'Khách hàng')}
+                alt={isEnglish ? 'Customer avatar' : 'Ảnh đại diện khách hàng'}
                 className="size-full ring-4 ring-sky-400/30 shadow-2xl"
                 fallbackClassName="bg-gradient-to-br from-fuchsia-600 to-purple-700 text-5xl text-white ring-4 ring-sky-400/30"
                 fallback="KH"
@@ -1156,7 +1206,7 @@ function ProfileView({ user, tickets = [], ticketsLoading = false, favorites = [
               {isEditing && (
                 <label
                   className="absolute bottom-0 right-0 grid size-10 cursor-pointer place-items-center rounded-full bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-lg transition-transform hover:scale-110 active:scale-95"
-                  title="Thay đổi ảnh đại diện"
+                  title={isEnglish ? 'Change avatar' : 'Thay đổi ảnh đại diện'}
                 >
                   <Camera className="size-5" />
                   <input type="file" className="hidden" accept="image/*" onChange={handleAvatarChange} />
@@ -1175,7 +1225,7 @@ function ProfileView({ user, tickets = [], ticketsLoading = false, favorites = [
               </div>
               <div className="mt-3 flex items-center justify-center gap-2 text-sm font-medium text-slate-300 sm:justify-start">
                 <Calendar className="size-4 text-slate-300" />
-                <span>Tham gia ngày {joinedDate}</span>
+                <span>{isEnglish ? `Joined on ${joinedDate}` : `Tham gia ngày ${joinedDate}`}</span>
               </div>
             </div>
           </div>
@@ -1190,7 +1240,7 @@ function ProfileView({ user, tickets = [], ticketsLoading = false, favorites = [
                   style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)' }}
                 >
                   <Pencil className="size-4" />
-                  Chỉnh sửa hồ sơ
+                  {isEnglish ? 'Edit Profile' : 'Chỉnh sửa hồ sơ'}
                 </button>
                 <button
                   type="button"
@@ -1198,7 +1248,7 @@ function ProfileView({ user, tickets = [], ticketsLoading = false, favorites = [
                   className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-white/20 bg-white/5 px-6 py-3 text-sm font-bold text-white transition hover:bg-white/10 hover:border-white/30 cursor-pointer"
                 >
                   <Lock className="size-4" />
-                  Đổi mật khẩu
+                  {isEnglish ? 'Change Password' : 'Đổi mật khẩu'}
                 </button>
               </>
             ) : (
@@ -1209,7 +1259,7 @@ function ProfileView({ user, tickets = [], ticketsLoading = false, favorites = [
                   className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-white/20 bg-white/5 px-6 py-3 text-sm font-bold text-slate-300 transition hover:bg-white/10 hover:text-white cursor-pointer"
                   disabled={isSubmitting}
                 >
-                  Hủy
+                  {isEnglish ? 'Cancel' : 'Hủy'}
                 </button>
                 <button
                   type="button"
@@ -1219,7 +1269,7 @@ function ProfileView({ user, tickets = [], ticketsLoading = false, favorites = [
                   style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)' }}
                 >
                   {isSubmitting ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
-                  {isSubmitting ? 'Đang lưu...' : 'Lưu thay đổi'}
+                  {isSubmitting ? (isEnglish ? 'Saving...' : 'Đang lưu...') : (isEnglish ? 'Save Changes' : 'Lưu thay đổi')}
                 </button>
               </>
             )}
@@ -1309,46 +1359,60 @@ function ProfileView({ user, tickets = [], ticketsLoading = false, favorites = [
               </div>
             </Link>
 
-            {/* Cài đặt ngôn ngữ / Language Settings for Customer */}
-            <div className="rounded-xl border border-[#C99A47]/30 bg-gradient-to-b from-[#C99A47]/10 to-transparent p-3.5 space-y-2.5 mt-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="grid size-7 place-items-center rounded-lg bg-[#C99A47]/20 text-[#E6C17A]">
-                    <Globe className="size-4" />
-                  </span>
-                  <span className="text-xs font-bold text-white">
-                    {t('profile.languageSettings')}
-                  </span>
-                </div>
-                <span className="text-[10px] font-black uppercase tracking-wider text-[#E6C17A] bg-[#C99A47]/20 px-2 py-0.5 rounded border border-[#C99A47]/30">
-                  {language.toUpperCase()}
+            {/* Cài đặt ngôn ngữ / Language Switcher Row */}
+            <div className="group flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-white/[0.02] px-3.5 py-2.5 transition hover:bg-white/[0.06] hover:border-[#E6C17A]/40 hover:shadow-[0_0_12px_rgba(201,154,71,0.15)]">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-[#C99A47]/10 text-[#E6C17A] transition group-hover:scale-105">
+                  <Globe className="size-4" />
+                </span>
+                <span className="text-xs font-medium text-slate-400 group-hover:text-slate-200 transition">
+                  {isEnglish ? 'Language' : 'Ngôn ngữ'}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-300 leading-relaxed">
-                {t('profile.languageSettingsDesc')}
-              </p>
-              <div className="grid grid-cols-2 gap-2 pt-1">
+
+              {/* Switch con nhộng nhỏ gọn, tinh tế trên cùng 1 dòng (VIE / ENG) */}
+              <div
+                className="relative flex h-6 w-[76px] items-center rounded-full p-0.5 bg-[#091224] border border-[#C99A47]/35 shadow-[inset_0_1px_3px_rgba(0,0,0,0.5)] [html.light_&]:bg-slate-200 [html.light_&]:border-slate-300 select-none shrink-0"
+                role="radiogroup"
+                aria-label={isEnglish ? 'Language switcher' : 'Bộ chọn ngôn ngữ'}
+              >
+                {/* Thẻ active trượt mượt mà (GPU accelerated) */}
+                <div
+                  className={`absolute top-0.5 bottom-0.5 left-0.5 w-[calc(50%-2px)] rounded-full bg-gradient-to-r from-[#C99A47] to-[#E6C17A] shadow-sm shadow-[#C99A47]/30 transition-transform duration-300 ease-out pointer-events-none ${
+                    isVietnamese ? 'translate-x-0' : 'translate-x-full'
+                  }`}
+                />
                 <button
                   type="button"
-                  onClick={() => setLanguage('vi')}
-                  className={`flex items-center justify-center gap-1.5 rounded-lg py-2 px-2 text-xs font-bold transition-all ${
+                  role="radio"
+                  aria-checked={isVietnamese}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setLanguage('vi')
+                  }}
+                  className={`relative z-10 flex-1 h-full flex items-center justify-center rounded-full text-[8.5px] font-bold tracking-normal text-center transition-colors duration-200 cursor-pointer ${
                     isVietnamese
-                      ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] font-black shadow-[0_2px_10px_rgba(201,154,71,0.3)]'
-                      : 'bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white border border-white/10'
+                      ? 'text-[#0D1B2A]'
+                      : 'text-slate-400 hover:text-white [html.light_&]:text-slate-600 [html.light_&]:hover:text-[#0D1B2A]'
                   }`}
                 >
-                  <span>Tiếng Việt</span>
+                  VIE
                 </button>
                 <button
                   type="button"
-                  onClick={() => setLanguage('en')}
-                  className={`flex items-center justify-center gap-1.5 rounded-lg py-2 px-2 text-xs font-bold transition-all ${
+                  role="radio"
+                  aria-checked={!isVietnamese}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setLanguage('en')
+                  }}
+                  className={`relative z-10 flex-1 h-full flex items-center justify-center rounded-full text-[8.5px] font-bold tracking-normal text-center transition-colors duration-200 cursor-pointer ${
                     !isVietnamese
-                      ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] font-black shadow-[0_2px_10px_rgba(201,154,71,0.3)]'
-                      : 'bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white border border-white/10'
+                      ? 'text-[#0D1B2A]'
+                      : 'text-slate-400 hover:text-white [html.light_&]:text-slate-600 [html.light_&]:hover:text-[#0D1B2A]'
                   }`}
                 >
-                  <span>English</span>
+                  ENG
                 </button>
               </div>
             </div>
@@ -1361,17 +1425,15 @@ function ProfileView({ user, tickets = [], ticketsLoading = false, favorites = [
             <>
               <CustomerInfoSection title={t('profile.basicInfo')} icon={UserCircle}>
                 <CustomerInfoCard icon={UserCircle} label={t('profile.fullName')} value={user?.full_name} />
-                <CustomerInfoCard icon={Calendar} label={t('profile.dob')} value={formatDate(user?.dob)} />
+                <CustomerInfoCard icon={Calendar} label={t('profile.dob')} value={formatDate(user?.dob, isEnglish)} />
                 <CustomerInfoCard icon={MapPin} label={t('profile.city')} value={user?.city} />
               </CustomerInfoSection>
 
-              <CustomerInfoSection title={isVietnamese ? 'Thông tin liên hệ' : 'Contact Information'} icon={Phone}>
+              <CustomerInfoSection title={isEnglish ? 'Contact Information' : 'Thông tin liên hệ'} icon={Phone}>
                 <CustomerInfoCard icon={Phone} label={t('profile.phone')} value={user?.phone} />
                 <CustomerInfoCard icon={Mail} label={t('profile.email')} value={user?.email} linkType="email" />
                 <CustomerInfoCard icon={MapPin} label={t('profile.address')} value={user?.address} className="md:col-span-2" />
               </CustomerInfoSection>
-
-              <LanguageSettingsPanel />
 
               <AccountSecurityPanel user={user} />
             </>
@@ -1382,26 +1444,28 @@ function ProfileView({ user, tickets = [], ticketsLoading = false, favorites = [
                   <span className="grid size-9 place-items-center rounded-xl bg-[#C99A47]/15 border border-[#E6C17A]/30 text-[#E6C17A]">
                     <UserCircle className="size-5" />
                   </span>
-                  <h2 className="font-display text-lg font-black text-white">Chỉnh sửa thông tin cơ bản</h2>
+                  <h2 className="font-display text-lg font-black text-white">
+                    {isEnglish ? 'Edit Basic Information' : 'Chỉnh sửa thông tin cơ bản'}
+                  </h2>
                 </div>
                 <div className="grid gap-4 md:grid-cols-2">
                   <Input
-                    label="Họ và tên *"
+                    label={isEnglish ? 'Full Name *' : 'Họ và tên *'}
                     value={formData.full_name}
                     error={errors.full_name}
                     onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
                     required
                   />
                   <Input
-                    label="Ngày sinh"
+                    label={isEnglish ? 'Date of Birth' : 'Ngày sinh'}
                     type="date"
                     value={formData.dob}
                     error={errors.dob}
                     onChange={(e) => setFormData({ ...formData, dob: e.target.value })}
                   />
                   <Input
-                    label="Thành phố"
-                    placeholder="Ví dụ: Hà Nội, TP. Hồ Chí Minh..."
+                    label={isEnglish ? 'City' : 'Thành phố'}
+                    placeholder={isEnglish ? 'e.g. Hanoi, Ho Chi Minh City...' : 'Ví dụ: Hà Nội, TP. Hồ Chí Minh...'}
                     value={formData.city}
                     error={errors.city}
                     onChange={(e) => setFormData({ ...formData, city: e.target.value })}
@@ -1415,30 +1479,36 @@ function ProfileView({ user, tickets = [], ticketsLoading = false, favorites = [
                   <span className="grid size-9 place-items-center rounded-xl bg-[#C99A47]/15 border border-[#E6C17A]/30 text-[#E6C17A]">
                     <Phone className="size-5" />
                   </span>
-                  <h2 className="font-display text-lg font-black text-white">Chỉnh sửa thông tin liên hệ</h2>
+                  <h2 className="font-display text-lg font-black text-white">
+                    {isEnglish ? 'Edit Contact Information' : 'Chỉnh sửa thông tin liên hệ'}
+                  </h2>
                 </div>
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2 md:col-span-2">
-                    <span className="text-sm font-semibold text-slate-300">Email tài khoản</span>
+                    <span className="text-sm font-semibold text-slate-300">
+                      {isEnglish ? 'Account Email' : 'Email tài khoản'}
+                    </span>
                     <div className="flex h-12 w-full items-center justify-between rounded-xl border border-white/10 bg-black/40 px-4 text-slate-400">
                       <span className="font-medium text-[13px]">{user?.email}</span>
                       <span className="rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 text-[11px] font-bold text-emerald-400">
-                        Cố định
+                        {isEnglish ? 'Fixed' : 'Cố định'}
                       </span>
                     </div>
-                    <p className="text-[11px] text-slate-500">Email dùng để đăng nhập và nhận vé, không thể thay đổi.</p>
+                    <p className="text-[11px] text-slate-500">
+                      {isEnglish ? 'Email used for login and receiving tickets, cannot be changed.' : 'Email dùng để đăng nhập và nhận vé, không thể thay đổi.'}
+                    </p>
                   </div>
 
                   <Input
-                    label="Số điện thoại"
-                    placeholder="09xxxxxxxx hoặc +849xxxxxxxx"
+                    label={isEnglish ? 'Phone Number' : 'Số điện thoại'}
+                    placeholder={isEnglish ? '09xxxxxxxx or +849xxxxxxxx' : '09xxxxxxxx hoặc +849xxxxxxxx'}
                     value={formData.phone}
                     error={errors.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   />
                   <Input
-                    label="Địa chỉ chi tiết"
-                    placeholder="Số nhà, tên đường, phường/xã..."
+                    label={isEnglish ? 'Detailed Address' : 'Địa chỉ chi tiết'}
+                    placeholder={isEnglish ? 'House number, street name, ward...' : 'Số nhà, tên đường, phường/xã...'}
                     value={formData.address}
                     error={errors.address}
                     onChange={(e) => setFormData({ ...formData, address: e.target.value })}
@@ -1453,7 +1523,7 @@ function ProfileView({ user, tickets = [], ticketsLoading = false, favorites = [
                   className="rounded-full border border-white/20 bg-white/5 px-6 py-2.5 text-sm font-bold text-slate-300 transition hover:bg-white/10 hover:text-white cursor-pointer"
                   disabled={isSubmitting}
                 >
-                  Hủy
+                  {isEnglish ? 'Cancel' : 'Hủy'}
                 </button>
                 <button
                   type="submit"
@@ -1462,7 +1532,7 @@ function ProfileView({ user, tickets = [], ticketsLoading = false, favorites = [
                   style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
                 >
                   {isSubmitting ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
-                  {isSubmitting ? 'Đang lưu...' : 'Lưu thay đổi'}
+                  {isSubmitting ? (isEnglish ? 'Saving...' : 'Đang lưu...') : (isEnglish ? 'Save Changes' : 'Lưu thay đổi')}
                 </button>
               </div>
             </form>
@@ -1470,67 +1540,6 @@ function ProfileView({ user, tickets = [], ticketsLoading = false, favorites = [
         </div>
       </div>
     </div>
-  )
-}
-
-function LanguageSettingsPanel() {
-  const { language, setLanguage, isVietnamese, t } = useLanguage()
-
-  return (
-    <section className="customer-profile-panel rounded-2xl border border-white/10 bg-slate-900/60 p-4 sm:p-6 text-content backdrop-blur-md shadow-xl">
-      <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-        <div className="flex items-center gap-3">
-          <span className="grid size-9 place-items-center rounded-xl bg-[#C99A47]/15 border border-[#E6C17A]/30 text-[#E6C17A]">
-            <Globe className="size-5" />
-          </span>
-          <div>
-            <h2 className="font-display text-lg font-black text-white">
-              {t('profile.languageSettings')}
-            </h2>
-            <p className="text-xs text-slate-400">
-              {t('profile.languageSettingsDesc')}
-            </p>
-          </div>
-        </div>
-        <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-[#C99A47]/15 border border-[#E6C17A]/30 px-3 py-1 text-xs font-black text-[#E6C17A]">
-          {isVietnamese ? 'Tiếng Việt (VI)' : 'English (EN)'}
-        </span>
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-2 pt-1">
-        <button
-          type="button"
-          onClick={() => setLanguage('vi')}
-          className={`flex items-center justify-between rounded-xl border p-4 text-left transition-all ${
-            isVietnamese
-              ? 'border-[#E6C17A] bg-gradient-to-r from-[#C99A47]/20 to-[#E6C17A]/10 shadow-[0_0_16px_rgba(201,154,71,0.2)]'
-              : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/20'
-          }`}
-        >
-          <div>
-            <p className="text-sm font-extrabold text-white">Tiếng Việt</p>
-            <p className="text-xs text-slate-400">Giao diện và thông báo email bằng Tiếng Việt</p>
-          </div>
-          {isVietnamese && <CheckCircle2 className="size-5 text-[#E6C17A]" />}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setLanguage('en')}
-          className={`flex items-center justify-between rounded-xl border p-4 text-left transition-all ${
-            !isVietnamese
-              ? 'border-[#E6C17A] bg-gradient-to-r from-[#C99A47]/20 to-[#E6C17A]/10 shadow-[0_0_16px_rgba(201,154,71,0.2)]'
-              : 'border-white/10 bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/20'
-          }`}
-        >
-          <div>
-            <p className="text-sm font-extrabold text-white">English</p>
-            <p className="text-xs text-slate-400">Interface and email notifications in English</p>
-          </div>
-          {!isVietnamese && <CheckCircle2 className="size-5 text-[#E6C17A]" />}
-        </button>
-      </div>
-    </section>
   )
 }
 
@@ -1575,6 +1584,7 @@ function CustomerInfoCard({ icon: Icon, label, value, className = '', linkType }
 }
 
 function AccountSecurityPanel({ user }) {
+  const { isEnglish } = useLanguage()
   const toast = useToast()
   const queryClient = useQueryClient()
   const userKey = getStoredUserKey(user)
@@ -1605,9 +1615,9 @@ function AccountSecurityPanel({ user }) {
         queryKey: ['account-security', userKey],
         queryFn: checkSecurity,
       })
-      toast.success('Kiểm tra bảo mật hoàn tất.')
+      toast.success(isEnglish ? 'Security check completed.' : 'Kiểm tra bảo mật hoàn tất.')
     } catch (err) {
-      toast.error(getApiMessage(err, 'Không thể kiểm tra bảo mật.'))
+      toast.error(getApiMessage(err, isEnglish ? 'Failed to check security.' : 'Không thể kiểm tra bảo mật.'))
     }
   }
 
@@ -1619,7 +1629,7 @@ function AccountSecurityPanel({ user }) {
     setSendingOtp(true)
     setOtpFlow({
       enabled,
-      email: user?.email || 'email tài khoản',
+      email: user?.email || (isEnglish ? 'account email' : 'email tài khoản'),
       challengeId: null,
       pending: true,
     })
@@ -1627,7 +1637,11 @@ function AccountSecurityPanel({ user }) {
     try {
       const data = await startTwoFactor(enabled)
       if (data.alreadyEnabled !== undefined) {
-        toast.success(data.enabled ? 'Xác thực 2 lớp đã được bật.' : 'Xác thực 2 lớp đang tắt.')
+        toast.success(
+          data.enabled
+            ? (isEnglish ? '2-factor authentication enabled.' : 'Xác thực 2 lớp đã được bật.')
+            : (isEnglish ? '2-factor authentication disabled.' : 'Xác thực 2 lớp đang tắt.')
+        )
         setOtpFlow(null)
         setCooldown(0)
         await queryClient.invalidateQueries({ queryKey: ['account-security', userKey] })
@@ -1636,10 +1650,14 @@ function AccountSecurityPanel({ user }) {
       }
 
       setOtpFlow({ ...data, enabled })
-      toast.success(`Mã OTP đã được gửi đến ${data.email || 'email tài khoản'}.`)
+      toast.success(
+        isEnglish
+          ? `OTP code sent to ${data.email || 'account email'}.`
+          : `Mã OTP đã được gửi đến ${data.email || 'email tài khoản'}.`
+      )
     } catch (err) {
       setOtpFlow((current) => current ? { ...current, pending: false, sendFailed: true } : current)
-      toast.error(getApiMessage(err, 'Không thể gửi mã OTP. Vui lòng thử lại.'))
+      toast.error(getApiMessage(err, isEnglish ? 'Failed to send OTP code. Please try again.' : 'Không thể gửi mã OTP. Vui lòng thử lại.'))
     } finally {
       startPendingRef.current = false
       setSendingOtp(false)
@@ -1657,11 +1675,15 @@ function AccountSecurityPanel({ user }) {
       setOtpFlow(null)
       setOtp('')
       setCooldown(0)
-      toast.success(data.enabled ? 'Đã bật xác thực 2 lớp.' : 'Đã tắt xác thực 2 lớp.')
+      toast.success(
+        data.enabled
+          ? (isEnglish ? '2-factor authentication enabled.' : 'Đã bật xác thực 2 lớp.')
+          : (isEnglish ? '2-factor authentication disabled.' : 'Đã tắt xác thực 2 lớp.')
+      )
       await queryClient.invalidateQueries({ queryKey: ['account-security', userKey] })
       await queryClient.invalidateQueries({ queryKey: ['profile', userKey] })
     } catch (err) {
-      toast.error(getApiMessage(err, 'Mã OTP không hợp lệ hoặc đã hết hạn.'))
+      toast.error(getApiMessage(err, isEnglish ? 'Invalid or expired OTP code.' : 'Mã OTP không hợp lệ hoặc đã hết hạn.'))
     } finally {
       verifyPendingRef.current = false
       setVerifyingOtp(false)
@@ -1678,22 +1700,26 @@ function AccountSecurityPanel({ user }) {
     <section className="customer-profile-panel rounded-2xl border border-white/10 bg-slate-900/60 p-3.5 sm:p-6 text-content backdrop-blur-md shadow-xl">
       <div className="mb-3.5 sm:mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex gap-3">
-          <span className="customer-section-icon customer-tone-green grid size-10 place-items-center rounded-md">
+          <span className="customer-section-icon customer-tone-green grid size-10 place-items-center rounded-xl bg-[#C99A47]/15 border border-[#E6C17A]/30 text-[#E6C17A]">
             <ShieldCheck className="size-5" />
           </span>
           <div>
-            <h2 className="customer-panel-title font-display text-xl font-extrabold">Bảo mật tài khoản</h2>
-            <p className="mt-1 text-sm text-subtle">Hoàn thành {score}/{total} hạng mục bảo mật.</p>
+            <h2 className="customer-panel-title font-display text-xl font-extrabold text-white">
+              {isEnglish ? 'Account Security' : 'Bảo mật tài khoản'}
+            </h2>
+            <p className="mt-1 text-sm text-subtle">
+              {isEnglish ? `Completed ${score}/${total} security items.` : `Hoàn thành ${score}/${total} hạng mục bảo mật.`}
+            </p>
           </div>
         </div>
         <button
           type="button"
           onClick={refreshSecurity}
           disabled={securityQuery.isFetching}
-          className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-border-soft/40 px-4 py-2 text-sm font-extrabold text-content transition hover:border-primary/60 hover:bg-panel-soft hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-[#C99A47]/60 bg-[#C99A47]/10 px-4 py-2 text-sm font-extrabold text-[#E6C17A] transition hover:bg-[#C99A47]/20 hover:border-[#E6C17A] disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
         >
-          {securityQuery.isFetching ? <Loader2 className="size-4 animate-spin" /> : <ShieldCheck className="size-4" />}
-          Kiểm tra bảo mật
+          {securityQuery.isFetching ? <Loader2 className="size-4 animate-spin text-[#E6C17A]" /> : <ShieldCheck className="size-4 text-[#E6C17A]" />}
+          {isEnglish ? 'Check security' : 'Kiểm tra bảo mật'}
         </button>
       </div>
 
@@ -1703,42 +1729,52 @@ function AccountSecurityPanel({ user }) {
         ))}
       </div>
 
-      <div className="mt-5 rounded-lg border border-border-soft/30 bg-background/30 p-4">
+      <div className="mt-5 rounded-xl border border-border-soft/30 bg-background/30 p-4">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="font-extrabold text-content">Xác thực 2 lớp qua OTP email</p>
+            <p className="font-extrabold text-content">
+              {isEnglish ? 'Two-factor authentication via email OTP' : 'Xác thực 2 lớp qua OTP email'}
+            </p>
             <p className="mt-1 text-sm text-subtle">
-              {twoFactorEnabled ? 'Đang bật. Khi đăng nhập, tài khoản sẽ cần nhập OTP email.' : 'Chưa bật. Bật OTP email để tăng bảo vệ tài khoản.'}
+              {twoFactorEnabled
+                ? (isEnglish ? 'Enabled. When logging in, account requires email OTP.' : 'Đang bật. Khi đăng nhập, tài khoản sẽ cần nhập OTP email.')
+                : (isEnglish ? 'Disabled. Enable email OTP to enhance account security.' : 'Chưa bật. Bật OTP email để tăng bảo vệ tài khoản.')}
             </p>
           </div>
           <button
             type="button"
             onClick={() => startOtp(!twoFactorEnabled)}
             disabled={sendingOtp || verifyingOtp}
-            className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-md border border-indigo-300/50 px-4 py-2 text-sm font-extrabold text-indigo-500 transition hover:border-violet-400/60 hover:bg-indigo-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-xl border border-[#C99A47]/60 bg-[#C99A47]/10 px-4 py-2 text-sm font-extrabold text-[#E6C17A] transition hover:bg-[#C99A47]/20 hover:border-[#E6C17A] disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
           >
-            {twoFactorEnabled ? 'Tắt 2FA' : 'Bật 2FA'}
+            {twoFactorEnabled ? (isEnglish ? 'Disable 2FA' : 'Tắt 2FA') : (isEnglish ? 'Enable 2FA' : 'Bật 2FA')}
           </button>
         </div>
 
         {otpFlow && (
-          <div className="mt-4 rounded-lg border border-primary/20 bg-primary/[0.06] p-4">
+          <div className="mt-4 rounded-xl border border-[#C99A47]/30 bg-[#C99A47]/[0.06] p-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="font-extrabold">
-                  {sendingOtp ? 'Đang gửi mã OTP...' : otpFlow.sendFailed ? 'Chưa gửi được mã OTP' : 'Mã OTP đã được gửi'}
+                <p className="font-extrabold text-white">
+                  {sendingOtp
+                    ? (isEnglish ? 'Sending OTP code...' : 'Đang gửi mã OTP...')
+                    : otpFlow.sendFailed
+                      ? (isEnglish ? 'Failed to send OTP code' : 'Chưa gửi được mã OTP')
+                      : (isEnglish ? 'OTP code sent' : 'Mã OTP đã được gửi')}
                 </p>
                 <p className="mt-1 text-sm text-subtle">
-                  {cooldown > 0 ? `Nếu chưa nhận được email, bạn có thể gửi lại sau ${cooldown}s.` : 'Nếu chưa nhận được email, bạn có thể gửi lại mã OTP.'}
+                  {cooldown > 0
+                    ? (isEnglish ? `If not received, you can resend in ${cooldown}s.` : `Nếu chưa nhận được email, bạn có thể gửi lại sau ${cooldown}s.`)
+                    : (isEnglish ? 'If not received, you can resend the OTP code.' : 'Nếu chưa nhận được email, bạn có thể gửi lại mã OTP.')}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => startOtp(Boolean(otpFlow.enabled))}
                 disabled={sendingOtp || cooldown > 0}
-                className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-md border border-indigo-300/50 px-4 py-2 text-sm font-extrabold text-indigo-500 transition hover:border-violet-400/60 hover:bg-indigo-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-xl border border-[#C99A47]/60 bg-[#C99A47]/10 px-4 py-2 text-sm font-extrabold text-[#E6C17A] transition hover:bg-[#C99A47]/20 hover:border-[#E6C17A] disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
               >
-                {cooldown > 0 ? `Gửi lại (${cooldown}s)` : 'Gửi lại OTP'}
+                {cooldown > 0 ? (isEnglish ? `Resend (${cooldown}s)` : `Gửi lại (${cooldown}s)`) : (isEnglish ? 'Resend OTP' : 'Gửi lại OTP')}
               </button>
             </div>
 
@@ -1749,17 +1785,17 @@ function AccountSecurityPanel({ user }) {
                 maxLength={6}
                 value={otp}
                 onChange={(event) => setOtp(event.target.value.replace(/\D/g, '').slice(0, 6))}
-                placeholder="Nhập mã OTP"
-                className="h-11 flex-1 rounded-md border border-border-soft/40 bg-background/35 px-4 text-sm font-semibold text-content outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10"
+                placeholder={isEnglish ? 'Enter OTP' : 'Nhập mã OTP'}
+                className="h-11 flex-1 rounded-xl border border-border-soft/40 bg-background/35 px-4 text-sm font-semibold text-content outline-none transition focus:border-[#E6C17A] focus:ring-4 focus:ring-[#C99A47]/10"
               />
               <button
                 type="button"
                 onClick={verifyOtp}
                 disabled={verifyingOtp || sendingOtp || !otpFlow.challengeId || otp.length !== 6}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-emerald-300/40 bg-gradient-to-r from-emerald-500 to-teal-600 px-5 py-2 text-sm font-extrabold text-white shadow-lg shadow-emerald-900/20 transition-all hover:-translate-y-0.5 hover:from-emerald-400 hover:to-teal-500 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-5 py-2 text-sm font-extrabold text-[#0D1B2A] shadow-md shadow-[#C99A47]/20 transition hover:brightness-110 active:brightness-95 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
               >
-                {verifyingOtp && <Loader2 className="size-4 animate-spin" />}
-                Xác nhận OTP
+                {verifyingOtp && <Loader2 className="size-4 animate-spin text-[#0D1B2A]" />}
+                {isEnglish ? 'Confirm OTP' : 'Xác nhận OTP'}
               </button>
               <button
                 type="button"
@@ -1768,9 +1804,9 @@ function AccountSecurityPanel({ user }) {
                   setOtp('')
                   setCooldown(0)
                 }}
-                className="inline-flex min-h-11 items-center justify-center rounded-md border border-border-soft/40 px-5 py-2 text-sm font-extrabold text-content transition hover:bg-panel-soft"
+                className="inline-flex min-h-11 items-center justify-center rounded-xl border border-border-soft/40 px-5 py-2 text-sm font-extrabold text-content transition hover:bg-panel-soft cursor-pointer"
               >
-                Hủy
+                {isEnglish ? 'Cancel' : 'Hủy'}
               </button>
             </div>
           </div>
@@ -1781,25 +1817,53 @@ function AccountSecurityPanel({ user }) {
 }
 
 function SecurityMiniItem({ item }) {
+  const { isEnglish } = useLanguage()
   const normalized = String(item.status || '').toLowerCase()
   const config = {
-    passed: ['Đạt', 'text-success', CheckCircle2],
-    warning: ['Cần chú ý', 'text-warning', AlertCircle],
-    danger: ['Nguy hiểm', 'text-error', AlertCircle],
-    disabled: ['Chưa hỗ trợ', 'text-muted', InfoIcon],
-  }[normalized] || ['Cần chú ý', 'text-warning', AlertCircle]
+    passed: [isEnglish ? 'Passed' : 'Đạt', 'text-success', CheckCircle2],
+    warning: [isEnglish ? 'Needs attention' : 'Cần chú ý', 'text-warning', AlertCircle],
+    danger: [isEnglish ? 'Danger' : 'Nguy hiểm', 'text-error', AlertCircle],
+    disabled: [isEnglish ? 'Unsupported' : 'Chưa hỗ trợ', 'text-muted', InfoIcon],
+  }[normalized] || [isEnglish ? 'Needs attention' : 'Cần chú ý', 'text-warning', AlertCircle]
   const [label, className, Icon] = config
 
+  const getLocalizedLabel = (key, defaultLabel) => {
+    if (!isEnglish) return defaultLabel
+    const labels = {
+      email_verified: 'Verified Email',
+      phone_exists: 'Phone Number',
+      password_recent: 'Password',
+      two_factor: '2-Factor Authentication',
+      last_login: 'Recent Login Session',
+      account_status: 'Account Status',
+    }
+    return labels[key] || defaultLabel
+  }
+
+  const getLocalizedMessage = (key, status, defaultMsg) => {
+    if (!isEnglish) return defaultMsg
+    const isPassed = status === 'passed'
+    const messages = {
+      email_verified: isPassed ? 'Your email has been verified.' : 'Your email has not been verified.',
+      phone_exists: isPassed ? 'Account has a linked phone number.' : 'You should update a phone number for your account.',
+      password_recent: isPassed ? 'Your password was recently updated.' : 'No recent password change information.',
+      two_factor: isPassed ? '2-factor authentication via email OTP is enabled.' : 'You have not enabled 2-factor authentication.',
+      last_login: isPassed ? 'Account has recorded latest login session.' : 'No information on latest login session.',
+      account_status: isPassed ? 'Account is currently active and in good standing.' : 'Account is locked or inactive.',
+    }
+    return messages[key] || defaultMsg
+  }
+
   return (
-    <div className="rounded-lg border border-border-soft/30 bg-background/30 p-3">
+    <div className="rounded-xl border border-border-soft/30 bg-background/30 p-3">
       <div className="flex items-start gap-3">
         <Icon className={`mt-0.5 size-5 shrink-0 ${className}`} />
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="font-extrabold text-content">{item.label}</p>
+            <p className="font-extrabold text-content">{getLocalizedLabel(item.key, item.label)}</p>
             <span className={`text-xs font-extrabold ${className}`}>{label}</span>
           </div>
-          <p className="mt-1 break-words text-sm text-subtle">{item.message}</p>
+          <p className="mt-1 break-words text-sm text-subtle">{getLocalizedMessage(item.key, normalized, item.message)}</p>
         </div>
       </div>
     </div>
@@ -1822,6 +1886,7 @@ function createInitialAccountSecurityItems(user) {
 }
 
 function ProfileEdit({ user, organizer, isOrganizer, onDone }) {
+  const { isEnglish } = useLanguage()
   const toast = useToast()
   const request = organizer?.source_request || {}
   const initialDescription = firstValue(organizer?.description, request.organization_description, user.bio, '')
@@ -1852,30 +1917,32 @@ function ProfileEdit({ user, organizer, isOrganizer, onDone }) {
       return updatedUser
     },
     onSuccess: (updatedUser) => {
-      toast.success('Cập nhật hồ sơ thành công.')
+      toast.success(isEnglish ? 'Profile updated successfully.' : 'Cập nhật hồ sơ thành công.')
       updateStoredUser(updatedUser)
       onDone()
     },
     onError: (err) => {
-      toast.error(getApiMessage(err, 'Không thể cập nhật hồ sơ.'))
+      toast.error(getApiMessage(err, isEnglish ? 'Failed to update profile.' : 'Không thể cập nhật hồ sơ.'))
     },
   })
 
   const validate = () => {
     const newErrors = {}
     if (!formData.full_name.trim()) {
-      newErrors.full_name = 'Vui lòng nhập họ và tên.'
+      newErrors.full_name = isEnglish ? 'Please enter your full name.' : 'Vui lòng nhập họ và tên.'
     }
 
     if (formData.phone.trim()) {
       const phoneRegex = /^(0|\+84)(3|5|7|8|9)[0-9]{8}$/
       if (!phoneRegex.test(formData.phone)) {
-        newErrors.phone = 'Số điện thoại không đúng định dạng Việt Nam. Ví dụ: 09xxxxxxxx hoặc +849xxxxxxxx.'
+        newErrors.phone = isEnglish
+          ? 'Invalid phone number format. E.g.: 09xxxxxxxx or +849xxxxxxxx.'
+          : 'Số điện thoại không đúng định dạng Việt Nam. Ví dụ: 09xxxxxxxx hoặc +849xxxxxxxx.'
       }
     }
 
     if (formData.description.length > 5000) {
-      newErrors.description = 'Mô tả không được vượt quá 5000 ký tự.'
+      newErrors.description = isEnglish ? 'Description cannot exceed 5000 characters.' : 'Mô tả không được vượt quá 5000 ký tự.'
     }
 
     setErrors(newErrors)
@@ -1886,7 +1953,7 @@ function ProfileEdit({ user, organizer, isOrganizer, onDone }) {
     const file = e.target.files[0]
     if (file) {
       if (!file.type.startsWith('image/')) {
-        toast.error('Vui lòng chọn tệp ảnh hợp lệ (JPG, PNG).')
+        toast.error(isEnglish ? 'Please select a valid image file (JPG, PNG).' : 'Vui lòng chọn tệp ảnh hợp lệ (JPG, PNG).')
         return
       }
       setSelectedFile(file)
@@ -1925,7 +1992,7 @@ function ProfileEdit({ user, organizer, isOrganizer, onDone }) {
 
       updateMutation.mutate({ userPayload, organizerPayload })
     } catch (err) {
-      toast.error(getApiMessage(err, 'Không thể tải ảnh lên hệ thống.'))
+      toast.error(getApiMessage(err, isEnglish ? 'Failed to upload photo.' : 'Không thể tải ảnh lên hệ thống.'))
     } finally {
       setIsUploading(false)
     }
@@ -1936,30 +2003,30 @@ function ProfileEdit({ user, organizer, isOrganizer, onDone }) {
       <aside className="h-fit rounded-2xl border border-white/10 bg-slate-900/60 p-6 text-center text-content shadow-xl backdrop-blur-md">
         <div className="relative mx-auto size-36 sm:size-40">
           {previewUrl ? (
-            <img src={previewUrl} alt="Ảnh đại diện xem trước" className="size-36 sm:size-40 rounded-full object-cover ring-4 ring-[#E6C17A]/30" />
+            <img src={previewUrl} alt={isEnglish ? 'Avatar preview' : 'Ảnh đại diện xem trước'} className="size-36 sm:size-40 rounded-full object-cover ring-4 ring-[#E6C17A]/30" />
           ) : (
             <div className="flex size-36 sm:size-40 items-center justify-center rounded-full bg-slate-800 ring-4 ring-[#E6C17A]/30">
               <UserCircle className="size-20 text-muted" />
             </div>
           )}
-          <label className="absolute bottom-1 right-1 grid size-10 cursor-pointer place-items-center rounded-full bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-lg transition-transform hover:scale-110" title="Chọn ảnh đại diện mới">
+          <label className="absolute bottom-1 right-1 grid size-10 cursor-pointer place-items-center rounded-full bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-lg transition-transform hover:scale-110" title={isEnglish ? 'Select new avatar' : 'Chọn ảnh đại diện mới'}>
             <Camera className="size-5" />
             <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
           </label>
         </div>
-        <p className="mt-4 text-xs font-medium text-slate-400">JPG, PNG. Đề xuất 400x400px.</p>
+        <p className="mt-4 text-xs font-medium text-slate-400">{isEnglish ? 'JPG, PNG. Recommended 400x400px.' : 'JPG, PNG. Đề xuất 400x400px.'}</p>
       </aside>
       <section className="rounded-2xl border border-white/10 bg-slate-900/60 p-6 sm:p-8 text-content shadow-xl backdrop-blur-md">
         <div className="flex items-center justify-between border-b border-white/5 pb-4">
           <div>
-            <h2 className="font-display text-2xl font-black text-white">Chỉnh sửa hồ sơ</h2>
-            <p className="mt-1 text-xs text-slate-400">Cập nhật thông tin cá nhân của bạn trên EventHub</p>
+            <h2 className="font-display text-2xl font-black text-white">{isEnglish ? 'Edit Profile' : 'Chỉnh sửa hồ sơ'}</h2>
+            <p className="mt-1 text-xs text-slate-400">{isEnglish ? 'Update your personal details on EventHub' : 'Cập nhật thông tin cá nhân của bạn trên EventHub'}</p>
           </div>
           <button
             type="button"
             onClick={onDone}
             className="rounded-full p-2 text-slate-400 hover:bg-white/10 hover:text-white transition cursor-pointer"
-            title="Đóng / Hủy"
+            title={isEnglish ? 'Close / Cancel' : 'Đóng / Hủy'}
           >
             <X className="size-5" />
           </button>
@@ -1971,25 +2038,25 @@ function ProfileEdit({ user, organizer, isOrganizer, onDone }) {
               <span className="grid size-9 place-items-center rounded-xl bg-[#C99A47]/15 border border-[#E6C17A]/30 text-[#E6C17A]">
                 <UserCircle className="size-5" />
               </span>
-              <h3 className="font-display text-lg font-bold text-white">Thông tin tài khoản</h3>
+              <h3 className="font-display text-lg font-bold text-white">{isEnglish ? 'Account Details' : 'Thông tin tài khoản'}</h3>
             </div>
             <div className="grid gap-5 md:grid-cols-2">
-              <Input label="Họ và tên *" value={formData.full_name} error={errors.full_name} onChange={(e) => setFormData({ ...formData, full_name: e.target.value })} required />
+              <Input label={isEnglish ? 'Full Name *' : 'Họ và tên *'} value={formData.full_name} error={errors.full_name} onChange={(e) => setFormData({ ...formData, full_name: e.target.value })} required />
               
               <div className="space-y-2">
-                <span className="text-sm font-semibold text-slate-300">Email tài khoản</span>
+                <span className="text-sm font-semibold text-slate-300">{isEnglish ? 'Account Email' : 'Email tài khoản'}</span>
                 <div className="flex h-12 w-full items-center justify-between rounded-xl border border-white/10 bg-black/40 px-4 text-slate-400">
                   <span className="font-medium text-[13px]">{user.email}</span>
                   <span className="rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 text-[11px] font-bold text-emerald-400">
-                    Cố định
+                    {isEnglish ? 'Locked' : 'Cố định'}
                   </span>
                 </div>
               </div>
 
-              <Input label="Số điện thoại" value={formData.phone} error={errors.phone} placeholder="09xxxxxxxx hoặc +849xxxxxxxx" onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
-              <Input label="Ngày sinh" type="date" value={formData.dob} error={errors.dob} onChange={(e) => setFormData({ ...formData, dob: e.target.value })} />
-              <Input label="Thành phố" placeholder="Ví dụ: Hà Nội, TP. Hồ Chí Minh..." value={formData.city} error={errors.city} onChange={(e) => setFormData({ ...formData, city: e.target.value })} />
-              <Input label="Địa chỉ" placeholder="Số nhà, tên đường..." value={formData.address} error={errors.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} className="md:col-span-2" />
+              <Input label={isEnglish ? 'Phone Number' : 'Số điện thoại'} value={formData.phone} error={errors.phone} placeholder={isEnglish ? '09xxxxxxxx or +849xxxxxxxx' : '09xxxxxxxx hoặc +849xxxxxxxx'} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
+              <Input label={isEnglish ? 'Date of Birth' : 'Ngày sinh'} type="date" value={formData.dob} error={errors.dob} onChange={(e) => setFormData({ ...formData, dob: e.target.value })} />
+              <Input label={isEnglish ? 'City' : 'Thành phố'} placeholder={isEnglish ? 'e.g. Hanoi, Ho Chi Minh...' : 'Ví dụ: Hà Nội, TP. Hồ Chí Minh...'} value={formData.city} error={errors.city} onChange={(e) => setFormData({ ...formData, city: e.target.value })} />
+              <Input label={isEnglish ? 'Address' : 'Địa chỉ'} placeholder={isEnglish ? 'House number, street name...' : 'Số nhà, tên đường...'} value={formData.address} error={errors.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} className="md:col-span-2" />
             </div>
           </div>
 
@@ -2000,39 +2067,39 @@ function ProfileEdit({ user, organizer, isOrganizer, onDone }) {
                   <Building2 className="size-5" />
                 </span>
                 <div>
-                  <h3 className="font-display text-lg font-bold text-white">Thông tin công khai của nhà tổ chức</h3>
-                  <p className="mt-1 text-xs text-slate-400">Các nội dung này sẽ được dùng để giới thiệu hồ sơ nhà tổ chức.</p>
+                  <h3 className="font-display text-lg font-bold text-white">{isEnglish ? 'Public Organizer Information' : 'Thông tin công khai của nhà tổ chức'}</h3>
+                  <p className="mt-1 text-xs text-slate-400">{isEnglish ? 'These details are displayed on your organizer public profile.' : 'Các nội dung này sẽ được dùng để giới thiệu hồ sơ nhà tổ chức.'}</p>
                 </div>
               </div>
               <div className="grid gap-5 md:grid-cols-2">
                 <Input
-                  label="Trang web"
+                  label={isEnglish ? 'Website' : 'Trang web'}
                   value={formData.website_url}
                   error={errors.website_url}
                   placeholder="https://example.com"
                   onChange={(e) => setFormData({ ...formData, website_url: e.target.value })}
                 />
                 <Input
-                  label="Mạng xã hội"
+                  label={isEnglish ? 'Social Media' : 'Mạng xã hội'}
                   value={formData.social_url}
                   error={errors.social_url}
-                  placeholder="https://facebook.com/ten-trang"
+                  placeholder="https://facebook.com/your-page"
                   onChange={(e) => setFormData({ ...formData, social_url: e.target.value })}
                 />
                 <label className="block space-y-2 md:col-span-2">
-                  <span className="text-sm font-semibold text-slate-300">Mô tả/giới thiệu</span>
+                  <span className="text-sm font-semibold text-slate-300">{isEnglish ? 'Description / Introduction' : 'Mô tả/giới thiệu'}</span>
                   <textarea
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     rows={6}
                     maxLength={5000}
-                    placeholder="Giới thiệu ngắn gọn về cá nhân, tổ chức hoặc lĩnh vực sự kiện của bạn."
+                    placeholder={isEnglish ? 'Briefly introduce yourself, your company, or your event specialty.' : 'Giới thiệu ngắn gọn về cá nhân, tổ chức hoặc lĩnh vực sự kiện của bạn.'}
                     className={`w-full resize-y rounded-xl border bg-black/40 p-4 text-[13px] font-medium text-[#F5EBDD] placeholder-slate-500 outline-none transition-all shadow-inner hover:border-[#E6C17A] hover:shadow-[0_0_12px_rgba(201,154,71,0.2)] focus:border-[#E6C17A] focus:bg-black/60 focus:ring-1 focus:ring-[#E6C17A] focus:shadow-[0_0_14px_rgba(201,154,71,0.35)] ${
                       errors.description ? 'border-error ring-error/10' : 'border-white/10'
                     }`}
                   />
                   <div className="flex items-center justify-between gap-3 text-xs">
-                    {errors.description ? <p className="text-error">{errors.description}</p> : <span className="text-slate-400">Tối đa 5000 ký tự.</span>}
+                    {errors.description ? <p className="text-error">{errors.description}</p> : <span className="text-slate-400">{isEnglish ? 'Max 5000 characters.' : 'Tối đa 5000 ký tự.'}</span>}
                     <span className="text-slate-400">{formData.description.length}/5000</span>
                   </div>
                 </label>
@@ -2047,7 +2114,7 @@ function ProfileEdit({ user, organizer, isOrganizer, onDone }) {
               className="rounded-full border border-white/15 bg-white/5 px-7 py-3 text-sm font-bold text-slate-300 transition hover:bg-white/10 hover:text-white cursor-pointer"
               disabled={updateMutation.isPending || isUploading}
             >
-              Hủy
+              {isEnglish ? 'Cancel' : 'Hủy'}
             </button>
             <button
               type="submit"
@@ -2056,7 +2123,7 @@ function ProfileEdit({ user, organizer, isOrganizer, onDone }) {
               style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
             >
               {updateMutation.isPending || isUploading ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
-              {isUploading ? 'Đang tải ảnh...' : updateMutation.isPending ? 'Đang lưu...' : 'Lưu thay đổi'}
+              {isUploading ? (isEnglish ? 'Uploading photo...' : 'Đang tải ảnh...') : updateMutation.isPending ? (isEnglish ? 'Saving...' : 'Đang lưu...') : (isEnglish ? 'Save changes' : 'Lưu thay đổi')}
             </button>
           </div>
         </form>
@@ -2066,6 +2133,7 @@ function ProfileEdit({ user, organizer, isOrganizer, onDone }) {
 }
 
 function ChangePassword({ user, onDone }) {
+  const { isEnglish } = useLanguage()
   const toast = useToast()
   const [form, setForm] = useState({
     currentPassword: '',
@@ -2086,14 +2154,14 @@ function ChangePassword({ user, onDone }) {
   const mutation = useMutation({
     mutationFn: () => changePassword(form.currentPassword, form.newPassword),
     onSuccess: () => {
-      toast.success('Đổi mật khẩu thành công. Vui lòng đăng nhập lại.')
+      toast.success(isEnglish ? 'Password changed successfully. Please log in again.' : 'Đổi mật khẩu thành công. Vui lòng đăng nhập lại.')
       setTimeout(() => {
         clearAuthSession()
         window.location.href = '/login'
       }, 2000)
     },
     onError: (err) => {
-      toast.error(getApiMessage(err, 'Không thể đổi mật khẩu. Vui lòng thử lại.'))
+      toast.error(getApiMessage(err, isEnglish ? 'Failed to change password. Please try again.' : 'Không thể đổi mật khẩu. Vui lòng thử lại.'))
     },
   })
 
@@ -2106,37 +2174,63 @@ function ChangePassword({ user, onDone }) {
   return (
     <div className="text-content">
       <h2 className="sr-only">
-        {hasPassword ? 'Đổi mật khẩu' : 'Thiết lập mật khẩu mới'}
+        {hasPassword ? (isEnglish ? 'Change password' : 'Đổi mật khẩu') : (isEnglish ? 'Set new password' : 'Thiết lập mật khẩu mới')}
       </h2>
       {!hasPassword && (
         <p className="mb-6 text-sm leading-6 text-subtle">
-          Bạn đang đăng nhập bằng Google, hãy thiết lập mật khẩu để có thể đăng nhập trực tiếp bằng email.
+          {isEnglish
+            ? 'You are logged in with Google, please set a password to log in directly with email.'
+            : 'Bạn đang đăng nhập bằng Google, hãy thiết lập mật khẩu để có thể đăng nhập trực tiếp bằng email.'}
         </p>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {hasPassword && (
-          <Input label="Mật khẩu hiện tại" type="password" placeholder="Nhập mật khẩu hiện tại" required value={form.currentPassword} onChange={(e) => setForm({ ...form, currentPassword: e.target.value })} />
+          <Input
+            label={isEnglish ? 'Current password' : 'Mật khẩu hiện tại'}
+            type="password"
+            placeholder={isEnglish ? 'Enter current password' : 'Nhập mật khẩu hiện tại'}
+            required
+            value={form.currentPassword}
+            onChange={(e) => setForm({ ...form, currentPassword: e.target.value })}
+          />
         )}
 
         <div className="space-y-3">
-          <Input label="Mật khẩu mới" type="password" placeholder="Nhập mật khẩu mới" required value={form.newPassword} onChange={(e) => setForm({ ...form, newPassword: e.target.value })} />
+          <Input
+            label={isEnglish ? 'New password' : 'Mật khẩu mới'}
+            type="password"
+            placeholder={isEnglish ? 'Enter new password' : 'Nhập mật khẩu mới'}
+            required
+            value={form.newPassword}
+            onChange={(e) => setForm({ ...form, newPassword: e.target.value })}
+          />
 
           {form.newPassword && (
             <div className="flex flex-col gap-1.5 pl-1">
-              <StrengthIndicator label="Tối thiểu 8 ký tự" active={checks.length} />
-              <StrengthIndicator label="Có ít nhất 1 chữ in hoa (A-Z)" active={checks.uppercase} />
-              <StrengthIndicator label="Có ít nhất 1 ký tự đặc biệt" active={checks.special} />
+              <StrengthIndicator label={isEnglish ? 'Minimum 8 characters' : 'Tối thiểu 8 ký tự'} active={checks.length} />
+              <StrengthIndicator label={isEnglish ? 'At least 1 uppercase letter (A-Z)' : 'Có ít nhất 1 chữ in hoa (A-Z)'} active={checks.uppercase} />
+              <StrengthIndicator label={isEnglish ? 'At least 1 special character' : 'Có ít nhất 1 ký tự đặc biệt'} active={checks.special} />
             </div>
           )}
         </div>
 
         <div className="space-y-3">
-          <Input label="Xác nhận mật khẩu mới" type="password" placeholder="Nhập lại mật khẩu mới" required value={form.confirmPassword} onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })} />
+          <Input
+            label={isEnglish ? 'Confirm new password' : 'Xác nhận mật khẩu mới'}
+            type="password"
+            placeholder={isEnglish ? 'Re-enter new password' : 'Nhập lại mật khẩu mới'}
+            required
+            value={form.confirmPassword}
+            onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
+          />
 
           {form.confirmPassword && (
             <div className="pl-1">
-              <StrengthIndicator label={isMatch ? 'Mật khẩu xác nhận khớp' : 'Mật khẩu xác nhận chưa khớp'} active={isMatch} />
+              <StrengthIndicator
+                label={isMatch ? (isEnglish ? 'Passwords match' : 'Mật khẩu xác nhận khớp') : (isEnglish ? 'Passwords do not match' : 'Mật khẩu xác nhận chưa khớp')}
+                active={isMatch}
+              />
             </div>
           )}
         </div>
@@ -2148,7 +2242,7 @@ function ChangePassword({ user, onDone }) {
             className="rounded-full border border-white/15 bg-white/5 px-6 py-3 text-sm font-bold text-slate-300 transition hover:bg-white/10 hover:text-white cursor-pointer"
             disabled={mutation.isPending}
           >
-            Hủy
+            {isEnglish ? 'Cancel' : 'Hủy'}
           </button>
           <button
             type="submit"
@@ -2157,7 +2251,7 @@ function ChangePassword({ user, onDone }) {
             style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
           >
             {mutation.isPending && <Loader2 className="size-4 animate-spin" />}
-            {hasPassword ? 'Cập nhật mật khẩu' : 'Lưu mật khẩu'}
+            {hasPassword ? (isEnglish ? 'Update password' : 'Cập nhật mật khẩu') : (isEnglish ? 'Save password' : 'Lưu mật khẩu')}
           </button>
         </div>
       </form>
@@ -2196,10 +2290,11 @@ function Info({ icon: Icon, label, value, className = '', multiline = false, lin
 }
 
 function DocumentCard({ label, url, uploadedAt }) {
+  const { isEnglish } = useLanguage()
   const displayUrl = valueOrEmpty(url)
-  const hasUrl = displayUrl !== EMPTY_TEXT
+  const hasUrl = displayUrl !== EMPTY_TEXT && displayUrl !== 'Not updated'
   const href = hasUrl ? normalizeUrl(displayUrl) : ''
-  const uploadedDate = hasUrl ? formatDateTime(uploadedAt) : EMPTY_TEXT
+  const uploadedDate = hasUrl ? formatDateTime(uploadedAt) : (isEnglish ? 'Not updated' : EMPTY_TEXT)
   const isImage = hasUrl && isImageUrl(displayUrl)
 
   return (
@@ -2223,16 +2318,17 @@ function DocumentCard({ label, url, uploadedAt }) {
       {hasUrl ? (
         <a href={href} target="_blank" rel="noreferrer" className="organizer-document-status inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-bold">
           <CheckCircle2 className="size-3.5 shrink-0" />
-          Đã tải lên
+          {isEnglish ? 'Uploaded' : 'Đã tải lên'}
         </a>
       ) : (
-        <p className="organizer-info-empty text-sm font-semibold">Chưa cập nhật</p>
+        <p className="organizer-info-empty text-sm font-semibold">{isEnglish ? 'Not updated' : 'Chưa cập nhật'}</p>
       )}
     </div>
   )
 }
 
 function ReviewHistoryCard({ request, index }) {
+  const { isEnglish } = useLanguage()
   const rejected = String(request.status || '').toUpperCase() === 'REJECTED'
   const changeSummary = valueOrEmpty(request.change_summary)
 
@@ -2240,7 +2336,9 @@ function ReviewHistoryCard({ request, index }) {
     <div className={`rounded-lg border p-4 ${rejected ? 'border-error/30 bg-error/10' : 'organizer-history-card'}`}>
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
-          <p className="organizer-info-empty text-xs font-bold uppercase tracking-wide">Yêu cầu {index + 1}</p>
+          <p className="organizer-info-empty text-xs font-bold uppercase tracking-wide">
+            {isEnglish ? `Request ${index + 1}` : `Yêu cầu ${index + 1}`}
+          </p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <StatusPill status={request.status} />
             <span className="organizer-profile-label text-sm font-semibold">{requestActionLabel(request.request_action)}</span>
@@ -2248,19 +2346,19 @@ function ReviewHistoryCard({ request, index }) {
           </div>
         </div>
         <div className="grid gap-2 text-sm md:min-w-[260px]">
-          <CompactLine icon={Calendar} label="Ngày gửi" value={formatDateTime(request.created_at)} />
-          <CompactLine icon={Clock} label="Ngày xử lý" value={formatDateTime(request.reviewed_at)} />
+          <CompactLine icon={Calendar} label={isEnglish ? 'Submission Date' : 'Ngày gửi'} value={formatDateTime(request.created_at)} />
+          <CompactLine icon={Clock} label={isEnglish ? 'Review Date' : 'Ngày xử lý'} value={formatDateTime(request.reviewed_at)} />
         </div>
       </div>
-      {changeSummary !== EMPTY_TEXT && (
+      {changeSummary !== EMPTY_TEXT && changeSummary !== 'Not updated' && (
         <div className="mt-4 rounded-lg border border-border-soft/40 bg-panel-soft p-4">
-          <p className="text-sm font-bold text-content">Nội dung xét duyệt</p>
+          <p className="text-sm font-bold text-content">{isEnglish ? 'Review Content' : 'Nội dung xét duyệt'}</p>
           <p className="organizer-info-value mt-1 whitespace-pre-line text-sm leading-6">{changeSummary}</p>
         </div>
       )}
       {rejected && (
         <div className="mt-4 rounded-lg border border-error/30 bg-error/10 p-4">
-          <p className="text-sm font-bold text-error">Lý do từ chối</p>
+          <p className="text-sm font-bold text-error">{isEnglish ? 'Rejection Reason' : 'Lý do từ chối'}</p>
           <p className="organizer-info-value mt-1 whitespace-pre-line text-sm leading-6">{valueOrEmpty(request.review_note)}</p>
         </div>
       )}
@@ -2339,10 +2437,14 @@ function firstDefined(...values) {
   return values.find((value) => value !== undefined && value !== null)
 }
 
-function valueOrEmpty(value) {
-  if (value === undefined || value === null) return EMPTY_TEXT
+const isCurrentEnglish = () =>
+  (typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
+  (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en')
+
+function valueOrEmpty(value, isEnglish = isCurrentEnglish()) {
+  if (value === undefined || value === null) return isEnglish ? 'Not updated' : EMPTY_TEXT
   const text = String(value).trim()
-  return text || EMPTY_TEXT
+  return text || (isEnglish ? 'Not updated' : EMPTY_TEXT)
 }
 
 function formatProfileAddress(user, organizer) {
@@ -2360,22 +2462,31 @@ function normalizeOrganizerType(type) {
   return normalized || 'unknown'
 }
 
-function organizerTypeLabel(type) {
+function organizerTypeLabel(type, isEnglish = isCurrentEnglish()) {
   const normalized = normalizeOrganizerType(type)
-  if (normalized === 'personal') return 'Cá nhân'
-  if (normalized === 'organization') return 'Tổ chức/Doanh nghiệp'
-  return EMPTY_TEXT
+  if (normalized === 'personal') return isEnglish ? 'Individual' : 'Cá nhân'
+  if (normalized === 'organization') return isEnglish ? 'Organization / Business' : 'Tổ chức/Doanh nghiệp'
+  return isEnglish ? 'Not updated' : EMPTY_TEXT
 }
 
-function requestActionLabel(action) {
+function requestActionLabel(action, isEnglish = isCurrentEnglish()) {
   const normalized = String(action || 'APPLICATION').toUpperCase()
-  if (normalized === 'PROFILE_UPDATE') return 'Cập nhật hồ sơ pháp lý/xác minh'
-  return 'Đăng ký nhà tổ chức'
+  if (normalized === 'PROFILE_UPDATE') return isEnglish ? 'Legal/Verification Profile Update' : 'Cập nhật hồ sơ pháp lý/xác minh'
+  return isEnglish ? 'Organizer Registration' : 'Đăng ký nhà tổ chức'
 }
 
-function requestStatusLabel(status) {
+function requestStatusLabel(status, isEnglish = isCurrentEnglish()) {
   const normalized = String(status || '').toLowerCase()
-  const map = {
+  const map = isEnglish ? {
+    pending: 'Pending Approval',
+    approved: 'Approved',
+    rejected: 'Rejected',
+    active: 'Approved',
+    verified: 'Verified',
+    unverified: 'Unverified',
+    inactive: 'Inactive',
+    suspended: 'Suspended',
+  } : {
     pending: 'Đang chờ duyệt',
     approved: 'Đã duyệt',
     rejected: 'Bị từ chối',
@@ -2385,21 +2496,23 @@ function requestStatusLabel(status) {
     inactive: 'Ngừng hoạt động',
     suspended: 'Tạm ngừng',
   }
-  return map[normalized] || valueOrEmpty(status)
+  return map[normalized] || valueOrEmpty(status, isEnglish)
 }
 
-function emailVerificationLabel(verified, verifiedAt) {
+function emailVerificationLabel(verified, verifiedAt, isEnglish = isCurrentEnglish()) {
   if (verified === true) {
-    return verifiedAt ? `Đã xác thực lúc ${formatDateTime(verifiedAt)}` : 'Đã xác thực'
+    return verifiedAt
+      ? (isEnglish ? `Verified at ${formatDateTime(verifiedAt)}` : `Đã xác thực lúc ${formatDateTime(verifiedAt)}`)
+      : (isEnglish ? 'Verified' : 'Đã xác thực')
   }
-  if (verified === false) return 'Chưa xác thực'
-  return EMPTY_TEXT
+  if (verified === false) return isEnglish ? 'Unverified' : 'Chưa xác thực'
+  return isEnglish ? 'Not updated' : EMPTY_TEXT
 }
 
-function booleanLabel(value) {
-  if (value === true) return 'Đã đồng ý'
-  if (value === false) return 'Chưa đồng ý'
-  return EMPTY_TEXT
+function booleanLabel(value, isEnglish = isCurrentEnglish()) {
+  if (value === true) return isEnglish ? 'Agreed' : 'Đã đồng ý'
+  if (value === false) return isEnglish ? 'Not agreed' : 'Chưa đồng ý'
+  return isEnglish ? 'Not updated' : EMPTY_TEXT
 }
 
 const getAutoLocale = () =>
@@ -2408,10 +2521,10 @@ const getAutoLocale = () =>
     ? 'en-US'
     : 'vi-VN'
 
-function formatDate(dateString) {
-  if (!dateString) return EMPTY_TEXT
+function formatDate(dateString, isEnglish = isCurrentEnglish()) {
+  if (!dateString) return isEnglish ? 'Not updated' : EMPTY_TEXT
   const date = new Date(dateString)
-  if (Number.isNaN(date.getTime())) return EMPTY_TEXT
+  if (Number.isNaN(date.getTime())) return isEnglish ? 'Not updated' : EMPTY_TEXT
   return new Intl.DateTimeFormat(getAutoLocale(), {
     day: '2-digit',
     month: '2-digit',
@@ -2419,10 +2532,10 @@ function formatDate(dateString) {
   }).format(date)
 }
 
-function formatDateTime(dateString) {
-  if (!dateString) return EMPTY_TEXT
+function formatDateTime(dateString, isEnglish = isCurrentEnglish()) {
+  if (!dateString) return isEnglish ? 'Not updated' : EMPTY_TEXT
   const date = new Date(dateString)
-  if (Number.isNaN(date.getTime())) return EMPTY_TEXT
+  if (Number.isNaN(date.getTime())) return isEnglish ? 'Not updated' : EMPTY_TEXT
   return new Intl.DateTimeFormat(getAutoLocale(), {
     day: '2-digit',
     month: '2-digit',
@@ -2434,7 +2547,7 @@ function formatDateTime(dateString) {
 
 function normalizeUrl(url) {
   const text = valueOrEmpty(url)
-  if (text === EMPTY_TEXT) return undefined
+  if (text === EMPTY_TEXT || text === 'Not updated') return undefined
   return /^https?:\/\//i.test(text) ? text : `https://${text}`
 }
 
@@ -2446,8 +2559,8 @@ function isImageUrl(url = '') {
   )
 }
 
-function roleLabel(roles = []) {
-  const labels = {
+function roleLabel(roles = [], isEnglish = isCurrentEnglish()) {
+  const labelsVi = {
     organizer: 'Nhà tổ chức',
     admin: 'Quản trị viên',
     super_admin: 'Quản trị viên cấp cao',
@@ -2455,7 +2568,16 @@ function roleLabel(roles = []) {
     customer: 'Khách hàng',
     user: 'Khách hàng',
   }
+  const labelsEn = {
+    organizer: 'Organizer',
+    admin: 'Administrator',
+    super_admin: 'Super Admin',
+    staff: 'Staff',
+    customer: 'Customer',
+    user: 'Customer',
+  }
+  const labels = isEnglish ? labelsEn : labelsVi
   const list = Array.isArray(roles) ? roles : roles ? [roles] : []
-  return list.map((role) => labels[String(role).toLowerCase()] || role).join(', ') || 'Khách hàng'
+  return list.map((role) => labels[String(role).toLowerCase()] || role).join(', ') || (isEnglish ? 'Customer' : 'Khách hàng')
 }
 

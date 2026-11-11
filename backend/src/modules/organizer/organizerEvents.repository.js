@@ -252,6 +252,10 @@ class OrganizerEventsRepository {
         e.end_time,
         e.category_id,
         c.name AS category_name,
+        venue_summary.venue_name,
+        venue_summary.city,
+        venue_summary.district,
+        venue_summary.address_line,
         e.created_at,
         e.updated_at,
         (
@@ -264,6 +268,14 @@ class OrganizerEventsRepository {
         ) AS paid_orders_count
       FROM events e
       LEFT JOIN event_categories c ON c.id = e.category_id
+      LEFT JOIN LATERAL (
+        SELECT v.name AS venue_name, v.city, v.district, v.address_line
+        FROM event_sessions es
+        JOIN venues v ON v.id = es.venue_id
+        WHERE es.event_id = e.id AND v.deleted_at IS NULL
+        ORDER BY es.start_time ASC
+        LIMIT 1
+      ) venue_summary ON true
       WHERE e.organizer_id = $1 AND e.deleted_at IS NULL
       ORDER BY e.updated_at DESC
       `,
@@ -287,10 +299,34 @@ class OrganizerEventsRepository {
         END AS sales_status,
         c.name AS category_name,
         c.slug AS category_slug,
+        venue_summary.venue_name,
+        venue_summary.address AS address,
+        venue_summary.city,
+        venue_summary.district,
+        venue_summary.venue,
         COALESCE(sessions.sessions, '[]'::json) AS sessions,
         COALESCE(ticket_types.ticket_types, '[]'::json) AS ticket_types
       FROM events e
       LEFT JOIN event_categories c ON c.id = e.category_id
+      LEFT JOIN LATERAL (
+        SELECT
+          v.name AS venue_name,
+          v.address_line AS address,
+          v.city,
+          v.district,
+          json_build_object(
+            'id', v.id,
+            'name', v.name,
+            'city', v.city,
+            'district', v.district,
+            'address_line', v.address_line
+          ) AS venue
+        FROM event_sessions es
+        JOIN venues v ON v.id = es.venue_id
+        WHERE es.event_id = e.id AND v.deleted_at IS NULL
+        ORDER BY es.start_time ASC
+        LIMIT 1
+      ) venue_summary ON true
       LEFT JOIN LATERAL (
         SELECT json_agg(json_build_object(
           'id', es.id,

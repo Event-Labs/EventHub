@@ -22,6 +22,8 @@ import { useToast } from '@/providers/ToastProvider.jsx'
 import { getResumeBookingPath, hasActiveSeatHold, readBookingDraft } from '@/utils/bookingDraft.js'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
 import { getCategoryName } from '@/i18n/categoryNames.js'
+import { translatePhrase } from '@/i18n/phraseDictionary.js'
+import { cleanAndFormatVenue, translateEventHtmlDescription } from '@/i18n/eventTranslations.js'
 import '@/components/RichTextEditor.css'
 
 function getActiveIsEnglish(explicitIsEnglish) {
@@ -77,11 +79,7 @@ function formatSessionName(name, isEnglish = getActiveIsEnglish()) {
 }
 
 function venueSummary(venue, isEnglish = getActiveIsEnglish()) {
-  if (!venue) return isEnglish ? 'Venue updating' : 'Địa điểm cập nhật sau'
-  if (typeof venue === 'string' && venue.trim()) return venue.trim()
-  return [venue.name, venue.address_line, venue.district, venue.city]
-    .filter(Boolean)
-    .join(', ') || (typeof venue.summary === 'string' && venue.summary.trim()) || (isEnglish ? 'Venue updating' : 'Địa điểm cập nhật sau')
+  return cleanAndFormatVenue(venue, isEnglish)
 }
 
 function getGoogleMapUrl(venue) {
@@ -97,11 +95,8 @@ function isSaleOpen(ticketType, now) {
   return (!saleStart || saleStart <= now) && (!saleEnd || saleEnd >= now)
 }
 
-function formatOverviewHtml(content) {
-  if (!content || typeof content !== 'string') return ''
-  return content
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/\u00A0/g, ' ')
+function formatOverviewHtml(content, isEnglish = false) {
+  return translateEventHtmlDescription(content, isEnglish)
 }
 
 function isPastTime(value, now) {
@@ -341,7 +336,7 @@ export function EventDetailPage() {
   }
 
   const rawOverview = event?.description || event?.short_description || (isEnglish ? 'Detailed information will be updated soon.' : 'Thông tin chi tiết đang được cập nhật.')
-  const overview = useMemo(() => formatOverviewHtml(rawOverview), [rawOverview])
+  const overview = useMemo(() => formatOverviewHtml(rawOverview, isEnglish), [rawOverview, isEnglish])
 
   useEffect(() => {
     const el = overviewContentRef.current
@@ -437,11 +432,11 @@ export function EventDetailPage() {
               </span>
             )}
             <h1 className="mt-2.5 break-words font-display text-3xl font-black leading-tight text-white sm:mt-3 sm:text-4xl lg:text-5xl drop-shadow-xl">
-              {event.title}
+              {isEnglish ? (translatePhrase(event.title, 'en') || event.title) : event.title}
             </h1>
             {event.short_description && (
               <p className="mt-2 max-w-3xl break-words text-sm leading-relaxed text-slate-200/90 sm:mt-2.5 sm:text-base drop-shadow-md">
-                {event.short_description}
+                {isEnglish ? (translatePhrase(event.short_description, 'en') || event.short_description) : event.short_description}
               </p>
             )}
             <div className="mt-3.5 flex max-w-full flex-wrap items-center gap-x-5 gap-y-2 text-xs sm:mt-4 sm:text-sm text-slate-200">
@@ -764,9 +759,9 @@ export function EventDetailPage() {
                         </div>
                       )}
                       <div className="p-8 border-t border-white/5">
-                        <h3 className="font-display text-xl font-bold text-white">{venue.name}</h3>
-                        <p className="mt-2 text-sm text-slate-300">{venueSummary(venue)}</p>
-                        {venue.description && <p className="mt-4 text-sm text-slate-400">{venue.description}</p>}
+                        <h3 className="font-display text-xl font-bold text-white">{isEnglish ? (translatePhrase(venue.name, 'en') || venue.name) : venue.name}</h3>
+                        <p className="mt-2 text-sm text-slate-300">{venueSummary(venue, isEnglish)}</p>
+                        {venue.description && <p className="mt-4 text-sm text-slate-400">{isEnglish ? (translatePhrase(venue.description, 'en') || venue.description) : venue.description}</p>}
                       </div>
                     </div>
                   )

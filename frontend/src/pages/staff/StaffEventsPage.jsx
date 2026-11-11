@@ -4,6 +4,8 @@ import { Link } from 'react-router-dom'
 import { fetchAssignedStaffEvents } from '@/services/operations.js'
 import { Badge, StaffPage, StaffPanel, StaffSearch } from './StaffComponents.jsx'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
+import { cleanAndFormatVenue } from '@/i18n/eventTranslations.js'
+import { translatePhrase } from '@/i18n/phraseDictionary.js'
 
 const STAFF_ROLE_LABELS = {
   staff: { vi: 'Nhân sự', en: 'Staff' },
@@ -63,8 +65,9 @@ export function StaffEventsPage({ empty = false }) {
     if (!normalized) return events
     return events.filter((event) => {
       const title = String(event.title || '').toLowerCase()
+      const enTitle = String(translatePhrase(event.title, 'en') || '').toLowerCase()
       const venue = String(event.venue_name || '').toLowerCase()
-      return title.includes(normalized) || venue.includes(normalized)
+      return title.includes(normalized) || enTitle.includes(normalized) || venue.includes(normalized)
     })
   }, [events, keyword])
 
@@ -113,21 +116,22 @@ function AssignedEventCard({ event, currentTime, isEnglish }) {
   const checkinStart = new Date(event.checkin_start_time || event.start_time).getTime()
   const isCheckInOpen = Number.isFinite(checkinStart) && currentTime >= checkinStart
   const statusTone = isCheckInOpen ? 'green' : 'yellow'
-  const venue = [event.venue_name, event.address_line, event.district, event.city].filter(Boolean).join(', ')
+  const eventTitle = isEnglish ? (translatePhrase(event.title, 'en') || event.title) : event.title
+  const venue = cleanAndFormatVenue(event, isEnglish)
   const imageSrc = event.banner_url || event.thumbnail_url
 
   return (
     <StaffPanel className="flex h-full flex-col">
       <div className="mb-4 grid h-36 shrink-0 place-items-center overflow-hidden rounded-md bg-tertiary/15 text-tertiary">
         {imageSrc ? (
-          <img src={imageSrc} alt={event.title} className="h-full w-full object-cover" />
+          <img src={imageSrc} alt={eventTitle} className="h-full w-full object-cover" />
         ) : (
           <Calendar className="size-12" />
         )}
       </div>
       <div className="flex flex-1 flex-col">
         <div className="flex items-start justify-between gap-3">
-          <h3 className="min-h-12 min-w-0 break-words font-extrabold leading-6">{event.title}</h3>
+          <h3 className="min-h-12 min-w-0 break-words font-extrabold leading-6">{eventTitle}</h3>
           <span className="shrink-0">
             <Badge tone={statusTone}>
               {isCheckInOpen

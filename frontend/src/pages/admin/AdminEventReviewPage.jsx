@@ -52,6 +52,9 @@ import { useToast } from '@/providers/ToastProvider.jsx'
 import { Badge, ImagePlaceholder, Page, Panel, Table, TableActionButton } from './AdminComponents.jsx'
 import { AdminReviewCriteriaModal } from './AdminReviewCriteriaModal.jsx'
 import { AdminSuspendModal } from './AdminSuspendModal.jsx'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
+import { cleanAndFormatVenue } from '@/i18n/eventTranslations.js'
+import { translatePhrase } from '@/i18n/phraseDictionary.js'
 
 // ---------------------------------------------------------------------------
 // Config
@@ -66,6 +69,22 @@ const STATUS_TABS = [
   { label: 'Từ chối', value: 'REJECTED' },
   { label: 'Bị đình chỉ', value: 'SUSPENDED' },
 ]
+
+function formatPlanName(name, isEnglish) {
+  if (!name) return isEnglish ? 'VIP' : 'VIP'
+  if (!isEnglish) return name
+  const trimmed = String(name).trim()
+  const lower = trimmed.toLowerCase()
+  if (lower.includes('doanh nghiệp') || lower === 'enterprise') return 'Enterprise'
+  if (lower.includes('chuyên nghiệp') || lower === 'pro' || lower === 'professional') return 'Professional'
+  if (lower.includes('khởi nghiệp') || lower.includes('khởi đầu') || lower === 'starter') return 'Starter'
+  if (lower.includes('cơ bản') || lower === 'basic') return 'Basic'
+  if (lower.includes('cá nhân') || lower === 'personal') return 'Personal'
+  if (lower.includes('tiêu chuẩn') || lower === 'standard') return 'Standard'
+  if (lower.includes('cao cấp') || lower === 'premium') return 'Premium'
+  if (lower === 'vip') return 'VIP'
+  return translatePhrase(trimmed, 'en') || trimmed
+}
 
 /**
  * Render single prioritized status badge for an event.
@@ -152,6 +171,7 @@ function formatDate(value) {
 // Main Page
 // ---------------------------------------------------------------------------
 export function AdminEventReviewPage() {
+  const { isEnglish } = useLanguage()
   const toast = useToast()
   const queryClient = useQueryClient()
   const navigate = useNavigate()
@@ -569,25 +589,27 @@ export function AdminEventReviewPage() {
                 )}
               </div>
               <p className="mt-1 text-xs text-subtle max-w-2xl leading-relaxed">
-                Chu kỳ 15 phút quét đúng 1 sự kiện: Tự động phê duyệt nếu đạt chuẩn khi bật tự duyệt; hoặc quét review trước lưu kết quả thẩm định để Admin xem xét nếu tắt tự duyệt.
+                {isEnglish
+                  ? '15-minute cycle scans 1 event: Automatically approves if criteria are met when enabled; or pre-scans and saves evaluation for Admin review when disabled.'
+                  : 'Chu kỳ 15 phút quét đúng 1 sự kiện: Tự động phê duyệt nếu đạt chuẩn khi bật tự duyệt; hoặc quét review trước lưu kết quả thẩm định để Admin xem xét nếu tắt tự duyệt.'}
               </p>
 
               {/* Stats badges & Live Scanning status */}
               <div className="mt-2.5 flex flex-wrap items-center gap-2 text-xs">
-                <span className="inline-flex items-center gap-1 rounded-lg border border-border-soft/40 bg-panel-soft/60 px-2.5 py-1 text-subtle">
-                  Chờ duyệt: <strong className="text-amber-400">{autoReviewStats.pending_count}</strong>
+                <span className="inline-flex items-center gap-1 rounded-lg border border-border-soft/40 bg-panel-soft/60 px-2.5 py-1 text-subtle [html.light_&]:border-amber-300/70 [html.light_&]:bg-amber-50 [html.light_&]:text-amber-950">
+                  {isEnglish ? 'Pending' : 'Chờ duyệt'}: <strong className="text-amber-400 [html.light_&]:text-amber-700">{autoReviewStats.pending_count}</strong>
                 </span>
-                <span className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/20 bg-emerald-950/20 px-2.5 py-1 text-emerald-300">
-                  AI Tự động duyệt: <strong className="text-emerald-400">{autoReviewStats.auto_approved_count}</strong>
+                <span className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/20 bg-emerald-950/20 px-2.5 py-1 text-emerald-300 [html.light_&]:border-emerald-300 [html.light_&]:bg-emerald-50 [html.light_&]:text-emerald-800">
+                  {isEnglish ? 'AI Auto-Approved' : 'AI Tự động duyệt'}: <strong className="text-emerald-400 [html.light_&]:text-emerald-700">{autoReviewStats.auto_approved_count}</strong>
                 </span>
-                <span className="inline-flex items-center gap-1 rounded-lg border border-rose-500/20 bg-rose-950/20 px-2.5 py-1 text-rose-300">
-                  AI Tự động từ chối: <strong className="text-rose-400">{autoReviewStats.auto_rejected_count}</strong>
+                <span className="inline-flex items-center gap-1 rounded-lg border border-rose-500/20 bg-rose-950/20 px-2.5 py-1 text-rose-300 [html.light_&]:border-rose-300 [html.light_&]:bg-rose-50 [html.light_&]:text-rose-800">
+                  {isEnglish ? 'AI Auto-Rejected' : 'AI Tự động từ chối'}: <strong className="text-rose-400 [html.light_&]:text-rose-700">{autoReviewStats.auto_rejected_count}</strong>
                 </span>
 
                 {isScanning && (
-                  <span className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/20 px-2.5 py-1 text-amber-200 font-semibold animate-pulse">
-                    <RefreshCw className="size-3 animate-spin text-amber-400" />
-                    Đang quét 1 sự kiện: {scanStatus?.eventTitle ? `"${scanStatus.eventTitle}"` : 'Đang xử lý...'}
+                  <span className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/20 px-2.5 py-1 text-amber-200 font-semibold animate-pulse [html.light_&]:border-amber-300 [html.light_&]:bg-amber-100 [html.light_&]:text-amber-900">
+                    <RefreshCw className="size-3 animate-spin text-amber-400 [html.light_&]:text-amber-700" />
+                    {isEnglish ? 'Scanning 1 event: ' : 'Đang quét 1 sự kiện: '}{scanStatus?.eventTitle ? `"${scanStatus.eventTitle}"` : (isEnglish ? 'Processing...' : 'Đang xử lý...')}
                   </span>
                 )}
               </div>
@@ -633,12 +655,12 @@ export function AdminEventReviewPage() {
               onClick={() => toggleAutoReviewMutation.mutate(!autoReviewSettings.auto_review_enabled)}
               className={`inline-flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-black shadow-md transition duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 ${
                 autoReviewSettings.auto_review_enabled
-                  ? 'border border-emerald-500/50 bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/30'
-                  : 'border border-border-soft/50 bg-panel-soft text-subtle hover:bg-surface hover:text-content'
+                  ? 'border border-emerald-500/50 bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/30 [html.light_&]:border-emerald-300 [html.light_&]:bg-emerald-50 [html.light_&]:text-emerald-800'
+                  : 'border border-border-soft/50 bg-panel-soft text-subtle hover:bg-surface hover:text-content [html.light_&]:bg-white [html.light_&]:text-[#0D1B2A] [html.light_&]:border-[#C99A47]/30'
               }`}
             >
-              <Zap className={`size-4 ${autoReviewSettings.auto_review_enabled ? 'text-emerald-400' : 'text-subtle'}`} />
-              <span>{autoReviewSettings.auto_review_enabled ? 'Bật tự động' : 'Tắt tự động'}</span>
+              <Zap className={`size-4 ${autoReviewSettings.auto_review_enabled ? 'text-emerald-400 [html.light_&]:text-emerald-600' : 'text-subtle [html.light_&]:text-[#C99A47]'}`} />
+              <span>{autoReviewSettings.auto_review_enabled ? (isEnglish ? 'Turn off auto' : 'Tắt tự động') : (isEnglish ? 'Turn on auto' : 'Bật tự động')}</span>
             </button>
 
 
@@ -646,22 +668,22 @@ export function AdminEventReviewPage() {
             <button
               type="button"
               onClick={() => setIsSettingsOpen(true)}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border-soft/60 bg-panel-soft px-3 py-2 text-xs font-bold text-content shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-indigo-400/50 hover:bg-surface hover:text-indigo-300"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border-soft/60 bg-panel-soft px-3 py-2 text-xs font-bold text-content shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-indigo-400/50 hover:bg-surface hover:text-indigo-300 [html.light_&]:bg-white [html.light_&]:text-[#0D1B2A] [html.light_&]:border-[#C99A47]/30 [html.light_&]:hover:bg-amber-50/50"
             >
-              <Sliders className="size-4 text-indigo-400" />
-              <span>Cài đặt tự động</span>
+              <Sliders className="size-4 text-indigo-400 [html.light_&]:text-[#C99A47]" />
+              <span>{isEnglish ? 'Auto Settings' : 'Cài đặt tự động'}</span>
             </button>
 
             {/* Criteria Management Button */}
             <button
               type="button"
               onClick={() => setIsCriteriaOpen(true)}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-indigo-500/40 bg-indigo-950/40 px-3 py-2 text-xs font-black text-indigo-300 shadow-md transition duration-200 hover:-translate-y-0.5 hover:border-indigo-400 hover:bg-indigo-900/50 hover:text-white"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-indigo-500/40 bg-indigo-950/40 px-3 py-2 text-xs font-black text-indigo-300 shadow-md transition duration-200 hover:-translate-y-0.5 hover:border-indigo-400 hover:bg-indigo-900/50 hover:text-white [html.light_&]:border-indigo-300 [html.light_&]:bg-indigo-50 [html.light_&]:text-indigo-900 [html.light_&]:hover:bg-indigo-100 [html.light_&]:hover:text-indigo-950"
             >
-              <ShieldCheck className="size-4 text-indigo-400 shrink-0" />
-              <span className="sm:hidden">Điều khoản</span><span className="hidden sm:inline">Điều khoản duyệt AI</span>
+              <ShieldCheck className="size-4 text-indigo-400 shrink-0 [html.light_&]:text-indigo-600" />
+              <span className="sm:hidden">{isEnglish ? 'Terms' : 'Điều khoản'}</span><span className="hidden sm:inline">{isEnglish ? 'AI Review Terms' : 'Điều khoản duyệt AI'}</span>
               {criteriaList.length > 0 && (
-                <span className="rounded-full bg-indigo-500/30 px-1.5 py-0.5 text-[10px] font-black text-indigo-200 border border-indigo-500/40 shrink-0">
+                <span className="rounded-full bg-indigo-500/30 px-1.5 py-0.5 text-[10px] font-black text-indigo-200 border border-indigo-500/40 shrink-0 [html.light_&]:border-indigo-300 [html.light_&]:bg-indigo-200 [html.light_&]:text-indigo-900">
                   {activeCriteriaCount}
                 </span>
               )}
@@ -732,14 +754,9 @@ export function AdminEventReviewPage() {
                 /* Event name */
                 <div key="name">
                   <div className="flex items-center gap-1.5">
-                    <p className="max-w-[200px] truncate font-semibold text-content" title={event.title}>
-                      {event.title}
+                    <p className="max-w-[200px] truncate font-semibold text-content" title={isEnglish ? (translatePhrase(event.title, 'en') || event.title) : event.title}>
+                      {isEnglish ? (translatePhrase(event.title, 'en') || event.title) : event.title}
                     </p>
-                    {event.is_priority_support && (
-                      <span title={`Sự kiện thuộc Ban tổ chức có Hỗ trợ ưu tiên (${event.organizer_plan_name || 'Gói cao cấp'})`} className="cursor-help inline-flex items-center">
-                        <Sparkles className="size-3.5 text-amber-400 shrink-0" />
-                      </span>
-                    )}
                   </div>
                   <p className="text-xs text-subtle">{event.slug}</p>
                 </div>,
@@ -750,9 +767,10 @@ export function AdminEventReviewPage() {
                     {event.organizer_name || '—'}
                   </span>
                   {event.is_priority_support && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 border border-amber-500/30 text-amber-300 w-fit shadow-sm">
-                      <Sparkles className="size-2.5 text-amber-400" />
-                      Ưu tiên duyệt ({event.organizer_plan_name || 'VIP'})
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 border border-amber-500/30 text-amber-300 w-fit shadow-sm">
+                      {isEnglish
+                        ? `Priority Review (${formatPlanName(event.organizer_plan_name, true)})`
+                        : `Ưu tiên duyệt (${event.organizer_plan_name || 'VIP'})`}
                     </span>
                   )}
                 </div>,
@@ -956,6 +974,9 @@ function EventReviewModal({
   onUnhide,
   onClose,
 }) {
+  const { isEnglish } = useLanguage()
+  const eventTitle = isEnglish ? (translatePhrase(event.title, 'en') || event.title) : event.title
+  const shortDesc = isEnglish ? (translatePhrase(event.short_description, 'en') || event.short_description) : event.short_description
   const isPending = event.status === 'PENDING_REVIEW'
   const isPublished = event.status === 'PUBLISHED'
   const isHiddenApproved = event.status === 'HIDDEN' && event.approval_status === 'APPROVED'
@@ -1036,13 +1057,13 @@ function EventReviewModal({
       <Panel className="max-h-[90vh] w-full max-w-5xl overflow-y-auto border-border-soft/60">
         {/* Header */}
         <h3 className="font-display text-2xl font-extrabold text-content leading-tight">
-          {event.title}
+          {eventTitle}
         </h3>
         <p className="mt-1 text-sm text-subtle">
           Organizer: <span className="font-semibold text-content">{event.organizer_name}</span>
         </p>
         <p className="text-sm text-subtle">
-          Ngày diễn ra:{' '}
+          {isEnglish ? 'Date:' : 'Ngày diễn ra:'}{' '}
           <span className="font-semibold text-content">
             {formatDate(event.start_time)}
             {event.end_time && event.end_time !== event.start_time
@@ -1057,22 +1078,22 @@ function EventReviewModal({
           <div className="mt-4 overflow-hidden rounded-xl border border-border-soft/40 bg-black/20">
             <img
               src={event.thumbnail_url}
-              alt={event.title}
+              alt={eventTitle}
               className="max-h-[420px] w-full object-contain"
             />
           </div>
         )}
 
         <div className="mt-5 grid gap-3 md:grid-cols-3">
-          <DetailBlock icon={Tag} label="Danh mục" value={event.category_name || 'Chưa phân loại'} />
-          <DetailBlock icon={Ticket} label="Số loại vé" value={`${groupedReviewTickets.length} loại vé`} />
-          <DetailBlock icon={MapPin} label="Số phiên" value={`${event.sessions?.length || 0} phiên`} />
+          <DetailBlock icon={Tag} label={isEnglish ? 'Category' : 'Danh mục'} value={event.category_name || (isEnglish ? 'Uncategorized' : 'Chưa phân loại')} />
+          <DetailBlock icon={Ticket} label={isEnglish ? 'Ticket Tiers' : 'Số loại vé'} value={`${groupedReviewTickets.length} ${isEnglish ? 'ticket types' : 'loại vé'}`} />
+          <DetailBlock icon={MapPin} label={isEnglish ? 'Sessions' : 'Số phiên'} value={`${event.sessions?.length || 0} ${isEnglish ? 'sessions' : 'phiên'}`} />
         </div>
 
-        {(event.short_description || event.description) && (
+        {(shortDesc || event.description) && (
           <div className="mt-5 rounded-xl border border-border-soft/30 bg-panel-soft/50 p-4">
-            <p className="text-xs font-bold uppercase text-muted">Mô tả sự kiện</p>
-            {event.short_description && <p className="mt-2 text-sm font-semibold text-content">{event.short_description}</p>}
+            <p className="text-xs font-bold uppercase text-muted">{isEnglish ? 'Event Description' : 'Mô tả sự kiện'}</p>
+            {shortDesc && <p className="mt-2 text-sm font-semibold text-content">{shortDesc}</p>}
             {event.description && (
               <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-subtle">
                 {stripHtml(event.description)}
@@ -1083,10 +1104,10 @@ function EventReviewModal({
 
         <div className="mt-5 grid gap-4 lg:grid-cols-2">
           <div className="rounded-xl border border-border-soft/30 bg-panel-soft/40 p-4">
-            <p className="text-xs font-bold uppercase text-muted">Lịch diễn và địa điểm</p>
+            <p className="text-xs font-bold uppercase text-muted">{isEnglish ? 'Schedule & Venue' : 'Lịch diễn và địa điểm'}</p>
             <div className="mt-3 space-y-3">
               {(event.sessions || []).length === 0 ? (
-                <p className="text-sm text-subtle">Chưa có session.</p>
+                <p className="text-sm text-subtle">{isEnglish ? 'No sessions.' : 'Chưa có session.'}</p>
               ) : (
                 event.sessions.map((session) => (
                   <div key={session.id} className="rounded-lg border border-border-soft/20 bg-surface/50 p-3 text-sm">
@@ -1094,14 +1115,14 @@ function EventReviewModal({
                       {session.session_name
                         ? (/^phiên\s*\d+/i.test(session.session_name)
                             ? session.session_name
-                            : `Phiên ${event.sessions.indexOf(session) + 1}: ${session.session_name}`)
-                        : `Phiên ${event.sessions.indexOf(session) + 1}`}
+                            : (isEnglish ? `Session ${event.sessions.indexOf(session) + 1}: ${session.session_name}` : `Phiên ${event.sessions.indexOf(session) + 1}: ${session.session_name}`))
+                        : (isEnglish ? `Session ${event.sessions.indexOf(session) + 1}` : `Phiên ${event.sessions.indexOf(session) + 1}`)}
                     </p>
                     <p className="mt-1 text-subtle">{formatDateTime(session.start_time)} - {formatDateTime(session.end_time)}</p>
                     <p className="mt-1 text-subtle">
-                      {[session.venue_name, session.address_line, session.city].filter(Boolean).join(', ') || 'Chưa cập nhật địa điểm'}
+                      {cleanAndFormatVenue(session, isEnglish) || (isEnglish ? 'Venue TBD' : 'Chưa cập nhật địa điểm')}
                     </p>
-                    {session.seat_map_id && <p className="mt-1 text-xs font-bold text-tertiary">Có sơ đồ ghế</p>}
+                    {session.seat_map_id && <p className="mt-1 text-xs font-bold text-tertiary">{isEnglish ? 'Seat map available' : 'Có sơ đồ ghế'}</p>}
                   </div>
                 ))
               )}

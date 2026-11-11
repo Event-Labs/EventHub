@@ -1,17 +1,20 @@
 import { CheckCircle2, Clock3, Ticket, TrendingUp } from 'lucide-react'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
 
 export function CheckinKpiCards({ overall }) {
+  const { isEnglish } = useLanguage()
   const total = Number(overall?.total_tickets) || 0
   const checkedIn = Number(overall?.checked_in) || 0
   const notCheckedIn = Number(overall?.valid) || 0
   const rate = total > 0 ? Math.round((checkedIn / total) * 100) : 0
+  const numLocale = isEnglish ? 'en-US' : 'vi-VN'
 
   const cards = [
     {
       id: 'total',
-      label: 'Tổng số vé',
-      value: total.toLocaleString('vi-VN'),
-      sub: 'Vé đã bán hợp lệ',
+      label: isEnglish ? 'Total Tickets' : 'Tổng số vé',
+      value: total.toLocaleString(numLocale),
+      sub: isEnglish ? 'Valid tickets sold' : 'Vé đã bán hợp lệ',
       icon: Ticket,
       iconColor: 'text-blue-400',
       iconBg: 'bg-blue-500/10 border-blue-500/20 shadow-[0_0_15px_rgba(59,130,246,0.15)]',
@@ -20,9 +23,9 @@ export function CheckinKpiCards({ overall }) {
     },
     {
       id: 'checked_in',
-      label: 'Đã check-in',
-      value: checkedIn.toLocaleString('vi-VN'),
-      sub: `${rate}% trên tổng số vé`,
+      label: isEnglish ? 'Checked In' : 'Đã check-in',
+      value: checkedIn.toLocaleString(numLocale),
+      sub: isEnglish ? `${rate}% of total tickets` : `${rate}% trên tổng số vé`,
       icon: CheckCircle2,
       iconColor: 'text-emerald-400',
       iconBg: 'bg-emerald-500/10 border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.15)]',
@@ -31,9 +34,9 @@ export function CheckinKpiCards({ overall }) {
     },
     {
       id: 'not_checked_in',
-      label: 'Chưa check-in',
-      value: notCheckedIn.toLocaleString('vi-VN'),
-      sub: 'Vé hợp lệ chờ soát',
+      label: isEnglish ? 'Not Checked In' : 'Chưa check-in',
+      value: notCheckedIn.toLocaleString(numLocale),
+      sub: isEnglish ? 'Valid tickets awaiting check-in' : 'Vé hợp lệ chờ soát',
       icon: Clock3,
       iconColor: 'text-amber-400',
       iconBg: 'bg-amber-500/10 border-amber-500/20 shadow-[0_0_15px_rgba(245,158,11,0.15)]',
@@ -42,9 +45,9 @@ export function CheckinKpiCards({ overall }) {
     },
     {
       id: 'attendance_rate',
-      label: 'Tỷ lệ tham dự',
+      label: isEnglish ? 'Attendance Rate' : 'Tỷ lệ tham dự',
       value: `${rate}%`,
-      sub: `${checkedIn.toLocaleString('vi-VN')} / ${total.toLocaleString('vi-VN')} vé`,
+      sub: `${checkedIn.toLocaleString(numLocale)} / ${total.toLocaleString(numLocale)} ${isEnglish ? 'tickets' : 'vé'}`,
       icon: TrendingUp,
       iconColor: 'text-cyan-400',
       iconBg: 'bg-cyan-500/10 border-cyan-500/20 shadow-[0_0_15px_rgba(6,182,212,0.15)]',
