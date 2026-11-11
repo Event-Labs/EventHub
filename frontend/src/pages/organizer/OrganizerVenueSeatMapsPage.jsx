@@ -29,7 +29,7 @@ function isLightColor(hex) {
   return yiq >= 170
 }
 
-function renderStagePreviewShape(x, y, w, h, shape = 'RECTANGLE', color = '#3B82F6', label = 'SÂN KHẤU', position = 'TOP', isLight = false) {
+function renderStagePreviewShape(x, y, w, h, shape = 'RECTANGLE', color = '#3B82F6', label = 'SÂN KHẤU', _position = 'TOP', isLight = false) {
   const fillColor = color || '#3B82F6'
   const strokeColor = isLight ? 'rgba(15,23,42,0.25)' : 'rgba(255,255,255,0.4)'
   const isFillLight = isLightColor(fillColor)
@@ -175,18 +175,29 @@ function SeatMapPreviewModal({ open, seatMapId, onClose, onEdit }) {
   })
 
   // Read sm.config camelCase and snake_case properties exactly like SeatMapEditor
-  const canvasBg = seatMap?.config?.canvasBg || seatMap?.config?.canvas_theme || '#0F172A'
+  let config = seatMap?.config
+  if (typeof config === 'string') {
+    try {
+      config = JSON.parse(config)
+    } catch {
+      config = {}
+    }
+  }
+  config = config || {}
 
-  const stagePosition = seatMap?.config?.stagePosition || seatMap?.config?.stage_position || 'TOP'
-  const stageShape = seatMap?.config?.stageShape || seatMap?.config?.stage_shape || 'RECTANGLE'
-  const stageColor = seatMap?.config?.stageColor || seatMap?.config?.stage_color || '#3B82F6'
-  const stageLabel = seatMap?.config?.stageLabel || seatMap?.config?.stage_name || 'SÂN KHẤU'
-  const stageRotation = seatMap?.config?.stageRotation || 0
+  const canvasBg = config?.canvasBg || config?.canvas_theme || '#0F172A'
+  const isLightCanvas = isLightColor(canvasBg)
 
-  let stageX = seatMap?.config?.stageX ?? seatMap?.config?.custom_stage?.x ?? 0
-  let stageY = seatMap?.config?.stageY ?? seatMap?.config?.custom_stage?.y ?? 0
-  let stageW = seatMap?.config?.stageWidth ?? seatMap?.config?.custom_stage?.w ?? (stagePosition === 'LEFT' || stagePosition === 'RIGHT' ? 52 : 900)
-  let stageH = seatMap?.config?.stageHeight ?? seatMap?.config?.custom_stage?.h ?? (stagePosition === 'LEFT' || stagePosition === 'RIGHT' ? 600 : 52)
+  const stagePosition = config?.stagePosition || config?.stage_position || 'TOP'
+  const stageShape = config?.stageShape || config?.stage_shape || 'RECTANGLE'
+  const stageColor = config?.stageColor || config?.stage_color || '#3B82F6'
+  const stageLabel = config?.stageLabel || config?.stage_name || 'SÂN KHẤU'
+  const stageRotation = config?.stageRotation || 0
+
+  let stageX = config?.stageX ?? config?.custom_stage?.x ?? 0
+  let stageY = config?.stageY ?? config?.custom_stage?.y ?? 0
+  let stageW = config?.stageWidth ?? config?.custom_stage?.w ?? (stagePosition === 'LEFT' || stagePosition === 'RIGHT' ? 52 : 900)
+  let stageH = config?.stageHeight ?? config?.custom_stage?.h ?? (stagePosition === 'LEFT' || stagePosition === 'RIGHT' ? 600 : 52)
 
   if (stagePosition === 'BOTTOM') {
     stageY = 548
@@ -201,8 +212,8 @@ function SeatMapPreviewModal({ open, seatMapId, onClose, onEdit }) {
     stageH = 600
   }
 
-  const standingAreas = seatMap?.config?.standingAreas || seatMap?.config?.standing_areas || []
-  const auxElements = seatMap?.config?.auxiliaryElements || seatMap?.config?.aux_elements || []
+  const standingAreas = config?.standingAreas || config?.standing_areas || []
+  const auxElements = config?.auxiliaryElements || config?.aux_elements || []
 
   // Stats calculation matching SeatMapEditor
   const zoneSeatCounts = {}
@@ -563,28 +574,46 @@ function SeatMapPreviewModal({ open, seatMapId, onClose, onEdit }) {
                             strokeDasharray="6 4"
                           />
                         )}
-                        <text
-                          x={cx}
-                          y={cy - 6}
-                          textAnchor="middle"
-                          fill={isLightCanvas ? '#0F172A' : 'white'}
-                          fontSize={13}
-                          fontWeight="800"
-                          style={{ userSelect: 'none', pointerEvents: 'none' }}
-                        >
-                          {name || 'Vùng đứng'}
-                        </text>
-                        <text
-                          x={x + w / 2}
-                          y={y + h / 2 + 12}
-                          textAnchor="middle"
-                          fill={isLightCanvas ? '#334155' : 'rgba(255,255,255,0.85)'}
-                          fontSize={11}
-                          fontWeight="700"
-                          style={{ userSelect: 'none', pointerEvents: 'none' }}
-                        >
-                          Sức chứa: {capacity || 0} người
-                        </text>
+                        {/* Responsive text rendering so text never overflows the box */}
+                        {(() => {
+                          const title = name || 'Vùng đứng'
+                          const capText = `Sức chứa: ${capacity || 0} người`
+                          const titleLen = Math.max(title.length, 1)
+                          const capLen = Math.max(capText.length, 1)
+                          const titleFontSize = Math.min(13, Math.max(9, Math.floor((w - 14) / (titleLen * 0.60))))
+                          const capFontSize = Math.min(11, Math.max(8, Math.floor((w - 14) / (capLen * 0.55))))
+                          const lineOffset = Math.min(13, Math.max(7, h * 0.18))
+                          const showCapacity = h >= 42
+
+                          return (
+                            <>
+                              <text
+                                x={cx}
+                                y={showCapacity ? cy - lineOffset : cy + 4}
+                                textAnchor="middle"
+                                fill={isLightCanvas ? '#0F172A' : 'white'}
+                                fontSize={titleFontSize}
+                                fontWeight="800"
+                                style={{ userSelect: 'none', pointerEvents: 'none' }}
+                              >
+                                {title}
+                              </text>
+                              {showCapacity && (
+                                <text
+                                  x={cx}
+                                  y={cy + lineOffset + (titleFontSize + capFontSize) * 0.22}
+                                  textAnchor="middle"
+                                  fill={isLightCanvas ? '#334155' : 'rgba(255,255,255,0.85)'}
+                                  fontSize={capFontSize}
+                                  fontWeight="700"
+                                  style={{ userSelect: 'none', pointerEvents: 'none' }}
+                                >
+                                  {capText}
+                                </text>
+                              )}
+                            </>
+                          )
+                        })()}
                       </g>
                     )
                   })}
