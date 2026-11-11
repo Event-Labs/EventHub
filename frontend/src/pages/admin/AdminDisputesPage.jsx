@@ -26,6 +26,7 @@ import {
 import { Link } from 'react-router-dom'
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { Page, Panel, Table, TableActionButton } from './AdminComponents.jsx'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
 import { fetchOrganizerRefundRequests } from '@/services/refunds.js'
 import {
   fetchAdminComplaints,
@@ -56,7 +57,7 @@ function formatCurrency(value) {
 }
 
 const REFUND_DISPUTE_FILTERS = [
-  { value: 'ALL', label: 'Tất cả khiếu nại hoàn tiền' },
+  { value: 'ALL', label: 'Tất cả trạng thái' },
   { value: 'UNRESOLVED', label: 'Chưa giải quyết' },
   { value: 'HAS_PROOF', label: 'BTC đã có chứng từ' },
   { value: 'NO_PROOF', label: 'BTC chưa có chứng từ' },
@@ -73,6 +74,7 @@ const CUSTOMER_COMPLAINT_STATUS_FILTERS = [
 export function AdminDisputesPage() {
   const queryClient = useQueryClient()
   const toast = useToast()
+  const { isEnglish, t } = useLanguage()
 
   // Main Tab Navigation: CUSTOMER_COMPLAINTS vs REFUND_DISPUTES
   const [activeTab, setActiveTab] = useState('CUSTOMER_COMPLAINTS')
@@ -238,25 +240,25 @@ export function AdminDisputesPage() {
 
   return (
     <Page
-      title="Quản lý Khiếu nại"
-      description="Tiếp nhận, xử lý phản ánh của khách hàng về sự kiện, ban tổ chức, vé và giám sát các khiếu nại hoàn tiền trên toàn hệ thống"
+      title={isEnglish ? 'Dispute & Complaint Management' : 'Quản lý Khiếu nại'}
+      description={isEnglish ? 'Review and resolve customer complaints, event disputes, and monitor refund disputes system-wide' : 'Tiếp nhận, xử lý phản ánh của khách hàng về sự kiện, ban tổ chức, vé và giám sát các khiếu nại hoàn tiền trên toàn hệ thống'}
     >
       <div className="space-y-6">
         {/* TOP LEVEL NAVIGATION TABS */}
-        <div className="flex border-b border-white/10 gap-2 sm:gap-4">
+        <div className="flex border-b border-border-soft/60 gap-2 sm:gap-6">
           <button
             type="button"
             onClick={() => setActiveTab('CUSTOMER_COMPLAINTS')}
-            className={`flex items-center gap-2.5 pb-3 px-2 sm:px-4 text-sm font-bold border-b-2 transition-all cursor-pointer ${
+            className={`flex items-center gap-2.5 pb-3.5 px-1 sm:px-3 text-sm font-bold border-b-2 transition-all cursor-pointer ${
               activeTab === 'CUSTOMER_COMPLAINTS'
-                ? 'border-rose-500 text-rose-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                ? 'border-[#C99A47] text-[#E6C17A]'
+                : 'border-transparent text-subtle hover:text-white'
             }`}
           >
             <ShieldAlert className="size-4.5" />
-            <span>Khiếu nại từ Khách hàng</span>
+            <span>{isEnglish ? 'Customer Complaints' : 'Khiếu nại từ Khách hàng'}</span>
             {Number(complaintStats.pending_complaints || 0) > 0 && (
-              <span className="rounded-full bg-rose-500/20 border border-rose-500/40 px-2 py-0.5 text-[10px] font-black text-rose-300 animate-pulse">
+              <span className="rounded-full bg-[#C99A47]/20 border border-[#C99A47]/40 px-2.5 py-0.5 text-[10px] font-black text-[#E6C17A]">
                 {complaintStats.pending_complaints}
               </span>
             )}
@@ -265,16 +267,16 @@ export function AdminDisputesPage() {
           <button
             type="button"
             onClick={() => setActiveTab('REFUND_DISPUTES')}
-            className={`flex items-center gap-2.5 pb-3 px-2 sm:px-4 text-sm font-bold border-b-2 transition-all cursor-pointer ${
+            className={`flex items-center gap-2.5 pb-3.5 px-1 sm:px-3 text-sm font-bold border-b-2 transition-all cursor-pointer ${
               activeTab === 'REFUND_DISPUTES'
-                ? 'border-amber-500 text-amber-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                ? 'border-[#C99A47] text-[#E6C17A]'
+                : 'border-transparent text-subtle hover:text-white'
             }`}
           >
             <RotateCcw className="size-4.5" />
-            <span>Khiếu nại Hoàn tiền</span>
+            <span>{isEnglish ? 'Refund Complaints' : 'Khiếu nại Hoàn tiền'}</span>
             {unresolvedRefundCount > 0 && (
-              <span className="rounded-full bg-amber-500/20 border border-amber-500/40 px-2 py-0.5 text-[10px] font-black text-amber-300">
+              <span className="rounded-full bg-[#C99A47]/20 border border-[#C99A47]/40 px-2.5 py-0.5 text-[10px] font-black text-[#E6C17A]">
                 {unresolvedRefundCount}
               </span>
             )}
@@ -291,96 +293,107 @@ export function AdminDisputesPage() {
               {/* Card 1: Chờ xử lý */}
               <div
                 onClick={() => setSelectedComplaintStatus('PENDING')}
-                className={`rounded-2xl border p-4 sm:p-5 shadow-sm transition-all cursor-pointer ${
+                className={`glass-panel flex flex-col justify-between rounded-[24px] p-5 shadow-[0_8px_32px_rgba(0,0,0,0.2)] transition-all duration-300 hover:-translate-y-1 cursor-pointer ${
                   selectedComplaintStatus === 'PENDING'
-                    ? 'border-rose-500 bg-rose-500/15 ring-2 ring-rose-500/30'
-                    : 'border-rose-500/30 bg-[#0d172e] hover:border-rose-400'
+                    ? 'border-[#C99A47] bg-[#C99A47]/10 ring-1 ring-[#C99A47]/40 shadow-[0_0_15px_rgba(201,154,71,0.15)]'
+                    : 'border-white/5 hover:border-[#C99A47]/40'
                 }`}
               >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wider text-rose-400">
-                    Chờ xử lý
-                  </span>
-                  {Number(complaintStats.pending_complaints || 0) > 0 && (
-                    <span className="size-2 rounded-full bg-rose-500 animate-pulse" />
-                  )}
+                <div>
+                  <div className="flex items-center justify-between">
+                    <p className="text-[12px] sm:text-[13px] font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">
+                      {isEnglish ? 'Pending Review' : 'Chờ xử lý'}
+                    </p>
+                    {Number(complaintStats.pending_complaints || 0) > 0 && (
+                      <span className="rounded-full border border-amber-500/40 bg-amber-500/20 px-2 py-0.5 text-[10px] font-extrabold text-amber-300">
+                        {isEnglish ? 'Action Required' : 'Cần xử lý'}
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-2 font-mono text-2xl sm:text-3xl font-black text-white tracking-tight font-display drop-shadow-sm leading-tight [html.light_&]:text-[#0D1B2A]">
+                    {complaintStats.pending_complaints || 0}
+                  </p>
                 </div>
-                <p className="mt-2 font-mono text-3xl font-black text-rose-400">
-                  {complaintStats.pending_complaints || 0}
-                </p>
-                <p className="mt-1 text-[11px] text-slate-400">
-                  Phản ánh mới cần xem xét và can thiệp
+                <p className="mt-2 text-xs font-medium text-subtle leading-relaxed">
+                  {isEnglish ? 'New complaints needing attention and action' : 'Phản ánh mới cần xem xét và can thiệp'}
                 </p>
               </div>
 
               {/* Card 2: Đang giải quyết */}
               <div
                 onClick={() => setSelectedComplaintStatus('IN_PROGRESS')}
-                className={`rounded-2xl border p-4 sm:p-5 shadow-sm transition-all cursor-pointer ${
+                className={`glass-panel flex flex-col justify-between rounded-[24px] p-5 shadow-[0_8px_32px_rgba(0,0,0,0.2)] transition-all duration-300 hover:-translate-y-1 cursor-pointer ${
                   selectedComplaintStatus === 'IN_PROGRESS'
-                    ? 'border-sky-500 bg-sky-500/15 ring-2 ring-sky-500/30'
-                    : 'border-sky-500/30 bg-[#0d172e] hover:border-sky-400'
+                    ? 'border-[#C99A47] bg-[#C99A47]/10 ring-1 ring-[#C99A47]/40 shadow-[0_0_15px_rgba(201,154,71,0.15)]'
+                    : 'border-white/5 hover:border-[#C99A47]/40'
                 }`}
               >
-                <span className="text-xs font-bold uppercase tracking-wider text-sky-400">
-                  Đang giải quyết
-                </span>
-                <p className="mt-2 font-mono text-3xl font-black text-sky-400">
-                  {complaintStats.in_progress_complaints || 0}
-                </p>
-                <p className="mt-1 text-[11px] text-slate-400">
-                  Đang làm việc với Ban tổ chức hoặc khách hàng
+                <div>
+                  <p className="text-[12px] sm:text-[13px] font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">
+                    {isEnglish ? 'In Progress' : 'Đang giải quyết'}
+                  </p>
+                  <p className="mt-2 font-mono text-2xl sm:text-3xl font-black text-white tracking-tight font-display drop-shadow-sm leading-tight [html.light_&]:text-[#0D1B2A]">
+                    {complaintStats.in_progress_complaints || 0}
+                  </p>
+                </div>
+                <p className="mt-2 text-xs font-medium text-subtle leading-relaxed">
+                  {isEnglish ? 'Working with organizers or customers' : 'Đang làm việc với Ban tổ chức hoặc khách hàng'}
                 </p>
               </div>
 
               {/* Card 3: Đã giải quyết */}
               <div
                 onClick={() => setSelectedComplaintStatus('RESOLVED')}
-                className={`rounded-2xl border p-4 sm:p-5 shadow-sm transition-all cursor-pointer ${
+                className={`glass-panel flex flex-col justify-between rounded-[24px] p-5 shadow-[0_8px_32px_rgba(0,0,0,0.2)] transition-all duration-300 hover:-translate-y-1 cursor-pointer ${
                   selectedComplaintStatus === 'RESOLVED'
-                    ? 'border-emerald-500 bg-emerald-500/15 ring-2 ring-emerald-500/30'
-                    : 'border-emerald-500/30 bg-[#0d172e] hover:border-emerald-400'
+                    ? 'border-[#C99A47] bg-[#C99A47]/10 ring-1 ring-[#C99A47]/40 shadow-[0_0_15px_rgba(201,154,71,0.15)]'
+                    : 'border-white/5 hover:border-[#C99A47]/40'
                 }`}
               >
-                <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">
-                  Đã giải quyết
-                </span>
-                <p className="mt-2 font-mono text-3xl font-black text-emerald-400">
-                  {complaintStats.resolved_complaints || 0}
-                </p>
-                <p className="mt-1 text-[11px] text-slate-400">
-                  Khiếu nại đã hoàn tất xử lý thỏa đáng
+                <div>
+                  <p className="text-[12px] sm:text-[13px] font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">
+                    {isEnglish ? 'Resolved' : 'Đã giải quyết'}
+                  </p>
+                  <p className="mt-2 font-mono text-2xl sm:text-3xl font-black text-white tracking-tight font-display drop-shadow-sm leading-tight [html.light_&]:text-[#0D1B2A]">
+                    {complaintStats.resolved_complaints || 0}
+                  </p>
+                </div>
+                <p className="mt-2 text-xs font-medium text-subtle leading-relaxed">
+                  {isEnglish ? 'Complaints successfully resolved' : 'Khiếu nại đã hoàn tất xử lý thỏa đáng'}
                 </p>
               </div>
 
               {/* Card 4: Ban tổ chức bị phản ánh */}
-              <div className="rounded-2xl border border-white/10 bg-[#0d172e] p-4 sm:p-5 shadow-sm">
-                <span className="text-xs font-bold uppercase tracking-wider text-purple-400">
-                  BTC có khiếu nại
-                </span>
-                <p className="mt-2 font-mono text-3xl font-black text-white">
-                  {complaintStats.unique_organizers_complained || 0}
-                </p>
-                <p className="mt-1 text-[11px] text-slate-400">
-                  Tổng đơn vị phát sinh khiếu nại trên hệ thống
+              <div className="glass-panel flex flex-col justify-between rounded-[24px] border-white/5 p-5 shadow-[0_8px_32px_rgba(0,0,0,0.2)] transition-all duration-300 hover:-translate-y-1 hover:border-[#C99A47]/40">
+                <div>
+                  <p className="text-[12px] sm:text-[13px] font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">
+                    {isEnglish ? 'Reported Organizers' : 'BTC có khiếu nại'}
+                  </p>
+                  <p className="mt-2 font-mono text-2xl sm:text-3xl font-black text-white tracking-tight font-display drop-shadow-sm leading-tight [html.light_&]:text-[#0D1B2A]">
+                    {complaintStats.unique_organizers_complained || 0}
+                  </p>
+                </div>
+                <p className="mt-2 text-xs font-medium text-subtle leading-relaxed">
+                  {isEnglish ? 'Total organizers with reported complaints' : 'Tổng đơn vị phát sinh khiếu nại trên hệ thống'}
                 </p>
               </div>
             </div>
 
-            {/* Filters and Search Bar */}
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+            {/* Filters and Search Bar - All on one row */}
+            <div className="flex flex-wrap xl:flex-nowrap items-center justify-between gap-3">
               {/* Filter Pills */}
-              <div className="flex items-center gap-1.5 flex-wrap">
+              <div className="flex items-center gap-1.5 flex-nowrap overflow-x-auto">
                 {CUSTOMER_COMPLAINT_STATUS_FILTERS.map((f) => {
                   const isActive = selectedComplaintStatus === f.value
                   return (
                     <button
                       key={f.value}
+                      type="button"
                       onClick={() => setSelectedComplaintStatus(f.value)}
-                      className={`rounded-lg px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition cursor-pointer ${
+                      className={`inline-flex items-center justify-center rounded-full px-3 py-1.5 text-xs font-bold whitespace-nowrap shadow-sm transition duration-200 hover:-translate-y-0.5 cursor-pointer ${
                         isActive
-                          ? 'bg-rose-500 text-white shadow-sm shadow-rose-500/30 border border-rose-400'
-                          : 'border border-white/10 bg-[#0d172e] text-slate-300 hover:bg-white/5 hover:text-white'
+                          ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md shadow-[#C99A47]/30'
+                          : 'border border-border-soft/40 bg-panel-soft text-subtle hover:border-[#C99A47]/50 hover:bg-surface hover:text-[#E6C17A]'
                       }`}
                     >
                       {f.label}
@@ -390,13 +403,13 @@ export function AdminDisputesPage() {
               </div>
 
               {/* Right Controls: Category Select & Search */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+              <div className="flex items-center gap-2 shrink-0">
                 <select
                   value={selectedComplaintCategory}
                   onChange={(e) => setSelectedComplaintCategory(e.target.value)}
-                  className="rounded-lg border border-white/15 bg-[#0d172e] px-3 py-1.5 text-xs text-white focus:border-rose-400 focus:outline-none cursor-pointer"
+                  className="h-9 rounded-full border border-border-soft/60 bg-[#121b33] px-3 text-xs font-medium text-content outline-none focus:border-[#C99A47] cursor-pointer shadow-inner"
                 >
-                  <option value="ALL">Tất cả danh mục</option>
+                  <option value="ALL">{isEnglish ? 'All categories' : 'Tất cả danh mục'}</option>
                   {COMPLAINT_CATEGORIES.map((c) => (
                     <option key={c.value} value={c.value}>
                       {c.label}
@@ -405,13 +418,13 @@ export function AdminDisputesPage() {
                 </select>
 
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-slate-400" />
+                  <Search className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-subtle pointer-events-none" />
                   <input
                     type="text"
-                    placeholder="Tìm tiêu đề, khách hàng, sự kiện, BTC..."
+                    placeholder={isEnglish ? 'Search...' : 'Tìm kiếm'}
                     value={complaintSearchQuery}
                     onChange={(e) => setComplaintSearchQuery(e.target.value)}
-                    className="w-full sm:w-72 rounded-lg border border-white/15 bg-[#0d172e] py-1.5 pl-8 pr-3 text-xs text-white placeholder:text-white/40 focus:border-rose-400 focus:outline-none"
+                    className="h-9 w-36 sm:w-44 lg:w-48 rounded-full border border-border-soft/60 bg-[#121b33] pl-8 pr-3 text-xs text-white placeholder:text-subtle outline-none focus:border-[#C99A47] transition shadow-inner"
                   />
                 </div>
               </div>
@@ -534,10 +547,10 @@ export function AdminDisputesPage() {
                       // 7. Thao tác
                       <div key="actions" className="flex items-center justify-center">
                         <TableActionButton
-                          title="Xem chi tiết & Xử lý khiếu nại"
+                          title={isEnglish ? 'View details & resolve complaint' : 'Xem chi tiết & Xử lý khiếu nại'}
                           onClick={() => handleOpenComplaintDetail(item)}
                           icon={Eye}
-                          tone="danger"
+                          tone="default"
                         />
                       </div>,
                     ]
@@ -549,31 +562,31 @@ export function AdminDisputesPage() {
             {/* DETAIL & RESOLUTION MODAL FOR CUSTOMER COMPLAINTS */}
             {complaintDetailModalItem && (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm animate-in fade-in duration-150">
-                <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl border border-rose-500/30 bg-[#0f172a] p-6 shadow-2xl text-white space-y-5">
+                <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl border border-border-soft/60 bg-[#0f172a] p-6 shadow-2xl text-white space-y-5">
                   {/* Modal Header */}
-                  <div className="flex items-start justify-between border-b border-white/10 pb-4">
+                  <div className="flex items-start justify-between border-b border-border-soft/60 pb-4">
                     <div className="flex items-center gap-3">
-                      <div className="flex size-11 items-center justify-center rounded-2xl bg-rose-500/20 text-rose-400 border border-rose-500/30 shrink-0">
+                      <div className="flex size-11 items-center justify-center rounded-2xl bg-[#C99A47]/15 text-[#E6C17A] border border-[#C99A47]/30 shrink-0">
                         <ShieldAlert className="size-6" />
                       </div>
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="text-lg font-bold text-white">
-                            Khiếu nại #{complaintDetailModalItem.id?.slice(0, 8)}
+                            {isEnglish ? 'Complaint' : 'Khiếu nại'} #{complaintDetailModalItem.id?.slice(0, 8)}
                           </h3>
-                          <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${getStatusBadgeClass(complaintDetailModalItem.status)}`}>
+                          <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${getStatusBadgeClass(complaintDetailModalItem.status)}`}>
                             {getStatusLabel(complaintDetailModalItem.status)}
                           </span>
                         </div>
-                        <p className="text-xs text-slate-400 mt-0.5">
-                          Thời gian gửi: {formatDateTime(complaintDetailModalItem.created_at)}
+                        <p className="text-xs text-subtle mt-0.5">
+                          {isEnglish ? 'Submitted at:' : 'Thời gian gửi:'} {formatDateTime(complaintDetailModalItem.created_at)}
                         </p>
                       </div>
                     </div>
                     <button
                       type="button"
                       onClick={() => setComplaintDetailModalItem(null)}
-                      className="rounded-xl p-1.5 text-slate-400 hover:bg-white/10 hover:text-white transition"
+                      className="rounded-xl p-1.5 text-slate-400 hover:bg-white/10 hover:text-white transition cursor-pointer"
                     >
                       <X className="size-5" />
                     </button>
@@ -582,30 +595,30 @@ export function AdminDisputesPage() {
                   {/* Customer & Target Information Grid */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                     {/* Customer Info */}
-                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4 space-y-2">
-                      <span className="font-bold uppercase tracking-wider text-slate-400 block text-[10px]">
-                        Thông tin Người khiếu nại
+                    <div className="rounded-2xl border border-border-soft/40 bg-panel-soft/60 p-4 space-y-2">
+                      <span className="font-bold uppercase tracking-wider text-subtle block text-[10px]">
+                        {isEnglish ? 'Complainant Info' : 'Thông tin Người khiếu nại'}
                       </span>
                       <p className="text-sm font-bold text-white flex items-center gap-2">
-                        <User className="size-4 text-rose-400" />
-                        {complaintDetailModalItem.customer_name || 'Khách hàng'}
+                        <User className="size-4 text-[#E6C17A]" />
+                        {complaintDetailModalItem.customer_name || (isEnglish ? 'Customer' : 'Khách hàng')}
                       </p>
                       <p className="text-slate-300 flex items-center gap-2">
-                        <Mail className="size-3.5 text-slate-400" />
+                        <Mail className="size-3.5 text-subtle" />
                         {complaintDetailModalItem.contact_email || complaintDetailModalItem.customer_email || 'N/A'}
                       </p>
                       {(complaintDetailModalItem.contact_phone || complaintDetailModalItem.customer_phone) && (
                         <p className="text-slate-300 flex items-center gap-2">
-                          <Phone className="size-3.5 text-slate-400" />
+                          <Phone className="size-3.5 text-subtle" />
                           {complaintDetailModalItem.contact_phone || complaintDetailModalItem.customer_phone}
                         </p>
                       )}
                     </div>
 
                     {/* Target Event / Organizer */}
-                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4 space-y-2">
-                      <span className="font-bold uppercase tracking-wider text-slate-400 block text-[10px]">
-                        Đối tượng bị phản ánh
+                    <div className="rounded-2xl border border-border-soft/40 bg-panel-soft/60 p-4 space-y-2">
+                      <span className="font-bold uppercase tracking-wider text-subtle block text-[10px]">
+                        {isEnglish ? 'Reported Target' : 'Đối tượng bị phản ánh'}
                       </span>
                       {complaintDetailModalItem.event_title ? (
                         <>
@@ -621,28 +634,28 @@ export function AdminDisputesPage() {
                           {complaintDetailModalItem.ticket_code && (
                             <p className="font-mono text-sky-400 flex items-center gap-1.5">
                               <Ticket className="size-3.5" />
-                              Mã vé: {complaintDetailModalItem.ticket_code}
+                              {isEnglish ? 'Ticket code:' : 'Mã vé:'} {complaintDetailModalItem.ticket_code}
                             </p>
                           )}
                           {complaintDetailModalItem.organizer_id && (
                             <div className="pt-1">
                               <Link
                                 to={`/admin/organizers/${complaintDetailModalItem.organizer_id}`}
-                                className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary hover:bg-primary/20 transition"
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-[#C99A47]/40 bg-[#C99A47]/10 px-2.5 py-1 text-[11px] font-semibold text-[#E6C17A] hover:bg-[#C99A47]/20 transition"
                               >
-                                <Building2 className="size-3" /> Xem hồ sơ Ban tổ chức
+                                <Building2 className="size-3" /> {isEnglish ? 'View Organizer Profile' : 'Xem hồ sơ Ban tổ chức'}
                               </Link>
                             </div>
                           )}
                         </>
                       ) : (
-                        <p className="text-slate-400 italic">Khiếu nại dịch vụ chung nền tảng</p>
+                        <p className="text-subtle italic">{isEnglish ? 'General platform complaint' : 'Khiếu nại dịch vụ chung nền tảng'}</p>
                       )}
                     </div>
                   </div>
 
                   {/* Complaint Details Box */}
-                  <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 space-y-2.5">
+                  <div className="rounded-2xl border border-border-soft/50 bg-[#121b33]/60 p-4 space-y-2.5">
                     <div className="flex items-center justify-between">
                       <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${getCategoryBadgeClass(complaintDetailModalItem.category)}`}>
                         {getCategoryLabel(complaintDetailModalItem.category)}
@@ -659,9 +672,9 @@ export function AdminDisputesPage() {
                     {Array.isArray(complaintDetailModalItem.evidence_urls) &&
                       complaintDetailModalItem.evidence_urls.length > 0 && (
                         <div className="pt-2 border-t border-white/10 space-y-2">
-                          <span className="text-[11px] font-bold text-rose-300 flex items-center gap-1.5">
+                          <span className="text-[11px] font-bold text-[#E6C17A] flex items-center gap-1.5">
                             <ImageIcon className="size-3.5" />
-                            Ảnh minh chứng đính kèm ({complaintDetailModalItem.evidence_urls.length} ảnh):
+                            {isEnglish ? `Attached proof images (${complaintDetailModalItem.evidence_urls.length}):` : `Ảnh minh chứng đính kèm (${complaintDetailModalItem.evidence_urls.length} ảnh):`}
                           </span>
                           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                             {complaintDetailModalItem.evidence_urls.map((imgUrl, i) => (
@@ -670,7 +683,7 @@ export function AdminDisputesPage() {
                                 href={imgUrl}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="group relative aspect-square rounded-xl overflow-hidden border border-white/20 bg-black block"
+                                className="group relative aspect-square rounded-xl overflow-hidden border border-white/20 bg-black block hover:border-[#C99A47] transition-colors"
                               >
                                 <img
                                   src={imgUrl}
@@ -689,34 +702,34 @@ export function AdminDisputesPage() {
 
                   {/* Previous Resolution Note if any */}
                   {complaintDetailModalItem.admin_note && (
-                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4 space-y-1 text-xs">
-                      <span className="font-bold text-slate-400 text-[10px] uppercase tracking-wider block">
-                        Ghi chú xử lý trước đó
+                    <div className="rounded-2xl border border-border-soft/40 bg-panel-soft/60 p-4 space-y-1 text-xs">
+                      <span className="font-bold text-subtle text-[10px] uppercase tracking-wider block">
+                        {isEnglish ? 'Previous Resolution Note' : 'Ghi chú xử lý trước đó'}
                       </span>
                       <p className="text-slate-200 italic">
                         &ldquo;{complaintDetailModalItem.admin_note}&rdquo;
                       </p>
                       {complaintDetailModalItem.resolved_by_name && (
-                        <p className="text-[11px] text-slate-400 pt-1">
-                          Người xử lý: <strong>{complaintDetailModalItem.resolved_by_name}</strong> {complaintDetailModalItem.resolved_at && `(${formatDateTime(complaintDetailModalItem.resolved_at)})`}
+                        <p className="text-[11px] text-subtle pt-1">
+                          {isEnglish ? 'Resolved by:' : 'Người xử lý:'} <strong>{complaintDetailModalItem.resolved_by_name}</strong> {complaintDetailModalItem.resolved_at && `(${formatDateTime(complaintDetailModalItem.resolved_at)})`}
                         </p>
                       )}
                     </div>
                   )}
 
                   {/* ADMIN RESOLUTION FORM */}
-                  <form onSubmit={handleSaveComplaintResolution} className="space-y-4 pt-2 border-t border-white/10 text-xs">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-rose-400">
-                      Cập nhật trạng thái & Phản hồi khiếu nại
+                  <form onSubmit={handleSaveComplaintResolution} className="space-y-4 pt-2 border-t border-border-soft/60 text-xs">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-[#E6C17A]">
+                      {isEnglish ? 'Update Status & Customer Feedback' : 'Cập nhật trạng thái & Phản hồi khiếu nại'}
                     </h4>
 
                     {/* Status Select */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       {[
-                        { val: 'PENDING', label: 'Chờ xử lý', color: 'amber' },
-                        { val: 'IN_PROGRESS', label: 'Đang giải quyết', color: 'sky' },
-                        { val: 'RESOLVED', label: 'Đã giải quyết', color: 'emerald' },
-                        { val: 'REJECTED', label: 'Từ chối / Bác bỏ', color: 'rose' },
+                        { val: 'PENDING', label: isEnglish ? 'Pending' : 'Chờ xử lý', color: 'amber' },
+                        { val: 'IN_PROGRESS', label: isEnglish ? 'In Progress' : 'Đang giải quyết', color: 'sky' },
+                        { val: 'RESOLVED', label: isEnglish ? 'Resolved' : 'Đã giải quyết', color: 'emerald' },
+                        { val: 'REJECTED', label: isEnglish ? 'Rejected' : 'Từ chối / Bác bỏ', color: 'rose' },
                       ].map((st) => (
                         <button
                           key={st.val}
@@ -724,8 +737,8 @@ export function AdminDisputesPage() {
                           onClick={() => setResolveStatus(st.val)}
                           className={`rounded-xl border p-2.5 text-center font-bold transition cursor-pointer ${
                             resolveStatus === st.val
-                              ? 'border-rose-500 bg-rose-500/20 text-white shadow-md'
-                              : 'border-white/10 bg-slate-900/60 text-slate-400 hover:text-white'
+                              ? 'border-[#C99A47] bg-[#C99A47]/20 text-[#E6C17A] shadow-md shadow-[#C99A47]/20'
+                              : 'border-border-soft/40 bg-[#121b33] text-subtle hover:text-white hover:border-[#C99A47]/40'
                           }`}
                         >
                           {st.label}
@@ -736,17 +749,17 @@ export function AdminDisputesPage() {
                     {/* Admin Note / Resolution message */}
                     <div>
                       <label className="block text-[11px] font-bold text-slate-300 mb-1">
-                        Ghi chú xử lý / Nội dung phản hồi đến khách hàng:
+                        {isEnglish ? 'Resolution notes / Message to customer:' : 'Ghi chú xử lý / Nội dung phản hồi đến khách hàng:'}
                       </label>
                       <textarea
                         rows={3}
-                        placeholder="Nhập kết quả xử lý, đôn đốc BTC hoặc hướng dẫn cho khách hàng..."
+                        placeholder={isEnglish ? 'Enter resolution details, action taken with organizer or advice for customer...' : 'Nhập kết quả xử lý, đôn đốc BTC hoặc hướng dẫn cho khách hàng...'}
                         value={resolveAdminNote}
                         onChange={(e) => setResolveAdminNote(e.target.value)}
-                        className="w-full rounded-xl border border-white/15 bg-slate-900/90 p-3 text-xs text-white placeholder:text-slate-500 focus:border-rose-400 focus:outline-none leading-relaxed"
+                        className="w-full rounded-xl border border-border-soft/60 bg-[#121b33] p-3 text-xs text-white placeholder:text-subtle focus:border-[#C99A47] focus:outline-none leading-relaxed"
                       />
-                      <p className="mt-1 text-[11px] text-slate-400 italic">
-                        * Khi chuyển sang trạng thái &ldquo;Đã giải quyết&rdquo; hoặc &ldquo;Bác bỏ&rdquo;, hệ thống sẽ tự động gửi thông báo phản hồi tới tài khoản của khách hàng.
+                      <p className="mt-1 text-[11px] text-subtle italic">
+                        {isEnglish ? '* When status is set to "Resolved" or "Rejected", a notification will be sent to the customer.' : '* Khi chuyển sang trạng thái "Đã giải quyết" hoặc "Bác bỏ", hệ thống sẽ tự động gửi thông báo phản hồi tới tài khoản của khách hàng.'}
                       </p>
                     </div>
 
@@ -757,22 +770,22 @@ export function AdminDisputesPage() {
                         onClick={() => setComplaintDetailModalItem(null)}
                         className="rounded-xl px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-white/10 transition cursor-pointer"
                       >
-                        Đóng
+                        {isEnglish ? 'Close' : 'Đóng'}
                       </button>
                       <button
                         type="submit"
                         disabled={updateComplaintMutation.isPending}
-                        className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-rose-500 to-amber-500 px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-rose-500/25 hover:from-rose-600 hover:to-amber-600 transition cursor-pointer disabled:opacity-50"
+                        className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-5 py-2.5 text-xs font-black text-[#0D1B2A] shadow-lg shadow-[#C99A47]/25 hover:brightness-110 transition cursor-pointer disabled:opacity-50"
                       >
                         {updateComplaintMutation.isPending ? (
                           <>
                             <Loader2 className="size-4 animate-spin" />
-                            <span>Đang lưu...</span>
+                            <span>{isEnglish ? 'Saving...' : 'Đang lưu...'}</span>
                           </>
                         ) : (
                           <>
                             <CheckCircle2 className="size-4" />
-                            <span>Lưu kết quả xử lý</span>
+                            <span>{isEnglish ? 'Save Resolution' : 'Lưu kết quả xử lý'}</span>
                           </>
                         )}
                       </button>
@@ -791,100 +804,111 @@ export function AdminDisputesPage() {
           <div className="space-y-6 animate-in fade-in duration-150">
             {/* KPI Cards */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {/* Card 1: Đang khiếu nại (Đỏ Rose) */}
+              {/* Card 1: Đang khiếu nại */}
               <div
                 onClick={() => setSelectedRefundFilter('UNRESOLVED')}
-                className={`rounded-2xl border p-4 sm:p-5 shadow-sm transition-all cursor-pointer ${
+                className={`glass-panel flex flex-col justify-between rounded-[24px] p-5 shadow-[0_8px_32px_rgba(0,0,0,0.2)] transition-all duration-300 hover:-translate-y-1 cursor-pointer ${
                   selectedRefundFilter === 'UNRESOLVED'
-                    ? 'border-rose-500 bg-rose-500/15 ring-2 ring-rose-500/30'
-                    : 'border-rose-500/30 bg-[#0d172e] hover:border-rose-400'
+                    ? 'border-[#C99A47] bg-[#C99A47]/10 ring-1 ring-[#C99A47]/40 shadow-[0_0_15px_rgba(201,154,71,0.15)]'
+                    : 'border-white/5 hover:border-[#C99A47]/40'
                 }`}
               >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wider text-rose-400">
-                    Đang khiếu nại
-                  </span>
-                  {unresolvedRefundCount > 0 && (
-                    <span className="size-2 rounded-full bg-rose-500 animate-pulse" />
-                  )}
+                <div>
+                  <div className="flex items-center justify-between">
+                    <p className="text-[12px] sm:text-[13px] font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">
+                      {isEnglish ? 'Disputed Refunds' : 'Đang khiếu nại'}
+                    </p>
+                    {unresolvedRefundCount > 0 && (
+                      <span className="rounded-full border border-amber-500/40 bg-amber-500/20 px-2 py-0.5 text-[10px] font-extrabold text-amber-300">
+                        {isEnglish ? 'Action Required' : 'Cần xử lý'}
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-2 font-mono text-2xl sm:text-3xl font-black text-white tracking-tight font-display drop-shadow-sm leading-tight [html.light_&]:text-[#0D1B2A]">
+                    {unresolvedRefundCount}
+                  </p>
                 </div>
-                <p className="mt-2 font-mono text-3xl font-black text-rose-400">
-                  {unresolvedRefundCount}
-                </p>
-                <p className="mt-1 text-[11px] text-slate-400">
-                  Khách hàng báo chưa nhận được tiền vào tài khoản
+                <p className="mt-2 text-xs font-medium text-subtle leading-relaxed">
+                  {isEnglish ? 'Customers report not received refund' : 'Khách hàng báo chưa nhận được tiền vào tài khoản'}
                 </p>
               </div>
 
               {/* Card 2: Tổng số tiền tranh chấp */}
-              <div className="rounded-2xl border border-white/10 bg-[#0d172e] p-4 sm:p-5 shadow-sm">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                  Tổng tiền khiếu nại
-                </span>
-                <p className="mt-2 font-mono text-2xl sm:text-3xl font-black text-amber-400">
-                  {formatCurrency(totalDisputedAmount)}
-                </p>
-                <p className="mt-1 text-[11px] text-slate-400">
-                  Tổng giá trị vé đang chờ đối soát hoàn tiền
+              <div className="glass-panel flex flex-col justify-between rounded-[24px] border-white/5 p-5 shadow-[0_8px_32px_rgba(0,0,0,0.2)] transition-all duration-300 hover:-translate-y-1 hover:border-[#C99A47]/40">
+                <div>
+                  <p className="text-[12px] sm:text-[13px] font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">
+                    {isEnglish ? 'Disputed Amount' : 'Tổng tiền khiếu nại'}
+                  </p>
+                  <p className="mt-2 font-mono text-2xl sm:text-3xl font-black text-[#E6C17A] tracking-tight font-display drop-shadow-sm leading-tight">
+                    {formatCurrency(totalDisputedAmount)}
+                  </p>
+                </div>
+                <p className="mt-2 text-xs font-medium text-subtle leading-relaxed">
+                  {isEnglish ? 'Total refund amount awaiting audit' : 'Tổng giá trị vé đang chờ đối soát hoàn tiền'}
                 </p>
               </div>
 
               {/* Card 3: Số Ban tổ chức liên quan */}
-              <div className="rounded-2xl border border-white/10 bg-[#0d172e] p-4 sm:p-5 shadow-sm">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                  Ban tổ chức liên quan
-                </span>
-                <p className="mt-2 font-mono text-3xl font-black text-white">
-                  {uniqueRefundOrganizersCount}
-                </p>
-                <p className="mt-1 text-[11px] text-slate-400">
-                  Đơn vị phát sinh khiếu nại cần theo dõi nghĩa vụ
+              <div className="glass-panel flex flex-col justify-between rounded-[24px] border-white/5 p-5 shadow-[0_8px_32px_rgba(0,0,0,0.2)] transition-all duration-300 hover:-translate-y-1 hover:border-[#C99A47]/40">
+                <div>
+                  <p className="text-[12px] sm:text-[13px] font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">
+                    {isEnglish ? 'Related Organizers' : 'Ban tổ chức liên quan'}
+                  </p>
+                  <p className="mt-2 font-mono text-2xl sm:text-3xl font-black text-white tracking-tight font-display drop-shadow-sm leading-tight [html.light_&]:text-[#0D1B2A]">
+                    {uniqueRefundOrganizersCount}
+                  </p>
+                </div>
+                <p className="mt-2 text-xs font-medium text-subtle leading-relaxed">
+                  {isEnglish ? 'Organizers with disputed refunds' : 'Đơn vị phát sinh khiếu nại cần theo dõi nghĩa vụ'}
                 </p>
               </div>
 
               {/* Card 4: Tình trạng chứng từ */}
               <div
                 onClick={() => setSelectedRefundFilter('NO_PROOF')}
-                className={`rounded-2xl border p-4 sm:p-5 shadow-sm transition-all cursor-pointer ${
+                className={`glass-panel flex flex-col justify-between rounded-[24px] p-5 shadow-[0_8px_32px_rgba(0,0,0,0.2)] transition-all duration-300 hover:-translate-y-1 cursor-pointer ${
                   selectedRefundFilter === 'NO_PROOF'
-                    ? 'border-amber-400 bg-amber-500/15 ring-2 ring-amber-400/30'
-                    : 'border-white/10 bg-[#0d172e] hover:border-amber-400/60'
+                    ? 'border-[#C99A47] bg-[#C99A47]/10 ring-1 ring-[#C99A47]/40 shadow-[0_0_15px_rgba(201,154,71,0.15)]'
+                    : 'border-white/5 hover:border-[#C99A47]/40'
                 }`}
               >
-                <span className="text-xs font-bold uppercase tracking-wider text-amber-400">
-                  BTC chưa có chứng từ
-                </span>
-                <p className="mt-2 font-mono text-3xl font-black text-amber-300">
-                  {
-                    rawRefundList.filter(
-                      (i) =>
-                        !i.proof_url &&
-                        !i.organizer_proof_url &&
-                        !i.transaction_ref &&
-                        !i.organizer_transaction_ref
-                    ).length
-                  }
-                </p>
-                <p className="mt-1 text-[11px] text-slate-400">
-                  Cần đôn đốc BTC thực hiện chuyển khoản cho khách
+                <div>
+                  <p className="text-[12px] sm:text-[13px] font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">
+                    {isEnglish ? 'Missing Proof' : 'BTC chưa có chứng từ'}
+                  </p>
+                  <p className="mt-2 font-mono text-2xl sm:text-3xl font-black text-amber-300 tracking-tight font-display drop-shadow-sm leading-tight">
+                    {
+                      rawRefundList.filter(
+                        (i) =>
+                          !i.proof_url &&
+                          !i.organizer_proof_url &&
+                          !i.transaction_ref &&
+                          !i.organizer_transaction_ref
+                      ).length
+                    }
+                  </p>
+                </div>
+                <p className="mt-2 text-xs font-medium text-subtle leading-relaxed">
+                  {isEnglish ? 'Need follow-up with organizer for proof' : 'Cần đôn đốc BTC thực hiện chuyển khoản cho khách'}
                 </p>
               </div>
             </div>
 
-            {/* Filters and Search Bar */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            {/* Filters and Search Bar - All on one row */}
+            <div className="flex flex-wrap xl:flex-nowrap items-center justify-between gap-3">
               {/* Filter Pills */}
-              <div className="flex items-center gap-1.5 flex-wrap">
+              <div className="flex items-center gap-1.5 flex-nowrap overflow-x-auto">
                 {REFUND_DISPUTE_FILTERS.map((f) => {
                   const isActive = selectedRefundFilter === f.value
                   return (
                     <button
                       key={f.value}
+                      type="button"
                       onClick={() => setSelectedRefundFilter(f.value)}
-                      className={`rounded-lg px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition cursor-pointer ${
+                      className={`inline-flex items-center justify-center rounded-full px-3 py-1.5 text-xs font-bold whitespace-nowrap shadow-sm transition duration-200 hover:-translate-y-0.5 cursor-pointer ${
                         isActive
-                          ? 'bg-rose-500 text-white shadow-sm shadow-rose-500/30 border border-rose-400'
-                          : 'border border-white/10 bg-[#0d172e] text-slate-300 hover:bg-white/5 hover:text-white'
+                          ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md shadow-[#C99A47]/30'
+                          : 'border border-border-soft/40 bg-panel-soft text-subtle hover:border-[#C99A47]/50 hover:bg-surface hover:text-[#E6C17A]'
                       }`}
                     >
                       {f.label}
@@ -894,14 +918,14 @@ export function AdminDisputesPage() {
               </div>
 
               {/* Search */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-slate-400" />
+              <div className="relative shrink-0">
+                <Search className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-subtle pointer-events-none" />
                 <input
                   type="text"
-                  placeholder="Tìm mã vé, khách hàng, sự kiện, BTC..."
+                  placeholder={isEnglish ? 'Search...' : 'Tìm kiếm'}
                   value={refundSearchQuery}
                   onChange={(e) => setRefundSearchQuery(e.target.value)}
-                  className="w-full sm:w-80 rounded-lg border border-white/15 bg-[#0d172e] py-1.5 pl-8 pr-3 text-xs text-white placeholder:text-white/40 focus:border-rose-400 focus:outline-none"
+                  className="h-9 w-40 sm:w-48 lg:w-56 rounded-full border border-border-soft/60 bg-[#121b33] pl-8 pr-3 text-xs text-white placeholder:text-subtle outline-none focus:border-[#C99A47] transition shadow-inner"
                 />
               </div>
             </div>
@@ -1014,10 +1038,10 @@ export function AdminDisputesPage() {
                       // 7. Thao tác
                       <div key="actions" className="flex items-center justify-center">
                         <TableActionButton
-                          title="Xem chi tiết khiếu nại & đối soát"
+                          title={isEnglish ? 'View refund dispute details & audit' : 'Xem chi tiết khiếu nại & đối soát'}
                           onClick={() => setRefundDetailModalItem(item)}
                           icon={Eye}
-                          tone="danger"
+                          tone="default"
                         />
                       </div>,
                     ]
@@ -1029,116 +1053,116 @@ export function AdminDisputesPage() {
             {/* Detail Modal for Refund Dispute Review */}
             {refundDetailModalItem && (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-in fade-in duration-150">
-                <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-rose-500/30 bg-[#0f172a] p-6 shadow-2xl text-white space-y-5">
+                <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl border border-border-soft/60 bg-[#0f172a] p-6 shadow-2xl text-white space-y-5">
                   {/* Modal Header */}
-                  <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                  <div className="flex items-center justify-between border-b border-border-soft/60 pb-4">
                     <div className="flex items-center gap-3">
-                      <div className="flex size-10 items-center justify-center rounded-xl bg-rose-500/20 text-rose-400 shrink-0">
+                      <div className="flex size-11 items-center justify-center rounded-2xl bg-[#C99A47]/15 text-[#E6C17A] border border-[#C99A47]/30 shrink-0">
                         <ShieldAlert className="size-6" />
                       </div>
                       <div>
                         <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                          Chi tiết Khiếu nại #{refundDetailModalItem.id?.slice(0, 8)}
+                          {isEnglish ? 'Refund Dispute' : 'Chi tiết Khiếu nại'} #{refundDetailModalItem.id?.slice(0, 8)}
                         </h3>
-                        <p className="text-xs text-rose-300">
-                          Gửi lúc: {formatDateTime(refundDetailModalItem.disputed_at || refundDetailModalItem.updated_at)}
+                        <p className="text-xs text-subtle">
+                          {isEnglish ? 'Submitted at:' : 'Gửi lúc:'} {formatDateTime(refundDetailModalItem.disputed_at || refundDetailModalItem.updated_at)}
                         </p>
                       </div>
                     </div>
                     <button
                       type="button"
                       onClick={() => setRefundDetailModalItem(null)}
-                      className="rounded-lg p-1.5 text-slate-400 hover:bg-white/10 hover:text-white"
+                      className="rounded-xl p-1.5 text-slate-400 hover:bg-white/10 hover:text-white transition cursor-pointer"
                     >
                       <X className="size-5" />
                     </button>
                   </div>
 
                   {/* Dispute Alert Banner */}
-                  <div className="rounded-xl border border-rose-500/50 bg-rose-500/15 p-4 space-y-1 text-xs text-rose-200">
-                    <div className="flex items-center gap-2 font-bold text-rose-300 text-sm">
+                  <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 space-y-1 text-xs text-amber-200">
+                    <div className="flex items-center gap-2 font-bold text-amber-300 text-sm">
                       <AlertCircle className="size-4 shrink-0" />
-                      Nội dung khiếu nại từ khách hàng
+                      {isEnglish ? 'Customer Dispute Content' : 'Nội dung khiếu nại từ khách hàng'}
                     </div>
                     <p className="text-sm font-medium text-white pt-1 leading-relaxed">
-                      &ldquo;{refundDetailModalItem.dispute_reason || 'Khách hàng báo chưa nhận được tiền vào tài khoản ngân hàng sau khi BTC xác nhận hoàn tiền.'}&rdquo;
+                      &ldquo;{refundDetailModalItem.dispute_reason || (isEnglish ? 'Customer reported that refund was not received after organizer confirmation.' : 'Khách hàng báo chưa nhận được tiền vào tài khoản ngân hàng sau khi BTC xác nhận hoàn tiền.')}&rdquo;
                     </p>
                   </div>
 
                   {/* Grid Information */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                     {/* Event & Organizer */}
-                    <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-2">
-                      <span className="font-bold uppercase tracking-wider text-slate-400 block text-[11px]">
-                        Sự kiện & Ban tổ chức
+                    <div className="rounded-2xl border border-border-soft/40 bg-panel-soft/60 p-4 space-y-2">
+                      <span className="font-bold uppercase tracking-wider text-subtle block text-[11px]">
+                        {isEnglish ? 'Event & Organizer' : 'Sự kiện & Ban tổ chức'}
                       </span>
                       <p className="font-bold text-white text-sm">
-                        {refundDetailModalItem.event?.title || 'Sự kiện'}
+                        {refundDetailModalItem.event?.title || (isEnglish ? 'Event' : 'Sự kiện')}
                       </p>
                       <p className="text-amber-300 font-semibold">
-                        Ban tổ chức: {refundDetailModalItem.event?.organizers?.business_name || refundDetailModalItem.organizer_name || 'N/A'}
+                        BTC: {refundDetailModalItem.event?.organizers?.business_name || refundDetailModalItem.organizer_name || 'N/A'}
                       </p>
                       {refundDetailModalItem.organizer_id && (
                         <div className="pt-1">
                           <Link
                             to={`/admin/organizers/${refundDetailModalItem.organizer_id}`}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary hover:bg-primary/20 transition"
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-[#C99A47]/40 bg-[#C99A47]/10 px-2.5 py-1 text-xs font-semibold text-[#E6C17A] hover:bg-[#C99A47]/20 transition"
                           >
-                            <Building2 className="size-3.5" /> Xem hồ sơ Ban tổ chức
+                            <Building2 className="size-3.5" /> {isEnglish ? 'View Organizer Profile' : 'Xem hồ sơ Ban tổ chức'}
                           </Link>
                         </div>
                       )}
                     </div>
 
                     {/* Customer Contact */}
-                    <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-2">
-                      <span className="font-bold uppercase tracking-wider text-slate-400 block text-[11px]">
-                        Khách hàng khiếu nại
+                    <div className="rounded-2xl border border-border-soft/40 bg-panel-soft/60 p-4 space-y-2">
+                      <span className="font-bold uppercase tracking-wider text-subtle block text-[11px]">
+                        {isEnglish ? 'Complainant Customer' : 'Khách hàng khiếu nại'}
                       </span>
                       <p className="font-bold text-white text-sm flex items-center gap-1.5">
-                        <User className="size-4 text-slate-400" />
-                        {refundDetailModalItem.customer?.full_name || refundDetailModalItem.order?.buyer_name || 'Khách hàng'}
+                        <User className="size-4 text-[#E6C17A]" />
+                        {refundDetailModalItem.customer?.full_name || refundDetailModalItem.order?.buyer_name || (isEnglish ? 'Customer' : 'Khách hàng')}
                       </p>
                       <p className="text-slate-300 flex items-center gap-1.5">
-                        <Mail className="size-3.5 text-slate-400" />
+                        <Mail className="size-3.5 text-subtle" />
                         {refundDetailModalItem.customer?.email || refundDetailModalItem.order?.buyer_email || 'N/A'}
                       </p>
                       {refundDetailModalItem.customer?.phone && (
                         <p className="text-slate-300 flex items-center gap-1.5">
-                          <Phone className="size-3.5 text-slate-400" />
+                          <Phone className="size-3.5 text-subtle" />
                           {refundDetailModalItem.customer.phone}
                         </p>
                       )}
-                      <p className="font-mono text-slate-400 text-[11px] pt-1">
-                        Mã vé: {refundDetailModalItem.ticket?.ticket_code || refundDetailModalItem.order?.order_code || 'N/A'}
+                      <p className="font-mono text-subtle text-[11px] pt-1">
+                        {isEnglish ? 'Ticket code:' : 'Mã vé:'} {refundDetailModalItem.ticket?.ticket_code || refundDetailModalItem.order?.order_code || 'N/A'}
                       </p>
                     </div>
 
                     {/* Amount & Bank Account of Customer */}
-                    <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-2">
-                      <span className="font-bold uppercase tracking-wider text-slate-400 block text-[11px]">
-                        Tài khoản khách nhận hoàn tiền
+                    <div className="rounded-2xl border border-border-soft/40 bg-panel-soft/60 p-4 space-y-2">
+                      <span className="font-bold uppercase tracking-wider text-subtle block text-[11px]">
+                        {isEnglish ? 'Recipient Bank Account' : 'Tài khoản khách nhận hoàn tiền'}
                       </span>
                       <div className="flex justify-between items-center">
-                        <span className="text-slate-400">Số tiền hoàn:</span>
-                        <span className="font-mono font-bold text-amber-400 text-sm">
+                        <span className="text-subtle">{isEnglish ? 'Amount:' : 'Số tiền hoàn:'}</span>
+                        <span className="font-mono font-bold text-[#E6C17A] text-sm">
                           {formatCurrency(refundDetailModalItem.refund_amount)}
                         </span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-slate-400">Ngân hàng:</span>
+                        <span className="text-subtle">{isEnglish ? 'Bank:' : 'Ngân hàng:'}</span>
                         <span className="font-semibold text-white">
                           {refundDetailModalItem.bank_name || 'N/A'}
                         </span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-slate-400">Số tài khoản:</span>
+                        <span className="text-subtle">{isEnglish ? 'Account number:' : 'Số tài khoản:'}</span>
                         <span className="font-mono font-bold text-white">
                           {refundDetailModalItem.bank_account_number || 'N/A'}
                         </span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-slate-400">Chủ tài khoản:</span>
+                        <span className="text-subtle">{isEnglish ? 'Account name:' : 'Chủ tài khoản:'}</span>
                         <span className="font-semibold text-white uppercase">
                           {refundDetailModalItem.bank_account_name || 'N/A'}
                         </span>
@@ -1146,20 +1170,20 @@ export function AdminDisputesPage() {
                     </div>
 
                     {/* Organizer Proof & Audit */}
-                    <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-2">
-                      <span className="font-bold uppercase tracking-wider text-slate-400 block text-[11px]">
-                        Chứng từ đối soát từ Ban tổ chức
+                    <div className="rounded-2xl border border-border-soft/40 bg-panel-soft/60 p-4 space-y-2">
+                      <span className="font-bold uppercase tracking-wider text-subtle block text-[11px]">
+                        {isEnglish ? 'Organizer Payment Proof' : 'Chứng từ đối soát từ Ban tổ chức'}
                       </span>
                       <div className="flex justify-between items-center">
-                        <span className="text-slate-400">Phương thức:</span>
+                        <span className="text-subtle">{isEnglish ? 'Method:' : 'Phương thức:'}</span>
                         <span className="font-semibold text-white">
                           {refundDetailModalItem.refund_method === 'PAYOS' ? 'PayOS (Tự động)' : 'Chuyển khoản thủ công'}
                         </span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-slate-400">Mã giao dịch:</span>
+                        <span className="text-subtle">{isEnglish ? 'Transaction ref:' : 'Mã giao dịch:'}</span>
                         <span className="font-mono text-emerald-400 font-bold">
-                          {refundDetailModalItem.transaction_ref || refundDetailModalItem.organizer_transaction_ref || 'Chưa cung cấp'}
+                          {refundDetailModalItem.transaction_ref || refundDetailModalItem.organizer_transaction_ref || (isEnglish ? 'Not provided' : 'Chưa cung cấp')}
                         </span>
                       </div>
                       {refundDetailModalItem.proof_url || refundDetailModalItem.organizer_proof_url ? (
@@ -1170,33 +1194,33 @@ export function AdminDisputesPage() {
                             rel="noreferrer"
                             className="inline-flex items-center gap-1.5 text-xs text-sky-400 hover:underline"
                           >
-                            <FileText className="size-3.5" /> Xem ảnh biên lai chuyển tiền (Ủy nhiệm chi)
+                            <FileText className="size-3.5" /> {isEnglish ? 'View proof receipt' : 'Xem ảnh biên lai chuyển tiền (Ủy nhiệm chi)'}
                           </a>
                         </div>
                       ) : (
                         <p className="text-[11px] text-amber-400 pt-1">
-                          ⚠️ Ban tổ chức chưa tải lên ảnh biên lai chuyển khoản.
+                          ⚠️ {isEnglish ? 'Organizer has not uploaded proof of transfer.' : 'Ban tổ chức chưa tải lên ảnh biên lai chuyển khoản.'}
                         </p>
                       )}
                       {refundDetailModalItem.organizer_note && (
                         <p className="text-[11px] text-slate-300 pt-1 italic">
-                          Ghi chú của BTC: &ldquo;{refundDetailModalItem.organizer_note}&rdquo;
+                          {isEnglish ? 'Organizer note:' : 'Ghi chú của BTC:'} &ldquo;{refundDetailModalItem.organizer_note}&rdquo;
                         </p>
                       )}
                     </div>
                   </div>
 
                   {/* Modal Footer */}
-                  <div className="flex items-center justify-between pt-3 border-t border-white/10">
-                    <p className="text-[11px] text-slate-400">
-                      * Nếu Ban tổ chức không hoàn tiền đúng hạn, Admin có thể đình chỉ hoạt động tại trang Hồ sơ Organizer.
+                  <div className="flex items-center justify-between pt-3 border-t border-border-soft/60">
+                    <p className="text-[11px] text-subtle">
+                      * {isEnglish ? 'If organizer does not refund in time, Admin may suspend them via Organizer Profile.' : 'Nếu Ban tổ chức không hoàn tiền đúng hạn, Admin có thể đình chỉ hoạt động tại trang Hồ sơ Organizer.'}
                     </p>
                     <button
                       type="button"
                       onClick={() => setRefundDetailModalItem(null)}
-                      className="rounded-xl border border-white/15 px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-white/10 transition"
+                      className="rounded-xl border border-border-soft/60 px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-white/10 hover:text-white transition cursor-pointer"
                     >
-                      Đóng
+                      {isEnglish ? 'Close' : 'Đóng'}
                     </button>
                   </div>
                 </div>

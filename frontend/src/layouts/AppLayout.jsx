@@ -533,15 +533,6 @@ export function AppLayout() {
                     >
                       {isEnglish ? 'Personal Profile' : 'Hồ sơ cá nhân'}
                     </NavLink>
-                    {!hasAdminRole && (
-                      <NavLink
-                        className="block px-4 py-2 text-sm font-semibold text-subtle hover:bg-panel-soft hover:text-[#E6C17A]"
-                        to="/complaints"
-                        onClick={() => setOpen(false)}
-                      >
-                        {isEnglish ? 'My Complaints' : 'Khiếu nại của tôi'}
-                      </NavLink>
-                    )}
                   </div>
 
                   <div className="border-t border-border-soft py-1">
