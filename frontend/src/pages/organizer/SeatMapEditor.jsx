@@ -1206,13 +1206,13 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
         pasteCopied()
         return
       }
-      if ((ctrlKey && key === 'b') || key === '[') {
+      if ((isCtrl && key === 'b') || key === '[') {
         e.preventDefault()
         setToolbarExpandedManual(null)
         setSidebarOpen((v) => !v)
         return
       }
-      if (key === 't' && !ctrlKey && !e.metaKey && !e.altKey) {
+      if (key === 't' && !isCtrl && !e.altKey) {
         e.preventDefault()
         setToolbarExpandedManual((prev) => {
           const current = prev !== null ? prev : !sidebarOpen
@@ -1254,7 +1254,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
         setRubberBand(null)
       }
       if (!isCtrl && !e.altKey) {
-        const matched = TOOLS.find((t) => t.shortcut.toLowerCase() === key)
+        const matched = tools.find((t) => t.shortcut.toLowerCase() === key)
         if (matched && !(matched.freeformOnly && layoutType === 'GRID')) {
           setTool(matched.id)
           if (matched.id === 'PAINT') {

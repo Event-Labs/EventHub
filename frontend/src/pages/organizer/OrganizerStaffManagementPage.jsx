@@ -33,6 +33,12 @@ import { useToast } from '@/providers/ToastProvider.jsx'
 import { OrganizerEventPicker } from './OrganizerEventPicker.jsx'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
 
+const getAutoLocale = () =>
+  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
+   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
+    ? 'en-US'
+    : 'vi-VN'
+
 const GATE_SUGGESTIONS_VI = ['Cổng A', 'Cổng B', 'Cổng C', 'Cổng VIP', 'Cổng chính', 'Cổng phụ', 'Tất cả cổng']
 const GATE_SUGGESTIONS_EN = ['Gate A', 'Gate B', 'Gate C', 'VIP Gate', 'Main Gate', 'Side Gate', 'All Gates']
 

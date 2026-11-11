@@ -556,6 +556,7 @@ function CancelFreeTicketButton({ ticket, onCancelled, isEnglish = false }) {
   const [isOpen, setIsOpen] = useState(false)
   const [reason, setReason] = useState('')
   const toast = useToast()
+  const eventTitle = isEnglish ? (translatePhrase(ticket.event?.title, 'en') || ticket.event?.title) : ticket.event?.title
 
   const cancelMutation = useMutation({
     mutationFn: () => cancelFreeTicket(ticket.id, reason.trim() || (isEnglish ? 'User self-cancelled free ticket' : 'Khách hàng tự hủy vé miễn phí')),
@@ -651,6 +652,8 @@ function CancelFreeTicketButton({ ticket, onCancelled, isEnglish = false }) {
 function RefundButton({ ticket, onRefundSubmitted, isEnglish = false }) {
   const [isOpen, setIsOpen] = useState(false)
   const toast = useToast()
+  const eventTitle = isEnglish ? (translatePhrase(ticket.event?.title, 'en') || ticket.event?.title) : ticket.event?.title
+  const ticketTypeName = isEnglish ? (translatePhrase(ticket.ticket_type?.name, 'en') || ticket.ticket_type?.name) : ticket.ticket_type?.name
   const [reason, setReason] = useState('Trùng lịch cá nhân')
   const [customerNote, setCustomerNote] = useState('')
   const [bankName, setBankName] = useState('')
@@ -1096,6 +1099,7 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest, onPayoutSub
   if (!isOpen || !ticket) return null
 
   const toast = useToast()
+  const eventTitle = isEnglish ? (translatePhrase(ticket.event?.title, 'en') || ticket.event?.title) : ticket.event?.title
   const status = refundRequest?.status || (ticket.status === 'REFUNDED' ? 'REFUNDED' : 'PENDING')
   const [bankName, setBankName] = useState(refundRequest?.bank_name || '')
   const [accountNumber, setAccountNumber] = useState('')

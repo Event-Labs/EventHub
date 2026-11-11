@@ -774,6 +774,7 @@ function ManualSearchPanel({
   eventsState,
   eventsMessage,
 }) {
+  const { isEnglish } = useLanguage()
   const eventSelected = Boolean(form.eventId)
 
   return (

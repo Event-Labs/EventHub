@@ -357,6 +357,7 @@ export function OrganizerOrdersPage() {
 }
 
 function OrderDetailModal({ orderId, onClose }) {
+  const { isEnglish } = useLanguage()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
