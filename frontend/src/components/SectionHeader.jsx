@@ -13,7 +13,7 @@ export function SectionHeader({ eyebrow, title, description, action }) {
           {renderCosmicTitle(title)}
         </h2>
         {description && (
-          <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-slate-400" style={{ color: '#94a3b8' }}>
+          <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-slate-300 font-medium" style={{ color: '#cbd5e1' }}>
             {description}
           </p>
         )}

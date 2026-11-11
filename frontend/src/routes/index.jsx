@@ -11,6 +11,7 @@ import { EventDetailPage } from '@/pages/customer/events/EventDetailPage.jsx'
 import { EventsPage } from '@/pages/customer/events/EventsPage.jsx'
 import { FavoriteEventsPage } from '@/pages/customer/favorites/FavoriteEventsPage.jsx'
 import { FeedbackPage } from '@/pages/customer/FeedbackPage.jsx'
+import { CustomerComplaintsPage } from '@/pages/customer/CustomerComplaintsPage.jsx'
 import { OrganizerBusinessEmailVerifyPage } from '@/pages/customer/OrganizerBusinessEmailVerifyPage.jsx'
 import { OrganizerRequestPage } from '@/pages/customer/OrganizerRequestPage.jsx'
 import { HomePage } from '@/pages/public/HomePage.jsx'
@@ -406,6 +407,10 @@ export const router = createBrowserRouter([
       {
         path: 'feedback',
         element: <FeedbackPage />,
+      },
+      {
+        path: 'complaints',
+        element: <CustomerComplaintsPage />,
       },
       {
         path: 'policies',

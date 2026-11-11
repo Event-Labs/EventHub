@@ -26,12 +26,14 @@ function getCenterNavItems(isEnglish) {
         ['Favorites', '/favorites', true],
         ['My Tickets', '/my-tickets', true],
         ['Feedback', '/feedback', true],
+        ['Complaints', '/complaints', true],
       ]
     : [
         ['Khám phá sự kiện', '/events', false],
         ['Sự kiện yêu thích', '/favorites', true],
         ['Vé của tôi', '/my-tickets', true],
         ['Đánh giá', '/feedback', true],
+        ['Khiếu nại', '/complaints', true],
       ]
 }
 
@@ -531,6 +533,15 @@ export function AppLayout() {
                     >
                       {isEnglish ? 'Personal Profile' : 'Hồ sơ cá nhân'}
                     </NavLink>
+                    {!hasAdminRole && (
+                      <NavLink
+                        className="block px-4 py-2 text-sm font-semibold text-subtle hover:bg-panel-soft hover:text-[#E6C17A]"
+                        to="/complaints"
+                        onClick={() => setOpen(false)}
+                      >
+                        {isEnglish ? 'My Complaints' : 'Khiếu nại của tôi'}
+                      </NavLink>
+                    )}
                   </div>
 
                   <div className="border-t border-border-soft py-1">
@@ -579,7 +590,8 @@ export function AppLayout() {
           pathname === '/profile' ||
           pathname === '/my-tickets' ||
           pathname === '/favorites' ||
-          pathname === '/feedback'
+          pathname === '/feedback' ||
+          pathname === '/complaints'
             ? 'hidden md:block'
             : ''
         }`}

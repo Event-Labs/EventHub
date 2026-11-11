@@ -7,12 +7,14 @@ import {
   ChevronUp,
   Heart,
   MapPin,
+  ShieldAlert,
   UserCircle,
   XCircle,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { fetchEventDetail, toggleFavorite } from '@/services/events.js'
+import { CustomerComplaintModal } from '@/components/CustomerComplaintModal.jsx'
 import { cn } from '@/lib/utils.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { optimisticallySetFavorite, refreshFavoriteQueries, restoreFavoriteSnapshots } from '@/lib/favoriteCache.js'
@@ -150,6 +152,7 @@ export function EventDetailPage() {
   const [selectedSessionId, setSelectedSessionId] = useState(null)
   const [bookingError, setBookingError] = useState('')
   const [currentTime, setCurrentTime] = useState(() => Date.now())
+  const [complaintModalOpen, setComplaintModalOpen] = useState(false)
 
   const eventQuery = useQuery({
     queryKey: ['event-detail', eventId],
@@ -799,26 +802,40 @@ export function EventDetailPage() {
                 {isEnglish ? 'Event Tickets' : 'Vé sự kiện'}
               </h2>
             </div>
-            <button
-              type="button"
-              onClick={handleFavorite}
-              disabled={favoriteMutation.isPending}
-              className={cn(
-                'grid size-10 place-items-center rounded-full border transition-all duration-200 outline-none cursor-pointer',
-                event.is_favorited
-                  ? 'border-red-500/60 bg-red-500/20 text-red-500 shadow-[0_0_15px_rgba(239,68,68,0.35)]'
-                  : 'border-white/15 bg-white/5 text-slate-400 hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-400',
-              )}
-              title={event.is_favorited ? (isEnglish ? 'Remove from favorites' : 'Bỏ yêu thích sự kiện') : (isEnglish ? 'Save to favorites' : 'Lưu vào danh sách yêu thích')}
-              aria-label={event.is_favorited ? (isEnglish ? 'Remove from favorites' : 'Bỏ yêu thích') : (isEnglish ? 'Favorite' : 'Yêu thích')}
-            >
-              <Heart
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (requireLogin()) return
+                  setComplaintModalOpen(true)
+                }}
+                className="grid size-10 place-items-center rounded-full border border-white/15 bg-white/5 text-slate-400 hover:border-rose-500/40 hover:bg-rose-500/10 hover:text-rose-400 transition-all duration-200 outline-none cursor-pointer"
+                title={isEnglish ? 'File complaint / report about this event' : 'Báo cáo / Khiếu nại sự kiện này'}
+                aria-label={isEnglish ? 'Report event' : 'Khiếu nại sự kiện'}
+              >
+                <ShieldAlert className="size-5 text-rose-400" />
+              </button>
+              <button
+                type="button"
+                onClick={handleFavorite}
+                disabled={favoriteMutation.isPending}
                 className={cn(
-                  'size-5 transition-transform duration-200 active:scale-90',
-                  event.is_favorited && 'fill-current drop-shadow-[0_0_8px_rgba(239,68,68,0.6)]',
+                  'grid size-10 place-items-center rounded-full border transition-all duration-200 outline-none cursor-pointer',
+                  event.is_favorited
+                    ? 'border-red-500/60 bg-red-500/20 text-red-500 shadow-[0_0_15px_rgba(239,68,68,0.35)]'
+                    : 'border-white/15 bg-white/5 text-slate-400 hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-400',
                 )}
-              />
-            </button>
+                title={event.is_favorited ? (isEnglish ? 'Remove from favorites' : 'Bỏ yêu thích sự kiện') : (isEnglish ? 'Save to favorites' : 'Lưu vào danh sách yêu thích')}
+                aria-label={event.is_favorited ? (isEnglish ? 'Remove from favorites' : 'Bỏ yêu thích') : (isEnglish ? 'Favorite' : 'Yêu thích')}
+              >
+                <Heart
+                  className={cn(
+                    'size-5 transition-transform duration-200 active:scale-90',
+                    event.is_favorited && 'fill-current drop-shadow-[0_0_8px_rgba(239,68,68,0.6)]',
+                  )}
+                />
+              </button>
+            </div>
           </div>
 
           <div className="mt-6 space-y-4">
@@ -962,6 +979,17 @@ export function EventDetailPage() {
                   : (isEnglish ? 'Select showtime' : 'Chọn suất diễn')}
         </button>
       </div>
+
+      <CustomerComplaintModal
+        isOpen={complaintModalOpen}
+        onClose={() => setComplaintModalOpen(false)}
+        initialData={{
+          eventId: event?.id,
+          eventTitle: event?.title,
+          organizerId: event?.organizer_id,
+          organizerName: event?.organizer?.business_name || event?.organizer?.organization_name || event?.organizer?.full_name,
+        }}
+      />
     </div>
   )
 }
