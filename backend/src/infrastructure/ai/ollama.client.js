@@ -16,7 +16,8 @@ const logger = require('../../core/logger');
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'eve-agent';
 const OLLAMA_FALLBACK_MODEL = process.env.OLLAMA_FALLBACK_MODEL || 'qwen3-eventhub-Q4_K_M.gguf';
-const OLLAMA_VISION_MODEL = process.env.OLLAMA_VISION_MODEL || 'moondream';
+const OLLAMA_VISION_MODEL = process.env.OLLAMA_VISION_MODEL || 'qwen2.5vl:3b';
+const OLLAMA_VISION_FALLBACK_MODEL = process.env.OLLAMA_VISION_FALLBACK_MODEL || 'moondream';
 const OLLAMA_TIMEOUT = Number(process.env.OLLAMA_TIMEOUT_MS || 90000);
 const OLLAMA_VISION_TIMEOUT = Number(process.env.OLLAMA_VISION_TIMEOUT_MS || 200000);
 const OLLAMA_NUM_CTX = Number(process.env.OLLAMA_NUM_CTX || 8192);
@@ -176,6 +177,12 @@ async function chat(messages, options = {}) {
     return updated;
   });
 
+  const hasVisionInput = Boolean(Array.isArray(options.images) && options.images.length > 0) ||
+    messages.some((m) => Array.isArray(m?.images) && m.images.length > 0);
+  const fallbackModel = hasVisionInput
+    ? (options.fallbackModel || OLLAMA_VISION_FALLBACK_MODEL)
+    : (options.fallbackModel || OLLAMA_FALLBACK_MODEL);
+
   const body = {
     model,
     messages: processedMessages,
@@ -183,7 +190,7 @@ async function chat(messages, options = {}) {
     keep_alive: options.keep_alive || '60m',
     think,
     options: {
-      temperature: options.temperature ?? 0.15,
+      temperature: options.temperature ?? 0.1,
       top_p:       options.top_p       ?? 0.85,
       num_predict: options.max_tokens  ?? 1200,
       num_ctx:     options.num_ctx      ?? OLLAMA_NUM_CTX,
@@ -197,6 +204,8 @@ async function chat(messages, options = {}) {
   // Qwen3 8B supports this natively via its chat template.
   if (options.tools && options.tools.length > 0) {
     body.tools = options.tools;
+  } else if (options.format) {
+    body.format = options.format;
   }
 
   let result;
@@ -214,9 +223,9 @@ async function chat(messages, options = {}) {
       const textOnlyMessages = processedMessages.map(({ images, ...rest }) => rest);
       const textOnlyBody = { ...body, messages: textOnlyMessages };
       result = await ollamaFetch('/api/chat', textOnlyBody, timeoutMs, retries, options.signal);
-    } else if (OLLAMA_FALLBACK_MODEL && model !== OLLAMA_FALLBACK_MODEL && !options._isFallback) {
-      logger.warn(`[OllamaClient] Primary model '${model}' failed (${err.message}). Retrying with fallback model '${OLLAMA_FALLBACK_MODEL}'...`);
-      return await chat(messages, { ...options, model: OLLAMA_FALLBACK_MODEL, _isFallback: true });
+    } else if (fallbackModel && model !== fallbackModel && !options._isFallback) {
+      logger.warn(`[OllamaClient] Primary model '${model}' failed (${err.message}). Retrying with fallback model '${fallbackModel}'...`);
+      return await chat(messages, { ...options, model: fallbackModel, _isFallback: true });
     } else {
       throw err;
     }
@@ -335,7 +344,10 @@ function repairUnterminatedJson(str) {
  */
 function extractJSON(text) {
   if (!text) return null;
-  const clean = text.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+  const clean = text
+    .replace(/<think>[\s\S]*?<\/think>/gi, '')
+    .replace(/<think>[\s\S]*$/gi, '')
+    .trim();
 
   // 1. Try direct parse
   try { return JSON.parse(clean); } catch { /* continue */ }
@@ -367,8 +379,8 @@ function extractJSON(text) {
     try { return JSON.parse(arrMatch[0]); } catch { /* continue */ }
   }
 
-  // 4. Try repairing truncated JSON if the model stopped at max_tokens
-  const repaired = repairTruncatedJson(text);
+  // 6. Try repairing truncated JSON if the model stopped at max_tokens
+  const repaired = repairTruncatedJson(clean);
   if (repaired && typeof repaired === 'object') {
     return repaired;
   }
@@ -380,12 +392,18 @@ function extractJSON(text) {
  * Health check — verify Ollama is running and model is available.
  */
 async function isHealthy() {
+  const healthTimeoutMs = Number(process.env.OLLAMA_HEALTH_TIMEOUT_MS || 5000);
   try {
     const response = await fetch(`${OLLAMA_BASE_URL}/api/tags`, {
-      signal: AbortSignal.timeout(3000),
+      signal: AbortSignal.timeout(healthTimeoutMs),
     });
-    return response.ok;
-  } catch {
+    if (!response.ok) {
+      logger.warn(`[OllamaClient] Health check failed for ${OLLAMA_BASE_URL}: HTTP ${response.status}`);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    logger.warn(`[OllamaClient] Health check unreachable for ${OLLAMA_BASE_URL}: ${err.message}`);
     return false;
   }
 }
@@ -474,6 +492,150 @@ function sanitizeRawVisionOutput(rawText) {
 }
 
 /**
+ * Chuẩn hóa context sự kiện truyền vào describeImageBatch / describeImage.
+ */
+function normalizeVisionEventContext(eventContext = '', options = {}) {
+  if (eventContext && typeof eventContext === 'object') {
+    return {
+      title: String(eventContext.title || eventContext.eventTitle || '').trim(),
+      category: String(eventContext.category || eventContext.category_name || options.category || '').trim(),
+    };
+  }
+  return {
+    title: String(eventContext || '').trim(),
+    category: String(options?.category || '').trim(),
+  };
+}
+
+/**
+ * Tạo prompt tiếng Anh chuẩn hóa cho Vision Model, kèm Event Title & Category
+ * và yêu cầu đánh giá đủ 4 trường (visual_description, extracted_text,
+ * is_event_poster_or_relevant_banner, safety_flags).
+ */
+function buildVisionAnalysisPrompt({ isPermit = false, sourceLabel = '', eventTitle = '', eventCategory = '' }) {
+  const safeTitle = String(eventTitle || 'EventHub Event').trim();
+  const safeCategory = String(eventCategory || 'General Event').trim();
+
+  if (isPermit) {
+    return `You are inspecting an official permit/legal document image (${sourceLabel || 'Document'}) for the event "${safeTitle}" (Category: "${safeCategory}").
+Return ONLY valid JSON with these exact 4 keys:
+{
+  "visual_description": "Describe the document layout, document type, issuing authority, organization name, venue/dates, and whether official stamps or signatures are visible",
+  "extracted_text": "Transcribe all readable text in the document (OCR)",
+  "is_event_poster_or_relevant_banner": true,
+  "safety_flags": []
+}
+Set "safety_flags" to ["nsfw"], ["violence"], ["gambling"], or ["scam_qr"] only if prohibited content or suspicious personal bank transfer QR scams appear; otherwise [].`;
+  }
+
+  return `You are verifying whether this image (${sourceLabel || 'Event Image'}) matches the event "${safeTitle}" (Category: "${safeCategory}").
+Return ONLY valid JSON with these exact 4 keys:
+{
+  "visual_description": "Describe in detail the main subject, people, background scene, objects, and graphic design layout",
+  "extracted_text": "Transcribe ALL visible text on the image (OCR), or empty string if none",
+  "is_event_poster_or_relevant_banner": true,
+  "safety_flags": []
+}
+Rules for "is_event_poster_or_relevant_banner": set true ONLY if this is a designed event poster/banner or directly illustrates "${safeTitle} - ${safeCategory}". Set false if it is a personal selfie, casual dining/drinking table photo, pet/meme, computer/phone screenshot, or random scenery/object unrelated to "${safeTitle} - ${safeCategory}".
+Rules for "safety_flags": return [] if safe, or include any detected issue from ["nsfw", "violence", "gambling", "scam_qr"] (explicit 18+/nudity, extreme violence, gambling ads, or fraudulent bank transfer QR codes).`;
+}
+
+/**
+ * Chuẩn hóa kết quả trả về từ Vision Model (hỗ trợ cả JSON chuẩn lẫn text thường từ model nhỏ như moondream).
+ */
+function parseVisionAnalysisResponse(rawText, { isPermit = false, sourceLabel = '', eventTitle = '', eventCategory = '' } = {}) {
+  const cleaned = sanitizeRawVisionOutput(String(rawText || '').trim());
+  let visualDescription = cleaned;
+  let extractedText = '';
+  let isRelevantPoster = null;
+  let safetyFlags = [];
+
+  const normalizeFlagList = (val) => {
+    const arr = Array.isArray(val)
+      ? val
+      : typeof val === 'string' && val.trim()
+        ? val.split(/[,;|]/)
+        : [];
+    return arr
+      .map((item) => String(item || '').trim().toLowerCase())
+      .filter((item) => item && !['none', 'safe', 'ok', 'null', 'n/a', 'empty', 'no'].includes(item));
+  };
+
+  const parsed = extractJSON(cleaned);
+  if (parsed && typeof parsed === 'object') {
+    if (parsed.visual_description) {
+      visualDescription = sanitizeRawVisionOutput(String(parsed.visual_description));
+    }
+    if (parsed.extracted_text !== undefined && parsed.extracted_text !== null) {
+      extractedText = sanitizeRawVisionOutput(String(parsed.extracted_text));
+    }
+    if (typeof parsed.is_event_poster_or_relevant_banner === 'boolean') {
+      isRelevantPoster = parsed.is_event_poster_or_relevant_banner;
+    } else if (parsed.is_event_poster_or_relevant_banner !== undefined) {
+      const flagStr = String(parsed.is_event_poster_or_relevant_banner).trim().toLowerCase();
+      if (['false', 'no', '0'].includes(flagStr)) isRelevantPoster = false;
+      else if (['true', 'yes', '1'].includes(flagStr)) isRelevantPoster = true;
+    }
+    safetyFlags = normalizeFlagList(parsed.safety_flags);
+  } else {
+    // Fallback parse cho model vision nhỏ trả về plain text dạng key: value
+    const relMatch = cleaned.match(/is_event_poster_or_relevant_banner["'\s:=]+(true|false|yes|no)/i);
+    if (relMatch) {
+      isRelevantPoster = /^(true|yes)$/i.test(relMatch[1]);
+    }
+    const ocrMatch = cleaned.match(/extracted_text["'\s:=]+["']?([^"\n}]+)/i);
+    if (ocrMatch) {
+      extractedText = ocrMatch[1].trim();
+    }
+    const visMatch = cleaned.match(/visual_description["'\s:=]+["']?([^\n}]+)/i);
+    if (visMatch) {
+      visualDescription = visMatch[1].trim();
+    }
+    const flagsMatch = cleaned.match(/safety_flags["'\s:=]+\[([^\]]*)\]/i);
+    if (flagsMatch && flagsMatch[1].trim()) {
+      safetyFlags = normalizeFlagList(flagsMatch[1].replace(/["']/g, ''));
+    }
+  }
+
+  // Phát hiện tín hiệu rõ ràng từ prose nếu model không xuất JSON boolean
+  const combinedLower = `${visualDescription} ${cleaned}`.toLowerCase();
+  const catLower = `${eventTitle} ${eventCategory}`.toLowerCase();
+  if (!isPermit && isRelevantPoster === null) {
+    const explicitlyNotPoster = /\b(not an event poster|not related to the event|unrelated to the event|personal selfie|internet meme|desktop screenshot|phone screenshot|chat screenshot)\b/i.test(combinedLower);
+    const matchesAllowedCat = /(thú cưng|pet|mèo|chó|ẩm thực|food|cooking|gaming|esports|stream|photography|du lịch)/i.test(catLower);
+    const obviousOffTopic = !matchesAllowedCat && /\b(a selfie of|mirror selfie|plates of food on a table|beer bottles on a table|cat sleeping|dog sitting|code editor screenshot|mobile app screenshot)\b/i.test(combinedLower) && !extractedText;
+    if (explicitlyNotPoster || obviousOffTopic) {
+      isRelevantPoster = false;
+    }
+  }
+
+  // Xây dựng mô tả tổng hợp dễ đọc cho Stage 2 LLM và log
+  const descParts = [];
+  if (visualDescription) {
+    descParts.push(visualDescription);
+  }
+  if (extractedText) {
+    descParts.push(`Chữ đọc được trên ảnh (OCR): "${extractedText}"`);
+  }
+  if (!isPermit && isRelevantPoster === false) {
+    descParts.push('[Cảnh báo Vision: KHÔNG phải poster/banner sự kiện hoặc ảnh không liên quan tới chủ đề sự kiện]');
+  }
+  if (safetyFlags.length > 0) {
+    descParts.push(`[Cờ an toàn Vision: ${safetyFlags.join(', ')}]`);
+  }
+
+  const description = descParts.join(' | ') || `${sourceLabel || 'Ảnh sự kiện'} đã được tải lên.`;
+
+  return {
+    description: description.trim(),
+    visual_description: visualDescription || description.trim(),
+    extracted_text: extractedText,
+    is_event_poster_or_relevant_banner: isRelevantPoster,
+    safety_flags: safetyFlags,
+  };
+}
+
+/**
  * Trau chuốt và chuẩn hóa mô tả sang tiếng Việt tự nhiên, chuyên nghiệp bằng model ngôn ngữ chính
  */
 async function ensureVietnameseDescription(rawDescription, sourceLabel = '', eventTitle = '', signal = null) {
@@ -498,18 +660,18 @@ async function ensureVietnameseDescription(rawDescription, sourceLabel = '', eve
 }
 
 /**
- * Describe a single image using the vision model (moondream).
- * Gửi prompt tiếng Anh chuẩn hóa để tránh lỗi lặp ký tự tiếng Thái/tiếng lạ của mô hình Vision,
- * sau đó tự động tổng hợp sang tiếng Việt qua ensureVietnameseDescription.
- *
- * @param {string} base64Image - Pure base64 encoded image (no data URI prefix)
- * @param {string} contextPrompt - Optional prompt to guide the vision model's focus
- * @param {string} sourceLabel - Label of the source image
- * @param {string} eventTitle - Event title for context
- * @returns {Promise<string>} Text description of the image content in Vietnamese
+ * Phân tích chi tiết 1 hình ảnh bằng Vision model và trả về đầy đủ 4 trường có cấu trúc.
  */
-async function describeImage(base64Image, contextPrompt = '', sourceLabel = '', eventTitle = '', isPermit = false, signal = null) {
-  if (!base64Image) return 'Không thể phân tích ảnh (dữ liệu ảnh trống).';
+async function analyzeImageDetailed(base64Image, contextPrompt = '', sourceLabel = '', eventTitle = '', isPermit = false, signal = null, eventCategory = '') {
+  if (!base64Image) {
+    return {
+      description: 'Không thể phân tích ảnh (dữ liệu ảnh trống).',
+      visual_description: '',
+      extracted_text: '',
+      is_event_poster_or_relevant_banner: null,
+      safety_flags: [],
+    };
+  }
 
   if (signal?.aborted) {
     const abortErr = new Error('Scan aborted by user');
@@ -518,44 +680,89 @@ async function describeImage(base64Image, contextPrompt = '', sourceLabel = '', 
     throw abortErr;
   }
 
-  // LƯU Ý KỸ THUẬT QUAN TRỌNG:
-  // Moondream là mô hình Vision 1.8B chỉ được huấn luyện bằng tiếng Anh.
-  // Khi gửi prompt tiếng Việt dài, mô hình sẽ bị vỡ token byte và lặp vô tận ký tự tiếng Thái (ระมราม...).
-  // Do đó, prompt gửi vào Vision Model BẮT BUỘC phải là câu lệnh TIẾNG ANH ngắn gọn, tự nhiên, sau đó đưa kết quả qua Qwen3 để chuyển thành tiếng Việt chuẩn.
-  const prompt = contextPrompt || (isPermit
-    ? 'Examine this official document image in detail. Identify the document type, read the issuing authority name, decision number, organization name, effective dates, venue location, and look for official seals or signatures.'
-    : 'Describe what you see in this event image in detail. Read any visible text, title, date, location, performers, and describe the background and visual style.');
+  // Ưu tiên qwen2.5vl:3b cho OCR tiếng Việt & ngữ cảnh ảnh; tự động fallback sang moondream nếu chưa pull model chính.
+  const prompt = contextPrompt || buildVisionAnalysisPrompt({
+    isPermit,
+    sourceLabel,
+    eventTitle,
+    eventCategory,
+  });
 
+  const visionCandidates = [OLLAMA_VISION_MODEL, OLLAMA_VISION_FALLBACK_MODEL]
+    .map((m) => String(m || '').trim())
+    .filter((m, idx, arr) => m && arr.indexOf(m) === idx);
+
+  let lastErr = null;
+  for (let idx = 0; idx < visionCandidates.length; idx += 1) {
+    const candidateModel = visionCandidates[idx];
     const body = {
-    model: OLLAMA_VISION_MODEL,
-    prompt,
-    images: [base64Image],
-    stream: false,
-    keep_alive: 0, // Giải phóng ngay VRAM sau khi đọc ảnh xong để nhường trọn bộ nhớ cho text model
-    options: {
-      temperature: 0.1,      // Giảm nhiệt độ để kết quả ổn định, không ảo giác
-      repeat_penalty: 1.25,  // Chặn đứng hoàn toàn hiện tượng lặp vô tận ký tự
-      num_predict: 250,
-      num_ctx: 2048,
-      num_thread: OLLAMA_NUM_THREAD,
-      num_batch: 512,
-    },
-  };
+      model: candidateModel,
+      prompt,
+      images: [base64Image],
+      stream: false,
+      keep_alive: 0, // Giải phóng ngay VRAM sau khi đọc ảnh xong để nhường trọn bộ nhớ cho text model
+      options: {
+        temperature: 0.1,      // Giảm nhiệt độ để kết quả ổn định, không ảo giác
+        repeat_penalty: 1.25,  // Chặn đứng hoàn toàn hiện tượng lặp vô tận ký tự
+        num_predict: 500,
+        num_ctx: Math.min(OLLAMA_NUM_CTX || 8192, 4096),
+        num_thread: OLLAMA_NUM_THREAD,
+        num_batch: 512,
+      },
+    };
 
-  try {
-    const result = await ollamaFetch('/api/generate', body, OLLAMA_VISION_TIMEOUT, 1, signal);
-    const rawDescription = String(result.response || '').trim();
-    if (!rawDescription) return `${sourceLabel || 'Ảnh sự kiện'} đã được tải lên, bố cục đạt chuẩn.`;
+    try {
+      const result = await ollamaFetch('/api/generate', body, OLLAMA_VISION_TIMEOUT, 1, signal);
+      const rawDescription = String(result.response || '').trim();
+      if (!rawDescription) {
+        const fallbackDesc = `${sourceLabel || 'Ảnh sự kiện'} đã được tải lên, bố cục đạt chuẩn.`;
+        return {
+          description: fallbackDesc,
+          visual_description: fallbackDesc,
+          extracted_text: '',
+          is_event_poster_or_relevant_banner: null,
+          safety_flags: [],
+        };
+      }
 
-    // Tự động làm sạch mã rác và chuyển hóa 100% sang tiếng Việt nhuần nhuyễn
-    return await ensureVietnameseDescription(rawDescription, sourceLabel, eventTitle, signal);
-  } catch (err) {
-    if (err.name === 'AbortError' || err.code === 'SCAN_CANCELLED' || signal?.aborted || String(err.message || '').includes('aborted')) {
-      throw err;
+      const sanitized = await ensureVietnameseDescription(rawDescription, sourceLabel, eventTitle, signal);
+      return parseVisionAnalysisResponse(sanitized, {
+        isPermit,
+        sourceLabel,
+        eventTitle,
+        eventCategory,
+      });
+    } catch (err) {
+      if (err.name === 'AbortError' || err.code === 'SCAN_CANCELLED' || signal?.aborted || String(err.message || '').includes('aborted')) {
+        throw err;
+      }
+      lastErr = err;
+      const nextModel = visionCandidates[idx + 1];
+      if (nextModel) {
+        logger.warn(`[OllamaClient] Vision model '${candidateModel}' error (${err.message}). Falling back to '${nextModel}'...`);
+      } else {
+        logger.warn(`[OllamaClient] Vision model '${candidateModel}' error: ${err.message}`);
+      }
     }
-    logger.warn(`[OllamaClient] Vision model '${OLLAMA_VISION_MODEL}' error: ${err.message}`);
-    return `${sourceLabel || 'Ảnh sự kiện'} đã được ghi nhận (${err.message.slice(0, 80)})`;
   }
+
+  const errDesc = `${sourceLabel || 'Ảnh sự kiện'} đã được ghi nhận (${String(lastErr?.message || 'Vision error').slice(0, 80)})`;
+  return {
+    description: errDesc,
+    visual_description: errDesc,
+    extracted_text: '',
+    is_event_poster_or_relevant_banner: null,
+    safety_flags: [],
+  };
+}
+
+/**
+ * Describe a single image using the vision model (moondream).
+ * Giữ nguyên chữ ký trả về Promise<string> để tương thích ngược với caller cũ.
+ */
+async function describeImage(base64Image, contextPrompt = '', sourceLabel = '', eventTitle = '', isPermit = false, signal = null, eventCategory = '') {
+  const detailed = await analyzeImageDetailed(base64Image, contextPrompt, sourceLabel, eventTitle, isPermit, signal, eventCategory);
+  return detailed.description;
 }
 
 /**
@@ -563,11 +770,15 @@ async function describeImage(base64Image, contextPrompt = '', sourceLabel = '', 
  * Processes images sequentially to avoid GPU overload.
  *
  * @param {Array<{source: string, base64: string}>} images - Array of {source, base64}
- * @param {string} eventTitle - Event title for context
- * @returns {Promise<Array<{source: string, description: string}>>}
+ * @param {string|object} eventContext - Event title string or { title, category }
+ * @param {AbortSignal|null} signal
+ * @param {object} [options] - { category?: string }
+ * @returns {Promise<Array<{source: string, description: string, visual_description: string, extracted_text: string, is_event_poster_or_relevant_banner: boolean|null, safety_flags: string[]}>>}
  */
-async function describeImageBatch(images, eventTitle = '', signal = null) {
+async function describeImageBatch(images, eventContext = '', signal = null, options = {}) {
   if (!Array.isArray(images) || images.length === 0) return [];
+
+  const { title: eventTitle, category: eventCategory } = normalizeVisionEventContext(eventContext, options);
 
   // Ưu tiên tối đa 2 ảnh quan trọng nhất (Giấy phép và Poster chính) để tránh quá tải
   const prioritizedImages = [...images].sort((a, b) => {
@@ -597,24 +808,35 @@ async function describeImageBatch(images, eventTitle = '', signal = null) {
           ? `Tài liệu giấy phép (${img.fileName || 'Hồ sơ pháp lý'})`
           : `Ảnh trong mô tả (${img.source})`;
 
-    // Sử dụng câu lệnh tiếng Anh tự nhiên tối ưu nhất cho Moondream Vision model
-    const contextPrompt = isPermit
-      ? 'Examine this official document image in detail. Identify the document type, read the issuing authority name, decision number, organization name, effective dates, venue location, and look for official seals or signatures.'
-      : isPoster
-        ? 'Describe what you see in this event poster image in detail. Read any visible text, title, date, location, performers, and describe the background and visual style.'
-        : isBanner
-          ? 'Describe what you see in this event cover banner image in detail. Read any visible text, title, logo, and describe the background, stage, and visual theme.'
-          : 'Describe what is shown in this event image in detail. Describe the people, setting, stage, activity, and read any visible text.';
+    const contextPrompt = buildVisionAnalysisPrompt({
+      isPermit,
+      sourceLabel,
+      eventTitle,
+      eventCategory,
+    });
 
-    logger.info(`[OllamaClient] Analyzing image [${img.source}] with vision model '${OLLAMA_VISION_MODEL}'...`);
-    const description = await describeImage(img.base64, contextPrompt, sourceLabel, eventTitle, isPermit, signal);
+    logger.info(`[OllamaClient] Analyzing image [${img.source}] for "${eventTitle}" (${eventCategory || 'General'}) with vision model '${OLLAMA_VISION_MODEL}'...`);
+    const detailed = await analyzeImageDetailed(
+      img.base64,
+      contextPrompt,
+      sourceLabel,
+      eventTitle,
+      isPermit,
+      signal,
+      eventCategory,
+    );
     results.push({
       source: img.source,
       url: img.url || '',
       fileName: img.fileName || '',
-      description,
+      description: detailed.description,
+      visual_description: detailed.visual_description,
+      extracted_text: detailed.extracted_text,
+      extractedText: detailed.extracted_text,
+      is_event_poster_or_relevant_banner: detailed.is_event_poster_or_relevant_banner,
+      safety_flags: detailed.safety_flags,
     });
-    logger.info(`[OllamaClient] Image [${img.source}] analysis complete (${description.length} chars, Vietnamese).`);
+    logger.info(`[OllamaClient] Image [${img.source}] analysis complete (relevantBanner=${detailed.is_event_poster_or_relevant_banner}, flags=${detailed.safety_flags.length}).`);
   }
 
   return results;
@@ -627,9 +849,15 @@ module.exports = {
   isHealthy,
   getModels,
   describeImage,
+  analyzeImageDetailed,
   describeImageBatch,
+  buildVisionAnalysisPrompt,
+  parseVisionAnalysisResponse,
+  OLLAMA_BASE_URL,
   OLLAMA_MODEL,
+  OLLAMA_FALLBACK_MODEL,
   OLLAMA_VISION_MODEL,
+  OLLAMA_VISION_FALLBACK_MODEL,
   OLLAMA_TIMEOUT,
   OLLAMA_VISION_TIMEOUT,
   OLLAMA_NUM_CTX,

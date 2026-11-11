@@ -1,4 +1,5 @@
 const db = require('../../infrastructure/database/db.client');
+const logger = require('../../core/logger');
 
 class EventsAdminRepository {
   async findByIdForAdmin(eventId) {
@@ -232,7 +233,17 @@ class EventsAdminRepository {
       );
 
       await client.query('COMMIT');
-      return updateRes.rows[0] ?? null;
+      const updated = updateRes.rows[0] ?? null;
+      if (updated) {
+        await this._syncHumanDecisionToAiLog({
+          eventId,
+          approvalStatus: updated.approval_status || approvalStatus,
+          reviewNote: reviewNote || null,
+          reviewedBy: reviewedBy || null,
+          reviewedAt: updated.reviewed_at || null,
+        });
+      }
+      return updated;
     } catch (err) {
       await client.query('ROLLBACK');
       throw err;
@@ -292,7 +303,7 @@ class EventsAdminRepository {
     return rows[0] ?? null;
   }
 
-  async saveAiReview({ eventId, recommendation, warnings }) {
+  async saveAiReview({ eventId, recommendation, warnings, logContext = null }) {
     const { rows } = await db.query(
       `
       UPDATE events
@@ -305,7 +316,107 @@ class EventsAdminRepository {
       `,
       [eventId, recommendation, JSON.stringify(warnings || [])],
     );
-    return rows[0] ?? null;
+    const saved = rows[0] ?? null;
+    if (saved) {
+      await this._insertAiReviewLog({
+        eventId,
+        recommendation,
+        warnings,
+        logContext,
+      });
+    }
+    return saved;
+  }
+
+  /**
+   * Ghi nhận bản ghi FULL_REVIEW vào bảng event_ai_review_logs (non-blocking).
+   */
+  async _insertAiReviewLog({ eventId, recommendation, warnings, logContext }) {
+    try {
+      const parsedOutput = warnings && typeof warnings === 'object' ? warnings : {};
+      const criteriaSnapshot = logContext?.criteriaSnapshot ?? parsedOutput.applied_criteria ?? [];
+      const inputSnapshot = logContext?.inputSnapshot ?? {};
+      const rawRisk = logContext?.riskScore ?? parsedOutput.risk_score;
+      const rawQuality = logContext?.qualityScore ?? parsedOutput.quality_score;
+      const riskScore = rawRisk !== undefined && rawRisk !== null && Number.isFinite(Number(rawRisk))
+        ? Math.round(Number(rawRisk))
+        : null;
+      const qualityScore = rawQuality !== undefined && rawQuality !== null && Number.isFinite(Number(rawQuality))
+        ? Math.round(Number(rawQuality))
+        : null;
+
+      await db.query(
+        `
+        INSERT INTO event_ai_review_logs (
+          event_id,
+          review_stage,
+          model_name,
+          criteria_snapshot,
+          input_snapshot,
+          raw_output,
+          parsed_output,
+          ai_recommendation,
+          risk_score,
+          quality_score
+        )
+        VALUES ($1::uuid, 'FULL_REVIEW', $2::varchar(100), $3::jsonb, $4::jsonb, $5::text, $6::jsonb, $7::varchar(30), $8::integer, $9::integer)
+        `,
+        [
+          eventId,
+          logContext?.modelName || null,
+          JSON.stringify(criteriaSnapshot),
+          JSON.stringify(inputSnapshot),
+          logContext?.rawOutput ?? null,
+          JSON.stringify(parsedOutput),
+          recommendation || null,
+          riskScore,
+          qualityScore,
+        ],
+      );
+    } catch (logErr) {
+      logger.warn(`[EventsAdminRepository] Failed to insert event_ai_review_logs for event ${eventId}: ${logErr.message}`);
+    }
+  }
+
+  /**
+   * Đồng bộ quyết định duyệt tay/auto-review với bản ghi FULL_REVIEW mới nhất trong event_ai_review_logs (non-blocking).
+   */
+  async _syncHumanDecisionToAiLog({ eventId, approvalStatus, reviewNote, reviewedBy, reviewedAt }) {
+    try {
+      const normalizedDecision = String(approvalStatus || '').trim().toUpperCase();
+      if (!['APPROVED', 'REJECTED'].includes(normalizedDecision)) {
+        return;
+      }
+
+      await db.query(
+        `
+        WITH latest_log AS (
+          SELECT id, ai_recommendation
+          FROM event_ai_review_logs
+          WHERE event_id = $1::uuid
+            AND review_stage = 'FULL_REVIEW'
+          ORDER BY created_at DESC
+          LIMIT 1
+        )
+        UPDATE event_ai_review_logs AS logs
+        SET human_decision    = $2::varchar(30),
+            human_review_note = $3::text,
+            reviewed_by       = $4::uuid,
+            reviewed_at       = COALESCE($5::timestamptz, NOW()),
+            human_override    = COALESCE(
+              (latest_log.ai_recommendation = 'REJECT' AND $2::text = 'APPROVED')
+              OR (latest_log.ai_recommendation = 'NEEDS_REVIEW' AND $2::text = 'APPROVED')
+              OR (latest_log.ai_recommendation = 'APPROVE' AND $2::text = 'REJECTED'),
+              false
+            )
+        FROM latest_log
+        WHERE logs.id = latest_log.id
+        `,
+        [eventId, normalizedDecision, reviewNote || null, reviewedBy || null, reviewedAt || null],
+      );
+    } catch (logErr) {
+      logger.warn(`[EventsAdminRepository] Failed to sync human decision to event_ai_review_logs for event ${eventId}: ${logErr.message}`);
+    }
   }
 
   async findEventFullDetailForAi(eventId) {
@@ -313,6 +424,8 @@ class EventsAdminRepository {
       `
       SELECT
         e.id,
+        e.organizer_id,
+        e.category_id,
         e.title,
         e.short_description,
         e.description,
@@ -320,26 +433,44 @@ class EventsAdminRepository {
         e.banner_url,
         e.format,
         e.visibility,
+        e.tags,
+        e.additional_terms,
         e.start_time,
         e.end_time,
         e.status,
         e.approval_status,
         e.refund_policy,
         COALESCE(e.refund_policy->'permit_files', '[]'::jsonb) AS permits,
+        c.name AS category_name,
+        c.slug AS category_slug,
+        o.organization_name,
+        o.description AS organizer_description,
+        o.status AS organizer_status,
+        (o.status = 'ACTIVE') AS is_verified,
         COALESCE(session_summary.items, '[]'::json) AS sessions,
         COALESCE(ticket_summary.items, '[]'::json) AS ticket_types
       FROM events e
+      LEFT JOIN event_categories c ON c.id = e.category_id
+      LEFT JOIN organizers o ON o.id = e.organizer_id
       LEFT JOIN LATERAL (
         SELECT json_agg(
           json_build_object(
             'id', sess.id,
             'session_name', sess.session_name,
             'start_time', sess.start_time,
-            'end_time', sess.end_time
+            'end_time', sess.end_time,
+            'venue_id', sess.venue_id,
+            'venue_name', v.name,
+            'address', v.address_line,
+            'ward', v.ward,
+            'district', v.district,
+            'city', v.city,
+            'province', v.city
           )
           ORDER BY sess.start_time ASC
         ) AS items
         FROM event_sessions sess
+        LEFT JOIN venues v ON v.id = sess.venue_id AND v.deleted_at IS NULL
         WHERE sess.event_id = e.id
       ) session_summary ON true
       LEFT JOIN LATERAL (

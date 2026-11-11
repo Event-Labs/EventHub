@@ -37,7 +37,7 @@ def run_build_dataset():
     from scripts import build_dataset
     build_dataset.main()
 
-def run_training():
+def run_training(stage="both", max_seq_length=None):
     print("\n[Step 2/3] Checking hardware & preparing training...")
     try:
         import torch
@@ -50,24 +50,35 @@ def run_training():
     except Exception as e:
         print(f"Hardware check note: {e}")
 
-    print("\nStarting LoRA Fine-Tuning...")
+    seq_len = max_seq_length or settings.max_seq_length
+    print(f"\nStarting LoRA Fine-Tuning (stage={stage}, max_seq_length={seq_len})...")
     try:
         from src.training.trainer import EventHubTrainer
         trainer = EventHubTrainer(settings)
-        trainer.train()
+        if stage == "both":
+            trainer.train(max_length=seq_len, run_dpo=True)
+        elif stage == "sft":
+            trainer.train(max_length=seq_len, run_dpo=False)
+        else:
+            trainer.train_dpo(max_length=seq_len)
         print("\n[Step 3/3] Training finished successfully!")
-        print(f"Updated weights saved to: {settings.output_dir}")
+        print(f"Updated SFT weights saved to: {settings.output_dir}")
+        print(f"Updated DPO weights saved to: {settings.dpo_output_dir}")
         print("\nTo update Ollama with the new model, run:")
         print("  powershell -ExecutionPolicy Bypass -File .\\export_to_ollama.ps1")
     except Exception as e:
         print(f"\n[Warning] Training stopped or requires GPU: {e}")
-        print("You can upload 'datasets/dataset.jsonl' to Google Colab for fast GPU training!")
+        print("You can upload 'datasets/sft_events_dataset.jsonl' & 'datasets/dpo_override_dataset.jsonl' to Google Colab for fast GPU training!")
 
 def main():
     parser = argparse.ArgumentParser(description="EventHub AI Continuous Self-Training Pipeline")
     parser.add_argument("--min-samples", type=int, default=1, help="Minimum collected samples required before triggering train")
     parser.add_argument("--build-only", action="store_true", help="Only rebuild dataset without running training")
+    parser.add_argument("--stage", choices=["both", "sft", "dpo"], default="both", help="Training stage: sft, dpo, or both")
+    parser.add_argument("--max-seq-length", type=int, default=settings.max_seq_length, help="Context window length (>=4096)")
     args = parser.parse_args()
+
+    settings.max_seq_length = args.max_seq_length
 
     print("=" * 60)
     print(" EventHub AI — Continuous Self-Training Pipeline ")
@@ -88,7 +99,7 @@ def main():
         return
 
     # Step 2 & 3: Run training
-    run_training()
+    run_training(stage=args.stage, max_seq_length=args.max_seq_length)
 
 if __name__ == "__main__":
     main()
