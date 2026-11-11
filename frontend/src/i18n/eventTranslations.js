@@ -604,14 +604,21 @@ export function translateTicketName(name, isEnglish = false) {
   if (parenMatch) {
     core = parenMatch[1]
     const inside = parenMatch[2].slice(1, -1)
-    const translatedInside = _phraseTranslator(inside, 'en') || inside
+    let translatedInside = _phraseTranslator(inside, 'en') || inside
+    if (translatedInside === inside) {
+      translatedInside = inside
+        .replace(/Không\s+dành\s+cho\s+trẻ\s+(?:em\s+)?dưới\s+(\d+)\s+tuổi/gi, 'Not for children under $1')
+        .replace(/Không\s+dành\s+cho\s+trẻ\s+(?:em)?/gi, 'Not for children')
+        .replace(/Đã\s+bao\s+gồm\s+VAT/gi, 'VAT included')
+    }
     suffix = ` (${translatedInside})`
   }
 
   const prefixMatch = core.match(/^(vé\s+|hạng\s+vé\s+|hạng\s+)/i)
-  let hadTicketPrefix = false
+  let prefixType = '' // 'tier' | 'ticket'
   if (prefixMatch) {
-    hadTicketPrefix = true
+    const rawPfx = prefixMatch[0].toLowerCase()
+    prefixType = rawPfx.includes('hạng') ? 'tier' : 'ticket'
     core = core.slice(prefixMatch[0].length).trim()
   }
 
@@ -621,8 +628,12 @@ export function translateTicketName(name, isEnglish = false) {
     translatedCore = 'Standard'
   } else if (coreLower === 'phổ thông' || coreLower === 'pho thong') {
     translatedCore = 'General Admission'
-  } else if (coreLower === 'thường' || coreLower === 'thuong') {
+  } else if (coreLower === 'thường' || coreLower === 'thuong' || coreLower === 'regular') {
     translatedCore = 'Regular'
+  } else if (coreLower === 'cơ bản' || coreLower === 'co ban' || coreLower === 'basic') {
+    translatedCore = 'Basic'
+  } else if (coreLower === 'giá bán' || coreLower === 'gia ban') {
+    translatedCore = 'Standard'
   } else if (coreLower === 'đồng' || coreLower === 'dong') {
     translatedCore = 'Bronze'
   } else if (coreLower === 'bạc' || coreLower === 'bac') {
@@ -656,8 +667,14 @@ export function translateTicketName(name, isEnglish = false) {
   }
 
   let finalName = translatedCore
-  if (hadTicketPrefix && !finalName.toLowerCase().includes('ticket') && !finalName.toLowerCase().includes('tier')) {
+  if (prefixType === 'tier' && !finalName.toLowerCase().includes('tier') && !finalName.toLowerCase().includes('ticket')) {
+    finalName = `${finalName} Tier`
+  } else if (prefixType === 'ticket' && !finalName.toLowerCase().includes('ticket') && !finalName.toLowerCase().includes('tier')) {
     finalName = `${finalName} Ticket`
+  } else if (!finalName.toLowerCase().includes('ticket') && !finalName.toLowerCase().includes('tier')) {
+    if (['basic', 'standard', 'regular', 'vip', 'general admission'].includes(finalName.toLowerCase())) {
+      finalName = `${finalName} Tier`
+    }
   }
 
   return applyCase(finalName) + suffix

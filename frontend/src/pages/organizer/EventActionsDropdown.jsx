@@ -19,12 +19,13 @@ import {
   ExternalLink,
 } from 'lucide-react'
 import { useToast } from '@/providers/ToastProvider.jsx'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
 import { isEventEnded } from './eventStatusUtil.js'
 
 export function EventActionsDropdown({
   event,
   variant = 'icon', // 'icon' or 'button'
-  label = 'Tác vụ',
+  label,
   includeEdit = true,
   onEdit,
   onToggleHide,
@@ -34,6 +35,8 @@ export function EventActionsDropdown({
   onPublish,
   onDelete,
 }) {
+  const { isEnglish, t } = useLanguage()
+  const displayLabel = label || (isEnglish ? 'Actions' : 'Tác vụ')
   const navigate = useNavigate()
   const toast = useToast()
   const [isOpen, setIsOpen] = useState(false)
@@ -67,7 +70,7 @@ export function EventActionsDropdown({
   if (isCancelPending) {
     items.push({
       key: 'withdraw-cancel',
-      label: 'Hoàn tác yêu cầu hủy',
+      label: isEnglish ? 'Withdraw cancellation request' : 'Hoàn tác yêu cầu hủy',
       icon: RotateCcw,
       className: 'text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 [html.light_&]:text-amber-600 [html.light_&]:hover:bg-amber-50',
       onClick: () => onWithdrawCancel && onWithdrawCancel(event),
@@ -77,7 +80,7 @@ export function EventActionsDropdown({
     if (includeEdit) {
       items.push({
         key: 'edit',
-        label: 'Chỉnh sửa sự kiện',
+        label: isEnglish ? 'Edit Event' : 'Chỉnh sửa sự kiện',
         icon: Edit,
         className: 'text-slate-200 hover:text-white hover:bg-white/10 [html.light_&]:text-[#1B365D] [html.light_&]:hover:bg-[#F8F3EA]',
         onClick: () => {
@@ -88,7 +91,7 @@ export function EventActionsDropdown({
     }
     items.push({
       key: 'delete-draft',
-      label: 'Xóa bản nháp',
+      label: isEnglish ? 'Delete draft' : 'Xóa bản nháp',
       icon: Trash2,
       className: 'text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 [html.light_&]:text-rose-600 [html.light_&]:hover:bg-rose-50',
       onClick: () => onDelete && onDelete(event),
@@ -98,7 +101,7 @@ export function EventActionsDropdown({
     if (includeEdit) {
       items.push({
         key: 'edit',
-        label: 'Chỉnh sửa sự kiện',
+        label: isEnglish ? 'Edit Event' : 'Chỉnh sửa sự kiện',
         icon: Edit,
         className: 'text-slate-200 hover:text-white hover:bg-white/10 [html.light_&]:text-[#1B365D] [html.light_&]:hover:bg-[#F8F3EA]',
         onClick: () => {
@@ -109,7 +112,7 @@ export function EventActionsDropdown({
     }
     items.push({
       key: 'view-public',
-      label: 'Xem trước sự kiện',
+      label: isEnglish ? 'Preview event' : 'Xem trước sự kiện',
       icon: ExternalLink,
       className: 'text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10 [html.light_&]:text-cyan-600 [html.light_&]:hover:bg-cyan-50',
       onClick: () => window.open(eventPublicUrl, '_blank'),
@@ -118,7 +121,7 @@ export function EventActionsDropdown({
     // 4. Đã duyệt chờ xuất bản: Xuất bản, Chỉnh sửa, Xem trước
     items.push({
       key: 'publish',
-      label: 'Xuất bản sự kiện',
+      label: isEnglish ? 'Publish event' : 'Xuất bản sự kiện',
       icon: Globe,
       className: 'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 [html.light_&]:text-emerald-600 [html.light_&]:hover:bg-emerald-50',
       onClick: () => onPublish && onPublish(event),
@@ -126,7 +129,7 @@ export function EventActionsDropdown({
     if (includeEdit) {
       items.push({
         key: 'edit',
-        label: 'Chỉnh sửa sự kiện',
+        label: isEnglish ? 'Edit Event' : 'Chỉnh sửa sự kiện',
         icon: Edit,
         className: 'text-slate-200 hover:text-white hover:bg-white/10 [html.light_&]:text-[#1B365D] [html.light_&]:hover:bg-[#F8F3EA]',
         onClick: () => {
@@ -137,7 +140,7 @@ export function EventActionsDropdown({
     }
     items.push({
       key: 'view-public',
-      label: 'Xem trang sự kiện',
+      label: isEnglish ? 'View event page' : 'Xem trang sự kiện',
       icon: ExternalLink,
       className: 'text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10 [html.light_&]:text-cyan-600 [html.light_&]:hover:bg-cyan-50',
       onClick: () => window.open(eventPublicUrl, '_blank'),
@@ -146,28 +149,28 @@ export function EventActionsDropdown({
     // 5. Đã kết thúc: Nghiệp vụ hậu kỳ (Báo cáo vé, Người tham gia, Check-in, Xem lại - Không cho phép chỉnh sửa)
     items.push({
       key: 'reports',
-      label: 'Báo cáo doanh thu & vé',
+      label: isEnglish ? 'Revenue & ticket report' : 'Báo cáo doanh thu & vé',
       icon: BarChart3,
       className: 'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 [html.light_&]:text-emerald-600 [html.light_&]:hover:bg-emerald-50',
       onClick: () => navigate(`/organizer/ticket-sales?eventId=${event.id}`),
     })
     items.push({
       key: 'attendees',
-      label: 'Danh sách người tham gia',
+      label: isEnglish ? 'Attendees list' : 'Danh sách người tham gia',
       icon: Users,
       className: 'text-sky-400 hover:text-sky-300 hover:bg-sky-500/10 [html.light_&]:text-sky-600 [html.light_&]:hover:bg-sky-50',
       onClick: () => navigate(`/organizer/attendees?eventId=${event.id}`),
     })
     items.push({
       key: 'checkin',
-      label: 'Thống kê Check-in',
+      label: isEnglish ? 'Check-in statistics' : 'Thống kê Check-in',
       icon: QrCode,
       className: 'text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 [html.light_&]:text-purple-600 [html.light_&]:hover:bg-purple-50',
       onClick: () => navigate(`/organizer/checkin-dashboard?eventId=${event.id}`),
     })
     items.push({
       key: 'view-public',
-      label: 'Xem trang sự kiện',
+      label: isEnglish ? 'View event page' : 'Xem trang sự kiện',
       icon: ExternalLink,
       className: 'text-slate-300 hover:text-white hover:bg-white/10 [html.light_&]:text-slate-700 [html.light_&]:hover:bg-[#F8F3EA]',
       onClick: () => window.open(eventPublicUrl, '_blank'),
@@ -176,14 +179,14 @@ export function EventActionsDropdown({
     // 6. Đã hủy: Xem danh sách đơn hàng / hoàn tiền, Xem trang sự kiện
     items.push({
       key: 'orders',
-      label: 'Danh sách đơn hàng',
+      label: isEnglish ? 'Orders list' : 'Danh sách đơn hàng',
       icon: Users,
       className: 'text-sky-400 hover:text-sky-300 hover:bg-sky-500/10 [html.light_&]:text-sky-600 [html.light_&]:hover:bg-sky-50',
       onClick: () => navigate(`/organizer/orders?eventId=${event.id}`),
     })
     items.push({
       key: 'view-public',
-      label: 'Xem trang sự kiện',
+      label: isEnglish ? 'View event page' : 'Xem trang sự kiện',
       icon: ExternalLink,
       className: 'text-slate-300 hover:text-white hover:bg-white/10 [html.light_&]:text-slate-700 [html.light_&]:hover:bg-[#F8F3EA]',
       onClick: () => window.open(eventPublicUrl, '_blank'),
@@ -193,7 +196,7 @@ export function EventActionsDropdown({
     if (includeEdit) {
       items.push({
         key: 'edit',
-        label: 'Chỉnh sửa sự kiện',
+        label: isEnglish ? 'Edit Event' : 'Chỉnh sửa sự kiện',
         icon: Edit,
         className: 'text-slate-200 hover:text-white hover:bg-white/10 [html.light_&]:text-[#1B365D] [html.light_&]:hover:bg-[#F8F3EA]',
         onClick: () => {
@@ -204,7 +207,7 @@ export function EventActionsDropdown({
     }
     items.push({
       key: 'view-public',
-      label: 'Xem trang sự kiện',
+      label: isEnglish ? 'View event page' : 'Xem trang sự kiện',
       icon: ExternalLink,
       className: 'text-slate-300 hover:text-white hover:bg-white/10 [html.light_&]:text-slate-700 [html.light_&]:hover:bg-[#F8F3EA]',
       onClick: () => window.open(eventPublicUrl, '_blank'),
@@ -214,7 +217,7 @@ export function EventActionsDropdown({
     if (includeEdit) {
       items.push({
         key: 'edit',
-        label: 'Chỉnh sửa sự kiện',
+        label: isEnglish ? 'Edit Event' : 'Chỉnh sửa sự kiện',
         icon: Edit,
         className: 'text-slate-200 hover:text-white hover:bg-white/10 [html.light_&]:text-[#1B365D] [html.light_&]:hover:bg-[#F8F3EA]',
         onClick: () => {
@@ -227,7 +230,9 @@ export function EventActionsDropdown({
     // Ẩn / Hiện
     items.push({
       key: 'hide',
-      label: isHidden ? 'Hiện lại sự kiện' : 'Tạm ẩn sự kiện',
+      label: isHidden
+        ? (isEnglish ? 'Unhide event' : 'Hiện lại sự kiện')
+        : (isEnglish ? 'Hide event' : 'Tạm ẩn sự kiện'),
       icon: isHidden ? ArchiveRestore : Archive,
       className: isHidden
         ? 'text-primary hover:text-primary-hover hover:bg-primary/10 [html.light_&]:text-[#C99A47] [html.light_&]:hover:bg-[#FAF4EB]'
@@ -238,14 +243,20 @@ export function EventActionsDropdown({
     // Dừng / Mở bán vé
     items.push({
       key: 'sales',
-      label: isPaused ? 'Mở bán lại vé' : 'Tạm dừng bán vé',
+      label: isPaused
+        ? (isEnglish ? 'Resume ticket sales' : 'Mở bán lại vé')
+        : (isEnglish ? 'Pause ticket sales' : 'Tạm dừng bán vé'),
       icon: isPaused ? PlayCircle : PauseCircle,
       className: isPaused
         ? 'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 [html.light_&]:text-emerald-600 [html.light_&]:hover:bg-emerald-50'
         : 'text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 [html.light_&]:text-amber-600 [html.light_&]:hover:bg-amber-50',
       onClick: () => {
         if (isPaused && isHidden) {
-          toast.warning('Không thể kích hoạt bán vé khi sự kiện đang bị ẩn. Vui lòng hiện lại sự kiện trước.')
+          toast.warning(
+            isEnglish
+              ? 'Cannot enable ticket sales while event is hidden. Please unhide the event first.'
+              : 'Không thể kích hoạt bán vé khi sự kiện đang bị ẩn. Vui lòng hiện lại sự kiện trước.'
+          )
           return
         }
         if (onToggleSales) onToggleSales(event)
@@ -255,7 +266,7 @@ export function EventActionsDropdown({
     // Báo cáo bán vé
     items.push({
       key: 'reports',
-      label: 'Báo cáo doanh thu & vé',
+      label: isEnglish ? 'Revenue & ticket report' : 'Báo cáo doanh thu & vé',
       icon: BarChart3,
       className: 'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 [html.light_&]:text-emerald-600 [html.light_&]:hover:bg-emerald-50',
       onClick: () => navigate(`/organizer/ticket-sales?eventId=${event.id}`),
@@ -264,7 +275,7 @@ export function EventActionsDropdown({
     // Danh sách người tham gia
     items.push({
       key: 'attendees',
-      label: 'Danh sách người tham gia',
+      label: isEnglish ? 'Attendees list' : 'Danh sách người tham gia',
       icon: Users,
       className: 'text-sky-400 hover:text-sky-300 hover:bg-sky-500/10 [html.light_&]:text-sky-600 [html.light_&]:hover:bg-sky-50',
       onClick: () => navigate(`/organizer/attendees?eventId=${event.id}`),
@@ -273,7 +284,7 @@ export function EventActionsDropdown({
     // Xem trang sự kiện
     items.push({
       key: 'view-public',
-      label: 'Xem trang sự kiện',
+      label: isEnglish ? 'View event page' : 'Xem trang sự kiện',
       icon: ExternalLink,
       className: 'text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10 [html.light_&]:text-cyan-600 [html.light_&]:hover:bg-cyan-50',
       onClick: () => window.open(eventPublicUrl, '_blank'),
@@ -283,7 +294,9 @@ export function EventActionsDropdown({
     const hasPaid = Number(event.paid_orders_count || 0) > 0
     items.push({
       key: 'cancel',
-      label: hasPaid ? 'Yêu cầu hủy sự kiện' : 'Hủy sự kiện',
+      label: hasPaid
+        ? (isEnglish ? 'Request event cancellation' : 'Yêu cầu hủy sự kiện')
+        : (isEnglish ? 'Cancel event' : 'Hủy sự kiện'),
       icon: AlertTriangle,
       className: 'text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 [html.light_&]:text-rose-600 [html.light_&]:hover:bg-rose-50',
       onClick: () => onCancel && onCancel(event),
@@ -337,9 +350,9 @@ export function EventActionsDropdown({
           ref={triggerRef}
           onClick={toggleDropdown}
           className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-white/20 bg-[#0d172e] px-3.5 text-xs font-bold text-slate-100 shadow-md transition hover:border-[#C99A47]/60 hover:bg-[#132247] hover:text-[#E6C17A] active:scale-95 [html.light_&]:bg-white [html.light_&]:border-[#C99A47]/40 [html.light_&]:text-[#1B365D] [html.light_&]:hover:bg-[#FAF4EB]"
-          title="Tác vụ sự kiện"
+          title={isEnglish ? 'Event actions' : 'Tác vụ sự kiện'}
         >
-          <span>{label}</span>
+          <span>{displayLabel}</span>
           <ChevronDown className={`size-3.5 transition-transform duration-200 ${isOpen ? 'rotate-180 text-primary' : ''}`} />
         </button>
       ) : (
@@ -347,7 +360,7 @@ export function EventActionsDropdown({
           type="button"
           ref={triggerRef}
           onClick={toggleDropdown}
-          title="Tác vụ"
+          title={isEnglish ? 'Actions' : 'Tác vụ'}
           className="inline-flex size-8 items-center justify-center rounded-lg border border-border-soft/40 bg-panel-soft text-subtle transition-colors hover:border-primary/40 hover:bg-tertiary/15 hover:text-primary active:scale-95"
         >
           <MoreHorizontal className="size-4" />

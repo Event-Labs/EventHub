@@ -1054,6 +1054,8 @@ class OrganizerOrdersRepository {
         tt.name                                                AS ticket_type_name,
         tt.price                                               AS unit_price,
         tt.quantity                                            AS capacity,
+        e.title                                                AS event_title,
+        es.session_name                                        AS session_name,
         COALESCE(SUM(oi.quantity), 0)::int                     AS sold_quantity,
         COALESCE(SUM(oi.final_price), 0)::numeric              AS revenue,
         CASE WHEN tt.quantity > 0
@@ -1078,7 +1080,7 @@ class OrganizerOrdersRepository {
       WHERE e.organizer_id = $1
         AND e.deleted_at IS NULL
         ${eventId ? `AND e.id = $${params.indexOf(eventId) + 1}` : ''}
-      GROUP BY tt.id, tt.name, tt.price, tt.quantity
+      GROUP BY tt.id, tt.name, tt.price, tt.quantity, e.title, es.session_name
       ORDER BY sold_quantity DESC
       `,
       params,

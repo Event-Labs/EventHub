@@ -36,6 +36,7 @@ import { OrganizerEventPicker } from './OrganizerEventPicker.jsx'
 import { OrganizerPage, OrganizerPanel } from './OrganizerComponents.jsx'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
 import { translatePhrase } from '@/i18n/phraseDictionary.js'
+import { translateTicketName } from '@/i18n/eventTranslations.js'
 
 // ─── Formatters & Helpers ────────────────────────────────────────────────────
 
@@ -46,7 +47,7 @@ function getAutoLocale() {
 }
 
 function fmtCurrency(n, isEnglish = (getAutoLocale() === 'en')) {
-  return new Intl.NumberFormat(isEnglish ? 'en-US' : 'vi-VN', { style: 'currency', currency: 'VND' }).format(Number(n) || 0)
+  return `${new Intl.NumberFormat(isEnglish ? 'en-US' : 'vi-VN').format(Number(n) || 0)} VNĐ`
 }
 
 function fmtShort(n, isEnglish = (getAutoLocale() === 'en')) {
@@ -688,76 +689,59 @@ function SalesRevenueComboChart({ data = [], dateRangeLabel = '' }) {
   )
 }
 
-// Helper to smartly wrap long ticket names into up to 2 lines without overlapping adjacent columns
-function getTicketNameLines(name, slotW) {
-  if (!name) return { line1: '', line2: '' }
-  const trimmed = String(name).trim()
+// Helper to smartly wrap translated ticket names into up to 2 lines without overlapping adjacent columns
+function getChartTicketNameLines(rawName, slotW, isEnglish) {
+  if (!rawName) return { line1: '', line2: '', fullName: '' }
+  const fullName = translateTicketName(rawName, isEnglish) || rawName
+
+  // Strip parentheses notes for compact bar display (preserved in fullName for tooltips)
+  const coreName = fullName.replace(/\s*\(.*?\)/g, '').trim() || fullName
 
   // Calculate safe char limit per line based on slot width
   let maxChars = 14
-  if (slotW < 42) maxChars = 6
-  else if (slotW < 52) maxChars = 8
-  else if (slotW < 65) maxChars = 10
-  else if (slotW < 85) maxChars = 13
-  else if (slotW < 110) maxChars = 16
-  else maxChars = 22
+  if (slotW < 42) maxChars = 8
+  else if (slotW < 52) maxChars = 10
+  else if (slotW < 65) maxChars = 12
+  else if (slotW < 85) maxChars = 14
+  else maxChars = 18
 
-  // If the whole name already fits comfortably on 1 line:
-  if (trimmed.length <= maxChars) {
-    return { line1: trimmed, line2: '' }
+  let words = coreName.split(/\s+/).filter(Boolean)
+  // For compact bar display, if 3+ words end or start with generic Tier/Ticket/Vé/Hạng, streamline to distinguishing keywords
+  if (words.length >= 3 && /^(ticket|tier|vé|hạng)$/i.test(words[words.length - 1])) {
+    words = words.slice(0, -1)
+  }
+  if (words.length >= 3 && /^(vé|hạng)$/i.test(words[0])) {
+    words = words.slice(1)
   }
 
-  // If it has multiple words, split smartly across words
-  const words = trimmed.split(/\s+/)
-  if (words.length > 1) {
-    let l1 = ''
-    let splitIdx = 0
-
-    for (let i = 0; i < words.length; i++) {
-      const candidate = l1 ? `${l1} ${words[i]}` : words[i]
-      if (candidate.length <= maxChars) {
-        l1 = candidate
-        splitIdx = i + 1
-      } else {
-        if (!l1) {
-          l1 = words[0]
-          splitIdx = 1
-        }
-        break
-      }
+  // Exactly 1 word
+  if (words.length === 1) {
+    if (words[0].length > maxChars) {
+      return { line1: words[0].slice(0, Math.max(maxChars - 1, 1)) + '…', line2: '', fullName }
     }
-
-    const remainingWords = words.slice(splitIdx)
-    let l2 = ''
-    for (let j = 0; j < remainingWords.length; j++) {
-      const candidate = l2 ? `${l2} ${remainingWords[j]}` : remainingWords[j]
-      if (candidate.length <= maxChars) {
-        l2 = candidate
-      } else {
-        if (!l2) {
-          l2 = remainingWords[j]
-        }
-        break
-      }
-    }
-
-    if (l1.length > maxChars) {
-      l1 = l1.slice(0, Math.max(maxChars - 1, 1)).trim() + '…'
-    }
-    if (l2.length > maxChars) {
-      l2 = l2.slice(0, Math.max(maxChars - 1, 1)).trim().replace(/[\(\[\{,\.\-]$/, '') + '…'
-    }
-
-    return { line1: l1, line2: l2 }
+    return { line1: words[0], line2: '', fullName }
   }
 
-  // Single long word without spaces
-  const l1 = trimmed.slice(0, maxChars)
-  let l2 = trimmed.slice(maxChars)
-  if (l2.length > maxChars) {
-    l2 = l2.slice(0, Math.max(maxChars - 1, 1)).trim() + '…'
+  // Exactly 2 words (e.g. "Student Ticket", "Regular Tier", "Vé HSSV")
+  if (words.length === 2) {
+    let w1 = words[0]
+    let w2 = words[1]
+    if (w1.length > maxChars) w1 = w1.slice(0, Math.max(maxChars - 1, 1)) + '…'
+    if (w2.length > maxChars) w2 = w2.slice(0, Math.max(maxChars - 1, 1)) + '…'
+    return { line1: w1, line2: w2, fullName }
   }
-  return { line1: l1, line2: l2 }
+
+  // 3+ words: split evenly across 2 lines
+  let l1 = words[0]
+  let l2 = words.slice(1).join(' ')
+  if (l1.length + words[1].length + 1 <= maxChars && words.length > 2) {
+    l1 = `${words[0]} ${words[1]}`
+    l2 = words.slice(2).join(' ')
+  }
+  if (l1.length > maxChars) l1 = l1.slice(0, Math.max(maxChars - 1, 1)) + '…'
+  if (l2.length > maxChars) l2 = l2.slice(0, Math.max(maxChars - 1, 1)) + '…'
+
+  return { line1: l1, line2: l2, fullName }
 }
 
 // ─── Component 2: Ticket Type Performance Chart (SMART FILTER + DUAL VIEW) ────
@@ -1088,7 +1072,7 @@ function TicketTypePerformanceChart({ data = [] }) {
                     valueLabel = fmtShort(rev)
                   } else if (activeMetric === 'volume') {
                     barH = maxVolume > 0 && sold > 0 ? (sold / maxVolume) * (height - 50) : 4
-                    valueLabel = `${sold} vé`
+                    valueLabel = `${sold} ${isEnglish ? 'tickets' : 'vé'}`
                   } else {
                     barH = (occ / 100) * (height - 50)
                     valueLabel = `${occ}%`
@@ -1097,11 +1081,11 @@ function TicketTypePerformanceChart({ data = [] }) {
                   const y = height - barH
 
                   // Smart 2-line wrap for long ticket names + strictly aligned unit price
-                  const { line1, line2 } = getTicketNameLines(d.ticket_type_name, slotW)
+                  const { line1, line2, fullName } = getChartTicketNameLines(d.ticket_type_name, slotW, isEnglish)
                   const nameFontSize = slotW < 44 ? 9.5 : slotW < 58 ? 10 : 11
                   const priceFontSize = slotW < 44 ? 9.5 : 10.5
                   const unitPriceVal = Number(d.unit_price ?? d.price ?? 0)
-                  const priceText = unitPriceVal === 0 ? (isEnglish ? 'Free' : '0 đ') : `${fmtShort(unitPriceVal)} đ`
+                  const priceText = unitPriceVal === 0 ? (isEnglish ? 'Free' : '0') : fmtShort(unitPriceVal)
                   const line1Y = line2 ? height + 16 : height + 20
                   const priceY = height + 46 // Cố định trên 1 dòng duy nhất cho mọi cột
 
@@ -1111,7 +1095,7 @@ function TicketTypePerformanceChart({ data = [] }) {
                       onMouseEnter={() => setHoveredId(d.ticket_type_id)}
                       className="cursor-pointer transition-all duration-200"
                     >
-                      <title>{`${d.ticket_type_name} • ${priceText}`}</title>
+                      <title>{`${fullName}${d.event_title ? ` • ${translatePhrase(d.event_title, isEnglish ? 'en' : 'vi')}` : ''} • ${fmtCurrency(unitPriceVal)}`}</title>
 
                       {/* Capacity pillar backdrop for Volume mode */}
                       {activeMetric === 'volume' && cap > 0 && (
@@ -1239,25 +1223,30 @@ function TicketTypePerformanceChart({ data = [] }) {
                     }`}
                   >
                     <div className="mb-1.5 flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
                         <span
-                          className="size-2.5 rounded-full"
+                          className="size-2.5 rounded-full shrink-0"
                           style={{ backgroundColor: pal.accent, boxShadow: `0 0 6px ${pal.accent}` }}
                         />
-                        <strong className="text-white [html.light_&]:text-[#0D1B2A]">
-                          {d.ticket_type_name}
+                        <strong className="text-white [html.light_&]:text-[#0D1B2A] truncate" title={translateTicketName(d.ticket_type_name, isEnglish)}>
+                          {translateTicketName(d.ticket_type_name, isEnglish)}
                         </strong>
-                        <span className="text-[11px] text-slate-400 [html.light_&]:text-[#536b88]">
+                        {d.event_title && (
+                          <span className="text-[11px] text-slate-400 [html.light_&]:text-[#536b88] truncate max-w-[120px] hidden sm:inline" title={translatePhrase(d.event_title, isEnglish ? 'en' : 'vi')}>
+                            · {translatePhrase(d.event_title, isEnglish ? 'en' : 'vi')}
+                          </span>
+                        )}
+                        <span className="text-[11px] text-slate-400 [html.light_&]:text-[#536b88] shrink-0">
                           ({fmtCurrency(d.unit_price)})
                         </span>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 shrink-0">
                         <span className="font-black text-[#E6C17A] [html.light_&]:text-[#0D1B2A]">
                           {activeMetric === 'revenue'
                             ? fmtCurrency(rev)
                             : activeMetric === 'volume'
-                              ? `${sold} / ${cap > 0 ? cap : '∞'} vé`
-                              : `${occ}% lấp đầy`}
+                              ? `${sold} / ${cap > 0 ? cap : '∞'} ${isEnglish ? 'tickets' : 'vé'}`
+                              : `${occ}% ${isEnglish ? 'occupancy' : 'lấp đầy'}`}
                         </span>
                         <OccupancyBadge rate={occ} />
                       </div>
@@ -1292,8 +1281,8 @@ function TicketTypePerformanceChart({ data = [] }) {
                     {isEnglish ? 'Best Seller' : 'Bán chạy nhất'}
                   </span>
                 </div>
-                <p className="mt-1 truncate text-xs font-bold text-white [html.light_&]:text-[#0D1B2A]">
-                  {topSelling.ticket_type_name}
+                <p className="mt-1 truncate text-xs font-bold text-white [html.light_&]:text-[#0D1B2A]" title={translateTicketName(topSelling.ticket_type_name, isEnglish)}>
+                  {translateTicketName(topSelling.ticket_type_name, isEnglish)}
                 </p>
                 <p className="text-[11px] font-black text-amber-300 [html.light_&]:text-amber-700">
                   {Number(topSelling.sold_quantity || 0).toLocaleString(isEnglish ? 'en-US' : 'vi-VN')} {isEnglish ? 'tickets' : 'vé'}
@@ -1309,8 +1298,8 @@ function TicketTypePerformanceChart({ data = [] }) {
                     {isEnglish ? 'Top Revenue' : 'Doanh thu đỉnh'}
                   </span>
                 </div>
-                <p className="mt-1 truncate text-xs font-bold text-white [html.light_&]:text-[#0D1B2A]">
-                  {topRevenue.ticket_type_name}
+                <p className="mt-1 truncate text-xs font-bold text-white [html.light_&]:text-[#0D1B2A]" title={translateTicketName(topRevenue.ticket_type_name, isEnglish)}>
+                  {translateTicketName(topRevenue.ticket_type_name, isEnglish)}
                 </p>
                 <p className="text-[11px] font-black text-emerald-300 [html.light_&]:text-emerald-700">
                   {fmtShort(topRevenue.revenue)}
@@ -1346,16 +1335,16 @@ function TicketTypePerformanceChart({ data = [] }) {
                       style={{ backgroundColor: pal.accent, boxShadow: `0 0 6px ${pal.accent}` }}
                     />
                     <div className="min-w-0">
-                      <p className="truncate text-xs font-bold text-white [html.light_&]:text-[#0D1B2A]">
-                        {tt.ticket_type_name}
+                      <p className="truncate text-xs font-bold text-white [html.light_&]:text-[#0D1B2A]" title={translateTicketName(tt.ticket_type_name, isEnglish)}>
+                        {translateTicketName(tt.ticket_type_name, isEnglish)}
                       </p>
-                      <p className="text-[10px] text-slate-400 [html.light_&]:text-[#536b88]">
-                        {fmtCurrency(tt.unit_price)} · {sold}/{cap > 0 ? cap : '∞'} vé
+                      <p className="truncate text-[10px] text-slate-400 [html.light_&]:text-[#536b88]" title={tt.event_title ? translatePhrase(tt.event_title, isEnglish ? 'en' : 'vi') : undefined}>
+                        {tt.event_title ? `${translatePhrase(tt.event_title, isEnglish ? 'en' : 'vi')} · ` : ''}{fmtCurrency(tt.unit_price)} · {sold}/{cap > 0 ? cap : '∞'} {isEnglish ? 'tickets' : 'vé'}
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 shrink-0">
                     <strong className="text-xs font-black text-[#E6C17A] [html.light_&]:text-[#0D1B2A]">
                       {fmtShort(rev)}
                     </strong>
@@ -1389,7 +1378,7 @@ function RevenueShareDonutChart({ data = [] }) {
     const rest = sorted.slice(topLimit)
     const result = visible.map((item, idx) => ({
       id: item.ticket_type_id,
-      label: item.ticket_type_name,
+      label: translateTicketName(item.ticket_type_name, isEnglish),
       value: Number(activeMetric === 'revenue' ? item.revenue : item.sold_quantity) || 0,
       color: TICKET_PALETTE[idx % TICKET_PALETTE.length].accent,
     }))
@@ -1460,7 +1449,7 @@ function RevenueShareDonutChart({ data = [] }) {
 
       {total <= 0 ? (
         <div className="flex h-44 items-center justify-center text-xs text-slate-400 [html.light_&]:text-[#536b88]">
-          Chưa có phát sinh số liệu theo loại vé.
+          {isEnglish ? 'No ticket data available yet' : 'Chưa có phát sinh số liệu theo loại vé.'}
         </div>
       ) : (
         <div className="flex flex-col items-center gap-4 sm:flex-row overflow-hidden">
@@ -1508,10 +1497,10 @@ function RevenueShareDonutChart({ data = [] }) {
                   ? `${((activeSegment.value / total) * 100).toFixed(1)}%`
                   : activeMetric === 'revenue'
                     ? fmtShort(total)
-                    : `${total.toLocaleString()} vé`}
+                    : `${total.toLocaleString()} ${isEnglish ? 'tickets' : 'vé'}`}
               </p>
               <p className="max-w-[78px] truncate text-[9px] font-bold uppercase tracking-wider text-slate-400 [html.light_&]:text-[#536b88]">
-                {activeSegment ? activeSegment.label : 'Tổng'}
+                {activeSegment ? activeSegment.label : (isEnglish ? 'Total' : 'Tổng')}
               </p>
             </div>
           </div>
@@ -1546,7 +1535,7 @@ function RevenueShareDonutChart({ data = [] }) {
                       {pct}%
                     </span>
                     <strong className="text-white font-bold [html.light_&]:text-[#0D1B2A] text-xs whitespace-nowrap">
-                      {activeMetric === 'revenue' ? fmtShort(seg.value) : `${seg.value} vé`}
+                      {activeMetric === 'revenue' ? fmtShort(seg.value) : `${seg.value} ${isEnglish ? 'tickets' : 'vé'}`}
                     </strong>
                   </div>
                 </div>
@@ -1705,7 +1694,7 @@ function CumulativeVelocityLineChart({ data = [] }) {
               fill="#FBBF24"
               className="[html.light_&]:fill-[#C99A47]"
             >
-              (Vé)
+              {isEnglish ? '(Tickets)' : '(Vé)'}
             </text>
             {yTicks.map((item, idx) => (
               <g key={`yval-${idx}`}>
@@ -1951,7 +1940,7 @@ function EventOccupancyColumnChart({ data = [], height = 240 }) {
                 fill={gradId}
                 className="transition-all duration-300 hover:brightness-110"
               >
-                <title>{`${ev.event_title}\nLấp đầy: ${occ}%\nVé bán: ${Number(ev.sold_quantity || 0).toLocaleString()} / ${Number(ev.total_capacity || 0).toLocaleString()} vé\nDoanh thu: ${fmtCurrency(ev.revenue)}`}</title>
+                <title>{`${translatePhrase(ev.event_title, isEnglish ? 'en' : 'vi')}\n${isEnglish ? 'Occupancy' : 'Lấp đầy'}: ${occ}%\n${isEnglish ? 'Tickets sold' : 'Vé bán'}: ${Number(ev.sold_quantity || 0).toLocaleString()} / ${Number(ev.total_capacity || 0).toLocaleString()} ${isEnglish ? 'tickets' : 'vé'}\n${isEnglish ? 'Revenue' : 'Doanh thu'}: ${fmtCurrency(ev.revenue)}`}</title>
               </rect>
 
               {/* Percentage Label */}
@@ -1987,7 +1976,7 @@ function EventOccupancyColumnChart({ data = [], height = 240 }) {
                 fontSize={9}
                 fill="#64748b"
               >
-                {Number(ev.sold_quantity || 0).toLocaleString()} vé
+                {Number(ev.sold_quantity || 0).toLocaleString()} {isEnglish ? 'tickets' : 'vé'}
               </text>
             </g>
           )
