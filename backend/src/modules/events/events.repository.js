@@ -274,6 +274,8 @@ class EventsRepository {
           'start_time', es.start_time,
           'end_time', es.end_time,
           'checkin_start_time', es.checkin_start_time,
+          'direct_sale_start_time', es.direct_sale_start_time,
+          'direct_sale_end_time', es.direct_sale_end_time,
           'status', es.status,
           'seat_map_id', es.seat_map_id,
           'has_seat_map', (es.seat_map_id IS NOT NULL),

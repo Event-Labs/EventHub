@@ -1,9 +1,15 @@
 const db = require('../../infrastructure/database/db.client');
 const logger = require('../../core/logger');
 
-const DEFAULT_GREETING_CONTENT = `Xin chào bạn! Mình là Eve – Trợ lý AI của EventHub.
+const DEFAULT_GREETING_VI = `Xin chào bạn! Mình là Eve – Trợ lý AI của EventHub.
 
 Eve luôn sẵn sàng hỗ trợ bạn tìm kiếm sự kiện, tra cứu giá vé, đặt chỗ nhanh và giải đáp thắc mắc. Hôm nay bạn đang quan tâm đến sự kiện nào nè?`;
+
+const DEFAULT_GREETING_EN = `Hello! I'm Eve – EventHub's AI Assistant.
+
+Eve is always ready to assist you with exploring events, checking ticket prices, booking seats quickly, and answering questions. What event are you interested in today?`;
+
+const DEFAULT_GREETING_CONTENT = DEFAULT_GREETING_VI;
 
 class AiChatHistoryRepository {
   constructor() {
@@ -56,14 +62,17 @@ class AiChatHistoryRepository {
       const createdAtMs = conv.created_at || (row.created_at ? new Date(row.created_at).getTime() : Date.now());
       const updatedAtMs = conv.updated_at || createdAtMs;
       const rawMessages = Array.isArray(conv.messages) ? conv.messages : [];
+      const convLocale = conv.locale || (rawMessages?.[0]?.content?.includes('Hello! I\'m Eve') ? 'en' : 'vi');
+      const defaultGreeting = convLocale === 'en' ? DEFAULT_GREETING_EN : DEFAULT_GREETING_VI;
       const messages = (rawMessages.length === 0 || rawMessages[0]?.role !== 'assistant')
-        ? [{ role: 'assistant', content: DEFAULT_GREETING_CONTENT }, ...rawMessages]
+        ? [{ role: 'assistant', content: defaultGreeting }, ...rawMessages]
         : rawMessages;
 
       return {
         id: conv.session_id || row.id,
         dbId: row.id,
-        title: conv.title || 'Đoạn chat mới',
+        title: conv.title || (convLocale === 'en' ? 'New chat' : 'Đoạn chat mới'),
+        locale: convLocale,
         createdAt: Number(createdAtMs),
         updatedAt: Number(updatedAtMs),
         messages,
@@ -71,7 +80,7 @@ class AiChatHistoryRepository {
     });
   }
 
-  async upsertSession(userId, { sessionId, title, messages, createdAt, updatedAt }) {
+  async upsertSession(userId, { sessionId, title, messages, createdAt, updatedAt, locale }) {
     if (!userId || !sessionId) return null;
 
     const existing = await this.findBySessionId(userId, sessionId);
@@ -81,13 +90,16 @@ class AiChatHistoryRepository {
     const finalTitle = title || existing?.conversation?.title || 'Đoạn chat mới';
 
     const rawMessages = Array.isArray(messages) ? messages : [];
+    const finalLocale = locale || existing?.conversation?.locale || (rawMessages?.[0]?.content?.includes('Hello! I\'m Eve') ? 'en' : 'vi');
+    const defaultGreeting = finalLocale === 'en' ? DEFAULT_GREETING_EN : DEFAULT_GREETING_VI;
     const finalMessages = (rawMessages.length === 0 || rawMessages[0]?.role !== 'assistant')
-      ? [{ role: 'assistant', content: DEFAULT_GREETING_CONTENT }, ...rawMessages]
+      ? [{ role: 'assistant', content: defaultGreeting }, ...rawMessages]
       : rawMessages;
 
     const conversationObj = {
       session_id: String(sessionId),
       title: finalTitle,
+      locale: finalLocale,
       created_at: finalCreatedAt,
       updated_at: finalUpdatedAt,
       messages: finalMessages,

@@ -26,12 +26,14 @@ function getCenterNavItems(isEnglish) {
         ['Favorites', '/favorites', true],
         ['My Tickets', '/my-tickets', true],
         ['Feedback', '/feedback', true],
+        ['Complaints', '/complaints', true],
       ]
     : [
         ['Khám phá sự kiện', '/events', false],
         ['Sự kiện yêu thích', '/favorites', true],
         ['Vé của tôi', '/my-tickets', true],
         ['Đánh giá', '/feedback', true],
+        ['Khiếu nại', '/complaints', true],
       ]
 }
 
@@ -581,7 +583,8 @@ export function AppLayout() {
           pathname === '/profile' ||
           pathname === '/my-tickets' ||
           pathname === '/favorites' ||
-          pathname === '/feedback'
+          pathname === '/feedback' ||
+          pathname === '/complaints'
             ? 'hidden md:block'
             : ''
         }`}
