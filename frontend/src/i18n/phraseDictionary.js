@@ -1,4 +1,8 @@
-import { EVENT_SYSTEM_TRANSLATIONS, translateAddress } from './eventTranslations.js'
+import {
+  EVENT_SYSTEM_TRANSLATIONS,
+  registerPhraseTranslator,
+  translateAddress,
+} from './eventTranslations.js'
 
 /**
  * Comprehensive Vietnamese to English UI phrase dictionary.
@@ -704,7 +708,38 @@ export const VI_TO_EN = {
   "Tổng vé": "Total Tickets",
   "Sự kiện xử lý:": "Handled event:",
   "CHÍNH SÁCH": "POLICY",
+  "Tiêu chuẩn": "Standard",
+  "Tiêu Chuẩn": "Standard",
+  "TIÊU CHUẨN": "STANDARD",
+  "tiêu chuẩn": "standard",
   "Vé tiêu chuẩn": "Standard Ticket",
+  "Vé Tiêu Chuẩn": "Standard Ticket",
+  "VÉ TIÊU CHUẨN": "STANDARD TICKET",
+  "Hạng tiêu chuẩn": "Standard Tier",
+  "Hạng Tiêu Chuẩn": "Standard Tier",
+  "HẠNG TIÊU CHUẨN": "STANDARD TIER",
+  "Phổ thông": "General Admission",
+  "Phổ Thông": "General Admission",
+  "PHỔ THÔNG": "GENERAL ADMISSION",
+  "phổ thông": "general admission",
+  "Hạng thường": "Regular Tier",
+  "Hạng Thường": "Regular Tier",
+  "HẠNG THƯỜNG": "REGULAR TIER",
+  "Hạng VIP": "VIP Tier",
+  "HẠNG VIP": "VIP TIER",
+  "Hạng Đồng": "Bronze Tier",
+  "HẠNG ĐỒNG": "BRONZE TIER",
+  "Hạng Bạc": "Silver Tier",
+  "HẠNG BẠC": "SILVER TIER",
+  "Hạng Vàng": "Gold Tier",
+  "HẠNG VÀNG": "GOLD TIER",
+  "Hạng Kim Cương": "Diamond Tier",
+  "Hạng Bạch Kim": "Platinum Tier",
+  "Tối đa 10 vé mỗi lần đặt": "Max 10 tickets per order",
+  "Tối đa 20 vé mỗi lần đặt": "Max 20 tickets per order",
+  "vé mỗi lần đặt": "tickets per order",
+  "vé/ghế mỗi lần đặt": "tickets/seats per order",
+  "mỗi lần đặt": "per order",
   "Đã gửi lệnh dừng tiến trình quét AI.": "AI scan stop signal sent.",
   "Không thể hủy tiến trình quét.": "Failed to cancel scan progress.",
   "Tiến trình quét đã được dừng theo yêu cầu.": "Scan progress stopped on request.",
@@ -5375,3 +5410,5 @@ export function translateComposite(text, locale) {
 
 return res
 }
+
+registerPhraseTranslator(translatePhrase)

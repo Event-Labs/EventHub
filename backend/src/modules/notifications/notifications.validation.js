@@ -39,6 +39,7 @@ const createAnnouncementSchema = z.object({
     .array(z.enum(['web', 'email']))
     .min(1, 'Vui lòng chọn ít nhất một kênh gửi (Website hoặc Email)')
     .default(['web', 'email']),
+  locale: z.enum(['vi', 'en']).optional(),
 });
 
 module.exports = {
