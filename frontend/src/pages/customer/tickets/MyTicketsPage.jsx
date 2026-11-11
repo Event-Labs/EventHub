@@ -6,7 +6,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { SectionHeader } from '@/components/SectionHeader.jsx'
 import { fetchMyTickets } from '@/services/tickets.js'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
-import { cleanAndFormatVenue } from '@/i18n/eventTranslations.js'
+import { cleanAndFormatVenue, translateTicketName } from '@/i18n/eventTranslations.js'
 import { translatePhrase } from '@/i18n/phraseDictionary.js'
 
 const TICKETS_PER_PAGE = 6
@@ -281,7 +281,7 @@ function TicketCard({ ticket }) {
   const venue = venueLine(ticket)
   const venueText = cleanAndFormatVenue(ticket.venue || venue, isEnglish) || (isEnglish ? 'N/A' : 'Chưa có địa điểm')
   const eventTitle = isEnglish ? (translatePhrase(ticket.event?.title, 'en') || ticket.event?.title) : ticket.event?.title
-  const ticketTypeName = isEnglish ? (translatePhrase(ticket.ticket_type?.name, 'en') || ticket.ticket_type?.name) : ticket.ticket_type?.name
+  const ticketTypeName = translateTicketName(ticket.ticket_type?.name, isEnglish)
   const seat = ticket.seat?.label
 
   // Các vé hợp lệ hoặc chờ hoàn tiền thì hiện màu sẵn, vé hết hạn/hủy thì không còn màu

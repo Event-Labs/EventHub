@@ -9,7 +9,7 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from '@/services/notifications.js'
-import { formatNotificationDisplay } from '@/lib/notifications.js'
+import { formatNotificationDisplay, stripNotificationHtml } from '@/lib/notifications.js'
 import { CosmicSpaceBackground } from '@/components/CosmicSpaceBackground.jsx'
 import { PortalCloudsBackground } from '@/components/PortalCloudsBackground.jsx'
 import { LanguageSwitcher } from '@/i18n/LanguageSwitcher.jsx'
@@ -815,11 +815,7 @@ function PortalNotificationBell({ theme }) {
       navigate(`/organizer/events/${notification.event_id}`)
       return
     }
-    if (notification.event?.slug) {
-      navigate(`/events/${notification.event.slug}`)
-      return
-    }
-    navigate('/notifications')
+    navigate(`/notifications#notification-${notification.id}`)
   }
 
   return (
@@ -895,7 +891,7 @@ function PortalNotificationBell({ theme }) {
               </p>
             )}
             {notifications.map((notification) => {
-              const display = formatNotificationDisplay(notification)
+              const display = formatNotificationDisplay(notification, !isVietnamese)
               return (
                 <button
                   key={notification.id}
@@ -916,7 +912,7 @@ function PortalNotificationBell({ theme }) {
                     )}
                     <div className="min-w-0 flex-1">
                       <p className={`line-clamp-1 text-xs font-extrabold ${isLight ? 'text-[#0D1B2A]' : 'text-content'}`}>{display.title}</p>
-                      <p className={`mt-1 line-clamp-2 text-xs leading-4 ${isLight ? 'text-[#1B365D]/80' : 'text-subtle'}`}>{display.content}</p>
+                      <p className={`mt-1 line-clamp-2 text-xs leading-4 ${isLight ? 'text-[#1B365D]/80' : 'text-subtle'}`}>{display.preview || stripNotificationHtml(display.content)}</p>
                       <p className={`mt-1 text-[10px] ${isLight ? 'text-[#506680]' : 'text-muted'}`}>
                         {formatTimeAgo(notification.created_at, isVietnamese)}
                       </p>

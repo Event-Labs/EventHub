@@ -1,3 +1,12 @@
+// Phrase translator registered at runtime by phraseDictionary.js to avoid circular ESM evaluation
+let _phraseTranslator = (text) => EVENT_SYSTEM_TRANSLATIONS[text] || text
+
+export function registerPhraseTranslator(fn) {
+  if (typeof fn === 'function') {
+    _phraseTranslator = fn
+  }
+}
+
 /**
  * Event-specific and system-wide translation mappings for EventHub.
  * Covers event titles, venues, addresses, categories, seating zones,
@@ -214,12 +223,50 @@ export const EVENT_SYSTEM_TRANSLATIONS = {
   "Khu vực A": "Area A",
   "Khu vực B": "Area B",
   "Khu vực C": "Area C",
+  "TIÊU CHUẨN": "STANDARD",
+  "Tiêu chuẩn": "Standard",
+  "Tiêu Chuẩn": "Standard",
+  "tiêu chuẩn": "standard",
+  "Hạng tiêu chuẩn": "Standard Tier",
+  "Hạng Tiêu Chuẩn": "Standard Tier",
+  "HẠNG TIÊU CHUẨN": "STANDARD TIER",
+  "PHỔ THÔNG": "GENERAL ADMISSION",
+  "Phổ thông": "General Admission",
+  "THƯỜNG": "REGULAR",
+  "Thường": "Regular",
+  "Hạng thường": "Regular Tier",
+  "Hạng Thường": "Regular Tier",
+  "HẠNG THƯỜNG": "REGULAR TIER",
+  "Hạng VIP": "VIP Tier",
+  "HẠNG VIP": "VIP TIER",
+  "ĐỒNG": "BRONZE",
+  "Đồng": "Bronze",
+  "Hạng Đồng": "Bronze Tier",
+  "BẠC": "SILVER",
+  "Bạc": "Silver",
+  "Hạng Bạc": "Silver Tier",
+  "VÀNG": "GOLD",
+  "Vàng": "Gold",
+  "Hạng Vàng": "Gold Tier",
+  "BẠCH KIM": "PLATINUM",
+  "Bạch Kim": "Platinum",
+  "Hạng Bạch Kim": "Platinum Tier",
+  "KIM CƯƠNG": "DIAMOND",
+  "Kim Cương": "Diamond",
+  "Hạng Kim Cương": "Diamond Tier",
   "Vé VIP": "VIP Ticket",
   "Vé Thường": "Standard Ticket",
   "Vé Sớm": "Early Bird Ticket",
   "Vé Tiêu Chuẩn": "Standard Ticket",
+  "Vé tiêu chuẩn": "Standard Ticket",
   "Vé Sinh Viên": "Student Ticket",
   "Vé Trẻ Em": "Child Ticket",
+  "Vé Đồng": "Bronze Ticket",
+  "Vé Bạc": "Silver Ticket",
+  "Vé Vàng": "Gold Ticket",
+  "Vé Bạch Kim": "Platinum Ticket",
+  "Vé Kim Cương": "Diamond Ticket",
+  "Vé Miễn Phí": "Free Ticket",
   "Ghế ngồi": "Seat",
   "Số ghế": "Seat number",
   "Không có ghế cố định": "No assigned seat",
@@ -511,12 +558,107 @@ export function translateEventHtmlDescription(html, isEnglish = false) {
  * Translates event title if an official English translation is available.
  */
 export function translateEventTitle(title, isEnglish = false) {
-  if (!title || typeof title !== 'string' || !isEnglish) return title
+  if (!title || typeof title !== 'string') return title || ''
   const trimmed = title.trim()
-  if (EVENT_SYSTEM_TRANSLATIONS[trimmed]) return EVENT_SYSTEM_TRANSLATIONS[trimmed]
-  const lower = trimmed.toLowerCase()
-  for (const [k, v] of Object.entries(EVENT_SYSTEM_TRANSLATIONS)) {
-    if (k.toLowerCase() === lower) return v
+  if (isEnglish) {
+    if (EVENT_SYSTEM_TRANSLATIONS[trimmed]) return EVENT_SYSTEM_TRANSLATIONS[trimmed]
+    const lower = trimmed.toLowerCase()
+    for (const [k, v] of Object.entries(EVENT_SYSTEM_TRANSLATIONS)) {
+      if (k.toLowerCase() === lower) return v
+    }
+    return title
+  }
+
+  // Reverse translation (EN -> VI) when Vietnamese is selected
+  for (const [vi, en] of Object.entries(EVENT_SYSTEM_TRANSLATIONS)) {
+    if (en.toLowerCase() === trimmed.toLowerCase()) return vi
   }
   return title
+}
+
+/**
+ * Translates ticket tier / type name when English is active.
+ * Handles casing (STANDARD, Standard), prefixes (Vé, Hạng), notes in parentheses, and common tiers.
+ */
+export function translateTicketName(name, isEnglish = false) {
+  if (!name || typeof name !== 'string' || !isEnglish) return name || ''
+  const trimmed = name.trim()
+  if (!trimmed) return ''
+
+  if (EVENT_SYSTEM_TRANSLATIONS[trimmed]) return EVENT_SYSTEM_TRANSLATIONS[trimmed]
+
+  // Direct check in dictionary
+  const direct = _phraseTranslator(trimmed, 'en')
+  if (direct && direct !== trimmed) return direct
+
+  const isUpper = trimmed === trimmed.toUpperCase() && trimmed.length > 2
+  const applyCase = (translated) => {
+    if (isUpper) return translated.toUpperCase()
+    return translated
+  }
+
+  // Parentheses note: e.g. "HẠNG VIP (Không dành cho trẻ em...)"
+  let core = trimmed
+  let suffix = ''
+  const parenMatch = trimmed.match(/^(.*?)\s*(\(.*?\))$/)
+  if (parenMatch) {
+    core = parenMatch[1]
+    const inside = parenMatch[2].slice(1, -1)
+    const translatedInside = _phraseTranslator(inside, 'en') || inside
+    suffix = ` (${translatedInside})`
+  }
+
+  const prefixMatch = core.match(/^(vé\s+|hạng\s+vé\s+|hạng\s+)/i)
+  let hadTicketPrefix = false
+  if (prefixMatch) {
+    hadTicketPrefix = true
+    core = core.slice(prefixMatch[0].length).trim()
+  }
+
+  const coreLower = core.toLowerCase()
+  let translatedCore = ''
+  if (coreLower === 'tiêu chuẩn' || coreLower === 'tieu chuan') {
+    translatedCore = 'Standard'
+  } else if (coreLower === 'phổ thông' || coreLower === 'pho thong') {
+    translatedCore = 'General Admission'
+  } else if (coreLower === 'thường' || coreLower === 'thuong') {
+    translatedCore = 'Regular'
+  } else if (coreLower === 'đồng' || coreLower === 'dong') {
+    translatedCore = 'Bronze'
+  } else if (coreLower === 'bạc' || coreLower === 'bac') {
+    translatedCore = 'Silver'
+  } else if (coreLower === 'vàng' || coreLower === 'vang') {
+    translatedCore = 'Gold'
+  } else if (coreLower === 'bạch kim' || coreLower === 'bach kim') {
+    translatedCore = 'Platinum'
+  } else if (coreLower === 'kim cương' || coreLower === 'kim cuong') {
+    translatedCore = 'Diamond'
+  } else if (coreLower === 'vip') {
+    translatedCore = 'VIP'
+  } else if (coreLower === 'vvip') {
+    translatedCore = 'VVIP'
+  } else if (coreLower === 'sinh viên' || coreLower === 'hssv' || coreLower === 'học sinh sinh viên') {
+    translatedCore = 'Student'
+  } else if (coreLower === 'trẻ em' || coreLower === 'tre em') {
+    translatedCore = 'Child'
+  } else if (coreLower === 'người lớn' || coreLower === 'nguoi lon') {
+    translatedCore = 'Adult'
+  } else if (coreLower === 'mở bán sớm' || coreLower === 'vé sớm' || coreLower === 'sớm' || coreLower === 'early bird') {
+    translatedCore = 'Early Bird'
+  } else if (coreLower === 'miễn phí' || coreLower === 'mien phi' || coreLower === 'free') {
+    translatedCore = 'Free'
+  } else if (coreLower === 'ghế ngồi' || coreLower === 'ngồi') {
+    translatedCore = 'Seated'
+  } else if (coreLower === 'vé đứng' || coreLower === 'đứng') {
+    translatedCore = 'Standing'
+  } else {
+    translatedCore = _phraseTranslator(core, 'en') || core
+  }
+
+  let finalName = translatedCore
+  if (hadTicketPrefix && !finalName.toLowerCase().includes('ticket') && !finalName.toLowerCase().includes('tier')) {
+    finalName = `${finalName} Ticket`
+  }
+
+  return applyCase(finalName) + suffix
 }

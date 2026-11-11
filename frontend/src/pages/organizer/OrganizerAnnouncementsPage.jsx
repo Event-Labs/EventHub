@@ -111,6 +111,10 @@ export function OrganizerAnnouncementsPage() {
 
   const plainContent = useMemo(() => stripHtml(form.content), [form.content])
   const isContentEmpty = plainContent.length < 5
+  const previewContent = useMemo(() => {
+    if (!form.content || typeof form.content !== 'string') return ''
+    return form.content.replace(/&nbsp;/gi, ' ').replace(/\u00A0/g, ' ')
+  }, [form.content])
 
   const sendMutation = useMutation({
     mutationFn: sendOrganizerAnnouncement,
@@ -210,10 +214,14 @@ export function OrganizerAnnouncementsPage() {
       return
     }
 
+    const cleanContent = typeof form.content === 'string'
+      ? form.content.replace(/&nbsp;/gi, ' ').replace(/\u00A0/g, ' ')
+      : form.content
+
     sendMutation.mutate({
       event_id: form.event_id,
       title: form.title.trim(),
-      content: form.content,
+      content: cleanContent,
       attachments,
       channels,
     })
@@ -371,9 +379,9 @@ export function OrganizerAnnouncementsPage() {
                 {form.title || (isEnglish ? 'Announcement title' : 'Tiêu đề thông báo')}
               </p>
               <div
-                className="announcement-preview mt-3 text-sm leading-relaxed text-white/90 overflow-hidden [html.light_&]:text-[#1B365D]"
+                className="announcement-preview mt-3 text-sm leading-relaxed text-white/90 break-words [overflow-wrap:anywhere] [&_p]:break-words [&_p]:[overflow-wrap:anywhere] [&_p]:mb-2 [&_p:last-child]:mb-0 [&_a]:text-primary [&_a]:underline [&_a]:break-all [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [html.light_&]:text-[#1B365D]"
                 dangerouslySetInnerHTML={{
-                  __html: form.content || (isEnglish ? '<p style="opacity:0.5">Notification content will appear here</p>' : '<p style="opacity:0.5">Nội dung thông báo sẽ hiển thị tại đây</p>'),
+                  __html: previewContent || (isEnglish ? '<p style="opacity:0.5">Notification content will appear here</p>' : '<p style="opacity:0.5">Nội dung thông báo sẽ hiển thị tại đây</p>'),
                 }}
               />
 

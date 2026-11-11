@@ -421,14 +421,14 @@ export function OrganizerPaymentSettingsPage() {
         {/* TAB 1: KÊNH THU (INBOUND PAYMENT CHANNEL)                                  */}
         {/* ========================================================================= */}
         {activeTab === 'inbound' && (
-          <div className="rounded-2xl border border-border-soft/30 bg-surface/80 p-6 shadow-[0_4px_24px_rgba(0,0,0,0.18)] backdrop-blur-sm">
+          <div className="rounded-2xl border border-border-soft/30 bg-surface/80 p-6 shadow-[0_4px_24px_rgba(0,0,0,0.18)] backdrop-blur-sm [html.light_&]:bg-white [html.light_&]:border-slate-200 [html.light_&]:shadow-lg">
             {!showSavedSettings && <StepNav step={step} />}
 
             {step === 1 && (
               <div className="space-y-6">
                 <div>
-                  <h2 className="text-2xl font-bold text-content">Chọn PayOS</h2>
-                  <p className="mt-2 max-w-2xl text-sm text-subtle">
+                  <h2 className="text-2xl font-bold text-content [html.light_&]:text-[#0D1B2A]">Chọn PayOS</h2>
+                  <p className="mt-2 max-w-2xl text-sm text-subtle [html.light_&]:text-slate-600">
                     EventHub dùng PayOS để tạo mã QR, ghi nhận thanh toán tự động và xuất vé sau khi khách hàng thanh toán.
                   </p>
                 </div>
@@ -436,27 +436,27 @@ export function OrganizerPaymentSettingsPage() {
                 <button
                   type="button"
                   onClick={() => setStep(2)}
-                  className="w-full rounded-2xl border border-tertiary/30 bg-tertiary/10 p-6 text-left transition hover:border-tertiary/60 hover:bg-tertiary/10"
+                  className="w-full rounded-2xl border border-tertiary/30 bg-tertiary/10 p-6 text-left transition hover:border-tertiary/60 hover:bg-tertiary/10 [html.light_&]:bg-white [html.light_&]:border-slate-200 [html.light_&]:hover:border-[#C99A47]/60 [html.light_&]:shadow-sm cursor-pointer"
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex gap-3">
-                      <div className="grid size-11 place-items-center rounded-xl border border-tertiary/35 bg-tertiary/15 text-primary">
+                      <div className="grid size-11 place-items-center rounded-xl border border-tertiary/35 bg-tertiary/15 text-primary [html.light_&]:bg-amber-500/10 [html.light_&]:border-[#C99A47]/30 [html.light_&]:text-[#B45309]">
                         <Wifi className="size-5" />
                       </div>
                       <div>
-                        <h3 className="font-semibold text-content">PayOS</h3>
-                        <p className="text-sm text-subtle">Khuyến dùng cho bán vé sự kiện tại Việt Nam</p>
+                        <h3 className="font-semibold text-content [html.light_&]:text-[#0D1B2A]">PayOS</h3>
+                        <p className="text-sm text-subtle [html.light_&]:text-slate-600">Khuyến dùng cho bán vé sự kiện tại Việt Nam</p>
                       </div>
                     </div>
                     {isActive && (
-                      <span className="inline-flex items-center gap-1 rounded-full border border-success/35 bg-success/15 px-3 py-1 text-xs font-semibold text-success">
+                      <span className="inline-flex items-center gap-1 rounded-full border border-success/35 bg-success/15 px-3 py-1 text-xs font-semibold text-success [html.light_&]:bg-emerald-50 [html.light_&]:border-emerald-200 [html.light_&]:text-emerald-700">
                         <CheckCircle2 className="size-3.5" />
                         Đang hoạt động
                       </span>
                     )}
                   </div>
 
-                  <ul className="mt-5 grid gap-2 text-sm text-content sm:grid-cols-2">
+                  <ul className="mt-5 grid gap-2 text-sm text-content [html.light_&]:text-slate-700 sm:grid-cols-2">
                     <li className="flex items-center gap-2"><CheckCircle2 className="size-4 text-success" /> Thanh toán qua mã QR</li>
                     <li className="flex items-center gap-2"><CheckCircle2 className="size-4 text-success" /> Chuyển khoản ngân hàng</li>
                     <li className="flex items-center gap-2"><CheckCircle2 className="size-4 text-success" /> Ghi nhận thanh toán tự động</li>
@@ -471,50 +471,50 @@ export function OrganizerPaymentSettingsPage() {
             {step === 2 && (
               <div className="space-y-6">
                 <div>
-                  <h2 className="text-2xl font-bold text-content">Thông tin ngân hàng</h2>
-                  <p className="mt-2 text-sm text-subtle">
+                  <h2 className="text-2xl font-bold text-content [html.light_&]:text-[#0D1B2A]">Thông tin ngân hàng</h2>
+                  <p className="mt-2 text-sm text-subtle [html.light_&]:text-slate-600">
                     Nhập tài khoản ngân hàng chính sẽ nhận doanh thu bán vé từ kênh thanh toán PayOS.
                   </p>
                 </div>
 
                 <div className="grid gap-5 md:grid-cols-2">
                   <div className="md:col-span-2">
-                    <label htmlFor="bank" className="mb-1.5 block text-sm font-semibold text-content">Ngân hàng</label>
+                    <label htmlFor="bank" className="mb-1.5 block text-sm font-semibold text-content [html.light_&]:text-[#0D1B2A]">Ngân hàng</label>
                     <select
                       id="bank"
                       value={bankInfo.bank}
                       onChange={(e) => setBankInfo((prev) => ({ ...prev, bank: e.target.value }))}
-                      className="w-full rounded-xl border border-border-soft/40 bg-panel-soft px-4 py-2.5 text-sm text-content outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
+                      className="w-full rounded-xl border border-border-soft/40 bg-panel-soft px-4 py-2.5 text-sm text-content outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 [html.light_&]:bg-white [html.light_&]:border-slate-300 [html.light_&]:text-[#0D1B2A] [html.light_&]:focus:border-[#C99A47] [html.light_&]:focus:ring-[#C99A47]/20"
                     >
-                      <option value="" className="bg-surface text-content">Chọn ngân hàng</option>
+                      <option value="" className="bg-surface text-content [html.light_&]:bg-white [html.light_&]:text-slate-800">Chọn ngân hàng</option>
                       {BANK_OPTIONS.map((bank) => (
-                        <option key={bank} value={bank} className="bg-surface text-content">{bank}</option>
+                        <option key={bank} value={bank} className="bg-surface text-content [html.light_&]:bg-white [html.light_&]:text-slate-800">{bank}</option>
                       ))}
                     </select>
                   </div>
                   <div>
-                    <label htmlFor="account-number" className="mb-1.5 block text-sm font-semibold text-content">Số tài khoản</label>
+                    <label htmlFor="account-number" className="mb-1.5 block text-sm font-semibold text-content [html.light_&]:text-[#0D1B2A]">Số tài khoản</label>
                     <input
                       id="account-number"
                       value={bankInfo.accountNumber}
                       onChange={(e) => setBankInfo((prev) => ({ ...prev, accountNumber: e.target.value }))}
-                      className="w-full rounded-xl border border-border-soft/40 bg-panel-soft px-4 py-2.5 text-sm text-content outline-none placeholder:text-muted focus:border-primary focus:ring-2 focus:ring-primary/15"
+                      className="w-full rounded-xl border border-border-soft/40 bg-panel-soft px-4 py-2.5 text-sm text-content outline-none placeholder:text-muted focus:border-primary focus:ring-2 focus:ring-primary/15 [html.light_&]:bg-white [html.light_&]:border-slate-300 [html.light_&]:text-[#0D1B2A] [html.light_&]:placeholder:text-slate-400 [html.light_&]:focus:border-[#C99A47] [html.light_&]:focus:ring-[#C99A47]/20"
                       placeholder="Nhập số tài khoản"
                     />
                   </div>
                   <div>
-                    <label htmlFor="account-holder" className="mb-1.5 block text-sm font-semibold text-content">Tên chủ tài khoản</label>
+                    <label htmlFor="account-holder" className="mb-1.5 block text-sm font-semibold text-content [html.light_&]:text-[#0D1B2A]">Tên chủ tài khoản</label>
                     <input
                       id="account-holder"
                       value={bankInfo.accountHolder}
                       onChange={(e) => setBankInfo((prev) => ({ ...prev, accountHolder: e.target.value.toUpperCase() }))}
-                      className="w-full rounded-xl border border-border-soft/40 bg-panel-soft px-4 py-2.5 text-sm text-content outline-none placeholder:text-muted focus:border-primary focus:ring-2 focus:ring-primary/15 uppercase"
+                      className="w-full rounded-xl border border-border-soft/40 bg-panel-soft px-4 py-2.5 text-sm text-content outline-none placeholder:text-muted focus:border-primary focus:ring-2 focus:ring-primary/15 uppercase [html.light_&]:bg-white [html.light_&]:border-slate-300 [html.light_&]:text-[#0D1B2A] [html.light_&]:placeholder:text-slate-400 [html.light_&]:focus:border-[#C99A47] [html.light_&]:focus:ring-[#C99A47]/20"
                       placeholder="Nhập tên chủ tài khoản"
                     />
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-tertiary/20 bg-tertiary/10 p-4 text-sm text-subtle">
+                <div className="rounded-xl border border-tertiary/20 bg-tertiary/10 p-4 text-sm text-subtle [html.light_&]:bg-amber-50 [html.light_&]:border-amber-200 [html.light_&]:text-amber-900">
                   Tên chủ tài khoản nên trùng với thông tin đã xác thực trên payOS để việc đối soát diễn ra thuận lợi.
                 </div>
 
@@ -536,18 +536,18 @@ export function OrganizerPaymentSettingsPage() {
             {step === 3 && (
               <div className="space-y-6">
                 <div>
-                  <h2 className="text-2xl font-bold text-content">Kết nối PayOS</h2>
-                  <p className="mt-2 text-sm text-subtle">
+                  <h2 className="text-2xl font-bold text-content [html.light_&]:text-[#0D1B2A]">Kết nối PayOS</h2>
+                  <p className="mt-2 text-sm text-subtle [html.light_&]:text-slate-600">
                     Làm theo checklist bên trái để tạo kênh thanh toán trên payOS, sau đó copy 3 key và dán vào form bên phải.
                   </p>
                 </div>
 
                 <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
-                  <section className="space-y-4 rounded-2xl border border-border-soft/30 bg-panel-soft/60 p-5">
+                  <section className="space-y-4 rounded-2xl border border-border-soft/30 bg-panel-soft/60 p-5 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
-                        <h3 className="text-base font-bold text-content">Checklist tạo 3 key</h3>
-                        <p className="text-sm text-subtle">Chọn từng bước để xem ảnh hướng dẫn ngay bên dưới bước đó.</p>
+                        <h3 className="text-base font-bold text-content [html.light_&]:text-[#0D1B2A]">Checklist tạo 3 key</h3>
+                        <p className="text-sm text-subtle [html.light_&]:text-slate-600">Chọn từng bước để xem ảnh hướng dẫn ngay bên dưới bước đó.</p>
                       </div>
                       <button
                         type="button"
@@ -567,20 +567,23 @@ export function OrganizerPaymentSettingsPage() {
                             <button
                               type="button"
                               onClick={() => setGuideImageIndex(index)}
-                              className={`w-full rounded-xl border p-3 text-left transition ${isSelected
-                                ? 'border-tertiary bg-tertiary/10'
-                                : 'border-border-soft/25 bg-surface/40 hover:border-tertiary/40'
+                              className={`w-full rounded-xl border p-3 text-left transition cursor-pointer ${isSelected
+                                ? 'border-tertiary bg-tertiary/10 [html.light_&]:border-[#C99A47] [html.light_&]:bg-amber-500/10 [html.light_&]:shadow-sm'
+                                : 'border-border-soft/25 bg-surface/40 hover:border-tertiary/40 [html.light_&]:border-slate-200 [html.light_&]:bg-white [html.light_&]:hover:border-[#C99A47]/50'
                                 }`}
                             >
                               <span className="flex gap-3">
-                                <span className="grid size-7 shrink-0 place-items-center rounded-full bg-tertiary text-xs font-bold text-white">
+                                <span className={`grid size-7 shrink-0 place-items-center rounded-full text-xs font-bold ${isSelected
+                                  ? 'bg-tertiary text-white [html.light_&]:bg-gradient-to-r [html.light_&]:from-[#C99A47] [html.light_&]:to-[#E6C17A] [html.light_&]:text-[#0D1B2A]'
+                                  : 'bg-tertiary/60 text-white [html.light_&]:bg-slate-200 [html.light_&]:text-slate-700'
+                                }`}>
                                   {index + 1}
                                 </span>
                                 <span className="min-w-0 flex-1">
-                                  <span className="block text-sm font-semibold text-content">{item.title}</span>
-                                  <span className="mt-1 block text-sm leading-6 text-subtle">{item.detail}</span>
+                                  <span className="block text-sm font-semibold text-content [html.light_&]:text-[#0D1B2A]">{item.title}</span>
+                                  <span className="mt-1 block text-sm leading-6 text-subtle [html.light_&]:text-slate-600">{item.detail}</span>
                                   {isSelected && (
-                                    <span className="mt-3 block overflow-hidden rounded-lg border border-border-soft/30 bg-surface">
+                                    <span className="mt-3 block overflow-hidden rounded-lg border border-border-soft/30 bg-surface [html.light_&]:bg-white [html.light_&]:border-slate-200">
                                       <img src={item.image} alt={item.title} className="w-full object-contain" />
                                     </span>
                                   )}
@@ -593,10 +596,10 @@ export function OrganizerPaymentSettingsPage() {
                     </ol>
                   </section>
 
-                  <section className="space-y-4 rounded-2xl border border-border-soft/30 bg-surface p-5">
+                  <section className="space-y-4 rounded-2xl border border-border-soft/30 bg-surface p-5 [html.light_&]:bg-white [html.light_&]:border-slate-200 [html.light_&]:shadow-sm">
                     <div>
-                      <h3 className="text-base font-bold text-content">Nhập 3 key từ payOS</h3>
-                      <p className="mt-1 text-sm text-subtle">Dán đúng thứ tự như payOS hiển thị: Client ID, API Key, Checksum Key.</p>
+                      <h3 className="text-base font-bold text-content [html.light_&]:text-[#0D1B2A]">Nhập 3 key từ payOS</h3>
+                      <p className="mt-1 text-sm text-subtle [html.light_&]:text-slate-600">Dán đúng thứ tự như payOS hiển thị: Client ID, API Key, Checksum Key.</p>
                     </div>
 
                     <CredentialField
@@ -636,7 +639,7 @@ export function OrganizerPaymentSettingsPage() {
                       }}
                     />
 
-                    <div className="rounded-xl border border-warning/30 bg-warning/10 p-3 text-sm text-warning">
+                    <div className="rounded-xl border border-warning/30 bg-warning/10 p-3 text-sm text-warning [html.light_&]:bg-amber-50 [html.light_&]:border-amber-300 [html.light_&]:text-amber-900">
                       Không chia sẻ 3 key này cho người khác. EventHub chỉ dùng key để tạo và xác minh thanh toán cho sự kiện của bạn.
                     </div>
 
@@ -664,18 +667,18 @@ export function OrganizerPaymentSettingsPage() {
 
             {step === 4 && (
               <div className="space-y-6">
-                <h2 className="text-2xl font-bold text-content">Kiểm tra kết nối</h2>
+                <h2 className="text-2xl font-bold text-content [html.light_&]:text-[#0D1B2A]">Kiểm tra kết nối</h2>
 
                 {testState.status === 'loading' && (
-                  <div className="rounded-2xl border border-border-soft/30 bg-panel-soft p-5">
-                    <div className="mb-4 flex items-center gap-2 font-bold text-content">
-                      <Loader2 className="size-4 animate-spin text-primary" />
+                  <div className="rounded-2xl border border-border-soft/30 bg-panel-soft p-5 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                    <div className="mb-4 flex items-center gap-2 font-bold text-content [html.light_&]:text-[#0D1B2A]">
+                      <Loader2 className="size-4 animate-spin text-primary [html.light_&]:text-[#C99A47]" />
                       <p>Đang thử nghiệm kết nối...</p>
                     </div>
-                    <ul className="space-y-2 text-sm text-subtle">
+                    <ul className="space-y-2 text-sm text-subtle [html.light_&]:text-slate-600">
                       {checks.map((text, index) => (
                         <li key={text} className="flex items-center gap-2">
-                          {progressIndex >= index ? <CheckCircle2 className="size-4 text-success" /> : <Circle className="size-4 text-muted opacity-60" />}
+                          {progressIndex >= index ? <CheckCircle2 className="size-4 text-success" /> : <Circle className="size-4 text-muted opacity-60 [html.light_&]:text-slate-400" />}
                           {text}
                         </li>
                       ))}
@@ -684,15 +687,15 @@ export function OrganizerPaymentSettingsPage() {
                 )}
 
                 {testState.status === 'success' && (
-                  <div className="space-y-4 rounded-2xl border border-success/30 bg-success/10 p-5">
-                    <p className="flex items-center gap-2 text-sm font-semibold text-success">
+                  <div className="space-y-4 rounded-2xl border border-success/30 bg-success/10 p-5 [html.light_&]:bg-emerald-50 [html.light_&]:border-emerald-200">
+                    <p className="flex items-center gap-2 text-sm font-semibold text-success [html.light_&]:text-emerald-800">
                       <CheckCircle2 className="size-5" />
                       Kênh thanh toán đã được kết nối thành công
                     </p>
-                    <div className="grid gap-2 text-sm text-content">
-                      <p><span className="font-semibold text-muted">Ngân hàng:</span> {bankInfo.bank || 'Chưa có dữ liệu'}</p>
-                      <p><span className="font-semibold text-muted">Số tài khoản:</span> {bankInfo.accountNumber ? `****${bankInfo.accountNumber.slice(-4)}` : 'Chưa có dữ liệu'}</p>
-                      <p><span className="font-semibold text-muted">Trạng thái:</span> Đang hoạt động</p>
+                    <div className="grid gap-2 text-sm text-content [html.light_&]:text-[#0D1B2A]">
+                      <p><span className="font-semibold text-muted [html.light_&]:text-slate-500">Ngân hàng:</span> {bankInfo.bank || 'Chưa có dữ liệu'}</p>
+                      <p><span className="font-semibold text-muted [html.light_&]:text-slate-500">Số tài khoản:</span> {bankInfo.accountNumber ? `****${bankInfo.accountNumber.slice(-4)}` : 'Chưa có dữ liệu'}</p>
+                      <p><span className="font-semibold text-muted [html.light_&]:text-slate-500">Trạng thái:</span> Đang hoạt động</p>
                     </div>
                     <button type="button" onClick={() => setStep(5)} className="rounded-xl bg-success px-5 py-2.5 text-sm font-semibold text-slate-950 hover:opacity-90">
                       Lưu và hoàn tất
@@ -701,12 +704,12 @@ export function OrganizerPaymentSettingsPage() {
                 )}
 
                 {testState.status === 'error' && (
-                  <div className="space-y-4 rounded-2xl border border-error/30 bg-error/10 p-5">
-                    <p className="flex items-center gap-2 text-sm font-semibold text-error">
+                  <div className="space-y-4 rounded-2xl border border-error/30 bg-error/10 p-5 [html.light_&]:bg-rose-50 [html.light_&]:border-rose-200">
+                    <p className="flex items-center gap-2 text-sm font-semibold text-error [html.light_&]:text-rose-700">
                       <AlertCircle className="size-5" />
                       Không thể kết nối
                     </p>
-                    <p className="text-sm text-error">{testState.message}</p>
+                    <p className="text-sm text-error [html.light_&]:text-rose-700">{testState.message}</p>
                     <button
                       type="button"
                       onClick={() => {
@@ -717,7 +720,7 @@ export function OrganizerPaymentSettingsPage() {
                           setStep(3)
                         }
                       }}
-                      className="rounded-xl border border-error/35 bg-surface px-4 py-2 text-sm font-medium text-error hover:bg-error/10"
+                      className="rounded-xl border border-error/35 bg-surface px-4 py-2 text-sm font-medium text-error hover:bg-error/10 [html.light_&]:bg-white [html.light_&]:border-rose-300 [html.light_&]:text-rose-700 [html.light_&]:hover:bg-rose-50 cursor-pointer"
                     >
                       Thử lại
                     </button>
@@ -729,8 +732,8 @@ export function OrganizerPaymentSettingsPage() {
             {step === 5 && (
               <div className="space-y-6">
                 <div>
-                  <h2 className="text-2xl font-bold text-content">Cấu hình Kênh thu</h2>
-                  <p className="mt-2 text-sm text-subtle">Kênh thanh toán của bạn đã sẵn sàng để nhận tiền bán vé</p>
+                  <h2 className="text-2xl font-bold text-content [html.light_&]:text-[#0D1B2A]">Cấu hình Kênh thu</h2>
+                  <p className="mt-2 text-sm text-subtle [html.light_&]:text-slate-600">Kênh thanh toán của bạn đã sẵn sàng để nhận tiền bán vé</p>
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-3">
@@ -739,15 +742,15 @@ export function OrganizerPaymentSettingsPage() {
                   <SummaryCard icon={WalletCards} title="Theo dõi giao dịch" text="Giao dịch được ghi nhận trong hệ thống." />
                 </div>
 
-                <div className="rounded-xl border border-border-soft/30 bg-panel-soft p-4 text-sm text-content">
-                  <p className="mb-2 font-bold text-primary">Kết nối Kênh thu đã lưu</p>
-                  <p><span className="font-medium text-muted">Ngân hàng:</span> {channel?.bank_name || bankInfo.bank || 'Chưa thiết lập'}</p>
-                  <p><span className="font-medium text-muted">Số tài khoản:</span> {channel?.bank_account_masked || (bankInfo.accountNumber ? `****${bankInfo.accountNumber.slice(-4)}` : 'Chưa thiết lập')}</p>
-                  <p><span className="font-medium text-muted">Chủ tài khoản:</span> {channel?.bank_account_holder || bankInfo.accountHolder || 'Chưa thiết lập'}</p>
-                  <div className="my-3 border-t border-border-soft/20" />
-                  <p><span className="font-medium text-muted">Client ID:</span> {safeChannelMeta.merchantId}</p>
-                  <p><span className="font-medium text-muted">API Key:</span> {channel?.has_api_key ? 'Đã lưu an toàn (mã hóa AES-256)' : 'Chưa cấu hình'}</p>
-                  <p><span className="font-medium text-muted">Checksum Key:</span> {channel?.has_checksum_key ? 'Đã lưu an toàn (mã hóa AES-256)' : 'Chưa cấu hình'}</p>
+                <div className="rounded-xl border border-border-soft/30 bg-panel-soft p-4 text-sm text-content [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200 [html.light_&]:text-[#0D1B2A]">
+                  <p className="mb-2 font-bold text-primary [html.light_&]:text-[#B45309]">Kết nối Kênh thu đã lưu</p>
+                  <p><span className="font-medium text-muted [html.light_&]:text-slate-500">Ngân hàng:</span> {channel?.bank_name || bankInfo.bank || 'Chưa thiết lập'}</p>
+                  <p><span className="font-medium text-muted [html.light_&]:text-slate-500">Số tài khoản:</span> {channel?.bank_account_masked || (bankInfo.accountNumber ? `****${bankInfo.accountNumber.slice(-4)}` : 'Chưa thiết lập')}</p>
+                  <p><span className="font-medium text-muted [html.light_&]:text-slate-500">Chủ tài khoản:</span> {channel?.bank_account_holder || bankInfo.accountHolder || 'Chưa thiết lập'}</p>
+                  <div className="my-3 border-t border-border-soft/20 [html.light_&]:border-slate-200" />
+                  <p><span className="font-medium text-muted [html.light_&]:text-slate-500">Client ID:</span> {safeChannelMeta.merchantId}</p>
+                  <p><span className="font-medium text-muted [html.light_&]:text-slate-500">API Key:</span> {channel?.has_api_key ? 'Đã lưu an toàn (mã hóa AES-256)' : 'Chưa cấu hình'}</p>
+                  <p><span className="font-medium text-muted [html.light_&]:text-slate-500">Checksum Key:</span> {channel?.has_checksum_key ? 'Đã lưu an toàn (mã hóa AES-256)' : 'Chưa cấu hình'}</p>
                 </div>
 
                 <div className="flex flex-wrap gap-3">
@@ -772,10 +775,10 @@ export function OrganizerPaymentSettingsPage() {
         {activeTab === 'payout' && (
           <div className="space-y-6">
             {/* Configuration Box */}
-            <div className="rounded-2xl border border-border-soft/30 bg-surface/80 p-6 shadow-[0_4px_24px_rgba(0,0,0,0.18)] backdrop-blur-sm space-y-6">
+            <div className="rounded-2xl border border-border-soft/30 bg-surface/80 p-6 shadow-[0_4px_24px_rgba(0,0,0,0.18)] backdrop-blur-sm space-y-6 [html.light_&]:bg-white [html.light_&]:border-slate-200 [html.light_&]:shadow-lg">
               <div>
-                <h2 className="text-2xl font-bold text-content">Cấu hình Kênh chi</h2>
-                <p className="mt-1 text-sm text-subtle">
+                <h2 className="text-2xl font-bold text-content [html.light_&]:text-[#0D1B2A]">Cấu hình Kênh chi</h2>
+                <p className="mt-1 text-sm text-subtle [html.light_&]:text-slate-600">
                   Cài đặt bộ khóa Kênh chi riêng và làm theo các bước hướng dẫn bên dưới để kích hoạt dịch vụ trên payOS
                 </p>
               </div>
@@ -783,11 +786,11 @@ export function OrganizerPaymentSettingsPage() {
               {/* Split Grid: Checklist on left, Form on right */}
               <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.85fr)]">
                 {/* Left Column: Step by step guide */}
-                <section className="space-y-4 rounded-2xl border border-border-soft/30 bg-panel-soft/60 p-5">
+                <section className="space-y-4 rounded-2xl border border-border-soft/30 bg-panel-soft/60 p-5 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <h3 className="text-base font-bold text-content">Hướng dẫn kích hoạt Kênh chi trên payOS</h3>
-                      <p className="text-sm text-subtle">Chọn từng bước bên dưới để xem hướng dẫn chi tiết.</p>
+                      <h3 className="text-base font-bold text-content [html.light_&]:text-[#0D1B2A]">Hướng dẫn kích hoạt Kênh chi trên payOS</h3>
+                      <p className="text-sm text-subtle [html.light_&]:text-slate-600">Chọn từng bước bên dưới để xem hướng dẫn chi tiết.</p>
                     </div>
                     <button
                       type="button"
@@ -807,44 +810,44 @@ export function OrganizerPaymentSettingsPage() {
                           <button
                             type="button"
                             onClick={() => setPayoutGuideIndex(index)}
-                            className={`w-full rounded-xl border p-4 text-left transition ${isSelected
-                              ? 'border-primary/60 bg-primary/10 shadow-sm'
-                              : 'border-border-soft/25 bg-surface/50 hover:border-primary/30'
+                            className={`w-full rounded-xl border p-4 text-left transition cursor-pointer ${isSelected
+                              ? 'border-primary/60 bg-primary/10 shadow-sm [html.light_&]:border-[#C99A47] [html.light_&]:bg-amber-500/10'
+                              : 'border-border-soft/25 bg-surface/50 hover:border-primary/30 [html.light_&]:bg-white [html.light_&]:border-slate-200 [html.light_&]:hover:border-[#C99A47]/40'
                               }`}
                           >
                             <div className="flex gap-3">
                               <span
-                                className={`grid size-7 shrink-0 place-items-center rounded-full text-xs font-bold ${isSelected ? 'bg-primary text-slate-950' : 'bg-border-soft/50 text-content'
+                                className={`grid size-7 shrink-0 place-items-center rounded-full text-xs font-bold ${isSelected ? 'bg-primary text-slate-950 [html.light_&]:bg-gradient-to-r [html.light_&]:from-[#C99A47] [html.light_&]:to-[#E6C17A] [html.light_&]:text-[#0D1B2A]' : 'bg-border-soft/50 text-content [html.light_&]:bg-slate-200 [html.light_&]:text-slate-700'
                                   }`}
                               >
                                 {stepItem.stepNumber}
                               </span>
                               <div className="min-w-0 flex-1">
                                 <div className="flex flex-wrap items-center justify-between gap-2">
-                                  <span className="text-sm font-bold text-content">{stepItem.title}</span>
-                                  <span className="rounded-md border border-primary/20 bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
+                                  <span className="text-sm font-bold text-content [html.light_&]:text-[#0D1B2A]">{stepItem.title}</span>
+                                  <span className="rounded-md border border-primary/20 bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary [html.light_&]:bg-amber-100 [html.light_&]:border-amber-300 [html.light_&]:text-amber-900">
                                     {stepItem.badge}
                                   </span>
                                 </div>
-                                <p className="mt-1.5 text-sm leading-relaxed text-subtle">{stepItem.detail}</p>
+                                <p className="mt-1.5 text-sm leading-relaxed text-subtle [html.light_&]:text-slate-600">{stepItem.detail}</p>
 
                                 {isSelected && (
-                                  <div className="mt-3 space-y-2 border-t border-border-soft/20 pt-3">
-                                    <div className="flex items-start gap-2 rounded-lg bg-surface/80 p-3 text-xs text-subtle">
-                                      <Info className="mt-0.5 size-4 shrink-0 text-primary" />
+                                  <div className="mt-3 space-y-2 border-t border-border-soft/20 pt-3 [html.light_&]:border-slate-200">
+                                    <div className="flex items-start gap-2 rounded-lg bg-surface/80 p-3 text-xs text-subtle [html.light_&]:bg-white [html.light_&]:border [html.light_&]:border-slate-200 [html.light_&]:text-slate-600">
+                                      <Info className="mt-0.5 size-4 shrink-0 text-primary [html.light_&]:text-[#C99A47]" />
                                       <span>{stepItem.note}</span>
                                     </div>
 
                                     {stepItem.stepNumber === 3 && (
-                                      <div className="space-y-2.5 rounded-lg border border-primary/40 bg-primary/10 p-3.5 text-xs">
+                                      <div className="space-y-2.5 rounded-lg border border-primary/40 bg-primary/10 p-3.5 text-xs [html.light_&]:bg-amber-50 [html.light_&]:border-amber-300">
                                         <div className="flex flex-wrap items-center justify-between gap-2">
                                           <div className="flex flex-wrap items-center gap-2">
-                                            <span className="text-content font-medium">
+                                            <span className="text-content font-medium [html.light_&]:text-[#0D1B2A]">
                                               IP Outbound riêng của Ban tổ chức:{' '}
                                               {serverIp ? (
-                                                <strong className="font-mono text-primary font-bold text-sm ml-1">{serverIp}</strong>
+                                                <strong className="font-mono text-primary font-bold text-sm ml-1 [html.light_&]:text-[#B45309]">{serverIp}</strong>
                                               ) : (
-                                                <span className="italic text-subtle ml-1">Đang cấp phát...</span>
+                                                <span className="italic text-subtle ml-1 [html.light_&]:text-slate-500">Đang cấp phát...</span>
                                               )}
                                             </span>
                                           </div>
@@ -856,7 +859,7 @@ export function OrganizerPaymentSettingsPage() {
                                                 navigator.clipboard.writeText(serverIp)
                                                 toast.success(`Đã sao chép IP Outbound riêng: ${serverIp}`)
                                               }}
-                                              className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-3 py-1.5 font-bold text-[#0D1B2A] hover:opacity-90 transition shadow-sm"
+                                              className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-3 py-1.5 font-bold text-[#0D1B2A] hover:opacity-90 transition shadow-sm cursor-pointer"
                                             >
                                               <Copy className="size-3.5" />
                                               Sao chép IP
@@ -873,7 +876,7 @@ export function OrganizerPaymentSettingsPage() {
                                           e.stopPropagation()
                                           window.open(stepItem.actionUrl, '_blank', 'noopener,noreferrer')
                                         }}
-                                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
+                                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline [html.light_&]:text-[#B45309] cursor-pointer"
                                       >
                                         {stepItem.actionLabel}
                                         <ExternalLink className="size-3" />
@@ -891,22 +894,22 @@ export function OrganizerPaymentSettingsPage() {
                 </section>
 
                 {/* Right Column: Key Input & Verify Form */}
-                <section className="space-y-5 rounded-2xl border border-border-soft/30 bg-surface p-5">
+                <section className="space-y-5 rounded-2xl border border-border-soft/30 bg-surface p-5 [html.light_&]:bg-white [html.light_&]:border-slate-200 [html.light_&]:shadow-sm">
                   <div>
-                    <h3 className="text-base font-bold text-content">
+                    <h3 className="text-base font-bold text-content [html.light_&]:text-[#0D1B2A]">
                       Nhập 3 key Kênh chi từ payOS
                     </h3>
                   </div>
 
                   {/* Key Separation & Distinction Card */}
-                  <div className="rounded-xl border border-border-soft/30 bg-panel-soft/60 p-3 text-xs space-y-1.5">
+                  <div className="rounded-xl border border-border-soft/30 bg-panel-soft/60 p-3 text-xs space-y-1.5 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
                     <div className="flex items-center justify-between">
-                      <span className="text-subtle">Khóa Kênh thu (Nhận tiền):</span>
-                      <span className="font-mono text-content font-medium">{safeChannelMeta.merchantId}</span>
+                      <span className="text-subtle [html.light_&]:text-slate-500">Khóa Kênh thu (Nhận tiền):</span>
+                      <span className="font-mono text-content font-medium [html.light_&]:text-[#0D1B2A]">{safeChannelMeta.merchantId}</span>
                     </div>
-                    <div className="flex items-center justify-between border-t border-border-soft/20 pt-1.5">
-                      <span className="text-subtle">Khóa Kênh chi (Hoàn tiền):</span>
-                      <span className="font-mono text-primary font-bold">
+                    <div className="flex items-center justify-between border-t border-border-soft/20 pt-1.5 [html.light_&]:border-slate-200">
+                      <span className="text-subtle [html.light_&]:text-slate-500">Khóa Kênh chi (Hoàn tiền):</span>
+                      <span className="font-mono text-primary font-bold [html.light_&]:text-[#B45309]">
                         {hasStoredPayoutCredentials
                           ? safePayoutMeta.merchantId
                           : 'Chưa cấu hình'}
@@ -949,7 +952,7 @@ export function OrganizerPaymentSettingsPage() {
                     type="button"
                     onClick={runPayoutConnectionTest}
                     disabled={payoutTesting || (!payoutFormData.client_id.trim() && !hasStoredPayoutCredentials)}
-                    className="org-btn-primary w-full disabled:cursor-not-allowed disabled:opacity-50 py-3 font-bold"
+                    className="org-btn-primary w-full disabled:cursor-not-allowed disabled:opacity-50 py-3 font-bold cursor-pointer"
                   >
                     {payoutTesting ? (
                       <>
@@ -966,17 +969,17 @@ export function OrganizerPaymentSettingsPage() {
 
                   {/* Feedback Result Display */}
                   {payoutTestState.status === 'success' && (
-                    <div className="rounded-xl border border-success/30 bg-success/10 p-4 text-sm text-success space-y-2">
+                    <div className="rounded-xl border border-success/30 bg-success/10 p-4 text-sm text-success space-y-2 [html.light_&]:bg-emerald-50 [html.light_&]:border-emerald-200 [html.light_&]:text-emerald-800">
                       <div className="flex items-center gap-2 font-bold">
                         <CheckCircle2 className="size-5" />
                         Kết nối thành công!
                       </div>
-                      <p className="text-xs leading-relaxed text-content">
+                      <p className="text-xs leading-relaxed text-content [html.light_&]:text-slate-700">
                         {payoutTestState.message}
                       </p>
                       {payoutTestState.balance !== undefined && payoutTestState.balance !== null && (
-                        <div className="flex items-center gap-1.5 text-xs font-semibold text-content pt-1">
-                          <Coins className="size-4 text-warning" />
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-content pt-1 [html.light_&]:text-[#0D1B2A]">
+                          <Coins className="size-4 text-warning [html.light_&]:text-amber-600" />
                           Số dư ví chi hộ: {Number(payoutTestState.balance).toLocaleString('vi-VN')} VNĐ
                         </div>
                       )}
@@ -984,7 +987,7 @@ export function OrganizerPaymentSettingsPage() {
                   )}
 
                   {payoutTestState.status === 'error' && (
-                    <div className="rounded-xl border border-error/30 bg-error/10 p-4 text-sm text-error space-y-2">
+                    <div className="rounded-xl border border-error/30 bg-error/10 p-4 text-sm text-error space-y-2 [html.light_&]:bg-rose-50 [html.light_&]:border-rose-200 [html.light_&]:text-rose-700">
                       <div className="flex items-center gap-2 font-bold">
                         <AlertCircle className="size-5" />
                         Không thể kết nối Kênh chi
@@ -1009,11 +1012,14 @@ function StepNav({ step }) {
         const itemStep = index + 1
         const active = itemStep === step
         const completed = itemStep < step
-        let stepClass = 'border-border-soft/20 bg-panel-soft text-muted'
-        if (active) stepClass = 'border-primary bg-tertiary/10 text-primary'
-        else if (completed) stepClass = 'border-tertiary/30 bg-tertiary/10 text-primary opacity-80'
+        let stepClass = 'border-border-soft/20 bg-panel-soft text-muted [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200 [html.light_&]:text-slate-500'
+        if (active) {
+          stepClass = 'border-primary bg-tertiary/10 text-primary [html.light_&]:border-[#C99A47] [html.light_&]:bg-amber-500/15 [html.light_&]:text-[#92400E] font-bold [html.light_&]:shadow-sm'
+        } else if (completed) {
+          stepClass = 'border-tertiary/30 bg-tertiary/10 text-primary opacity-80 [html.light_&]:border-amber-200 [html.light_&]:bg-amber-50/80 [html.light_&]:text-[#B45309] [html.light_&]:opacity-100 font-semibold'
+        }
         return (
-          <div key={title} className={`rounded-xl border px-3 py-3 text-xs ${stepClass}`}>
+          <div key={title} className={`rounded-xl border px-3 py-3 text-xs transition ${stepClass}`}>
             <p className="font-semibold">Step {itemStep}</p>
             <p className="mt-0.5 leading-5">{title}</p>
           </div>
@@ -1025,10 +1031,10 @@ function StepNav({ step }) {
 
 function WizardFooter({ onBack, onNext, nextLabel = 'Tiếp tục' }) {
   return (
-    <div className="flex items-center justify-between border-t border-border-soft/20 pt-5">
-      {onBack ? <button type="button" onClick={onBack} className="org-btn-secondary">Quay lại</button> : <span />}
+    <div className="flex items-center justify-between border-t border-border-soft/20 pt-5 [html.light_&]:border-slate-200">
+      {onBack ? <button type="button" onClick={onBack} className="org-btn-secondary cursor-pointer">Quay lại</button> : <span />}
       {onNext && (
-        <button type="button" onClick={onNext} className="org-btn-primary">
+        <button type="button" onClick={onNext} className="org-btn-primary cursor-pointer">
           {nextLabel}
           <ArrowRight className="size-4" />
         </button>
@@ -1045,9 +1051,9 @@ function CredentialField({ id, label, value, onChange, placeholder, type = 'text
   return (
     <div>
       <div className="mb-1.5 flex items-center justify-between">
-        <label htmlFor={id} className="block text-sm font-semibold text-content">{label}</label>
+        <label htmlFor={id} className="block text-sm font-semibold text-content [html.light_&]:text-[#0D1B2A]">{label}</label>
         {badge && (
-          <span className="inline-flex items-center gap-1 rounded-full border border-success/35 bg-success/15 px-2 py-0.5 text-xs font-semibold text-success">
+          <span className="inline-flex items-center gap-1 rounded-full border border-success/35 bg-success/15 px-2 py-0.5 text-xs font-semibold text-success [html.light_&]:bg-emerald-50 [html.light_&]:border-emerald-200 [html.light_&]:text-emerald-700">
             <CheckCircle2 className="size-3" />
             {badge}
           </span>
@@ -1067,7 +1073,7 @@ function CredentialField({ id, label, value, onChange, placeholder, type = 'text
             }
           }}
           onChange={(e) => onChange(e.target.value.trim())}
-          className="w-full rounded-xl border border-border-soft/40 bg-panel-soft px-4 py-2.5 pr-11 text-sm text-content outline-none placeholder:text-muted focus:border-primary focus:ring-2 focus:ring-primary/15"
+          className="w-full rounded-xl border border-border-soft/40 bg-panel-soft px-4 py-2.5 pr-11 text-sm text-content outline-none placeholder:text-muted focus:border-primary focus:ring-2 focus:ring-primary/15 [html.light_&]:bg-white [html.light_&]:border-slate-300 [html.light_&]:text-[#0D1B2A] [html.light_&]:placeholder:text-slate-400 [html.light_&]:focus:border-[#C99A47] [html.light_&]:focus:ring-[#C99A47]/20"
           placeholder={placeholder}
         />
         {isPasswordType && (
@@ -1075,7 +1081,7 @@ function CredentialField({ id, label, value, onChange, placeholder, type = 'text
             <button
               type="button"
               onClick={() => setShowPassword((prev) => !prev)}
-              className="p-1 hover:text-content text-muted transition"
+              className="p-1 hover:text-content text-muted transition cursor-pointer [html.light_&]:text-slate-400 [html.light_&]:hover:text-slate-700"
               title={showPassword ? 'Ẩn khóa' : 'Hiện khóa'}
             >
               {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
@@ -1089,10 +1095,10 @@ function CredentialField({ id, label, value, onChange, placeholder, type = 'text
 
 function SummaryCard({ icon: Icon, title, text }) {
   return (
-    <div className="rounded-xl border border-tertiary/20 bg-tertiary/10 p-4">
-      <Icon className="mb-3 size-5 text-primary" />
-      <p className="font-semibold text-content">{title}</p>
-      <p className="mt-1 text-sm text-subtle">{text}</p>
+    <div className="rounded-xl border border-tertiary/20 bg-tertiary/10 p-4 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200 [html.light_&]:shadow-sm">
+      <Icon className="mb-3 size-5 text-primary [html.light_&]:text-[#C99A47]" />
+      <p className="font-semibold text-content [html.light_&]:text-[#0D1B2A]">{title}</p>
+      <p className="mt-1 text-sm text-subtle [html.light_&]:text-slate-600">{text}</p>
     </div>
   )
 }

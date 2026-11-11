@@ -2580,7 +2580,7 @@ html.light .text-rose-300 {
 }
 html.light .text-amber-400,
 html.light .text-amber-300,
-html.light [class*="text-[#E6C17A]"]:not(.btn-gold-primary *):not([class*="bg-gradient-to-r"] *) {
+html.light [class~="text-[#E6C17A]"]:not(.btn-gold-primary *):not([class*="bg-gradient-to-r"] *) {
   color: #b45309 !important;
 }
 html.light .text-purple-400,

@@ -17,6 +17,12 @@ const {
   buildFeedbackInvitationHtml,
   buildFeedbackInvitationText,
 } = require('./feedbackInvitationEmail.template');
+const {
+  extractInlineDataImages,
+  sanitizeSafeUrl,
+  buildOrganizerAnnouncementHtml,
+  buildOrganizerAnnouncementText,
+} = require('./organizerAnnouncementEmail.template');
 
 function mapNotification(row) {
   if (!row) return null;
@@ -165,25 +171,19 @@ class NotificationsService {
     let webSent = 0;
     let emailSent = 0;
 
-    const emailAttachments = (payload.attachments || []).map((att) => ({
+    const rawAttachments = Array.isArray(payload.attachments) ? payload.attachments : [];
+    const { html: emailPreparedContent, inlineAttachments } = extractInlineDataImages(payload.content);
+
+    const fileEmailAttachments = rawAttachments.map((att) => ({
       filename: att.filename,
-      path: att.path,
+      path: sanitizeSafeUrl(att.path, env.CLIENT_URL) || att.path,
       contentType: att.contentType,
     }));
-
-    // If attachments exist, append an attachment list section in the email body
-    const attachmentHtml = (payload.attachments && payload.attachments.length > 0)
-      ? `<div style="margin-top: 24px; padding: 12px 16px; background-color: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
-          <p style="margin: 0 0 8px 0; font-weight: bold; color: #1e293b; font-size: 13px;">📎 Tệp đính kèm (${payload.attachments.length}):</p>
-          <ul style="margin: 0; padding-left: 20px; font-size: 13px;">
-            ${payload.attachments.map((att) => `<li style="margin-bottom: 4px;"><a href="${att.path}" target="_blank" style="color: #0284c7; text-decoration: underline; font-weight: 500;">${att.filename}</a></li>`).join('')}
-          </ul>
-        </div>`
-      : '';
+    const emailAttachments = [...fileEmailAttachments, ...inlineAttachments];
 
     // If attachments exist, format web notification content with links
-    const webContent = (payload.attachments && payload.attachments.length > 0)
-      ? `${payload.content}<div style="margin-top: 16px; padding: 10px 14px; background: rgba(255,255,255,0.05); border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);"><p style="margin: 0 0 6px 0; font-weight: bold; font-size: 13px;">📎 Tệp đính kèm (${payload.attachments.length}):</p><ul style="margin: 0; padding-left: 20px; font-size: 13px;">${payload.attachments.map((att) => `<li style="margin-bottom: 4px;"><a href="${att.path}" target="_blank" rel="noopener noreferrer" style="color: #38bdf8; text-decoration: underline;">${att.filename}</a></li>`).join('')}</ul></div>`
+    const webContent = rawAttachments.length > 0
+      ? `${payload.content}<div style="margin-top: 16px; padding: 10px 14px; background: rgba(255,255,255,0.05); border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);"><p style="margin: 0 0 6px 0; font-weight: bold; font-size: 13px;">📎 Tệp đính kèm (${rawAttachments.length}):</p><ul style="margin: 0; padding-left: 20px; font-size: 13px;">${rawAttachments.map((att) => `<li style="margin-bottom: 4px;"><a href="${att.path}" target="_blank" rel="noopener noreferrer" style="color: #38bdf8; text-decoration: underline;">${att.filename}</a></li>`).join('')}</ul></div>`
       : payload.content;
 
     // Asynchronously dispatch notifications and emails in background batches for immediate performance
@@ -192,8 +192,10 @@ class NotificationsService {
       channels,
       payload,
       event,
+      organizer,
       webContent,
-      attachmentHtml,
+      emailPreparedContent,
+      rawAttachments,
       emailAttachments,
     });
 
@@ -208,7 +210,17 @@ class NotificationsService {
     };
   }
 
-  dispatchAnnouncementAsync({ attendees, channels, payload, event, webContent, attachmentHtml, emailAttachments }) {
+  dispatchAnnouncementAsync({
+    attendees,
+    channels,
+    payload,
+    event,
+    organizer,
+    webContent,
+    emailPreparedContent,
+    rawAttachments,
+    emailAttachments = [],
+  }) {
     setImmediate(async () => {
       try {
         logger.info(`[Announcement] Starting background dispatch to ${attendees.length} attendees for event "${event.title}" (id: ${payload.event_id})`);
@@ -238,20 +250,31 @@ class NotificationsService {
 
               if (channels.has('email') && attendee.email) {
                 try {
+                  const templateData = {
+                    customerName: attendee.full_name,
+                    organizerName: organizer?.organization_name,
+                    notificationTitle: payload.title,
+                    notificationMessage: emailPreparedContent ?? payload.content,
+                    eventId: event.id,
+                    eventSlug: event.slug,
+                    eventName: event.title,
+                    eventImage: event.banner_url || event.thumbnail_url,
+                    startTime: event.start_time,
+                    endTime: event.end_time,
+                    venueName: event.venue_name,
+                    addressLine: event.address_line,
+                    ward: event.ward,
+                    district: event.district,
+                    city: event.city,
+                    eventFormat: event.event_format,
+                    attachments: rawAttachments ?? payload.attachments,
+                    locale: payload.locale,
+                  };
                   const sent = await sendEmailSafely({
                     email: attendee.email,
                     subject: `[EventHub] ${payload.title}`,
-                    message: payload.content,
-                    html: `
-                      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #1e293b; max-width: 640px; margin: 0 auto;">
-                        <h2 style="color: #0f172a; margin-bottom: 8px;">${payload.title}</h2>
-                        <p style="color: #64748b; font-size: 14px; margin-top: 0; margin-bottom: 16px;"><strong>Sự kiện:</strong> ${event.title}</p>
-                        <div style="font-size: 14px; color: #334155;">
-                          ${payload.content}
-                        </div>
-                        ${attachmentHtml}
-                      </div>
-                    `,
+                    message: buildOrganizerAnnouncementText(templateData),
+                    html: buildOrganizerAnnouncementHtml(templateData),
                     attachments: emailAttachments.length ? emailAttachments : undefined,
                   });
                   if (sent) totalEmail += 1;
