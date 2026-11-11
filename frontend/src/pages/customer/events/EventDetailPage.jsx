@@ -448,8 +448,8 @@ export function EventDetailPage() {
         </div>
       </section>
 
-      {/* Prominent Announcement Banner for Cancelled, Suspended, or Ended Event */}
-      {(isCancelled || isSuspended || isEnded) && (
+      {/* Prominent Announcement Banner for Cancelled or Suspended Event */}
+      {(isCancelled || isSuspended) && (
         <div className="relative z-10 mx-auto w-full max-w-7xl px-4 pt-8 sm:px-6 lg:px-8">
           {isCancelled && (
             <div className="relative overflow-hidden rounded-[24px] border border-rose-500/40 bg-gradient-to-r from-rose-950/70 via-rose-900/40 to-slate-900/80 p-6 sm:p-7 shadow-[0_8px_32px_rgba(244,63,94,0.2)] backdrop-blur-md">
@@ -492,27 +492,6 @@ export function EventDetailPage() {
                   </h3>
                   <p className="mt-2 text-sm sm:text-base leading-relaxed text-red-100/90">
                     {isEnglish ? 'The event is temporarily suspended by platform administration.' : 'Sự kiện đang tạm thời bị đình chỉ bởi Ban quản trị nền tảng.'}
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {!isCancelled && !isSuspended && isEnded && (
-            <div className="relative overflow-hidden rounded-[24px] border border-slate-700 bg-slate-900/80 p-6 sm:p-7 shadow-xl backdrop-blur-md">
-              <div className="flex items-start gap-4">
-                <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-slate-800 text-slate-400 border border-slate-700">
-                  <AlertTriangle className="size-6" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <span className="rounded-full bg-slate-800 px-3 py-0.5 text-xs font-bold uppercase tracking-wider text-slate-300 border border-slate-700">
-                    {isEnglish ? 'Ended' : 'Đã kết thúc'}
-                  </span>
-                  <h3 className="mt-2 font-display text-xl sm:text-2xl font-black text-white">
-                    {isEnglish ? 'Event Ended' : 'Sự kiện đã kết thúc'}
-                  </h3>
-                  <p className="mt-2 text-sm sm:text-base leading-relaxed text-slate-300">
-                    {isEnglish ? 'This event has concluded and ticket sales are closed. Thank you for your interest!' : 'Sự kiện này đã diễn ra xong và đã đóng cổng bán vé. Cảm ơn quý khách đã quan tâm!'}
                   </p>
                 </div>
               </div>

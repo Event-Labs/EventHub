@@ -8,6 +8,7 @@ import { getProfile } from '@/services/user.service.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
+import { translateTicketName } from '@/i18n/eventTranslations.js'
 
 function formatPrice(value, isEnglish = false) {
   const number = Number(value)
@@ -139,7 +140,7 @@ export function BookingCheckoutPage() {
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <h3 className="font-bold text-white">{item.ticketType.name}</h3>
+                      <h3 className="font-bold text-white">{translateTicketName(item.ticketType.name, isEnglish)}</h3>
                       <p className="mt-1 text-sm text-muted">
                         {isEnglish ? `Quantity: ${item.quantity}` : `Số lượng: ${item.quantity}`}
                         {(item.sessionSeatIds || item.session_seat_ids)?.length
@@ -165,7 +166,7 @@ export function BookingCheckoutPage() {
             {lineItems.map((item) => (
               <li key={item.ticketType.id} className="flex justify-between gap-3">
                 <span>
-                  {item.ticketType.name} × {item.quantity}
+                  {translateTicketName(item.ticketType.name, isEnglish)} × {item.quantity}
                 </span>
                 <span className="font-semibold text-white">
                   {formatPrice(Number(item.ticketType.price) * item.quantity, isEnglish)}

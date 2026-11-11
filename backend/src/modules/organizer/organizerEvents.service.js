@@ -463,6 +463,7 @@ class OrganizerEventsService {
     // Kích hoạt AI Review hình ảnh (Poster, Banner, HTML Description) bất đồng bộ
     aiImageReviewService.triggerAsyncImageReview(event.id, {
       title: event.title,
+      category_id: event.category_id,
       thumbnail_url: event.thumbnail_url,
       banner_url: event.banner_url,
       description: event.description,
@@ -653,10 +654,13 @@ class OrganizerEventsService {
         eventFields.banner_url !== undefined ||
         eventFields.description !== undefined ||
         eventFields.short_description !== undefined ||
-        eventFields.title !== undefined
+        eventFields.title !== undefined ||
+        eventFields.category_id !== undefined
       ) {
         aiImageReviewService.triggerAsyncImageReview(eventId, {
           title: eventFields.title || currentEvent.title,
+          category_id: eventFields.category_id !== undefined ? eventFields.category_id : currentEvent.category_id,
+          category_name: eventFields.category_id === undefined ? currentEvent.category_name : undefined,
           thumbnail_url: eventFields.thumbnail_url !== undefined ? eventFields.thumbnail_url : currentEvent.thumbnail_url,
           banner_url: eventFields.banner_url !== undefined ? eventFields.banner_url : currentEvent.banner_url,
           description: eventFields.description !== undefined ? eventFields.description : currentEvent.description,
@@ -817,6 +821,8 @@ class OrganizerEventsService {
     // Kích hoạt AI Image Review khi submit sự kiện
     aiImageReviewService.triggerAsyncImageReview(eventId, {
       title: fullEvent.title,
+      category_id: fullEvent.category_id,
+      category_name: fullEvent.category_name,
       thumbnail_url: fullEvent.thumbnail_url,
       banner_url: fullEvent.banner_url,
       description: fullEvent.description,

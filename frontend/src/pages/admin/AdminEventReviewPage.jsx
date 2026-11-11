@@ -699,12 +699,12 @@ export function AdminEventReviewPage() {
             key={tab.value}
             type="button"
             onClick={() => { setActiveStatus(tab.value); setPage(1) }}
-            className={`inline-flex min-w-20 sm:min-w-28 items-center justify-center rounded-full px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-extrabold shadow-sm transition duration-200 hover:-translate-y-0.5 ${activeStatus === tab.value
-                ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md shadow-[#C99A47]/30'
-                : 'border border-border-soft/40 bg-panel-soft text-subtle hover:border-[#C99A47]/50 hover:bg-surface hover:text-[#E6C17A]'
+            className={`inline-flex min-w-20 sm:min-w-28 items-center justify-center rounded-full px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-extrabold shadow-sm transition duration-200 hover:-translate-y-0.5 cursor-pointer ${activeStatus === tab.value
+                ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md shadow-[#C99A47]/30 ring-1 ring-[#E6C17A]/60'
+                : 'border border-border-soft/40 bg-panel-soft text-subtle hover:border-[#C99A47]/50 hover:bg-surface hover:text-white [html.light_&]:border-[#C99A47]/30 [html.light_&]:bg-white/85 [html.light_&]:text-[#0D1B2A] [html.light_&]:hover:bg-[#C99A47]/15 [html.light_&]:hover:text-[#0D1B2A]'
               }`}
           >
-            {tab.label}
+            {isEnglish ? (translatePhrase(tab.label, 'en') || tab.label) : tab.label}
           </button>
         ))}
       </div>

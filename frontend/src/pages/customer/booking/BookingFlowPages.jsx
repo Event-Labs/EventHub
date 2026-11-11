@@ -31,7 +31,7 @@ import { cn } from '@/lib/utils.js'
 import { generateRefundPolicyLines } from '@/utils/refundPolicy.js'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
 import { translatePhrase } from '@/i18n/phraseDictionary.js'
-import { cleanAndFormatVenue } from '@/i18n/eventTranslations.js'
+import { cleanAndFormatVenue, translateTicketName } from '@/i18n/eventTranslations.js'
 import {
   clearBookingDraft,
   formatCountdown,
@@ -1728,7 +1728,7 @@ export function BookingReviewPage() {
                 <div key={item.ticketType.id} className="rounded-md bg-panel-soft p-4">
                   <div className="flex justify-between gap-4">
                     <div>
-                      <p className="font-bold text-white">{isEnglish ? (translatePhrase(item.ticketType.name, 'en') || item.ticketType.name) : item.ticketType.name}</p>
+                      <p className="font-bold text-white">{translateTicketName(item.ticketType.name, isEnglish)}</p>
                       <p className="mt-1 text-sm text-muted">{isEnglish ? 'Quantity' : 'Số lượng'}: {item.quantity}</p>
                     </div>
                     <p className="font-bold text-primary">
@@ -2477,7 +2477,7 @@ function OrderCard({
   const itemsToRender = (hideUnselectedTickets || visibleTicketTypes.length === 0) && selectedItems.length > 0
     ? selectedItems.map((item) => ({
       id: item.ticketType?.id || item.sessionSeatIds?.[0] || String(Math.random()),
-      name: isEnglish ? (translatePhrase(item.ticketType?.name, 'en') || item.ticketType?.name) : (item.ticketType?.name || 'Vé'),
+      name: translateTicketName(item.ticketType?.name, isEnglish) || (item.ticketType?.name || (isEnglish ? 'Ticket' : 'Vé')),
       price: Number(item.ticketType?.price || 0),
       qty: Number(item.quantity || 0),
       color: ticketTypeColor(item.ticketType, colorByTicketTypeId),
@@ -2489,7 +2489,7 @@ function OrderCard({
       const qty = Number(item?.quantity || 0)
       return {
         id: ticketType.id,
-        name: isEnglish ? (translatePhrase(ticketType.name, 'en') || ticketType.name) : (ticketType.name || 'Vé'),
+        name: translateTicketName(ticketType.name, isEnglish) || (ticketType.name || (isEnglish ? 'Ticket' : 'Vé')),
         price: Number(ticketType.price || 0),
         qty,
         color: ticketTypeColor(ticketType, colorByTicketTypeId),
@@ -3024,7 +3024,7 @@ function StandingQuantityModal({ ticketType, quantity, onDecrease, onIncrease, o
         <div className={'flex items-start justify-between gap-4'}>
           <div>
             <p className={'text-xs font-bold uppercase text-tertiary'}>{isEnglish ? 'Standing Area' : 'Khu vực đứng'}</p>
-            <h3 className={'mt-1 text-xl font-bold text-white'}>{isEnglish ? (translatePhrase(ticketType.name, 'en') || ticketType.name) : ticketType.name}</h3>
+            <h3 className={'mt-1 text-xl font-bold text-white'}>{translateTicketName(ticketType.name, isEnglish)}</h3>
           </div>
           <button type={'button'} onClick={onClose} className={'text-muted hover:text-white'}><X className={'size-5'} /></button>
         </div>
@@ -3086,6 +3086,7 @@ function UnseatedTicketSelection({
   pausedTicketTypeIds = new Set(),
   eventDetail = null,
 }) {
+  const { isEnglish } = useLanguage()
   const currentTotalTickets = (cart?.items || []).reduce(
     (sum, item) => sum + Number(item.quantity || 0),
     0,
@@ -3095,13 +3096,13 @@ function UnseatedTicketSelection({
     <div className="glass-panel rounded-[24px] border border-primary/20 bg-slate-900/70 p-6 sm:p-8 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)] backdrop-blur-md">
       <div className="text-center pb-5 border-b border-white/10 mb-2">
         <h2 className="font-display text-lg sm:text-xl font-bold text-[#E6C17A] tracking-wider uppercase drop-shadow-[0_0_10px_rgba(201,154,71,0.4)]">
-          Chọn vé
+          {isEnglish ? 'SELECT TICKETS' : 'CHỌN VÉ'}
         </h2>
       </div>
 
       {ticketTypes.length === 0 ? (
         <div className="py-12 text-center text-muted">
-          Hiện chưa có loại vé nào khả dụng cho suất diễn này.
+          {isEnglish ? 'No tickets available for this session.' : 'Hiện chưa có loại vé nào khả dụng cho suất diễn này.'}
         </div>
       ) : (
         <div className="divide-y divide-dashed divide-white/15">
@@ -3135,23 +3136,23 @@ function UnseatedTicketSelection({
               >
                 <div className="min-w-0 flex-1 pr-3">
                   <h3 className="font-display text-sm sm:text-base font-bold text-white uppercase tracking-wide truncate">
-                    {ticketType.name}
+                    {translateTicketName(ticketType.name, isEnglish)}
                   </h3>
                   <div className="mt-1 flex flex-wrap items-center gap-2.5">
                     <span className="font-bold text-primary text-sm sm:text-base">
-                      {formatPrice(ticketType.price)}
+                      {formatPrice(ticketType.price, isEnglish)}
                     </span>
                     {isTicketPaused ? (
                       <span className="inline-flex items-center rounded-full border border-amber-500/40 bg-amber-500/15 px-2.5 py-0.5 text-xs font-bold text-amber-300">
-                        Tạm dừng bán
+                        {isEnglish ? 'Sales Paused' : 'Tạm dừng bán'}
                       </span>
                     ) : isSoldOut ? (
                       <span className="inline-flex items-center rounded-full border border-rose-500/40 bg-rose-500/15 px-2.5 py-0.5 text-xs font-bold text-rose-300 shadow-[0_0_8px_rgba(244,63,94,0.2)]">
-                        Hết vé
+                        {isEnglish ? 'Sold Out' : 'Hết vé'}
                       </span>
                     ) : availability.available > 0 && availability.total > 0 ? (
                       <span className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-cyan-300 shadow-[0_0_6px_rgba(6,182,212,0.15)]">
-                        Còn {availability.available} vé
+                        {isEnglish ? `${availability.available} tickets left` : `Còn ${availability.available} vé`}
                       </span>
                     ) : null}
                   </div>
@@ -3171,9 +3172,9 @@ function UnseatedTicketSelection({
 
       <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4 text-xs text-subtle">
         <p>
-          Đã chọn: <span className="font-bold text-primary">{currentTotalTickets}</span>/{maxTicketsAllowed} vé
+          {isEnglish ? 'Selected:' : 'Đã chọn:'} <span className="font-bold text-primary">{currentTotalTickets}</span>/{maxTicketsAllowed} {isEnglish ? 'tickets' : 'vé'}
         </p>
-        <span>(Tối đa {maxTicketsAllowed} vé mỗi lần đặt)</span>
+        <span>({isEnglish ? `Max ${maxTicketsAllowed} tickets per order` : `Tối đa ${maxTicketsAllowed} vé mỗi lần đặt`})</span>
       </div>
     </div>
   )
@@ -3190,7 +3191,7 @@ function UnseatedTicketRow({ ticketType, quantity, onDecrease, onIncrease }) {
       }`}>
       <div className={'flex items-start justify-between gap-4'}>
         <div>
-          <p className={'font-bold text-white'}>{isEnglish ? (translatePhrase(ticketType.name, 'en') || ticketType.name) : ticketType.name}</p>
+          <p className={'font-bold text-white'}>{translateTicketName(ticketType.name, isEnglish)}</p>
           <p className={'mt-1 text-sm text-muted'}>{ticketType.description}</p>
           <p className={'mt-2 text-sm font-bold text-success'}>
             {isEnglish ? `Remaining: ${availability.available}/${availability.total} tickets` : `Còn lại: ${availability.available}/${availability.total} vé`}

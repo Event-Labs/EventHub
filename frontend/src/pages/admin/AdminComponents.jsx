@@ -238,6 +238,22 @@ export function FilterBar({ labels }) {
  */
 export function Table({ headers, rows, compact = false, tableClassName = 'min-w-[760px]' }) {
   const { t } = useLanguage()
+  const isCenterColumn = (label, obj) => {
+    if (obj && typeof obj === 'object') {
+      if (obj.align === 'center') return true
+      if (obj.align === 'left' || obj.align === 'right') return false
+    }
+    const clean = String(label || '').trim().toLowerCase()
+    return [
+      'số sự kiện',
+      'người đăng ký',
+      'thao tác',
+      'hành động',
+      'actions',
+      'action',
+    ].includes(clean) || clean.endsWith('thao tác') || clean.endsWith('actions')
+  }
+
   return (
     <div className="w-full max-w-full min-w-0 overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
       <div className="w-full overflow-x-auto">
@@ -247,9 +263,7 @@ export function Table({ headers, rows, compact = false, tableClassName = 'min-w-
               {headers.map((header, colIndex) => {
                 const isObj = typeof header === 'object' && header !== null
                 const label = isObj ? header.label : header
-                const isCenter = isObj
-                  ? header.align === 'center'
-                  : ['Số sự kiện', 'Người đăng ký', 'Thao tác', 'Hành động'].includes(label)
+                const isCenter = isCenterColumn(label, isObj ? header : null)
 
                 return (
                   <th
@@ -274,9 +288,7 @@ export function Table({ headers, rows, compact = false, tableClassName = 'min-w-
                   const header = headers[cellIndex]
                   const isObj = typeof header === 'object' && header !== null
                   const label = isObj ? header.label : header
-                  const isCenter = isObj
-                    ? header.align === 'center'
-                    : ['Số sự kiện', 'Người đăng ký', 'Thao tác', 'Hành động'].includes(label)
+                  const isCenter = isCenterColumn(label, isObj ? header : null)
 
                   return (
                     <td

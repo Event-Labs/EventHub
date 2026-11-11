@@ -4,10 +4,16 @@ class NotificationsRepository {
   async findOrganizerByUserId(userId) {
     const { rows } = await db.query(
       `
-      SELECT id, user_id, organization_name, status
-      FROM organizers
-      WHERE user_id = $1
-        AND status = 'ACTIVE'
+      SELECT
+        o.id,
+        o.user_id,
+        COALESCE(NULLIF(TRIM(o.organization_name), ''), u.full_name) AS organization_name,
+        o.organization_avatar_url,
+        o.status
+      FROM organizers o
+      LEFT JOIN users u ON u.id = o.user_id
+      WHERE o.user_id = $1
+        AND o.status = 'ACTIVE'
       LIMIT 1
       `,
       [userId],
@@ -131,9 +137,48 @@ class NotificationsRepository {
   async findOrganizerEvent(eventId, organizerId) {
     const { rows } = await db.query(
       `
-      SELECT id, title, slug, organizer_id, start_time, end_time
-      FROM events
-      WHERE id = $1 AND organizer_id = $2 AND deleted_at IS NULL
+      SELECT
+        e.id,
+        e.title,
+        e.slug,
+        e.organizer_id,
+        e.banner_url,
+        e.thumbnail_url,
+        e.format AS event_format,
+        COALESCE(session_summary.start_time, e.start_time) AS start_time,
+        COALESCE(session_summary.end_time, e.end_time) AS end_time,
+        venue_summary.venue_name,
+        venue_summary.address_line,
+        venue_summary.ward,
+        venue_summary.district,
+        venue_summary.city
+      FROM events e
+      LEFT JOIN LATERAL (
+        SELECT
+          es.start_time,
+          es.end_time
+        FROM event_sessions es
+        WHERE es.event_id = e.id
+        ORDER BY (es.start_time >= now()) DESC, es.start_time ASC
+        LIMIT 1
+      ) session_summary ON true
+      LEFT JOIN LATERAL (
+        SELECT
+          v.name AS venue_name,
+          v.address_line,
+          v.ward,
+          v.district,
+          v.city
+        FROM event_sessions es
+        JOIN venues v ON v.id = es.venue_id
+        WHERE es.event_id = e.id
+          AND v.deleted_at IS NULL
+        ORDER BY (es.start_time >= now()) DESC, es.start_time ASC
+        LIMIT 1
+      ) venue_summary ON true
+      WHERE e.id = $1
+        AND e.organizer_id = $2
+        AND e.deleted_at IS NULL
       LIMIT 1
       `,
       [eventId, organizerId],
