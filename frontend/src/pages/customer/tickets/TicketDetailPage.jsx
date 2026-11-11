@@ -32,9 +32,7 @@ import { VIETNAMESE_BANKS, getBankDisplayName, resolveBankName } from '@/constan
 import logoSrc from '@/assets/eventhub-logo.png'
 import { buildUniversalTicketSvg } from '@/utils/ticketSvgGenerator.js'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
-import { formatRefundReason } from '@/utils/refundPolicy.js'
-import { CustomerComplaintModal } from '@/components/CustomerComplaintModal.jsx'
-import { cleanAndFormatVenue } from '@/i18n/eventTranslations.js'
+import { cleanAndFormatVenue, translateTicketName } from '@/i18n/eventTranslations.js'
 import { translatePhrase } from '@/i18n/phraseDictionary.js'
 
 const getAutoIsEnglish = () => (typeof document !== 'undefined' && document.documentElement.lang === 'en') || (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en')
@@ -263,7 +261,7 @@ export function TicketDetailPage() {
 
   const venue = venueLine(ticket)
   const eventTitle = isEnglish ? (translatePhrase(ticket.event?.title, 'en') || ticket.event?.title) : ticket.event?.title
-  const ticketTypeName = isEnglish ? (translatePhrase(ticket.ticket_type?.name, 'en') || ticket.ticket_type?.name) : ticket.ticket_type?.name
+  const ticketTypeName = translateTicketName(ticket.ticket_type?.name, isEnglish)
   const seat = ticket.seat?.label || (isEnglish ? 'No fixed seat' : 'Không có ghế cố định')
   const venueText = cleanAndFormatVenue(ticket.venue || venue, isEnglish) || (isEnglish ? 'N/A' : 'Chưa có địa điểm')
   const isZeroAmountOrFree = ticket.order?.status === 'CONFIRMED' || Number(ticket.order?.total_amount) === 0 || ['FREE', 'FULLY_DISCOUNTED', 'COMPLIMENTARY'].includes(ticket.ticket_source)

@@ -15,8 +15,8 @@ import {
   UserRoundCheck,
   X,
 } from 'lucide-react'
-import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useLocation } from 'react-router-dom'
 import { SectionHeader } from '@/components/SectionHeader.jsx'
 import {
   fetchNotifications,
@@ -92,7 +92,7 @@ function getStaffInvitationDetails(notification, invitationsById, isEnglish = fa
   const zone = invitation?.zone || meta.zone || null
   const sessionName = invitation?.session_name || meta.session_name || null
   const rawEventTitle = invitation?.event_title || notification.event?.title || (isEnglish ? 'event' : 'sự kiện')
-  const eventTitle = isEnglish ? translateEventTitle(rawEventTitle, true) : rawEventTitle
+  const eventTitle = isEnglish ? translateEventTitle(rawEventTitle, true) : translateEventTitle(rawEventTitle, false)
   const organizationName = invitation?.organization_name || (isEnglish ? 'Organizer' : 'Ban tổ chức')
   const locationParts = []
   if (sessionName) locationParts.push(isEnglish ? `Session: ${sessionName}` : `Phiên: ${sessionName}`)
@@ -159,6 +159,7 @@ function invitationStatusStyle(status) {
 
 export function NotificationsPage() {
   const { isEnglish, t } = useLanguage()
+  const location = useLocation()
   const toast = useToast()
   const [activeFilter, setActiveFilter] = useState('all')
   const [page, setPage] = useState(1)
@@ -175,6 +176,23 @@ export function NotificationsPage() {
       category: activeFilter === 'invitation' ? 'invitation' : 'all',
     }),
   })
+
+  // Auto-scroll to specific notification if target id is in hash or query param
+  useEffect(() => {
+    const rawTarget = location.hash?.replace('#notification-', '') || new URLSearchParams(location.search).get('id')
+    if (!rawTarget) return
+    const timer = setTimeout(() => {
+      const el = document.getElementById(`notification-${rawTarget}`)
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        el.classList.add('ring-2', 'ring-[#C99A47]', 'ring-offset-2', 'ring-offset-slate-900')
+        setTimeout(() => {
+          el.classList.remove('ring-2', 'ring-[#C99A47]', 'ring-offset-2', 'ring-offset-slate-900')
+        }, 3500)
+      }
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [location.hash, location.search, notificationsQuery.data])
   const invitationsQuery = useQuery({
     queryKey: ['staff-invitations', 'me'],
     queryFn: fetchMyStaffInvitations,
@@ -328,6 +346,7 @@ export function NotificationsPage() {
           return (
             <article
               key={notification.id}
+              id={`notification-${notification.id}`}
               className={cn(
                 'group relative overflow-hidden rounded-2xl border p-5 sm:p-6 shadow-xl transition-all duration-300',
                 !notification.is_read
@@ -347,10 +366,10 @@ export function NotificationsPage() {
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-5">
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="font-display text-base font-extrabold text-content sm:text-lg">
-                          {isEnglish ? title : t(title)}
+                          {title}
                         </h3>
                         {!notification.is_read && (
                           <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-primary">
@@ -363,24 +382,27 @@ export function NotificationsPage() {
                           </span>
                         )}
                       </div>
-                      {typeof content === 'string' && /<[a-z][\s\S]*>/i.test(content) ? (
-                        <div
-                          className="mt-1.5 max-w-3xl text-sm leading-6 text-subtle [&_a]:text-primary [&_a]:underline [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_img]:max-w-full [&_img]:rounded-lg"
-                          dangerouslySetInnerHTML={{ __html: content }}
-                        />
-                      ) : (
-                        <p className="mt-1.5 max-w-3xl text-sm leading-6 text-subtle whitespace-pre-line">{isEnglish ? content : t(content)}</p>
-                      )}
-                      {invitationDetails?.expires_at && invitationStatus === 'PENDING' && (
-                        <p className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-warning">
-                          <Clock3 className="size-3.5" /> {isEnglish ? 'Expires' : 'Hết hạn'} {formatDateTime(invitationDetails.expires_at, isEnglish)}
-                        </p>
-                      )}
                     </div>
-                    <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold text-muted">
-                      <Clock3 className="size-3.5" /> {formatDateTime(notification.created_at, isEnglish)}
+                    <span className="inline-flex shrink-0 items-center gap-1.5 text-sm font-semibold text-white [html.light_&]:text-[#0D1B2A]">
+                      <Clock3 className="size-4 text-white [html.light_&]:text-[#0D1B2A]" /> {formatDateTime(notification.created_at, isEnglish)}
                     </span>
                   </div>
+
+                  {typeof content === 'string' && /<[a-z][\s\S]*>/i.test(content) ? (
+                    <div
+                      className="mt-2.5 w-full text-sm sm:text-base leading-relaxed text-slate-100 font-normal [html.light_&]:text-[#0D1B2A] break-words [overflow-wrap:anywhere] [&_p]:break-words [&_p]:[overflow-wrap:anywhere] [&_a]:text-primary [&_a]:underline [&_a]:break-all [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_img]:max-w-full [&_img]:rounded-lg"
+                      dangerouslySetInnerHTML={{ __html: content }}
+                    />
+                  ) : (
+                    <p className="mt-2.5 w-full text-sm sm:text-base leading-relaxed text-slate-100 font-normal whitespace-pre-line [html.light_&]:text-[#0D1B2A] break-words [overflow-wrap:anywhere]">
+                      {content}
+                    </p>
+                  )}
+                  {invitationDetails?.expires_at && invitationStatus === 'PENDING' && (
+                    <p className="mt-2 inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-warning">
+                      <Clock3 className="size-4" /> {isEnglish ? 'Expires' : 'Hết hạn'} {formatDateTime(invitationDetails.expires_at, isEnglish)}
+                    </p>
+                  )}
                   <div className="mt-4 flex flex-wrap items-center gap-2">
                     {eventPath && (
                       <Link className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border-soft/40 bg-panel-soft px-4 text-sm font-bold text-content transition hover:border-primary/50 hover:text-primary" to={eventPath}>
