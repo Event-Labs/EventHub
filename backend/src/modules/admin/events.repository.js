@@ -37,6 +37,11 @@ class EventsAdminRepository {
         fin_summary.paid_orders_count,
         fin_summary.total_paid_amount,
         fin_summary.issued_tickets_count,
+        venue_summary.venue_name,
+        venue_summary.address AS address,
+        venue_summary.city,
+        venue_summary.district,
+        venue_summary.venue,
         COALESCE(session_summary.items, '[]'::json) AS sessions,
         COALESCE(ticket_summary.items, '[]'::json) AS ticket_types,
         CASE
@@ -97,17 +102,48 @@ class EventsAdminRepository {
           ) AS issued_tickets_count
       ) fin_summary ON true
       LEFT JOIN LATERAL (
+        SELECT
+          v.name AS venue_name,
+          v.address_line AS address,
+          v.city,
+          v.district,
+          json_build_object(
+            'id', v.id,
+            'name', v.name,
+            'city', v.city,
+            'district', v.district,
+            'address_line', v.address_line
+          ) AS venue
+        FROM event_sessions es
+        JOIN venues v ON v.id = es.venue_id
+        WHERE es.event_id = e.id AND v.deleted_at IS NULL
+        ORDER BY es.start_time ASC
+        LIMIT 1
+      ) venue_summary ON true
+      LEFT JOIN LATERAL (
         SELECT json_agg(
           json_build_object(
             'id', sess.id,
             'session_name', sess.session_name,
             'start_time', sess.start_time,
             'end_time', sess.end_time,
-            'status', sess.status
+            'status', sess.status,
+            'venue_id', sess.venue_id,
+            'venue', CASE
+              WHEN v.id IS NOT NULL THEN json_build_object(
+                'id', v.id,
+                'name', v.name,
+                'city', v.city,
+                'district', v.district,
+                'address_line', v.address_line
+              )
+              ELSE NULL
+            END
           )
           ORDER BY sess.start_time ASC
         ) AS items
         FROM event_sessions sess
+        LEFT JOIN venues v ON v.id = sess.venue_id AND v.deleted_at IS NULL
         WHERE sess.event_id = e.id
       ) session_summary ON true
       LEFT JOIN LATERAL (

@@ -51,8 +51,26 @@ function mapEvent(row) {
     typeof row.seating_rules === 'string'
       ? JSON.parse(row.seating_rules)
       : row.seating_rules || {};
+
+  const sessions = row.sessions || [];
+  const firstSessionVenue = sessions.find((s) => s && s.venue)?.venue || null;
+  const venueName =
+    row.venue_name ||
+    firstSessionVenue?.name ||
+    (typeof row.venue === 'string' ? row.venue : row.venue?.name) ||
+    null;
+  const address =
+    row.address ||
+    row.address_line ||
+    firstSessionVenue?.address_line ||
+    null;
+  const venue = row.venue || firstSessionVenue || null;
+
   return {
     ...row,
+    venue_name: venueName,
+    address,
+    venue,
     tags: row.tags || [],
     seating_rules: {
       require_adjacent_seats: Boolean(seatingRulesRaw.require_adjacent_seats),

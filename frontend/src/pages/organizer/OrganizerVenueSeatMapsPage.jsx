@@ -872,12 +872,12 @@ export function OrganizerVenueSeatMapsPage() {
       ) : (
         <OrganizerTable
           minWidth="min-w-[840px]"
-          headers={['Tên sơ đồ', 'Loại', 'Cấu hình', 'Tổng số ghế', 'Khu vực', 'Trạng thái', 'Thao tác']}
+          headers={['Tên sơ đồ', 'Loại', 'Cấu hình', { label: 'Tổng số ghế', align: 'center' }, 'Khu vực', 'Trạng thái', 'Thao tác']}
           rows={seatMaps.map((sm) => [
             <span key="name" className="font-semibold text-white">{sm.name}</span>,
             <span key="type" className="whitespace-nowrap">{sm.layout_type}</span>,
             <span key="layout" className="whitespace-nowrap">{layoutLabel(sm)}</span>,
-            <span key="seats" className="whitespace-nowrap font-mono">{getSeatMapTotalSeats(sm)}</span>,
+            <span key="seats" className="whitespace-nowrap font-mono text-center">{getSeatMapTotalSeats(sm)}</span>,
             <span key="zones" className="whitespace-nowrap">{getSeatMapZoneCount(sm)}</span>,
             <StatusBadge key="status" status={sm.is_active ? 'ACTIVE' : 'INACTIVE'} />,
             <div key="actions" className="flex items-center justify-center gap-2 whitespace-nowrap">

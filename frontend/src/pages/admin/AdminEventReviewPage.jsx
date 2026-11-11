@@ -596,20 +596,20 @@ export function AdminEventReviewPage() {
 
               {/* Stats badges & Live Scanning status */}
               <div className="mt-2.5 flex flex-wrap items-center gap-2 text-xs">
-                <span className="inline-flex items-center gap-1 rounded-lg border border-border-soft/40 bg-panel-soft/60 px-2.5 py-1 text-subtle">
-                  Chờ duyệt: <strong className="text-amber-400">{autoReviewStats.pending_count}</strong>
+                <span className="inline-flex items-center gap-1 rounded-lg border border-border-soft/40 bg-panel-soft/60 px-2.5 py-1 text-subtle [html.light_&]:border-amber-300/70 [html.light_&]:bg-amber-50 [html.light_&]:text-amber-950">
+                  {isEnglish ? 'Pending' : 'Chờ duyệt'}: <strong className="text-amber-400 [html.light_&]:text-amber-700">{autoReviewStats.pending_count}</strong>
                 </span>
-                <span className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/20 bg-emerald-950/20 px-2.5 py-1 text-emerald-300">
-                  AI Tự động duyệt: <strong className="text-emerald-400">{autoReviewStats.auto_approved_count}</strong>
+                <span className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/20 bg-emerald-950/20 px-2.5 py-1 text-emerald-300 [html.light_&]:border-emerald-300 [html.light_&]:bg-emerald-50 [html.light_&]:text-emerald-800">
+                  {isEnglish ? 'AI Auto-Approved' : 'AI Tự động duyệt'}: <strong className="text-emerald-400 [html.light_&]:text-emerald-700">{autoReviewStats.auto_approved_count}</strong>
                 </span>
-                <span className="inline-flex items-center gap-1 rounded-lg border border-rose-500/20 bg-rose-950/20 px-2.5 py-1 text-rose-300">
-                  AI Tự động từ chối: <strong className="text-rose-400">{autoReviewStats.auto_rejected_count}</strong>
+                <span className="inline-flex items-center gap-1 rounded-lg border border-rose-500/20 bg-rose-950/20 px-2.5 py-1 text-rose-300 [html.light_&]:border-rose-300 [html.light_&]:bg-rose-50 [html.light_&]:text-rose-800">
+                  {isEnglish ? 'AI Auto-Rejected' : 'AI Tự động từ chối'}: <strong className="text-rose-400 [html.light_&]:text-rose-700">{autoReviewStats.auto_rejected_count}</strong>
                 </span>
 
                 {isScanning && (
-                  <span className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/20 px-2.5 py-1 text-amber-200 font-semibold animate-pulse">
-                    <RefreshCw className="size-3 animate-spin text-amber-400" />
-                    Đang quét 1 sự kiện: {scanStatus?.eventTitle ? `"${scanStatus.eventTitle}"` : 'Đang xử lý...'}
+                  <span className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/20 px-2.5 py-1 text-amber-200 font-semibold animate-pulse [html.light_&]:border-amber-300 [html.light_&]:bg-amber-100 [html.light_&]:text-amber-900">
+                    <RefreshCw className="size-3 animate-spin text-amber-400 [html.light_&]:text-amber-700" />
+                    {isEnglish ? 'Scanning 1 event: ' : 'Đang quét 1 sự kiện: '}{scanStatus?.eventTitle ? `"${scanStatus.eventTitle}"` : (isEnglish ? 'Processing...' : 'Đang xử lý...')}
                   </span>
                 )}
               </div>
@@ -655,12 +655,12 @@ export function AdminEventReviewPage() {
               onClick={() => toggleAutoReviewMutation.mutate(!autoReviewSettings.auto_review_enabled)}
               className={`inline-flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-black shadow-md transition duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 ${
                 autoReviewSettings.auto_review_enabled
-                  ? 'border border-emerald-500/50 bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/30'
-                  : 'border border-border-soft/50 bg-panel-soft text-subtle hover:bg-surface hover:text-content'
+                  ? 'border border-emerald-500/50 bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/30 [html.light_&]:border-emerald-300 [html.light_&]:bg-emerald-50 [html.light_&]:text-emerald-800'
+                  : 'border border-border-soft/50 bg-panel-soft text-subtle hover:bg-surface hover:text-content [html.light_&]:bg-white [html.light_&]:text-[#0D1B2A] [html.light_&]:border-[#C99A47]/30'
               }`}
             >
-              <Zap className={`size-4 ${autoReviewSettings.auto_review_enabled ? 'text-emerald-400' : 'text-subtle'}`} />
-              <span>{autoReviewSettings.auto_review_enabled ? 'Bật tự động' : 'Tắt tự động'}</span>
+              <Zap className={`size-4 ${autoReviewSettings.auto_review_enabled ? 'text-emerald-400 [html.light_&]:text-emerald-600' : 'text-subtle [html.light_&]:text-[#C99A47]'}`} />
+              <span>{autoReviewSettings.auto_review_enabled ? (isEnglish ? 'Turn off auto' : 'Tắt tự động') : (isEnglish ? 'Turn on auto' : 'Bật tự động')}</span>
             </button>
 
 
@@ -668,22 +668,22 @@ export function AdminEventReviewPage() {
             <button
               type="button"
               onClick={() => setIsSettingsOpen(true)}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border-soft/60 bg-panel-soft px-3 py-2 text-xs font-bold text-content shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-indigo-400/50 hover:bg-surface hover:text-indigo-300"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border-soft/60 bg-panel-soft px-3 py-2 text-xs font-bold text-content shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-indigo-400/50 hover:bg-surface hover:text-indigo-300 [html.light_&]:bg-white [html.light_&]:text-[#0D1B2A] [html.light_&]:border-[#C99A47]/30 [html.light_&]:hover:bg-amber-50/50"
             >
-              <Sliders className="size-4 text-indigo-400" />
-              <span>Cài đặt tự động</span>
+              <Sliders className="size-4 text-indigo-400 [html.light_&]:text-[#C99A47]" />
+              <span>{isEnglish ? 'Auto Settings' : 'Cài đặt tự động'}</span>
             </button>
 
             {/* Criteria Management Button */}
             <button
               type="button"
               onClick={() => setIsCriteriaOpen(true)}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-indigo-500/40 bg-indigo-950/40 px-3 py-2 text-xs font-black text-indigo-300 shadow-md transition duration-200 hover:-translate-y-0.5 hover:border-indigo-400 hover:bg-indigo-900/50 hover:text-white"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-indigo-500/40 bg-indigo-950/40 px-3 py-2 text-xs font-black text-indigo-300 shadow-md transition duration-200 hover:-translate-y-0.5 hover:border-indigo-400 hover:bg-indigo-900/50 hover:text-white [html.light_&]:border-indigo-300 [html.light_&]:bg-indigo-50 [html.light_&]:text-indigo-900 [html.light_&]:hover:bg-indigo-100 [html.light_&]:hover:text-indigo-950"
             >
-              <ShieldCheck className="size-4 text-indigo-400 shrink-0" />
-              <span className="sm:hidden">Điều khoản</span><span className="hidden sm:inline">Điều khoản duyệt AI</span>
+              <ShieldCheck className="size-4 text-indigo-400 shrink-0 [html.light_&]:text-indigo-600" />
+              <span className="sm:hidden">{isEnglish ? 'Terms' : 'Điều khoản'}</span><span className="hidden sm:inline">{isEnglish ? 'AI Review Terms' : 'Điều khoản duyệt AI'}</span>
               {criteriaList.length > 0 && (
-                <span className="rounded-full bg-indigo-500/30 px-1.5 py-0.5 text-[10px] font-black text-indigo-200 border border-indigo-500/40 shrink-0">
+                <span className="rounded-full bg-indigo-500/30 px-1.5 py-0.5 text-[10px] font-black text-indigo-200 border border-indigo-500/40 shrink-0 [html.light_&]:border-indigo-300 [html.light_&]:bg-indigo-200 [html.light_&]:text-indigo-900">
                   {activeCriteriaCount}
                 </span>
               )}
