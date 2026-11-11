@@ -90,6 +90,11 @@ function formatCategory(category, isEn = false) {
     FESTIVAL: 'LỄ HỘI',
     TALKSHOW: 'TALKSHOW',
     EVENT: 'SỰ KIỆN',
+    'MUSIC & ARTS': 'ÂM NHẠC & BIỂU DIỄN',
+    'FESTIVALS & CULTURE': 'LỄ HỘI & VĂN HÓA',
+    'WORKSHOPS & EDUCATION': 'HỘI THẢO & GIÁO DỤC',
+    'BUSINESS & TECH': 'KINH DOANH & CÔNG NGHỆ',
+    'SPORTS': 'THỂ THAO',
   };
   const mapEn = {
     WORKSHOP: 'WORKSHOP',
@@ -101,6 +106,11 @@ function formatCategory(category, isEn = false) {
     FESTIVAL: 'FESTIVAL',
     TALKSHOW: 'TALKSHOW',
     EVENT: 'EVENT',
+    'ÂM NHẠC & BIỂU DIỄN': 'MUSIC & ARTS',
+    'LỄ HỘI & VĂN HÓA': 'FESTIVALS & CULTURE',
+    'HỘI THẢO & GIÁO DỤC': 'WORKSHOPS & EDUCATION',
+    'KINH DOANH & CÔNG NGHỆ': 'BUSINESS & TECH',
+    'THỂ THAO': 'SPORTS',
   };
   if (isEn) {
     return mapEn[raw] || raw;

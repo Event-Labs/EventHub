@@ -200,6 +200,45 @@ html.light .rich-text-editor-container .ql-snow .ql-tooltip input[type=text] {
 }
 
 /* Editor text spacing and formatting inside customer detail pages too */
+.description-html {
+  color: var(--color-content);
+}
+
+.description-html p,
+.description-html span:not([style*="color"]),
+.description-html strong:not([style*="color"]),
+.description-html em:not([style*="color"]),
+.description-html b:not([style*="color"]),
+.description-html i:not([style*="color"]),
+.description-html li {
+  color: inherit;
+}
+
+html.light .description-html,
+html.light .description-html p,
+html.light .description-html span,
+html.light .description-html strong,
+html.light .description-html em,
+html.light .description-html b,
+html.light .description-html i,
+html.light .description-html li,
+html.light .description-html h1,
+html.light .description-html h2,
+html.light .description-html h3,
+html.light .description-html h4,
+html.light .description-html h5,
+html.light .description-html h6 {
+  color: var(--color-content);
+}
+
+html.light .description-html [style*="255, 255, 255"],
+html.light .description-html [style*="255,255,255"],
+html.light .description-html [style*="#ffffff"],
+html.light .description-html [style*="#fff"],
+html.light .description-html [style*="white"] {
+  color: var(--color-content) !important;
+}
+
 .ql-editor h1,
 .ql-editor h2,
 .ql-editor h3 {

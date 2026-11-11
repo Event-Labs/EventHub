@@ -23,15 +23,15 @@ export function AdminSuspendModal({ event, onConfirm, onClose, loading }) {
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/75 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-2xl border border-rose-500/30 bg-[#0b1329] p-6 shadow-2xl shadow-black/90 text-white">
+      <div className="w-full max-w-md rounded-2xl border border-rose-500/30 bg-[#0b1329] p-6 shadow-2xl shadow-black/90 text-white [html.light_&]:bg-white [html.light_&]:border-rose-200 [html.light_&]:text-[#0D1B2A] [html.light_&]:shadow-xl">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3">
-            <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-rose-500/20 text-rose-400 border border-rose-500/30">
+            <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-rose-500/20 text-rose-400 border border-rose-500/30 [html.light_&]:bg-rose-50 [html.light_&]:text-rose-600 [html.light_&]:border-rose-200">
               <ShieldAlert className="size-6" />
             </span>
             <div>
-              <h3 className="text-xl font-black text-white">Đình chỉ sự kiện</h3>
-              <p className="mt-1 text-xs text-slate-300">
+              <h3 className="text-xl font-black text-white [html.light_&]:text-[#0D1B2A]">Đình chỉ sự kiện</h3>
+              <p className="mt-1 text-xs text-slate-300 [html.light_&]:text-slate-600">
                 Rule BR-SB-01: Sự kiện sẽ bị dừng bán vé ngay lập tức và Ban tổ chức không thể tự ý mở lại.
               </p>
             </div>
@@ -39,29 +39,29 @@ export function AdminSuspendModal({ event, onConfirm, onClose, loading }) {
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1 text-slate-400 hover:bg-white/10 hover:text-white"
+            className="rounded-lg p-1 text-slate-400 hover:bg-white/10 hover:text-white [html.light_&]:text-slate-500 [html.light_&]:hover:bg-slate-100 [html.light_&]:hover:text-slate-900"
           >
             <X className="size-5" />
           </button>
         </div>
 
-        <div className="mt-4 rounded-xl border border-white/10 bg-[#121c38] p-3 text-xs">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Sự kiện xử lý:</p>
-          <p className="font-bold text-white text-sm mt-0.5">{event.title}</p>
+        <div className="mt-4 rounded-xl border border-white/10 bg-[#121c38] p-3 text-xs [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 [html.light_&]:text-slate-600">Sự kiện xử lý:</p>
+          <p className="font-bold text-white [html.light_&]:text-[#0D1B2A] text-sm mt-0.5">{event.title}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="mt-4 space-y-3.5">
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">
+            <label className="block text-xs font-semibold text-slate-300 [html.light_&]:text-slate-700 mb-1">
               Mã lý do đình chỉ (Chuẩn nghiệp vụ) <span className="text-rose-400">*</span>
             </label>
             <select
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              className="w-full rounded-xl border border-white/15 bg-[#121c38] px-3 py-2.5 text-xs text-white outline-none focus:border-rose-400"
+              className="w-full rounded-xl border border-white/15 bg-[#121c38] px-3 py-2.5 text-xs text-white outline-none focus:border-rose-400 [html.light_&]:bg-white [html.light_&]:border-slate-300 [html.light_&]:text-[#0D1B2A]"
             >
               {ADMIN_SUSPEND_REASONS.map((r) => (
-                <option key={r.value} value={r.value} className="bg-[#0b1329] text-white">
+                <option key={r.value} value={r.value} className="bg-[#0b1329] text-white [html.light_&]:bg-white [html.light_&]:text-[#0D1B2A]">
                   [{r.value}] {r.label}
                 </option>
               ))}
@@ -69,7 +69,7 @@ export function AdminSuspendModal({ event, onConfirm, onClose, loading }) {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">
+            <label className="block text-xs font-semibold text-slate-300 [html.light_&]:text-slate-700 mb-1">
               Ghi chú giải trình chi tiết (Tùy chọn)
             </label>
             <textarea
@@ -77,7 +77,7 @@ export function AdminSuspendModal({ event, onConfirm, onClose, loading }) {
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder="Nhập ghi chú hoặc biên bản vi phạm để lưu vào audit trail..."
-              className="w-full rounded-xl border border-white/15 bg-[#121c38] p-2.5 text-xs text-white placeholder:text-slate-500 outline-none focus:border-rose-400 resize-none"
+              className="w-full rounded-xl border border-white/15 bg-[#121c38] p-2.5 text-xs text-white placeholder:text-slate-500 outline-none focus:border-rose-400 resize-none [html.light_&]:bg-white [html.light_&]:border-slate-300 [html.light_&]:text-[#0D1B2A] [html.light_&]:placeholder:text-slate-400"
             />
           </div>
 
@@ -86,7 +86,7 @@ export function AdminSuspendModal({ event, onConfirm, onClose, loading }) {
               type="button"
               onClick={onClose}
               disabled={loading}
-              className="flex-1 rounded-full border border-border-soft/40 bg-panel-soft px-4 py-2.5 text-xs font-semibold text-subtle transition hover:border-border-soft hover:text-content disabled:opacity-50"
+              className="flex-1 rounded-full border border-border-soft/40 bg-panel-soft px-4 py-2.5 text-xs font-semibold text-subtle transition hover:border-border-soft hover:text-content disabled:opacity-50 [html.light_&]:bg-slate-100 [html.light_&]:border-slate-300 [html.light_&]:text-slate-700 [html.light_&]:hover:bg-slate-200"
             >
               Hủy bỏ
             </button>

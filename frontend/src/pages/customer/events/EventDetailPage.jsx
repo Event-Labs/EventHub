@@ -7,12 +7,14 @@ import {
   ChevronUp,
   Heart,
   MapPin,
+  ShieldAlert,
   UserCircle,
   XCircle,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { fetchEventDetail, toggleFavorite } from '@/services/events.js'
+import { CustomerComplaintModal } from '@/components/CustomerComplaintModal.jsx'
 import { cn } from '@/lib/utils.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { optimisticallySetFavorite, refreshFavoriteQueries, restoreFavoriteSnapshots } from '@/lib/favoriteCache.js'
@@ -20,6 +22,8 @@ import { useToast } from '@/providers/ToastProvider.jsx'
 import { getResumeBookingPath, hasActiveSeatHold, readBookingDraft } from '@/utils/bookingDraft.js'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
 import { getCategoryName } from '@/i18n/categoryNames.js'
+import { translatePhrase } from '@/i18n/phraseDictionary.js'
+import { cleanAndFormatVenue, translateEventHtmlDescription } from '@/i18n/eventTranslations.js'
 import '@/components/RichTextEditor.css'
 
 function getActiveIsEnglish(explicitIsEnglish) {
@@ -75,11 +79,7 @@ function formatSessionName(name, isEnglish = getActiveIsEnglish()) {
 }
 
 function venueSummary(venue, isEnglish = getActiveIsEnglish()) {
-  if (!venue) return isEnglish ? 'Venue updating' : 'Địa điểm cập nhật sau'
-  if (typeof venue === 'string' && venue.trim()) return venue.trim()
-  return [venue.name, venue.address_line, venue.district, venue.city]
-    .filter(Boolean)
-    .join(', ') || (typeof venue.summary === 'string' && venue.summary.trim()) || (isEnglish ? 'Venue updating' : 'Địa điểm cập nhật sau')
+  return cleanAndFormatVenue(venue, isEnglish)
 }
 
 function getGoogleMapUrl(venue) {
@@ -95,11 +95,8 @@ function isSaleOpen(ticketType, now) {
   return (!saleStart || saleStart <= now) && (!saleEnd || saleEnd >= now)
 }
 
-function formatOverviewHtml(content) {
-  if (!content || typeof content !== 'string') return ''
-  return content
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/\u00A0/g, ' ')
+function formatOverviewHtml(content, isEnglish = false) {
+  return translateEventHtmlDescription(content, isEnglish)
 }
 
 function isPastTime(value, now) {
@@ -150,6 +147,7 @@ export function EventDetailPage() {
   const [selectedSessionId, setSelectedSessionId] = useState(null)
   const [bookingError, setBookingError] = useState('')
   const [currentTime, setCurrentTime] = useState(() => Date.now())
+  const [complaintModalOpen, setComplaintModalOpen] = useState(false)
 
   const eventQuery = useQuery({
     queryKey: ['event-detail', eventId],
@@ -338,7 +336,7 @@ export function EventDetailPage() {
   }
 
   const rawOverview = event?.description || event?.short_description || (isEnglish ? 'Detailed information will be updated soon.' : 'Thông tin chi tiết đang được cập nhật.')
-  const overview = useMemo(() => formatOverviewHtml(rawOverview), [rawOverview])
+  const overview = useMemo(() => formatOverviewHtml(rawOverview, isEnglish), [rawOverview, isEnglish])
 
   useEffect(() => {
     const el = overviewContentRef.current
@@ -434,11 +432,11 @@ export function EventDetailPage() {
               </span>
             )}
             <h1 className="mt-2.5 break-words font-display text-3xl font-black leading-tight text-white sm:mt-3 sm:text-4xl lg:text-5xl drop-shadow-xl">
-              {event.title}
+              {isEnglish ? (translatePhrase(event.title, 'en') || event.title) : event.title}
             </h1>
             {event.short_description && (
               <p className="mt-2 max-w-3xl break-words text-sm leading-relaxed text-slate-200/90 sm:mt-2.5 sm:text-base drop-shadow-md">
-                {event.short_description}
+                {isEnglish ? (translatePhrase(event.short_description, 'en') || event.short_description) : event.short_description}
               </p>
             )}
             <div className="mt-3.5 flex max-w-full flex-wrap items-center gap-x-5 gap-y-2 text-xs sm:mt-4 sm:text-sm text-slate-200">
@@ -450,8 +448,8 @@ export function EventDetailPage() {
         </div>
       </section>
 
-      {/* Prominent Announcement Banner for Cancelled, Suspended, or Ended Event */}
-      {(isCancelled || isSuspended || isEnded) && (
+      {/* Prominent Announcement Banner for Cancelled or Suspended Event */}
+      {(isCancelled || isSuspended) && (
         <div className="relative z-10 mx-auto w-full max-w-7xl px-4 pt-8 sm:px-6 lg:px-8">
           {isCancelled && (
             <div className="relative overflow-hidden rounded-[24px] border border-rose-500/40 bg-gradient-to-r from-rose-950/70 via-rose-900/40 to-slate-900/80 p-6 sm:p-7 shadow-[0_8px_32px_rgba(244,63,94,0.2)] backdrop-blur-md">
@@ -494,27 +492,6 @@ export function EventDetailPage() {
                   </h3>
                   <p className="mt-2 text-sm sm:text-base leading-relaxed text-red-100/90">
                     {isEnglish ? 'The event is temporarily suspended by platform administration.' : 'Sự kiện đang tạm thời bị đình chỉ bởi Ban quản trị nền tảng.'}
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {!isCancelled && !isSuspended && isEnded && (
-            <div className="relative overflow-hidden rounded-[24px] border border-slate-700 bg-slate-900/80 p-6 sm:p-7 shadow-xl backdrop-blur-md">
-              <div className="flex items-start gap-4">
-                <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-slate-800 text-slate-400 border border-slate-700">
-                  <AlertTriangle className="size-6" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <span className="rounded-full bg-slate-800 px-3 py-0.5 text-xs font-bold uppercase tracking-wider text-slate-300 border border-slate-700">
-                    {isEnglish ? 'Ended' : 'Đã kết thúc'}
-                  </span>
-                  <h3 className="mt-2 font-display text-xl sm:text-2xl font-black text-white">
-                    {isEnglish ? 'Event Ended' : 'Sự kiện đã kết thúc'}
-                  </h3>
-                  <p className="mt-2 text-sm sm:text-base leading-relaxed text-slate-300">
-                    {isEnglish ? 'This event has concluded and ticket sales are closed. Thank you for your interest!' : 'Sự kiện này đã diễn ra xong và đã đóng cổng bán vé. Cảm ơn quý khách đã quan tâm!'}
                   </p>
                 </div>
               </div>
@@ -761,9 +738,9 @@ export function EventDetailPage() {
                         </div>
                       )}
                       <div className="p-8 border-t border-white/5">
-                        <h3 className="font-display text-xl font-bold text-white">{venue.name}</h3>
-                        <p className="mt-2 text-sm text-slate-300">{venueSummary(venue)}</p>
-                        {venue.description && <p className="mt-4 text-sm text-slate-400">{venue.description}</p>}
+                        <h3 className="font-display text-xl font-bold text-white">{isEnglish ? (translatePhrase(venue.name, 'en') || venue.name) : venue.name}</h3>
+                        <p className="mt-2 text-sm text-slate-300">{venueSummary(venue, isEnglish)}</p>
+                        {venue.description && <p className="mt-4 text-sm text-slate-400">{isEnglish ? (translatePhrase(venue.description, 'en') || venue.description) : venue.description}</p>}
                       </div>
                     </div>
                   )
@@ -799,26 +776,40 @@ export function EventDetailPage() {
                 {isEnglish ? 'Event Tickets' : 'Vé sự kiện'}
               </h2>
             </div>
-            <button
-              type="button"
-              onClick={handleFavorite}
-              disabled={favoriteMutation.isPending}
-              className={cn(
-                'grid size-10 place-items-center rounded-full border transition-all duration-200 outline-none cursor-pointer',
-                event.is_favorited
-                  ? 'border-red-500/60 bg-red-500/20 text-red-500 shadow-[0_0_15px_rgba(239,68,68,0.35)]'
-                  : 'border-white/15 bg-white/5 text-slate-400 hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-400',
-              )}
-              title={event.is_favorited ? (isEnglish ? 'Remove from favorites' : 'Bỏ yêu thích sự kiện') : (isEnglish ? 'Save to favorites' : 'Lưu vào danh sách yêu thích')}
-              aria-label={event.is_favorited ? (isEnglish ? 'Remove from favorites' : 'Bỏ yêu thích') : (isEnglish ? 'Favorite' : 'Yêu thích')}
-            >
-              <Heart
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (requireLogin()) return
+                  setComplaintModalOpen(true)
+                }}
+                className="grid size-10 place-items-center rounded-full border border-white/15 bg-white/5 text-slate-400 hover:border-rose-500/40 hover:bg-rose-500/10 hover:text-rose-400 transition-all duration-200 outline-none cursor-pointer"
+                title={isEnglish ? 'File complaint / report about this event' : 'Báo cáo / Khiếu nại sự kiện này'}
+                aria-label={isEnglish ? 'Report event' : 'Khiếu nại sự kiện'}
+              >
+                <ShieldAlert className="size-5 text-rose-400" />
+              </button>
+              <button
+                type="button"
+                onClick={handleFavorite}
+                disabled={favoriteMutation.isPending}
                 className={cn(
-                  'size-5 transition-transform duration-200 active:scale-90',
-                  event.is_favorited && 'fill-current drop-shadow-[0_0_8px_rgba(239,68,68,0.6)]',
+                  'grid size-10 place-items-center rounded-full border transition-all duration-200 outline-none cursor-pointer',
+                  event.is_favorited
+                    ? 'border-red-500/60 bg-red-500/20 text-red-500 shadow-[0_0_15px_rgba(239,68,68,0.35)]'
+                    : 'border-white/15 bg-white/5 text-slate-400 hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-400',
                 )}
-              />
-            </button>
+                title={event.is_favorited ? (isEnglish ? 'Remove from favorites' : 'Bỏ yêu thích sự kiện') : (isEnglish ? 'Save to favorites' : 'Lưu vào danh sách yêu thích')}
+                aria-label={event.is_favorited ? (isEnglish ? 'Remove from favorites' : 'Bỏ yêu thích') : (isEnglish ? 'Favorite' : 'Yêu thích')}
+              >
+                <Heart
+                  className={cn(
+                    'size-5 transition-transform duration-200 active:scale-90',
+                    event.is_favorited && 'fill-current drop-shadow-[0_0_8px_rgba(239,68,68,0.6)]',
+                  )}
+                />
+              </button>
+            </div>
           </div>
 
           <div className="mt-6 space-y-4">
@@ -962,6 +953,17 @@ export function EventDetailPage() {
                   : (isEnglish ? 'Select showtime' : 'Chọn suất diễn')}
         </button>
       </div>
+
+      <CustomerComplaintModal
+        isOpen={complaintModalOpen}
+        onClose={() => setComplaintModalOpen(false)}
+        initialData={{
+          eventId: event?.id,
+          eventTitle: event?.title,
+          organizerId: event?.organizer_id,
+          organizerName: event?.organizer?.business_name || event?.organizer?.organization_name || event?.organizer?.full_name,
+        }}
+      />
     </div>
   )
 }

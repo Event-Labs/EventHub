@@ -1,6 +1,8 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { AlertCircle, CheckCircle2, Info, X } from 'lucide-react'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
+import { translatePhrase } from '@/i18n/phraseDictionary.js'
 
 const ToastContext = createContext(null)
 
@@ -110,8 +112,18 @@ export function useToast() {
 }
 
 function ToastItem({ toast, onDismiss }) {
+  const { language } = useLanguage()
   const config = TOAST_STYLES[toast.type] || TOAST_STYLES.info
   const Icon = config.icon
+
+  const displayMessage = useMemo(() => {
+    if (!toast.message) return ''
+    if (typeof toast.message !== 'string') return toast.message
+    if (language === 'en') {
+      return translatePhrase(toast.message, 'en')
+    }
+    return toast.message
+  }, [toast.message, language])
 
   return (
     <div
@@ -119,12 +131,12 @@ function ToastItem({ toast, onDismiss }) {
       className={`eventhub-toast ${toast.leaving ? 'eventhub-toast-leave' : 'eventhub-toast-enter'} flex items-start gap-3 rounded-lg border px-4 py-3 shadow-lg backdrop-blur-md ${config.className}`}
     >
       <Icon className="mt-0.5 size-5 shrink-0" />
-      <p className="min-w-0 flex-1 text-sm font-semibold leading-5">{toast.message}</p>
+      <p className="min-w-0 flex-1 text-sm font-semibold leading-5">{displayMessage}</p>
       <button
         type="button"
         className="rounded p-1 opacity-70 transition hover:bg-white/10 hover:opacity-100"
         onClick={() => onDismiss(toast.id)}
-        aria-label="Đóng thông báo"
+        aria-label={language === 'en' ? 'Close notification' : 'Đóng thông báo'}
       >
         <X className="size-4" />
       </button>

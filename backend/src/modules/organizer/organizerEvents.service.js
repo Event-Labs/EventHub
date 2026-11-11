@@ -51,8 +51,26 @@ function mapEvent(row) {
     typeof row.seating_rules === 'string'
       ? JSON.parse(row.seating_rules)
       : row.seating_rules || {};
+
+  const sessions = row.sessions || [];
+  const firstSessionVenue = sessions.find((s) => s && s.venue)?.venue || null;
+  const venueName =
+    row.venue_name ||
+    firstSessionVenue?.name ||
+    (typeof row.venue === 'string' ? row.venue : row.venue?.name) ||
+    null;
+  const address =
+    row.address ||
+    row.address_line ||
+    firstSessionVenue?.address_line ||
+    null;
+  const venue = row.venue || firstSessionVenue || null;
+
   return {
     ...row,
+    venue_name: venueName,
+    address,
+    venue,
     tags: row.tags || [],
     seating_rules: {
       require_adjacent_seats: Boolean(seatingRulesRaw.require_adjacent_seats),
@@ -170,6 +188,28 @@ function assertValidSessionTimes(startTime, endTime, validatePast = true, checki
     }
     if (checkinDate.getTime() > startDate.getTime()) {
       throw new AppError('Thời gian check-in phải trước hoặc bằng thời gian bắt đầu sự kiện.', 400, ErrorCodes.INVALID_INPUT);
+    }
+  }
+}
+
+function assertValidDirectSaleTimes(directSaleStartTime, directSaleEndTime) {
+  if (directSaleStartTime) {
+    const dsStart = new Date(directSaleStartTime);
+    if (isNaN(dsStart.getTime())) {
+      throw new AppError('Thời gian bắt đầu bán vé trực tiếp không hợp lệ.', 400, ErrorCodes.INVALID_INPUT);
+    }
+  }
+  if (directSaleEndTime) {
+    const dsEnd = new Date(directSaleEndTime);
+    if (isNaN(dsEnd.getTime())) {
+      throw new AppError('Thời gian kết thúc bán vé trực tiếp không hợp lệ.', 400, ErrorCodes.INVALID_INPUT);
+    }
+  }
+  if (directSaleStartTime && directSaleEndTime) {
+    const dsStart = new Date(directSaleStartTime);
+    const dsEnd = new Date(directSaleEndTime);
+    if (dsEnd <= dsStart) {
+      throw new AppError('Thời gian kết thúc bán vé trực tiếp phải diễn ra sau thời gian bắt đầu.', 400, ErrorCodes.INVALID_INPUT);
     }
   }
 }
@@ -646,6 +686,7 @@ class OrganizerEventsService {
           new Date(existingSession.checkin_start_time || 0).getTime() !== new Date(session.checkin_start_time || 0).getTime();
 
         assertValidSessionTimes(session.start_time, session.end_time, isNewOrChangedStartTime, session.checkin_start_time);
+        assertValidDirectSaleTimes(session.direct_sale_start_time, session.direct_sale_end_time);
         await this.assertVenueAccessible(organizerId, session.venue_id);
 
         const sessionData = {
@@ -655,6 +696,8 @@ class OrganizerEventsService {
           venue_id: session.venue_id,
           seat_map_id: session.seat_map_id || null,
           checkin_start_time: session.checkin_start_time || null,
+          direct_sale_start_time: session.direct_sale_start_time || null,
+          direct_sale_end_time: session.direct_sale_end_time || null,
         };
 
         if (session.id && existingIds.has(session.id)) {

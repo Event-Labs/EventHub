@@ -252,6 +252,10 @@ class OrganizerEventsRepository {
         e.end_time,
         e.category_id,
         c.name AS category_name,
+        venue_summary.venue_name,
+        venue_summary.city,
+        venue_summary.district,
+        venue_summary.address_line,
         e.created_at,
         e.updated_at,
         (
@@ -264,6 +268,14 @@ class OrganizerEventsRepository {
         ) AS paid_orders_count
       FROM events e
       LEFT JOIN event_categories c ON c.id = e.category_id
+      LEFT JOIN LATERAL (
+        SELECT v.name AS venue_name, v.city, v.district, v.address_line
+        FROM event_sessions es
+        JOIN venues v ON v.id = es.venue_id
+        WHERE es.event_id = e.id AND v.deleted_at IS NULL
+        ORDER BY es.start_time ASC
+        LIMIT 1
+      ) venue_summary ON true
       WHERE e.organizer_id = $1 AND e.deleted_at IS NULL
       ORDER BY e.updated_at DESC
       `,
@@ -287,10 +299,34 @@ class OrganizerEventsRepository {
         END AS sales_status,
         c.name AS category_name,
         c.slug AS category_slug,
+        venue_summary.venue_name,
+        venue_summary.address AS address,
+        venue_summary.city,
+        venue_summary.district,
+        venue_summary.venue,
         COALESCE(sessions.sessions, '[]'::json) AS sessions,
         COALESCE(ticket_types.ticket_types, '[]'::json) AS ticket_types
       FROM events e
       LEFT JOIN event_categories c ON c.id = e.category_id
+      LEFT JOIN LATERAL (
+        SELECT
+          v.name AS venue_name,
+          v.address_line AS address,
+          v.city,
+          v.district,
+          json_build_object(
+            'id', v.id,
+            'name', v.name,
+            'city', v.city,
+            'district', v.district,
+            'address_line', v.address_line
+          ) AS venue
+        FROM event_sessions es
+        JOIN venues v ON v.id = es.venue_id
+        WHERE es.event_id = e.id AND v.deleted_at IS NULL
+        ORDER BY es.start_time ASC
+        LIMIT 1
+      ) venue_summary ON true
       LEFT JOIN LATERAL (
         SELECT json_agg(json_build_object(
           'id', es.id,
@@ -300,6 +336,8 @@ class OrganizerEventsRepository {
           'venue_id', es.venue_id,
           'seat_map_id', es.seat_map_id,
           'checkin_start_time', es.checkin_start_time,
+          'direct_sale_start_time', es.direct_sale_start_time,
+          'direct_sale_end_time', es.direct_sale_end_time,
           'status', es.status,
           'disabled_seat_ids', COALESCE((
             SELECT json_agg(ss.seat_id)
@@ -603,9 +641,11 @@ class OrganizerEventsRepository {
         session_name,
         start_time,
         end_time,
-        checkin_start_time
+        checkin_start_time,
+        direct_sale_start_time,
+        direct_sale_end_time
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING *
       `,
       [
@@ -616,6 +656,8 @@ class OrganizerEventsRepository {
         data.start_time,
         data.end_time,
         data.checkin_start_time || null,
+        data.direct_sale_start_time || null,
+        data.direct_sale_end_time || null,
       ],
     );
     return rows[0];
@@ -626,7 +668,16 @@ class OrganizerEventsRepository {
     const values = [];
     let idx = 1;
 
-    ['venue_id', 'seat_map_id', 'session_name', 'start_time', 'end_time', 'checkin_start_time'].forEach((key) => {
+    [
+      'venue_id',
+      'seat_map_id',
+      'session_name',
+      'start_time',
+      'end_time',
+      'checkin_start_time',
+      'direct_sale_start_time',
+      'direct_sale_end_time',
+    ].forEach((key) => {
       if (data[key] !== undefined) {
         fields.push(`${key} = $${idx}`);
         values.push(data[key]);
@@ -899,25 +950,55 @@ class OrganizerEventsRepository {
     const { rows } = await db.query(
       `
       SELECT
-        COALESCE(COUNT(DISTINCT o.id) FILTER (WHERE o.status = 'PAID'), 0)::int AS paid_orders_count,
-        COALESCE(COUNT(DISTINCT o.id) FILTER (WHERE o.status = 'PENDING' AND o.expired_at > now()), 0)::int AS pending_orders_count,
-        COALESCE(SUM(o.total_amount) FILTER (WHERE o.status = 'PAID'), 0)::numeric AS total_paid_amount,
-        COALESCE(COUNT(DISTINCT t.id) FILTER (WHERE t.status IN ('VALID', 'USED', 'REFUND_REQUESTED')), 0)::int AS issued_tickets_count,
-        COALESCE((
-          SELECT COUNT(DISTINCT th.id)
+        (
+          SELECT COALESCE(COUNT(DISTINCT o.id) FILTER (WHERE o.status = 'PAID'), 0)::int
+          FROM orders o
+          WHERE o.id IN (
+            SELECT oi.order_id
+            FROM order_items oi
+            JOIN ticket_types tt ON tt.id = oi.ticket_type_id
+            JOIN event_sessions es ON es.id = tt.event_session_id
+            WHERE es.event_id = e.id
+          )
+        ) AS paid_orders_count,
+        (
+          SELECT COALESCE(COUNT(DISTINCT o.id) FILTER (WHERE o.status = 'PENDING' AND o.expired_at > now()), 0)::int
+          FROM orders o
+          WHERE o.id IN (
+            SELECT oi.order_id
+            FROM order_items oi
+            JOIN ticket_types tt ON tt.id = oi.ticket_type_id
+            JOIN event_sessions es ON es.id = tt.event_session_id
+            WHERE es.event_id = e.id
+          )
+        ) AS pending_orders_count,
+        (
+          SELECT COALESCE(SUM(o.total_amount) FILTER (WHERE o.status = 'PAID'), 0)::numeric
+          FROM orders o
+          WHERE o.id IN (
+            SELECT oi.order_id
+            FROM order_items oi
+            JOIN ticket_types tt ON tt.id = oi.ticket_type_id
+            JOIN event_sessions es ON es.id = tt.event_session_id
+            WHERE es.event_id = e.id
+          )
+        ) AS total_paid_amount,
+        (
+          SELECT COALESCE(COUNT(DISTINCT t.id) FILTER (WHERE t.status IN ('VALID', 'USED', 'REFUND_REQUESTED')), 0)::int
+          FROM tickets t
+          JOIN ticket_types tt ON tt.id = t.ticket_type_id
+          JOIN event_sessions es ON es.id = tt.event_session_id
+          WHERE es.event_id = e.id
+        ) AS issued_tickets_count,
+        (
+          SELECT COALESCE(COUNT(DISTINCT th.id), 0)::int
           FROM ticket_holds th
           JOIN ticket_types tt ON tt.id = th.ticket_type_id
           JOIN event_sessions es ON es.id = tt.event_session_id
           WHERE es.event_id = e.id AND th.status = 'ACTIVE' AND th.expires_at > now()
-        ), 0)::int AS active_holds_count
+        ) AS active_holds_count
       FROM events e
-      LEFT JOIN event_sessions es ON es.event_id = e.id
-      LEFT JOIN ticket_types tt ON tt.event_session_id = es.id
-      LEFT JOIN order_items oi ON oi.ticket_type_id = tt.id
-      LEFT JOIN orders o ON o.id = oi.order_id
-      LEFT JOIN tickets t ON t.ticket_type_id = tt.id
       WHERE e.id = $1
-      GROUP BY e.id
       `,
       [eventId],
     );

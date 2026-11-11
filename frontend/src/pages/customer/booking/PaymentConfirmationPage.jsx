@@ -223,31 +223,12 @@ export function PaymentConfirmationPage() {
             </div>
           )}
 
-          {/* Live Transaction Status */}
-          <div className="mx-auto mt-6 max-w-md rounded-2xl border border-white/10 bg-[#121c38]/90 p-4 backdrop-blur-md shadow-inner text-center">
-            <div className="flex items-center justify-center gap-2.5">
-              <span className="relative flex size-2.5">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex size-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
-              </span>
-              <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">
-                {isEnglish ? 'Waiting for payment...' : 'Đang chờ nhận tiền...'}
-              </span>
-            </div>
-
-            <p className="mt-2 text-xs text-slate-300">
-              {isEnglish
-                ? 'Scan this VietQR with any banking app or e-wallet to complete payment.'
-                : 'Mở ứng dụng ngân hàng hoặc ví điện tử bất kỳ để quét mã VietQR ở trên.'}
-            </p>
-          </div>
-
           {data.payment?.checkout_url && (
             <a
               href={data.payment.checkout_url}
               target="_blank"
               rel="noreferrer"
-              className="cosmic-btn-primary mx-auto mt-6 flex w-fit min-w-[280px] items-center justify-center gap-2 py-4"
+              className="cosmic-btn-primary mx-auto mt-6 flex w-fit min-w-[280px] items-center justify-center gap-2 py-3.5 rounded-full"
             >
               {isEnglish ? 'Open PayOS Payment Page' : 'Mở trang thanh toán PayOS'}
               <ExternalLink className="size-5" />

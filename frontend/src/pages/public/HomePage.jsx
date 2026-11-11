@@ -28,6 +28,9 @@ import { getApiMessage } from '@/lib/messages.js'
 import { optimisticallySetFavorite, refreshFavoriteQueries, restoreFavoriteSnapshots } from '@/lib/favoriteCache.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
+import { getCategoryName } from '@/i18n/categoryNames.js'
+import { translatePhrase } from '@/i18n/phraseDictionary.js'
+import { cleanAndFormatVenue } from '@/i18n/eventTranslations.js'
 
 const RECENT_EXPIRED_WINDOW_MS = 30 * 24 * 60 * 60 * 1000
 
@@ -40,35 +43,6 @@ const categoryIcons = [
   Martini,
   Waves,
 ]
-
-function getCategoryName(category, isEnglish = false) {
-  if (!category) return isEnglish ? 'Event' : 'Sự kiện'
-  const name = typeof category === 'string' ? category : (category.name || category.category_name || '')
-  if (!name) return isEnglish ? 'Event' : 'Sự kiện'
-  if (!isEnglish) return name
-  const CATEGORY_MAP = {
-    'Âm nhạc': 'Music',
-    'Thể thao': 'Sports',
-    'Nghệ thuật': 'Art & Culture',
-    'Nghệ thuật & Sân khấu': 'Arts & Theater',
-    'Ẩm thực': 'Food & Drinks',
-    'Ẩm thực & Đồ uống': 'Food & Beverage',
-    'Kinh doanh': 'Business',
-    'Kinh doanh & Hội thảo': 'Business & Seminars',
-    'Hội thảo': 'Workshops & Seminars',
-    'Hội nghị': 'Conferences',
-    'Triển lãm': 'Exhibitions',
-    'Giải trí': 'Entertainment',
-    'Cộng đồng': 'Community',
-    'Công nghệ': 'Technology',
-    'Giáo dục': 'Education',
-    'Du lịch': 'Travel & Tourism',
-    'Sức khỏe': 'Health & Wellness',
-    'Thời trang': 'Fashion & Beauty',
-    'Gia đình': 'Family & Kids',
-  }
-  return CATEGORY_MAP[name] || name
-}
 
 const getAutoIsEnglish = () => (typeof document !== 'undefined' && document.documentElement.lang === 'en') || (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en')
 
@@ -110,14 +84,14 @@ function eventPath(event) {
 
 function eventLocation(event, isEnglish = false) {
   if (!event) return isEnglish ? 'Location updating' : 'Đang cập nhật địa điểm'
-  if (typeof event.location_name === 'string' && event.location_name.trim()) return event.location_name.trim()
-  if (typeof event.location === 'string' && event.location.trim()) return event.location.trim()
   if (event.venue && typeof event.venue === 'object') {
-    if (typeof event.venue.summary === 'string' && event.venue.summary.trim()) return event.venue.summary.trim()
-    if (typeof event.venue.name === 'string' && event.venue.name.trim()) return event.venue.name.trim()
+    return cleanAndFormatVenue(event.venue, isEnglish)
   }
-  if (typeof event.venue_name === 'string' && event.venue_name.trim()) return event.venue_name.trim()
-  return isEnglish ? 'Location updating' : 'Đang cập nhật địa điểm'
+  if (event.location && typeof event.location === 'object') {
+    return cleanAndFormatVenue(event.location, isEnglish)
+  }
+  const raw = event.location_name || event.location || event.venue_name || event.venue || (isEnglish ? 'Location updating' : 'Đang cập nhật địa điểm')
+  return isEnglish ? translatePhrase(raw, 'en') : raw
 }
 
 
@@ -175,6 +149,14 @@ function uniqueEvents(...groups) {
   return Array.from(unique.values())
 }
 
+function sortEventsByPriorityAndTime(events = []) {
+  return [...events].sort((a, b) => {
+    const pDiff = Number(Boolean(b?.is_priority_support)) - Number(Boolean(a?.is_priority_support))
+    if (pDiff !== 0) return pDiff
+    return new Date(a?.start_time || 0) - new Date(b?.start_time || 0)
+  })
+}
+
 export function HomePage() {
   const { isEnglish, t } = useLanguage()
   const toast = useToast()
@@ -186,22 +168,22 @@ export function HomePage() {
 
   const featuredQuery = useQuery({
     queryKey: ['home-events', 'featured'],
-    queryFn: () => fetchEvents({ limit: 10, sort_by: 'created_at', sort_order: 'desc' }),
+    queryFn: () => fetchEvents({ limit: 10, sort_by: 'start_time', sort_order: 'asc', upcoming_only: true }),
   })
 
   const upcomingQuery = useQuery({
     queryKey: ['home-events', 'upcoming'],
-    queryFn: () => fetchEvents({ limit: 8, sort_by: 'start_time', sort_order: 'asc' }),
+    queryFn: () => fetchEvents({ limit: 8, sort_by: 'start_time', sort_order: 'asc', upcoming_only: true }),
   })
 
   const trendingQuery = useQuery({
     queryKey: ['home-events', 'trending'],
-    queryFn: () => fetchEvents({ limit: 24, sort_by: 'updated_at', sort_order: 'desc' }),
+    queryFn: () => fetchEvents({ limit: 24, sort_by: 'start_time', sort_order: 'asc', upcoming_only: true }),
   })
 
   const timelineQuery = useQuery({
     queryKey: ['home-events', 'timeline'],
-    queryFn: () => fetchEvents({ limit: 24, sort_by: 'start_time', sort_order: 'asc' }),
+    queryFn: () => fetchEvents({ limit: 24, sort_by: 'start_time', sort_order: 'asc', upcoming_only: true }),
   })
 
   const pastEventsQuery = useQuery({
@@ -240,19 +222,19 @@ export function HomePage() {
   })
 
   const featuredEvents = useMemo(
-    () => featuredQuery.data?.items || [],
+    () => sortEventsByPriorityAndTime(featuredQuery.data?.items || []),
     [featuredQuery.data?.items],
   )
   const upcomingEvents = useMemo(
-    () => upcomingQuery.data?.items || [],
+    () => sortEventsByPriorityAndTime(upcomingQuery.data?.items || []),
     [upcomingQuery.data?.items],
   )
   const trendingEvents = useMemo(
-    () => trendingQuery.data?.items || [],
+    () => sortEventsByPriorityAndTime(trendingQuery.data?.items || []),
     [trendingQuery.data?.items],
   )
   const timelineEvents = useMemo(
-    () => timelineQuery.data?.items || [],
+    () => sortEventsByPriorityAndTime(timelineQuery.data?.items || []),
     [timelineQuery.data?.items],
   )
   const pastEvents = useMemo(
@@ -261,15 +243,15 @@ export function HomePage() {
   )
   const categories = categoriesQuery.data || []
   const heroEvents = useMemo(() => {
-    return uniqueEvents(featuredEvents, upcomingEvents, timelineEvents)
+    const list = uniqueEvents(featuredEvents, upcomingEvents, timelineEvents)
       .filter((event) => getEventTimeState(event, timelineNow) !== 'expired')
-      .slice(0, 10)
-  }, [featuredEvents, timelineEvents, timelineNow, upcomingEvents, pastEvents])
+    return sortEventsByPriorityAndTime(list).slice(0, 10)
+  }, [featuredEvents, timelineEvents, timelineNow, upcomingEvents])
 
   const trendingThisWeekEvents = useMemo(() => {
-    return uniqueEvents(trendingEvents, timelineEvents, upcomingEvents, featuredEvents)
+    const list = uniqueEvents(trendingEvents, timelineEvents, upcomingEvents, featuredEvents)
       .filter((event) => isActiveEventInWeek(event, timelineNow))
-      .slice(0, 4)
+    return sortEventsByPriorityAndTime(list).slice(0, 4)
   }, [featuredEvents, timelineEvents, timelineNow, trendingEvents, upcomingEvents])
 
   const homeTimeline = useMemo(() => {
@@ -277,18 +259,21 @@ export function HomePage() {
     return {
       ongoing: events
         .filter((event) => getEventTimeState(event, timelineNow) === 'ongoing')
-        .sort((a, b) => new Date(a.end_time || a.start_time || 0) - new Date(b.end_time || b.start_time || 0))
+        .sort((a, b) => {
+          const pDiff = Number(Boolean(b.is_priority_support)) - Number(Boolean(a.is_priority_support))
+          if (pDiff !== 0) return pDiff
+          return new Date(a.end_time || a.start_time || 0) - new Date(b.end_time || b.start_time || 0)
+        })
         .slice(0, 4),
-      upcoming: events
-        .filter((event) => getEventTimeState(event, timelineNow) === 'upcoming')
-        .sort((a, b) => new Date(a.start_time || 0) - new Date(b.start_time || 0))
-        .slice(0, 4),
+      upcoming: sortEventsByPriorityAndTime(
+        events.filter((event) => getEventTimeState(event, timelineNow) === 'upcoming')
+      ).slice(0, 4),
       expired: events
         .filter((event) => getEventTimeState(event, timelineNow) === 'expired' && isRecentlyExpiredEvent(event, timelineNow))
         .sort((a, b) => new Date(b.end_time || b.start_time || 0) - new Date(a.end_time || a.start_time || 0))
         .slice(0, 4),
     }
-  }, [featuredEvents, timelineEvents, timelineNow, upcomingEvents])
+  }, [featuredEvents, timelineEvents, timelineNow, upcomingEvents, pastEvents])
 
 
   const handleSearch = (event) => {
@@ -791,7 +776,7 @@ function FeaturedEventSlider({ events, onSelectEvent, isEnglish = false }) {
                 {/* Bottom Content Area */}
                 <div className="absolute inset-x-0 bottom-0 p-4 sm:p-7 flex flex-col justify-end z-10">
                   <h3 className="font-['Plus_Jakarta_Sans',var(--font-display)] text-lg sm:text-2xl lg:text-3xl font-black text-white line-clamp-2 leading-snug drop-shadow-md group-hover:text-[#E6C17A] transition-colors">
-                    {event.title}
+                    {isEnglish ? (translatePhrase(event.title, 'en') || event.title) : event.title}
                   </h3>
 
                   <div className="mt-2.5 sm:mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs sm:text-sm text-slate-300">

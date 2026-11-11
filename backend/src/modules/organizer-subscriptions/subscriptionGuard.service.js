@@ -93,7 +93,11 @@ class SubscriptionGuardService {
       `
       SELECT
         COUNT(DISTINCT e.id) FILTER (
-          WHERE e.status IN ('PENDING_REVIEW', 'COMPLETED', 'PUBLISHED')
+          WHERE (
+            (e.status = 'PUBLISHED' AND COALESCE(e.sales_status, 'ON_SALE') != 'ENDED' AND COALESCE(e.end_time, e.start_time + interval '4 hours') >= now())
+            OR (e.status = 'PENDING_REVIEW' AND COALESCE(e.end_time, e.start_time + interval '4 hours') >= now())
+            OR (e.status = 'COMPLETED' AND e.approval_status = 'APPROVED' AND COALESCE(e.sales_status, 'ON_SALE') != 'ENDED' AND COALESCE(e.end_time, e.start_time + interval '4 hours') >= now())
+          )
         )::int AS active_events,
         COUNT(DISTINCT tt.id)::int AS ticket_types,
         COALESCE(SUM(tt.quantity), 0)::int AS ticket_capacity,
@@ -134,20 +138,32 @@ class SubscriptionGuardService {
 
     // Check if event is already among active events to avoid double counting
     const { rows: currentEventRows } = await db.query(
-      `SELECT status FROM events WHERE id = $1 AND organizer_id = $2`,
+      `SELECT status, approval_status, sales_status, end_time, start_time FROM events WHERE id = $1 AND organizer_id = $2`,
       [eventId, organizerId],
     );
+    const curEv = currentEventRows[0];
+    const curEvEndTime = curEv ? (curEv.end_time || (curEv.start_time ? new Date(new Date(curEv.start_time).getTime() + 4 * 3600000) : null)) : null;
+    const isCurEvEnded = Boolean(curEv && (curEv.sales_status === 'ENDED' || (curEvEndTime && new Date(curEvEndTime) < new Date())));
+
     const isAlreadyActive =
-      currentEventRows[0] &&
-      ['PENDING_REVIEW', 'COMPLETED', 'PUBLISHED'].includes(currentEventRows[0].status);
+      curEv &&
+      !isCurEvEnded &&
+      (
+        ['PENDING_REVIEW', 'PUBLISHED'].includes(curEv.status) ||
+        (curEv.status === 'COMPLETED' && curEv.approval_status === 'APPROVED')
+      );
     const nextActiveEvents = isAlreadyActive
       ? organizerUsage.active_events
       : organizerUsage.active_events + 1;
 
+    const activeLimit = (plan.max_active_events > 0 && plan.event_limit > 0)
+      ? Math.max(toLimit(plan.max_active_events), toLimit(plan.event_limit))
+      : toLimit(plan.max_active_events || plan.event_limit);
+
     assertLimit(
       'Số sự kiện hoạt động',
       nextActiveEvents,
-      toLimit(plan.max_active_events || plan.event_limit),
+      activeLimit,
     );
     assertLimit(
       'Số loại vé của sự kiện',

@@ -21,6 +21,8 @@ import {
 import { uploadAnnouncementAttachment } from '@/services/uploads.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
+import { translatePhrase } from '@/i18n/phraseDictionary.js'
 import RichTextEditor from '@/components/RichTextEditor.jsx'
 
 const getAutoLocale = () =>
@@ -71,6 +73,7 @@ function stripHtml(html) {
 }
 
 export function OrganizerAnnouncementsPage() {
+  const { isEnglish } = useLanguage()
   const toast = useToast()
   const queryClient = useQueryClient()
   const [form, setForm] = useState(initialForm)
@@ -108,6 +111,10 @@ export function OrganizerAnnouncementsPage() {
 
   const plainContent = useMemo(() => stripHtml(form.content), [form.content])
   const isContentEmpty = plainContent.length < 5
+  const previewContent = useMemo(() => {
+    if (!form.content || typeof form.content !== 'string') return ''
+    return form.content.replace(/&nbsp;/gi, ' ').replace(/\u00A0/g, ' ')
+  }, [form.content])
 
   const sendMutation = useMutation({
     mutationFn: sendOrganizerAnnouncement,
@@ -207,10 +214,14 @@ export function OrganizerAnnouncementsPage() {
       return
     }
 
+    const cleanContent = typeof form.content === 'string'
+      ? form.content.replace(/&nbsp;/gi, ' ').replace(/\u00A0/g, ' ')
+      : form.content
+
     sendMutation.mutate({
       event_id: form.event_id,
       title: form.title.trim(),
-      content: form.content,
+      content: cleanContent,
       attachments,
       channels,
     })
@@ -218,38 +229,38 @@ export function OrganizerAnnouncementsPage() {
 
   return (
     <OrganizerPage
-      title="Gửi Thông báo"
+      title={isEnglish ? 'Send Announcement' : 'Gửi Thông báo'}
     >
       <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
         <div className="space-y-5">
           <OrganizerPanel>
             <form className="grid gap-4" onSubmit={handleSubmit}>
               <label className="block">
-                <span className="block text-base font-bold text-white mb-1.5 [html.light_&]:text-[#0D1B2A]">Sự kiện</span>
+                <span className="block text-base font-bold text-white mb-1.5 [html.light_&]:text-[#0D1B2A]">{isEnglish ? 'Event' : 'Sự kiện'}</span>
                 <select
                   required
                   value={form.event_id}
                   onChange={update('event_id')}
                   className="mt-1 h-11 w-full rounded-xl border border-white/15 bg-[#0d172e] px-3 text-sm font-medium text-white outline-none focus:border-primary shadow-sm [html.light_&]:bg-white/90 [html.light_&]:text-[#0D1B2A] [html.light_&]:border-[#C99A47]/35"
                 >
-                  <option value="" className="bg-[#0b1329] text-white [html.light_&]:bg-white [html.light_&]:text-[#0D1B2A]">{eventsQuery.isLoading ? 'Đang tải sự kiện...' : 'Chọn sự kiện'}</option>
+                  <option value="" className="bg-[#0b1329] text-white [html.light_&]:bg-white [html.light_&]:text-[#0D1B2A]">{eventsQuery.isLoading ? (isEnglish ? 'Loading events...' : 'Đang tải sự kiện...') : (isEnglish ? 'Select event' : 'Chọn sự kiện')}</option>
                   {events.map((event) => (
                     <option key={event.id} value={event.id} className="bg-[#0b1329] text-white [html.light_&]:bg-white [html.light_&]:text-[#0D1B2A]">
-                      {event.title}{event.status === 'COMPLETED' ? ' (Đã kết thúc)' : ''}
+                      {isEnglish ? (translatePhrase(event.title, 'en') || event.title) : event.title}{event.status === 'COMPLETED' ? (isEnglish ? ' (Completed)' : ' (Đã kết thúc)') : ''}
                     </option>
                   ))}
                 </select>
               </label>
 
               <Field
-                label="Tiêu đề"
+                label={isEnglish ? 'Title' : 'Tiêu đề'}
                 value={form.title}
                 onChange={update('title')}
-                placeholder="Ví dụ: Thay đổi thời gian check-in"
+                placeholder={isEnglish ? 'For example: Change check-in time' : 'Ví dụ: Thay đổi thời gian check-in'}
               />
 
               <div>
-                <span className="block text-base font-bold text-white mb-1.5 [html.light_&]:text-[#0D1B2A]">Kênh gửi</span>
+                <span className="block text-base font-bold text-white mb-1.5 [html.light_&]:text-[#0D1B2A]">{isEnglish ? 'Sending channel' : 'Kênh gửi'}</span>
                 <div className="mt-2 flex flex-wrap gap-5 text-sm font-semibold text-content [html.light_&]:text-[#1B365D]">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input type="checkbox" checked={form.web} onChange={update('web')} className="accent-primary" />
@@ -264,7 +275,7 @@ export function OrganizerAnnouncementsPage() {
 
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="block text-base font-bold text-white [html.light_&]:text-[#0D1B2A]">Nội dung</span>
+                  <span className="block text-base font-bold text-white [html.light_&]:text-[#0D1B2A]">{isEnglish ? 'Content' : 'Nội dung'}</span>
 
                   {/* Hidden file input */}
                   <input
@@ -282,17 +293,17 @@ export function OrganizerAnnouncementsPage() {
                     onClick={() => fileInputRef.current?.click()}
                     disabled={isUploading}
                     className="inline-flex items-center gap-1.5 text-xs font-bold text-[#E6C17A] hover:text-[#C99A47] transition cursor-pointer disabled:opacity-50 py-1 px-2 rounded-md hover:bg-[#C99A47]/10"
-                    title="Đính kèm tệp (Word, PDF, Excel, ảnh, zip...)"
+                    title={isEnglish ? 'Attach files (Word, PDF, Excel, images, zip...)' : 'Đính kèm tệp (Word, PDF, Excel, ảnh, zip...)'}
                   >
                     {isUploading ? (
                       <>
                         <Loader2 className="size-4 animate-spin text-[#E6C17A]" />
-                        <span>Đang tải tệp...</span>
+                        <span>{isEnglish ? 'Uploading file...' : 'Đang tải tệp...'}</span>
                       </>
                     ) : (
                       <>
                         <Paperclip className="size-4 text-[#E6C17A]" />
-                        <span>Đính kèm tệp</span>
+                        <span>{isEnglish ? 'Attach files' : 'Đính kèm tệp'}</span>
                       </>
                     )}
                   </button>
@@ -302,11 +313,15 @@ export function OrganizerAnnouncementsPage() {
                   value={form.content}
                   onChange={handleContentChange}
                   onImageUpload={handleImageUpload}
-                  placeholder="Nhập thay đổi về thời gian, địa điểm, hướng dẫn check-in hoặc cập nhật quan trọng..."
+                  placeholder={
+                    isEnglish
+                      ? 'Enter changes to time, location, check-in instructions or important updates...'
+                      : 'Nhập thay đổi về thời gian, địa điểm, hướng dẫn check-in hoặc cập nhật quan trọng...'
+                  }
                 />
                 {plainContent.length > 0 && plainContent.length < 5 && (
                   <p className="mt-1.5 text-xs text-amber-400 [html.light_&]:text-amber-600">
-                    Nội dung cần ít nhất 5 ký tự ({plainContent.length}/5)
+                    {isEnglish ? `Content requires at least 5 characters (${plainContent.length}/5)` : `Nội dung cần ít nhất 5 ký tự (${plainContent.length}/5)`}
                   </p>
                 )}
 
@@ -329,7 +344,7 @@ export function OrganizerAnnouncementsPage() {
                           type="button"
                           onClick={() => removeAttachment(idx)}
                           className="ml-1 text-muted hover:text-red-400 p-0.5 rounded cursor-pointer transition"
-                          title="Xóa tệp đính kèm"
+                          title={isEnglish ? 'Remove attachment' : 'Xóa tệp đính kèm'}
                         >
                           <X className="size-3.5" />
                         </button>
@@ -343,7 +358,7 @@ export function OrganizerAnnouncementsPage() {
                 className="org-btn-primary ml-auto h-12 px-8 text-base font-bold shadow-md hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={sendMutation.isPending || isUploading || !form.event_id || (!form.web && !form.email) || isContentEmpty || !form.title.trim()}
               >
-                {sendMutation.isPending ? 'Đang gửi...' : 'Gửi ngay'}
+                {sendMutation.isPending ? (isEnglish ? 'Sending...' : 'Đang gửi...') : (isEnglish ? 'Send now' : 'Gửi ngay')}
               </button>
             </form>
           </OrganizerPanel>
@@ -351,22 +366,22 @@ export function OrganizerAnnouncementsPage() {
 
         <aside className="space-y-5">
           <div>
-            <h3 className="mb-3 text-base font-extrabold uppercase text-white [html.light_&]:text-[#0D1B2A]">Xem trước</h3>
+            <h3 className="mb-3 text-base font-extrabold uppercase text-white [html.light_&]:text-[#0D1B2A]">{isEnglish ? 'Preview' : 'Xem trước'}</h3>
             <div className="rounded-2xl border border-border-soft/30 bg-gradient-to-br from-slate-900 via-sky-950 to-blue-900 p-5 text-white shadow-xl min-h-[280px] flex flex-col [html.light_&]:bg-none [html.light_&]:bg-white/92 [html.light_&]:border-[#C99A47]/35 [html.light_&]:shadow-[0_8px_32px_rgba(27,54,93,0.08)]">
               <div className="flex items-center justify-between">
                 <span className="rounded-full bg-primary/20 px-2.5 py-0.5 text-[11px] font-bold text-primary [html.light_&]:bg-[#C99A47]/15 [html.light_&]:text-[#92400e] [html.light_&]:border [html.light_&]:border-[#C99A47]/30">EventHub</span>
-                <span className="text-[11px] font-semibold text-white/50 [html.light_&]:text-[#536b88]">Vừa xong</span>
+                <span className="text-[11px] font-semibold text-white/50 [html.light_&]:text-[#536b88]">{isEnglish ? 'Just now' : 'Vừa xong'}</span>
               </div>
               <p className="mt-3 text-xs font-semibold uppercase tracking-wider text-white/70 line-clamp-1 [html.light_&]:text-[#536b88]">
-                {selectedEvent?.title || 'Sự kiện đã chọn'}
+                {(isEnglish ? (translatePhrase(selectedEvent?.title, 'en') || selectedEvent?.title) : selectedEvent?.title) || (isEnglish ? 'Selected event' : 'Sự kiện đã chọn')}
               </p>
               <p className="mt-2 text-base font-bold text-white line-clamp-2 leading-snug [html.light_&]:text-[#0D1B2A]">
-                {form.title || 'Tiêu đề thông báo'}
+                {form.title || (isEnglish ? 'Announcement title' : 'Tiêu đề thông báo')}
               </p>
               <div
-                className="announcement-preview mt-3 text-sm leading-relaxed text-white/90 overflow-hidden [html.light_&]:text-[#1B365D]"
+                className="announcement-preview mt-3 text-sm leading-relaxed text-white/90 break-words [overflow-wrap:anywhere] [&_p]:break-words [&_p]:[overflow-wrap:anywhere] [&_p]:mb-2 [&_p:last-child]:mb-0 [&_a]:text-primary [&_a]:underline [&_a]:break-all [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [html.light_&]:text-[#1B365D]"
                 dangerouslySetInnerHTML={{
-                  __html: form.content || '<p style="opacity:0.5">Nội dung thông báo sẽ hiển thị tại đây</p>',
+                  __html: previewContent || (isEnglish ? '<p style="opacity:0.5">Notification content will appear here</p>' : '<p style="opacity:0.5">Nội dung thông báo sẽ hiển thị tại đây</p>'),
                 }}
               />
 
@@ -374,7 +389,7 @@ export function OrganizerAnnouncementsPage() {
                 <div className="mt-4 pt-3 border-t border-white/10 [html.light_&]:border-slate-200">
                   <p className="text-xs font-bold text-[#E6C17A] mb-2 flex items-center gap-1.5 [html.light_&]:text-[#92400e]">
                     <Paperclip className="size-3.5" />
-                    <span>Tệp đính kèm ({attachments.length}):</span>
+                    <span>{isEnglish ? `Attachments (${attachments.length}):` : `Tệp đính kèm (${attachments.length}):`}</span>
                   </p>
                   <div className="flex flex-col gap-1.5">
                     {attachments.map((att, i) => (
@@ -392,20 +407,20 @@ export function OrganizerAnnouncementsPage() {
 
           <OrganizerPanel>
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-sm font-extrabold uppercase text-subtle">Lịch sử gửi</h3>
+              <h3 className="text-sm font-extrabold uppercase text-subtle">{isEnglish ? 'Sending history' : 'Lịch sử gửi'}</h3>
               <Badge tone="blue">{announcements.length}</Badge>
             </div>
-            {announcementsQuery.isLoading && <p className="text-sm text-muted">Đang tải...</p>}
+            {announcementsQuery.isLoading && <p className="text-sm text-muted">{isEnglish ? 'Loading...' : 'Đang tải...'}</p>}
             {!announcementsQuery.isLoading && announcements.length === 0 && (
-              <p className="text-sm text-muted">Chưa có thông báo nào.</p>
+              <p className="text-sm text-muted">{isEnglish ? 'No announcements yet.' : 'Chưa có thông báo nào.'}</p>
             )}
             {announcements.map((item) => (
               <div key={item.id} className="border-t border-border-soft/20 py-4 first:border-t-0 text-content">
                 <div className="flex items-center justify-between gap-3">
-                  <p className="line-clamp-1 font-bold">{item.title}</p>
-                  <Badge tone="green">Đã gửi</Badge>
+                  <p className="line-clamp-1 font-bold">{isEnglish ? (translatePhrase(item.title, 'en') || item.title) : item.title}</p>
+                  <Badge tone="green">{isEnglish ? 'Sent' : 'Đã gửi'}</Badge>
                 </div>
-                <p className="mt-1 line-clamp-1 text-xs text-muted">{item.event_title}</p>
+                <p className="mt-1 line-clamp-1 text-xs text-muted">{isEnglish ? (translatePhrase(item.event_title, 'en') || item.event_title) : item.event_title}</p>
                 <p className="mt-1 text-xs text-muted">{formatDateTime(item.sent_at || item.created_at)}</p>
               </div>
             ))}

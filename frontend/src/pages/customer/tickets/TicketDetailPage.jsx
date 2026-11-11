@@ -32,6 +32,8 @@ import { VIETNAMESE_BANKS, getBankDisplayName, resolveBankName } from '@/constan
 import logoSrc from '@/assets/eventhub-logo.png'
 import { buildUniversalTicketSvg } from '@/utils/ticketSvgGenerator.js'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
+import { cleanAndFormatVenue, translateTicketName } from '@/i18n/eventTranslations.js'
+import { translatePhrase } from '@/i18n/phraseDictionary.js'
 
 const getAutoIsEnglish = () => (typeof document !== 'undefined' && document.documentElement.lang === 'en') || (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en')
 
@@ -186,6 +188,7 @@ export function TicketDetailPage() {
   const [downloadError, setDownloadError] = useState('')
   const [downloading, setDownloading] = useState(false)
   const [refundDetailOpen, setRefundDetailOpen] = useState(false)
+  const [complaintModalOpen, setComplaintModalOpen] = useState(false)
   const currentUserKey = getStoredUserKey()
 
   useEffect(() => {
@@ -257,8 +260,10 @@ export function TicketDetailPage() {
   }
 
   const venue = venueLine(ticket)
+  const eventTitle = isEnglish ? (translatePhrase(ticket.event?.title, 'en') || ticket.event?.title) : ticket.event?.title
+  const ticketTypeName = translateTicketName(ticket.ticket_type?.name, isEnglish)
   const seat = ticket.seat?.label || (isEnglish ? 'No fixed seat' : 'Không có ghế cố định')
-  const venueText = [ticket.venue?.name, venue].filter(Boolean).join(', ')
+  const venueText = cleanAndFormatVenue(ticket.venue || venue, isEnglish) || (isEnglish ? 'N/A' : 'Chưa có địa điểm')
   const isZeroAmountOrFree = ticket.order?.status === 'CONFIRMED' || Number(ticket.order?.total_amount) === 0 || ['FREE', 'FULLY_DISCOUNTED', 'COMPLIMENTARY'].includes(ticket.ticket_source)
   const isOrderPaid = ['PAID', 'CONFIRMED', 'REFUND_REQUESTED'].includes(ticket.order?.status) || Boolean(ticket.payment?.paid_at) || ticket.payment?.status === 'PAID'
   const isEntryEligible = ticket.status === 'VALID'
@@ -356,11 +361,11 @@ export function TicketDetailPage() {
                     {statusText(ticket, refundRequest, isEnglish)}
                   </span>
                   <span className="rounded-full bg-black/40 px-4 py-1.5 text-[10px] font-black tracking-widest uppercase text-white border border-white/20 backdrop-blur-md shadow-sm">
-                    {ticket.ticket_type?.name}
+                    {ticketTypeName}
                   </span>
                 </div>
                 <h1 className="mt-4 font-display text-3xl font-black leading-tight text-white drop-shadow-md sm:text-4xl">
-                  {ticket.event?.title}
+                  {eventTitle}
                 </h1>
               </div>
             </div>
@@ -378,7 +383,7 @@ export function TicketDetailPage() {
                     <CompactDetail label={isEnglish ? 'Buyer Email' : 'Email người mua'} value={ticket.order?.buyer_email} />
                   </>
                 )}
-                <CompactDetail label={isEnglish ? 'Ticket Type' : 'Loại vé'} value={ticket.ticket_type?.name} />
+                <CompactDetail label={isEnglish ? 'Ticket Type' : 'Loại vé'} value={ticketTypeName} />
                 <CompactDetail label={isEnglish ? 'Seat' : 'Ghế ngồi'} value={seat} />
                 <CompactDetail label={isEnglish ? 'Time' : 'Thời gian'} value={formatDateTime(ticket.session?.start_time, isEnglish)} />
                 <CompactDetail label={isEnglish ? 'Check-in' : 'Check-in'} value={ticket.checked_in_at ? formatDateTime(ticket.checked_in_at, isEnglish) : (isEnglish ? 'Not checked in' : 'Chưa check-in')} />
@@ -498,6 +503,15 @@ export function TicketDetailPage() {
                 {isEnglish ? 'Tickets are non-refundable according to event policy.' : 'Vé không hỗ trợ hoàn hủy theo chính sách của sự kiện.'}
               </div>
             ) : null}
+            {/* Nút Khiếu nại lên Quản trị viên */}
+            <button
+              type="button"
+              onClick={() => setComplaintModalOpen(true)}
+              className="w-full py-3 text-xs font-bold rounded-2xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 hover:text-rose-200 flex items-center justify-center gap-2 transition-all cursor-pointer"
+            >
+              <ShieldAlert className="size-4 text-rose-400" />
+              {isEnglish ? 'File Complaint to Admin' : 'Khiếu nại / Phản ánh lên Quản trị viên'}
+            </button>
           </div>
         </div>
       </div>
@@ -513,6 +527,23 @@ export function TicketDetailPage() {
           refundsQuery.refetch()
           queryClient.invalidateQueries({ queryKey: ['my-refunds'] })
           queryClient.invalidateQueries({ queryKey: ['ticket-detail'] })
+        }}
+      />
+
+      <CustomerComplaintModal
+        isOpen={complaintModalOpen}
+        onClose={() => setComplaintModalOpen(false)}
+        initialData={{
+          eventId: ticket?.event?.id,
+          eventTitle: ticket?.event?.title,
+          organizerId: ticket?.event?.organizer_id,
+          organizerName: ticket?.event?.organizer?.business_name || ticket?.event?.organizer?.organization_name,
+          ticketId: ticket?.id,
+          ticketCode: ticket?.ticket_code,
+          orderId: ticket?.order?.id,
+          orderCode: ticket?.order?.order_code,
+          contactEmail: ticket?.customer?.email,
+          contactPhone: ticket?.customer?.phone,
         }}
       />
     </div>
@@ -567,7 +598,7 @@ function CancelFreeTicketButton({ ticket, onCancelled, isEnglish = false }) {
             <div className="mt-4 space-y-4 text-sm text-slate-300">
               <p>
                 {isEnglish ? (
-                  <>Are you sure you want to cancel ticket <strong className="text-white font-mono">{ticket.ticket_code}</strong> for event <strong className="text-white">{ticket.event?.title}</strong>?</>
+                  <>Are you sure you want to cancel ticket <strong className="text-white font-mono">{ticket.ticket_code}</strong> for event <strong className="text-white">{eventTitle}</strong>?</>
                 ) : (
                   <>Bạn có chắc chắn muốn hủy vé <strong className="text-white font-mono">{ticket.ticket_code}</strong> cho sự kiện <strong className="text-white">{ticket.event?.title}</strong> không?</>
                 )}
@@ -768,7 +799,7 @@ function RefundButton({ ticket, onRefundSubmitted, isEnglish = false }) {
                       <div>
                         <span className="text-[10px] font-black uppercase tracking-widest text-primary">{isEnglish ? 'Event' : 'Sự kiện'}</span>
                         <p className="text-sm font-black text-white mt-0.5">
-                          {ticket.event?.title || (isEnglish ? 'Event' : 'Sự kiện')}
+                          {eventTitle || (isEnglish ? 'Event' : 'Sự kiện')}
                         </p>
                       </div>
                       <span className="rounded-full border border-primary/30 bg-primary/10 px-2.5 py-1 text-[11px] font-black text-primary shrink-0">
@@ -780,7 +811,7 @@ function RefundButton({ ticket, onRefundSubmitted, isEnglish = false }) {
                       <div>
                         <span className="text-slate-400 font-medium">{isEnglish ? 'Ticket Tier: ' : 'Hạng vé: '}</span>
                         <span className="font-bold text-white">
-                          {ticket.ticket_type?.name || (isEnglish ? 'Standard Ticket' : 'Vé tiêu chuẩn')}
+                          {ticketTypeName || (isEnglish ? 'Standard Ticket' : 'Vé tiêu chuẩn')}
                         </span>
                       </div>
                       <div>
@@ -1327,7 +1358,7 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest, onPayoutSub
             <div className="flex justify-between items-start gap-4 border-b border-white/5 pb-2.5">
               <span className="text-slate-400 font-medium">{isEnglish ? 'Event:' : 'Sự kiện:'}</span>
               <span className="font-bold text-white text-right max-w-[65%] line-clamp-2">
-                {ticket.event?.title}
+                {eventTitle}
               </span>
             </div>
 
@@ -1373,7 +1404,7 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest, onPayoutSub
             <div className="flex justify-between items-start gap-4 border-b border-white/5 pb-2.5">
               <span className="text-slate-400 font-medium shrink-0">{isEnglish ? 'Refund Reason:' : 'Lý do hoàn tiền:'}</span>
               <span className="font-semibold text-white text-right break-words">
-                {refundRequest?.reason || (isEnglish ? 'Per event refund policy' : 'Theo chính sách hoàn vé sự kiện')}
+                {formatRefundReason(refundRequest?.reason, isEnglish ? 'en' : 'vi') || (isEnglish ? 'Per event refund policy' : 'Theo chính sách hoàn vé sự kiện')}
               </span>
             </div>
 

@@ -11,6 +11,8 @@ import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { Modal } from '@/components/Modal.jsx'
 import { Badge, Page, Panel, StatusBadge, Table, TableActionButton } from './AdminComponents.jsx'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
+import { translatePhrase } from '@/i18n/phraseDictionary.js'
 
 const emptyForm = {
   name: '',
@@ -22,6 +24,8 @@ const emptyForm = {
 export function AdminEventCategoriesPage() {
   const toast = useToast()
   const queryClient = useQueryClient()
+  const { isEnglish } = useLanguage()
+  const t = (vi) => isEnglish ? (translatePhrase(vi, 'en') || vi) : vi
   const [modalMode, setModalMode] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [selectedCategory, setSelectedCategory] = useState(null)
@@ -42,36 +46,36 @@ export function AdminEventCategoriesPage() {
   const createMutation = useMutation({
     mutationFn: createAdminEventCategory,
     onSuccess: () => {
-      toast.success('Đã tạo loại sự kiện.')
+      toast.success(t('Đã tạo loại sự kiện.'))
       closeModal()
       refreshCategories()
     },
     onError: (err) => {
-      toast.error(getApiMessage(err, 'Không thể tạo loại sự kiện.'))
+      toast.error(getApiMessage(err, t('Không thể tạo loại sự kiện.')))
     },
   })
 
   const updateMutation = useMutation({
     mutationFn: ({ id, payload }) => updateAdminEventCategory(id, payload),
     onSuccess: (_data, variables) => {
-      toast.success(variables?.payload?.is_active === false ? 'Đã tạm ẩn loại sự kiện.' : 'Đã cập nhật loại sự kiện.')
+      toast.success(variables?.payload?.is_active === false ? t('Đã tạm ẩn loại sự kiện.') : t('Đã cập nhật loại sự kiện.'))
       closeModal()
       refreshCategories()
     },
     onError: (err) => {
-      toast.error(getApiMessage(err, 'Không thể cập nhật loại sự kiện.'))
+      toast.error(getApiMessage(err, t('Không thể cập nhật loại sự kiện.')))
     },
   })
 
   const deleteMutation = useMutation({
     mutationFn: deleteAdminEventCategory,
     onSuccess: () => {
-      toast.success('Đã xóa loại sự kiện.')
+      toast.success(t('Đã xóa loại sự kiện.'))
       setDeleteTarget(null)
       refreshCategories()
     },
     onError: (err) => {
-      toast.error(getApiMessage(err, 'Không thể xóa loại sự kiện.'))
+      toast.error(getApiMessage(err, t('Không thể xóa loại sự kiện.')))
     },
   })
 
@@ -133,25 +137,25 @@ export function AdminEventCategoriesPage() {
 
   return (
     <Page
-      title="Loại Sự kiện"
-      action="Thêm loại"
+      title={t('Loại Sự kiện')}
+      action={t('Thêm loại')}
       actionClassName="admin-primary shrink-0"
       actionIcon={Plus}
       onAction={openCreate}
     >
       <div className="grid gap-4 sm:grid-cols-3">
         <MetricCard
-          label="Tổng loại sự kiện"
+          label={t('Tổng loại sự kiện')}
           value={categories.length}
           accent="bg-tertiary"
         />
         <MetricCard
-          label="Đang hoạt động"
+          label={t('Đang hoạt động')}
           value={categories.filter((category) => category.is_active).length}
           accent="bg-success"
         />
         <MetricCard
-          label="Chưa dùng"
+          label={t('Chưa dùng')}
           value={categories.filter((category) => Number(category.event_count) === 0).length}
           accent="bg-tertiary"
         />
@@ -161,33 +165,33 @@ export function AdminEventCategoriesPage() {
         {mutationError && (
           <Panel className="mb-4">
             <p className="text-sm font-semibold text-error">
-              Không thể lưu thay đổi. Vui lòng kiểm tra dữ liệu và thử lại.
+              {t('Không thể lưu thay đổi. Vui lòng kiểm tra dữ liệu và thử lại.')}
             </p>
           </Panel>
         )}
 
         {categoriesQuery.isLoading && (
           <Panel>
-            <p className="text-sm font-semibold text-subtle">Đang tải loại sự kiện...</p>
+            <p className="text-sm font-semibold text-subtle">{t('Đang tải loại sự kiện...')}</p>
           </Panel>
         )}
 
         {categoriesQuery.isError && (
           <Panel>
             <p className="text-sm font-semibold text-error">
-              Không thể tải danh sách loại sự kiện.
+              {t('Không thể tải danh sách loại sự kiện.')}
             </p>
           </Panel>
         )}
 
         {!categoriesQuery.isLoading && !categoriesQuery.isError && (
           <Table
-            headers={['Tên loại', 'Slug', 'Mô tả', 'Số sự kiện', 'Trạng thái', 'Hành động']}
+            headers={[t('Tên loại'), 'Slug', t('Mô tả'), t('Số sự kiện'), t('Trạng thái'), t('Hành động')]}
             rows={categories.map((category) => [
               <span key="name" className="text-sm font-extrabold text-content">{category.name}</span>,
               <span key="slug" className="text-sm font-semibold text-subtle">{category.slug}</span>,
               <span key="description" className="text-sm line-clamp-2 text-subtle">
-                {category.description || 'Chưa có mô tả'}
+                {t(category.description || 'Chưa có mô tả')}
               </span>,
               <span key="count" className="text-sm font-extrabold text-content block text-center">
                 {category.event_count ?? 0}
@@ -195,20 +199,20 @@ export function AdminEventCategoriesPage() {
               <StatusBadge key="status" status={category.is_active ? 'ACTIVE' : 'INACTIVE'} />,
               <div key="actions" className="flex items-center justify-center gap-2">
                 <TableActionButton
-                  title="Sửa"
+                  title={t('Sửa')}
                   icon={Edit3}
                   tone="primary"
                   onClick={() => openEdit(category)}
                 />
                 <TableActionButton
-                  title={category.is_active ? 'Tạm ẩn' : 'Kích hoạt'}
+                  title={category.is_active ? t('Tạm ẩn') : t('Kích hoạt')}
                   icon={Power}
                   tone={category.is_active ? 'warning' : 'success'}
                   disabled={updateMutation.isPending}
                   onClick={() => toggleActive(category)}
                 />
                 <TableActionButton
-                  title="Xóa"
+                  title={t('Xóa')}
                   icon={Trash2}
                   tone="danger"
                   disabled={deleteMutation.isPending}
@@ -223,7 +227,7 @@ export function AdminEventCategoriesPage() {
       {modalMode && (
         <Modal
           open={Boolean(modalMode)}
-          title={modalMode === 'edit' ? 'Cập nhật loại sự kiện' : 'Thêm loại sự kiện'}
+          title={modalMode === 'edit' ? t('Cập nhật loại sự kiện') : t('Thêm loại sự kiện')}
           onClose={closeModal}
           maxWidth="max-w-lg"
           footer={
@@ -233,7 +237,7 @@ export function AdminEventCategoriesPage() {
                 onClick={closeModal}
                 className="admin-secondary px-6"
               >
-                Hủy
+                {t('Hủy')}
               </button>
               <button
                 type="submit"
@@ -241,7 +245,7 @@ export function AdminEventCategoriesPage() {
                 disabled={isSaving}
                 className="admin-primary px-6 disabled:cursor-not-allowed disabled:opacity-70"
               >
-                {isSaving ? 'Đang lưu...' : 'Lưu'}
+                {isSaving ? t('Đang lưu...') : t('Lưu')}
               </button>
             </div>
           }
@@ -249,7 +253,7 @@ export function AdminEventCategoriesPage() {
           <form id="event-category-form" onSubmit={submitForm} className="space-y-4">
             <label className="block">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-300 [html.light_&]:text-[#1B365D]">
-                Tên loại
+                {t('Tên loại')}
               </span>
               <input
                 required
@@ -263,7 +267,7 @@ export function AdminEventCategoriesPage() {
                     slug: modalMode === 'create' && !current.slug ? slugifyText(name) : current.slug,
                   }))
                 }}
-                placeholder="Nhập tên loại sự kiện..."
+                placeholder={t('Nhập tên loại sự kiện...')}
                 className="mt-2 h-11 w-full rounded-xl border border-white/15 bg-[#121c38]/60 px-3.5 text-sm font-semibold text-white outline-none focus:border-[#C99A47] placeholder:text-slate-400 [html.light_&]:border-slate-300 [html.light_&]:bg-white [html.light_&]:text-[#0D1B2A]"
               />
             </label>
@@ -284,14 +288,14 @@ export function AdminEventCategoriesPage() {
 
             <label className="block">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-300 [html.light_&]:text-[#1B365D]">
-                Mô tả
+                {t('Mô tả')}
               </span>
               <textarea
                 rows={4}
                 maxLength={1000}
                 value={form.description}
                 onChange={(event) => setForm({ ...form, description: event.target.value })}
-                placeholder="Nhập mô tả cho loại sự kiện..."
+                placeholder={t('Nhập mô tả cho loại sự kiện...')}
                 className="mt-2 w-full resize-none rounded-xl border border-white/15 bg-[#121c38]/60 px-3.5 py-3 text-sm text-white outline-none focus:border-[#C99A47] placeholder:text-slate-400 [html.light_&]:border-slate-300 [html.light_&]:bg-white [html.light_&]:text-[#0D1B2A]"
               />
             </label>
@@ -303,7 +307,7 @@ export function AdminEventCategoriesPage() {
                 onChange={(event) => setForm({ ...form, is_active: event.target.checked })}
                 className="size-4.5 rounded accent-[#C99A47] cursor-pointer"
               />
-              <span>Đang hoạt động</span>
+              <span>{t('Đang hoạt động')}</span>
             </label>
           </form>
         </Modal>
@@ -312,7 +316,7 @@ export function AdminEventCategoriesPage() {
       {deleteTarget && (
         <Modal
           open={Boolean(deleteTarget)}
-          title="Xóa loại sự kiện?"
+          title={t('Xóa loại sự kiện?')}
           onClose={() => setDeleteTarget(null)}
           maxWidth="max-w-md"
           footer={
@@ -322,7 +326,7 @@ export function AdminEventCategoriesPage() {
                 onClick={() => setDeleteTarget(null)}
                 className="admin-secondary px-6"
               >
-                Hủy
+                {t('Hủy')}
               </button>
               <button
                 type="button"
@@ -330,14 +334,17 @@ export function AdminEventCategoriesPage() {
                 onClick={() => deleteMutation.mutate(deleteTarget.id)}
                 className="inline-flex items-center justify-center gap-2 rounded-full bg-error px-6 py-2.5 text-sm font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {deleteMutation.isPending ? 'Đang xóa...' : 'Xóa'}
+                {deleteMutation.isPending ? t('Đang xóa...') : t('Xóa')}
               </button>
             </div>
           }
         >
           <div className="py-1">
             <p className="text-sm font-medium leading-relaxed text-slate-200 [html.light_&]:text-[#0D1B2A]">
-              Loại <span className="font-bold text-[#E6C17A] [html.light_&]:text-[#1B365D]">{deleteTarget.name}</span> sẽ bị ẩn khỏi hệ thống nhưng dữ liệu vẫn được giữ trong database.
+              {isEnglish
+                ? <>Category <span className="font-bold text-[#E6C17A] [html.light_&]:text-[#1B365D]">{deleteTarget.name}</span> will be hidden from the system but data will be preserved in the database.</>
+                : <>Loại <span className="font-bold text-[#E6C17A] [html.light_&]:text-[#1B365D]">{deleteTarget.name}</span> sẽ bị ẩn khỏi hệ thống nhưng dữ liệu vẫn được giữ trong database.</>
+              }
             </p>
           </div>
         </Modal>

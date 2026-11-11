@@ -1,7 +1,9 @@
 import { useMemo } from 'react'
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
 
 function CustomDonutTooltip({ active, payload }) {
+  const { isEnglish } = useLanguage()
   if (!active || !payload || !payload.length) return null
   const data = payload[0]
 
@@ -15,37 +17,39 @@ function CustomDonutTooltip({ active, payload }) {
         <span className="font-bold text-white">{data.name}</span>
       </div>
       <p className="text-slate-300 font-mono font-bold">
-        {data.value} vé ({data.payload.percent}%)
+        {data.value} {isEnglish ? 'tickets' : 'vé'} ({data.payload.percent}%)
       </p>
     </div>
   )
 }
 
 export function OverallDonutChart({ overall }) {
+  const { isEnglish } = useLanguage()
   const total = Number(overall?.total_tickets) || 0
   const checkedIn = Number(overall?.checked_in) || 0
   const notCheckedIn = Number(overall?.valid) || 0
   const rate = total > 0 ? Math.round((checkedIn / total) * 100) : 0
+  const numLocale = isEnglish ? 'en-US' : 'vi-VN'
 
   const chartData = useMemo(() => {
     if (total === 0) {
-      return [{ name: 'Chưa có vé', value: 1, color: '#334155', percent: 0 }]
+      return [{ name: isEnglish ? 'No tickets' : 'Chưa có vé', value: 1, color: '#334155', percent: 0 }]
     }
     return [
       {
-        name: 'Đã check-in',
+        name: isEnglish ? 'Checked In' : 'Đã check-in',
         value: checkedIn,
         color: '#10B981',
         percent: total > 0 ? Math.round((checkedIn / total) * 100) : 0,
       },
       {
-        name: 'Chưa check-in',
+        name: isEnglish ? 'Not Checked In' : 'Chưa check-in',
         value: notCheckedIn,
         color: '#F59E0B',
         percent: total > 0 ? Math.round((notCheckedIn / total) * 100) : 0,
       },
     ].filter((d) => d.value > 0)
-  }, [total, checkedIn, notCheckedIn])
+  }, [total, checkedIn, notCheckedIn, isEnglish])
 
   return (
     <div className="flex flex-col items-center justify-center">
@@ -77,10 +81,10 @@ export function OverallDonutChart({ overall }) {
             {rate}%
           </span>
           <span className="mt-0.5 text-xs font-semibold text-slate-300 [html.light_&]:text-[#536b88]">
-            {checkedIn.toLocaleString('vi-VN')} / {total.toLocaleString('vi-VN')} vé
+            {checkedIn.toLocaleString(numLocale)} / {total.toLocaleString(numLocale)} {isEnglish ? 'tickets' : 'vé'}
           </span>
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-1">
-            Tỷ lệ tham dự
+            {isEnglish ? 'Attendance Rate' : 'Tỷ lệ tham dự'}
           </span>
         </div>
       </div>
@@ -90,13 +94,13 @@ export function OverallDonutChart({ overall }) {
         <div className="flex items-center gap-2">
           <span className="size-3 rounded-full bg-[#10B981] shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
           <span className="text-slate-300 [html.light_&]:text-[#1B365D]">
-            Đã check-in: <strong className="text-emerald-400 font-bold">{checkedIn}</strong>
+            {isEnglish ? 'Checked In:' : 'Đã check-in:'} <strong className="text-emerald-400 font-bold">{checkedIn.toLocaleString(numLocale)}</strong>
           </span>
         </div>
         <div className="flex items-center gap-2">
           <span className="size-3 rounded-full bg-[#F59E0B] shadow-[0_0_8px_rgba(245,158,11,0.5)]" />
           <span className="text-slate-300 [html.light_&]:text-[#1B365D]">
-            Chưa check-in: <strong className="text-amber-400 font-bold">{notCheckedIn}</strong>
+            {isEnglish ? 'Not Checked In:' : 'Chưa check-in:'} <strong className="text-amber-400 font-bold">{notCheckedIn.toLocaleString(numLocale)}</strong>
           </span>
         </div>
       </div>

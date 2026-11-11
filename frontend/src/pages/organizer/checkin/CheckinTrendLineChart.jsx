@@ -10,8 +10,10 @@ import {
   YAxis,
 } from 'recharts'
 import { Activity, Clock } from 'lucide-react'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
 
 function CustomTrendTooltip({ active, payload, label }) {
+  const { isEnglish } = useLanguage()
   if (!active || !payload || !payload.length) return null
 
   const cumulativeVal = payload.find((p) => p.dataKey === 'cumulative')?.value ?? 0
@@ -21,22 +23,22 @@ function CustomTrendTooltip({ active, payload, label }) {
     <div className="rounded-xl border border-white/15 bg-slate-900/95 p-3.5 shadow-2xl backdrop-blur-md text-xs min-w-[200px]">
       <p className="font-bold text-white mb-2 text-sm border-b border-white/10 pb-1 flex items-center gap-1.5">
         <Clock className="size-3 text-cyan-400" />
-        Thời điểm: {label}
+        {isEnglish ? 'Time:' : 'Thời điểm:'} {label}
       </p>
       <div className="space-y-1.5">
         <div className="flex items-center justify-between gap-4">
           <span className="flex items-center gap-1.5 text-slate-300">
             <span className="size-2 rounded-full bg-cyan-400 shadow-[0_0_6px_rgba(6,182,212,0.5)]" />
-            Tổng tích lũy:
+            {isEnglish ? 'Cumulative Total:' : 'Tổng tích lũy:'}
           </span>
-          <strong className="text-cyan-400 font-mono font-bold text-sm">{cumulativeVal} vé</strong>
+          <strong className="text-cyan-400 font-mono font-bold text-sm">{cumulativeVal} {isEnglish ? 'tickets' : 'vé'}</strong>
         </div>
         <div className="flex items-center justify-between gap-4">
           <span className="flex items-center gap-1.5 text-slate-300">
             <span className="size-2 rounded-full bg-purple-400 shadow-[0_0_6px_rgba(168,85,247,0.5)]" />
-            Check-in trong 5p:
+            {isEnglish ? 'In 5 mins:' : 'Check-in trong 5p:'}
           </span>
-          <strong className="text-purple-300 font-mono font-bold">{countVal} vé</strong>
+          <strong className="text-purple-300 font-mono font-bold">{countVal} {isEnglish ? 'tickets' : 'vé'}</strong>
         </div>
       </div>
     </div>
@@ -44,6 +46,7 @@ function CustomTrendTooltip({ active, payload, label }) {
 }
 
 export function CheckinTrendLineChart({ timeline = [] }) {
+  const { isEnglish } = useLanguage()
   const [timeRange, setTimeRange] = useState('ALL') // '30m' | '60m' | 'ALL'
 
   // Process timeline timestamps into 5-minute interval buckets
@@ -165,7 +168,7 @@ export function CheckinTrendLineChart({ timeline = [] }) {
                 : 'text-slate-400 hover:text-white [html.light_&]:hover:text-[#0D1B2A]'
             }`}
           >
-            Toàn bộ sự kiện
+            {isEnglish ? 'Full Event' : 'Toàn bộ sự kiện'}
           </button>
         </div>
       </div>
@@ -175,11 +178,11 @@ export function CheckinTrendLineChart({ timeline = [] }) {
           <Activity className="size-8 opacity-40 mb-2 text-cyan-400" />
           <p className="text-sm font-medium">
             {timeline && timeline.length > 0
-              ? 'Không có lượt check-in nào trong khoảng thời gian đã chọn.'
-              : 'Chưa có lượt check-in nào được ghi nhận để hiển thị biểu đồ xu hướng.'}
+              ? (isEnglish ? 'No check-ins in the selected time range.' : 'Không có lượt check-in nào trong khoảng thời gian đã chọn.')
+              : (isEnglish ? 'No check-ins recorded yet to display trend chart.' : 'Chưa có lượt check-in nào được ghi nhận để hiển thị biểu đồ xu hướng.')}
           </p>
           <p className="mt-1 text-xs text-slate-500">
-            Dữ liệu sẽ tự động xuất hiện khi các cổng soát vé ghi nhận check-in thành công.
+            {isEnglish ? 'Data will appear automatically as check-in gates record entries.' : 'Dữ liệu sẽ tự động xuất hiện khi các cổng soát vé ghi nhận check-in thành công.'}
           </p>
         </div>
       ) : (
@@ -212,7 +215,7 @@ export function CheckinTrendLineChart({ timeline = [] }) {
               <Line
                 type="monotone"
                 dataKey="cumulative"
-                name="Tổng check-in tích lũy"
+                name={isEnglish ? 'Cumulative Check-ins' : 'Tổng check-in tích lũy'}
                 stroke="#06B6D4"
                 strokeWidth={3}
                 dot={{ r: 3, fill: '#06B6D4' }}
@@ -221,7 +224,7 @@ export function CheckinTrendLineChart({ timeline = [] }) {
               <Line
                 type="monotone"
                 dataKey="count"
-                name="Lượt check-in trong khoảng"
+                name={isEnglish ? 'Interval Check-ins' : 'Lượt check-in trong khoảng'}
                 stroke="#A855F7"
                 strokeWidth={2}
                 strokeDasharray="4 4"

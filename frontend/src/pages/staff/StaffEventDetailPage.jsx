@@ -6,6 +6,9 @@ import { fetchSessionSeats } from '@/services/events.js'
 import { fetchStaffCheckInReport } from '@/services/operations.js'
 import { Avatar, Badge, StaffPage, StaffPanel, StaffTable } from './StaffComponents.jsx'
 import { SeatMapCanvas } from './StaffDirectBookingPage.jsx'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
+import { cleanAndFormatVenue } from '@/i18n/eventTranslations.js'
+import { translatePhrase } from '@/i18n/phraseDictionary.js'
 
 const numberFormatter = new Intl.NumberFormat('vi-VN')
 
@@ -34,6 +37,7 @@ function checkInMethodLabel(method) {
 }
 
 export function StaffEventDetailPage() {
+  const { isEnglish } = useLanguage()
   const { eventId } = useParams()
   const [selectedSessionId, setSelectedSessionId] = useState('')
   const reportQuery = useQuery({
@@ -78,17 +82,19 @@ export function StaffEventDetailPage() {
   const remaining = Number(summary.remaining || 0)
   const cancelled = Number(summary.cancelled || 0)
   const progress = totalValid > 0 ? Math.round((checkedIn / totalValid) * 100) : 0
-  const venue = [event.venue_name, event.address_line, event.ward, event.district, event.city].filter(Boolean).join(', ')
+  const eventTitle = isEnglish ? (translatePhrase(event.title, 'en') || event.title) : event.title
+  const shortDesc = isEnglish ? (translatePhrase(event.short_description, 'en') || event.short_description) : event.short_description
+  const venue = cleanAndFormatVenue(event, isEnglish) || (isEnglish ? 'Venue TBD' : 'Chưa cập nhật địa điểm')
 
   return (
     <StaffPage
-      title={event.title}
+      title={eventTitle}
     >
       <StaffPanel className="mb-5">
         <div className="grid gap-5 md:grid-cols-[180px_1fr]">
           <div className="grid h-36 place-items-center overflow-hidden rounded-lg bg-panel-soft text-primary">
             {event.banner_url || event.thumbnail_url ? (
-              <img src={event.banner_url || event.thumbnail_url} alt={event.title} className="h-full w-full object-cover" />
+              <img src={event.banner_url || event.thumbnail_url} alt={eventTitle} className="h-full w-full object-cover" />
             ) : (
               <Calendar className="size-12" />
             )}
@@ -134,9 +140,9 @@ export function StaffEventDetailPage() {
             </p>
             <p className="mt-3 flex items-start gap-2 text-sm text-subtle">
               <MapPin className="mt-0.5 size-4 shrink-0" />
-              {venue || 'Chưa cập nhật địa điểm'}
+              {venue}
             </p>
-            {event.short_description && <p className="mt-4 text-sm leading-6 text-content">{event.short_description}</p>}
+            {shortDesc && <p className="mt-4 text-sm leading-6 text-content">{shortDesc}</p>}
           </div>
         </div>
       </StaffPanel>
@@ -218,8 +224,8 @@ export function StaffEventDetailPage() {
               {report.ticket_types.map((type) => (
                 <div key={type.id} className="rounded-lg border border-border-soft/30 bg-panel-soft p-4">
                   <div className="flex items-center justify-between gap-3 text-sm">
-                    <span className="font-bold text-content">{type.name}</span>
-                    <span className="text-muted">{type.checked_in}/{type.total_valid} vé</span>
+                    <span className="font-bold text-content">{isEnglish ? (translatePhrase(type.name, 'en') || type.name) : type.name}</span>
+                    <span className="text-muted">{type.checked_in}/{type.total_valid} {isEnglish ? 'tickets' : 'vé'}</span>
                   </div>
                 </div>
               ))}

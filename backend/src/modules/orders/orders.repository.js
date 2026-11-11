@@ -856,6 +856,8 @@ class OrdersRepository {
         es.session_name,
         es.start_time AS session_start_time,
         es.end_time AS session_end_time,
+        es.direct_sale_start_time,
+        es.direct_sale_end_time,
         v.name AS venue_name,
         v.address_line,
         v.ward,
@@ -935,6 +937,8 @@ class OrdersRepository {
           session_name: row.session_name,
           start_time: row.session_start_time,
           end_time: row.session_end_time,
+          direct_sale_start_time: row.direct_sale_start_time,
+          direct_sale_end_time: row.direct_sale_end_time,
           venue: venueObj,
         });
       }
@@ -955,6 +959,26 @@ class OrdersRepository {
     }
 
     return [...events.values()];
+  }
+
+  async findSessionsDirectSaleTimesByTicketTypeIds(ticketTypeIds = []) {
+    if (!ticketTypeIds.length) return [];
+    const { rows } = await db.query(
+      `
+      SELECT DISTINCT
+        es.id,
+        es.session_name,
+        es.start_time,
+        es.end_time,
+        es.direct_sale_start_time,
+        es.direct_sale_end_time
+      FROM ticket_types tt
+      JOIN event_sessions es ON es.id = tt.event_session_id
+      WHERE tt.id = ANY($1::uuid[])
+      `,
+      [ticketTypeIds],
+    );
+    return rows;
   }
 
   /**
@@ -2328,7 +2352,7 @@ class OrdersRepository {
           )
           SELECT
             $1, $2, $3, $4,
-            $5, 'EVENT_CANCELLED', 'APPROVED', 'ORGANIZER_MANUAL',
+            $5, 'Sự kiện bị hủy', 'APPROVED', 'ORGANIZER_MANUAL',
             $6, $7, now() + interval '7 days',
             $8, $9, $10, $11,
             now(), now(), now()

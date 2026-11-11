@@ -4,7 +4,8 @@ import { Link } from 'react-router-dom'
 import { fetchStaffOverview } from '@/services/operations.js'
 import { Badge, StaffPage, StaffPanel } from './StaffComponents.jsx'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
-import { VI_TO_EN } from '@/i18n/phraseDictionary.js'
+import { VI_TO_EN, translatePhrase } from '@/i18n/phraseDictionary.js'
+import { cleanAndFormatVenue } from '@/i18n/eventTranslations.js'
 
 const numberFormatter = new Intl.NumberFormat('vi-VN')
 
@@ -161,21 +162,22 @@ function TodayEvent({ event, isEnglish = false }) {
   const remaining = Number(event.remaining || 0)
   const total = Number(event.total_valid || checkedIn + remaining)
   const progress = total > 0 ? Math.min(100, Math.round((checkedIn / total) * 100)) : 0
-  const venue = [event.venue_name, event.address_line, event.district, event.city].filter(Boolean).join(', ')
+  const eventTitle = isEnglish ? (translatePhrase(event.title, 'en') || event.title) : event.title
+  const venue = cleanAndFormatVenue(event, isEnglish)
   const imageSrc = event.banner_url || event.thumbnail_url
 
   return (
     <div className="grid gap-5 border-b border-border-soft/20 pb-5 last:border-b-0 last:pb-0 md:grid-cols-[180px_1fr]">
       <div className="grid h-32 place-items-center overflow-hidden rounded-xl bg-tertiary/15 text-primary">
         {imageSrc ? (
-          <img src={imageSrc} alt={event.title} className="h-full w-full object-cover" />
+          <img src={imageSrc} alt={eventTitle} className="h-full w-full object-cover" />
         ) : (
           <CalendarCheck className="size-12" />
         )}
       </div>
       <div>
         <div className="flex flex-wrap items-start justify-between gap-2">
-          <h4 className="font-extrabold text-primary">{event.title}</h4>
+          <h4 className="font-extrabold text-primary">{eventTitle}</h4>
           <div className="flex flex-wrap items-center gap-1.5">
             <Badge tone="green">{isEnglish ? 'Today' : 'Hôm nay'}</Badge>
             {(event.session_name || (event.assigned_sessions && event.assigned_sessions.length > 0)) && (

@@ -37,6 +37,11 @@ class EventsAdminRepository {
         fin_summary.paid_orders_count,
         fin_summary.total_paid_amount,
         fin_summary.issued_tickets_count,
+        venue_summary.venue_name,
+        venue_summary.address AS address,
+        venue_summary.city,
+        venue_summary.district,
+        venue_summary.venue,
         COALESCE(session_summary.items, '[]'::json) AS sessions,
         COALESCE(ticket_summary.items, '[]'::json) AS ticket_types,
         CASE
@@ -66,27 +71,79 @@ class EventsAdminRepository {
       ) org_sub ON true
       LEFT JOIN LATERAL (
         SELECT
-          COALESCE(COUNT(DISTINCT o_fin.id) FILTER (WHERE o_fin.status = 'PAID'), 0)::int AS paid_orders_count,
-          COALESCE(SUM(o_fin.total_amount) FILTER (WHERE o_fin.status = 'PAID'), 0)::numeric AS total_paid_amount,
-          COALESCE(COUNT(DISTINCT t_fin.id) FILTER (WHERE t_fin.status IN ('VALID', 'USED', 'REFUND_REQUESTED')), 0)::int AS issued_tickets_count
-        FROM event_sessions es_fin
-        LEFT JOIN ticket_types tt_fin ON tt_fin.event_session_id = es_fin.id
-        LEFT JOIN order_items oi_fin ON oi_fin.ticket_type_id = tt_fin.id
-        LEFT JOIN orders o_fin ON o_fin.id = oi_fin.order_id
-        LEFT JOIN tickets t_fin ON t_fin.ticket_type_id = tt_fin.id
-        WHERE es_fin.event_id = e.id
+          (
+            SELECT COALESCE(COUNT(DISTINCT o_fin.id) FILTER (WHERE o_fin.status = 'PAID'), 0)::int
+            FROM orders o_fin
+            WHERE o_fin.id IN (
+              SELECT oi_fin.order_id
+              FROM order_items oi_fin
+              JOIN ticket_types tt_fin ON tt_fin.id = oi_fin.ticket_type_id
+              JOIN event_sessions es_fin ON es_fin.id = tt_fin.event_session_id
+              WHERE es_fin.event_id = e.id
+            )
+          ) AS paid_orders_count,
+          (
+            SELECT COALESCE(SUM(o_fin.total_amount) FILTER (WHERE o_fin.status = 'PAID'), 0)::numeric
+            FROM orders o_fin
+            WHERE o_fin.id IN (
+              SELECT oi_fin.order_id
+              FROM order_items oi_fin
+              JOIN ticket_types tt_fin ON tt_fin.id = oi_fin.ticket_type_id
+              JOIN event_sessions es_fin ON es_fin.id = tt_fin.event_session_id
+              WHERE es_fin.event_id = e.id
+            )
+          ) AS total_paid_amount,
+          (
+            SELECT COALESCE(COUNT(DISTINCT t_fin.id) FILTER (WHERE t_fin.status IN ('VALID', 'USED', 'REFUND_REQUESTED')), 0)::int
+            FROM tickets t_fin
+            JOIN ticket_types tt_fin ON tt_fin.id = t_fin.ticket_type_id
+            JOIN event_sessions es_fin ON es_fin.id = tt_fin.event_session_id
+            WHERE es_fin.event_id = e.id
+          ) AS issued_tickets_count
       ) fin_summary ON true
+      LEFT JOIN LATERAL (
+        SELECT
+          v.name AS venue_name,
+          v.address_line AS address,
+          v.city,
+          v.district,
+          json_build_object(
+            'id', v.id,
+            'name', v.name,
+            'city', v.city,
+            'district', v.district,
+            'address_line', v.address_line
+          ) AS venue
+        FROM event_sessions es
+        JOIN venues v ON v.id = es.venue_id
+        WHERE es.event_id = e.id AND v.deleted_at IS NULL
+        ORDER BY es.start_time ASC
+        LIMIT 1
+      ) venue_summary ON true
       LEFT JOIN LATERAL (
         SELECT json_agg(
           json_build_object(
             'id', sess.id,
             'session_name', sess.session_name,
             'start_time', sess.start_time,
-            'end_time', sess.end_time
+            'end_time', sess.end_time,
+            'status', sess.status,
+            'venue_id', sess.venue_id,
+            'venue', CASE
+              WHEN v.id IS NOT NULL THEN json_build_object(
+                'id', v.id,
+                'name', v.name,
+                'city', v.city,
+                'district', v.district,
+                'address_line', v.address_line
+              )
+              ELSE NULL
+            END
           )
           ORDER BY sess.start_time ASC
         ) AS items
         FROM event_sessions sess
+        LEFT JOIN venues v ON v.id = sess.venue_id AND v.deleted_at IS NULL
         WHERE sess.event_id = e.id
       ) session_summary ON true
       LEFT JOIN LATERAL (
@@ -99,6 +156,7 @@ class EventsAdminRepository {
             'description', tt.description,
             'price', tt.price,
             'quantity', tt.quantity,
+            'sold_quantity', COALESCE(sold.sold_quantity, 0),
             'is_seated', tt.is_seated
           )
           ORDER BY tt.price ASC, tt.name ASC
@@ -118,6 +176,13 @@ class EventsAdminRepository {
           WHERE sess_inner.event_id = e.id
           ORDER BY tt_inner.event_session_id, tt_inner.name, tt_inner.price, tt_inner.is_seated, tt_inner.created_at DESC
         ) tt
+        LEFT JOIN LATERAL (
+          SELECT COALESCE(SUM(oi.quantity), 0)::int AS sold_quantity
+          FROM order_items oi
+          JOIN orders ord ON ord.id = oi.order_id
+          WHERE oi.ticket_type_id = tt.id
+            AND ord.status IN ('PAID', 'CONFIRMED')
+        ) sold ON true
       ) ticket_summary ON true
       WHERE e.id = $1
         AND e.deleted_at IS NULL

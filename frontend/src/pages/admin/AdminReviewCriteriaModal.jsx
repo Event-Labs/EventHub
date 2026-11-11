@@ -235,23 +235,23 @@ export function AdminReviewCriteriaModal({ isOpen, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-3 backdrop-blur-md animate-fadeIn">
-      <div className="relative flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-indigo-500/30 bg-[#0F172A] shadow-2xl shadow-indigo-950/80">
+      <div className="relative flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-indigo-500/30 bg-[#0F172A] shadow-2xl shadow-indigo-950/80 [html.light_&]:bg-white [html.light_&]:border-slate-200 [html.light_&]:text-[#0D1B2A] [html.light_&]:shadow-xl">
         {/* Modal Header */}
-        <div className="flex items-center justify-between border-b border-slate-800 bg-slate-900/90 px-6 py-4">
+        <div className="flex items-center justify-between border-b border-slate-800 bg-slate-900/90 px-6 py-4 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
           <div className="flex items-center gap-3">
             <div className="grid size-10 place-items-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-md shadow-indigo-500/30">
               <ShieldCheck className="size-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-display text-lg font-black text-white">
+                <h3 className="font-display text-lg font-black text-white [html.light_&]:text-[#0D1B2A]">
                   Cấu hình Điều khoản & Tiêu chí Duyệt Sự kiện AI
                 </h3>
-                <span className="rounded-full border border-indigo-500/40 bg-indigo-500/20 px-2.5 py-0.5 text-xs font-bold text-indigo-300">
+                <span className="rounded-full border border-indigo-500/40 bg-indigo-500/20 px-2.5 py-0.5 text-xs font-bold text-indigo-300 [html.light_&]:bg-indigo-50 [html.light_&]:text-indigo-700 [html.light_&]:border-indigo-200">
                   {activeCount} / {criteria.length} Đang áp dụng
                 </span>
               </div>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-400 [html.light_&]:text-slate-600">
                 Thêm, sửa, xóa tiêu chí kiểm duyệt. AI sẽ tự động đọc trực tiếp bộ điều khoản này mỗi khi thẩm định sự kiện.
               </p>
             </div>
@@ -268,7 +268,7 @@ export function AdminReviewCriteriaModal({ isOpen, onClose }) {
             <button
               type="button"
               onClick={onClose}
-              className="grid size-8 place-items-center rounded-lg text-slate-400 transition hover:bg-slate-800 hover:text-white"
+              className="grid size-8 place-items-center rounded-lg text-slate-400 transition hover:bg-slate-800 hover:text-white [html.light_&]:text-slate-500 [html.light_&]:hover:bg-slate-100 [html.light_&]:hover:text-slate-900"
             >
               <X className="size-5" />
             </button>
@@ -276,15 +276,15 @@ export function AdminReviewCriteriaModal({ isOpen, onClose }) {
         </div>
 
         {/* Real-time Notice */}
-        <div className="flex items-center gap-3 border-b border-indigo-500/20 bg-indigo-950/30 px-6 py-2.5 text-xs text-indigo-200">
-          <Sparkles className="size-4 shrink-0 text-indigo-400" />
+        <div className="flex items-center gap-3 border-b border-indigo-500/20 bg-indigo-950/30 px-6 py-2.5 text-xs text-indigo-200 [html.light_&]:bg-indigo-50 [html.light_&]:border-indigo-100 [html.light_&]:text-indigo-900">
+          <Sparkles className="size-4 shrink-0 text-indigo-400 [html.light_&]:text-indigo-600" />
           <p className="leading-relaxed">
             <strong>Cơ chế tự động nạp thời gian thực:</strong> Khi bạn thêm mới, sửa đổi hoặc bật/tắt bất kỳ điều khoản nào, hệ thống AI sẽ đọc trực tiếp dữ liệu mới nhất vào prompt khi quét sự kiện, đảm bảo quyết định luôn chuẩn xác theo quy định hiện hành.
           </p>
         </div>
 
         {/* Filter and Search Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 bg-slate-900/50 px-6 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 bg-slate-900/50 px-6 py-3 [html.light_&]:bg-slate-50/80 [html.light_&]:border-slate-200">
           <div className="flex flex-1 flex-wrap items-center gap-2.5">
             {/* Search Input */}
             <div className="relative min-w-[220px] max-w-sm flex-1">
@@ -294,7 +294,7 @@ export function AdminReviewCriteriaModal({ isOpen, onClose }) {
                 placeholder="Tìm mã, tiêu đề, nội dung điều khoản..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full rounded-xl border border-slate-800 bg-slate-950/80 py-1.5 pl-9 pr-3 text-xs text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="w-full rounded-xl border border-slate-800 bg-slate-950/80 py-1.5 pl-9 pr-3 text-xs text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 [html.light_&]:bg-white [html.light_&]:border-slate-300 [html.light_&]:text-[#0D1B2A] [html.light_&]:placeholder-slate-400"
               />
             </div>
 
@@ -302,7 +302,7 @@ export function AdminReviewCriteriaModal({ isOpen, onClose }) {
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="rounded-xl border border-slate-800 bg-slate-950/80 px-3 py-1.5 text-xs font-bold text-slate-300 focus:border-indigo-500 focus:outline-none"
+              className="rounded-xl border border-slate-800 bg-slate-950/80 px-3 py-1.5 text-xs font-bold text-slate-300 focus:border-indigo-500 focus:outline-none [html.light_&]:bg-white [html.light_&]:border-slate-300 [html.light_&]:text-[#0D1B2A]"
             >
               <option value="ALL">Tất cả nhóm tiêu chí</option>
               {Object.entries(CATEGORY_MAP).map(([key, item]) => (
@@ -313,7 +313,7 @@ export function AdminReviewCriteriaModal({ isOpen, onClose }) {
             </select>
 
             {/* Active Only Checkbox */}
-            <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-300 select-none">
+            <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-300 [html.light_&]:text-slate-700 select-none">
               <input
                 type="checkbox"
                 checked={showActiveOnly}
@@ -336,7 +336,7 @@ export function AdminReviewCriteriaModal({ isOpen, onClose }) {
                 action: () => resetMutation.mutate(),
               })
             }
-            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs font-bold text-slate-400 transition hover:border-amber-500/40 hover:bg-slate-800 hover:text-amber-300"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs font-bold text-slate-400 transition hover:border-amber-500/40 hover:bg-slate-800 hover:text-amber-300 [html.light_&]:bg-white [html.light_&]:border-slate-300 [html.light_&]:text-slate-700 [html.light_&]:hover:bg-slate-100"
           >
             <RotateCcw className="size-3.5" />
             <span>Khôi phục mặc định</span>

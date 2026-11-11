@@ -40,6 +40,8 @@ const EVENT_CARD_SELECT = `
   organizer.id AS organizer_id,
   COALESCE(organizer.organization_name, organizer_user.full_name) AS organizer_name,
   COALESCE(organizer.organization_avatar_url, organizer_user.avatar_url) AS organizer_avatar_url,
+  COALESCE(org_sub.priority_support, false) AS is_priority_support,
+  org_sub.plan_name AS organizer_plan_name,
   venue_summary.venue_name,
   venue_summary.city,
   venue_summary.district,
@@ -54,6 +56,20 @@ const EVENT_CARD_JOINS = `
   LEFT JOIN event_categories c ON c.id = e.category_id
   LEFT JOIN organizers organizer ON organizer.id = e.organizer_id
   LEFT JOIN users organizer_user ON organizer_user.id = organizer.user_id
+  LEFT JOIN LATERAL (
+    SELECT
+      s.name AS plan_name,
+      COALESCE(s.priority_support, false) AS priority_support
+    FROM organizer_subscriptions os
+    JOIN subscriptions s ON os.subscription_id = s.id
+    WHERE os.organizer_id = e.organizer_id
+      AND os.status = 'ACTIVE'
+      AND os.start_date <= now()
+      AND os.end_date >= now()
+      AND s.deleted_at IS NULL
+    ORDER BY s.priority_support DESC, os.start_date DESC
+    LIMIT 1
+  ) org_sub ON true
   LEFT JOIN LATERAL (
     SELECT MIN(es_time.start_time) AS start_time, MAX(es_time.end_time) AS end_time
     FROM event_sessions es_time
@@ -165,7 +181,10 @@ function buildListQuery(filters) {
     list: `
       SELECT ${EVENT_CARD_SELECT}
       ${fromClause}
-      ORDER BY ${sortColumn} ${sortDirection} NULLS LAST, e.id ASC
+      ORDER BY
+        COALESCE(org_sub.priority_support, false) DESC,
+        ${sortColumn} ${sortDirection} NULLS LAST,
+        e.id ASC
       LIMIT ${limitParam} OFFSET ${offsetParam}
     `,
     count: `SELECT COUNT(DISTINCT e.id)::int AS total ${fromClause}`,
@@ -255,6 +274,8 @@ class EventsRepository {
           'start_time', es.start_time,
           'end_time', es.end_time,
           'checkin_start_time', es.checkin_start_time,
+          'direct_sale_start_time', es.direct_sale_start_time,
+          'direct_sale_end_time', es.direct_sale_end_time,
           'status', es.status,
           'seat_map_id', es.seat_map_id,
           'has_seat_map', (es.seat_map_id IS NOT NULL),

@@ -20,6 +20,8 @@ const adminEventsRoutes = require('./modules/admin/events.routes');
 const adminAnalyticsRoutes = require('./modules/admin/analytics.routes');
 const adminOrganizerRoutes = require('./modules/admin/organizers.routes');
 const adminProfileRoutes = require('./modules/admin/profile.routes');
+const adminComplaintRoutes = require('./modules/admin/complaints.routes');
+const complaintRoutes = require('./modules/complaints/complaints.routes');
 const organizerRequestRoutes = require('./modules/organizer-requests/organizerRequests.routes');
 const feedbackRoutes = require('./modules/feedbacks/feedbacks.routes');
 const organizerFeedbackRoutes = require('./modules/organizer/feedbackReport.routes');
@@ -70,7 +72,9 @@ app.use('/api/admin/events', adminEventsRoutes);
 app.use('/api/admin/analytics', adminAnalyticsRoutes);
 app.use('/api/admin/organizers', adminOrganizerRoutes);
 app.use('/api/admin/profile', adminProfileRoutes);
+app.use('/api/admin/complaints', adminComplaintRoutes);
 
+app.use('/api/complaints', complaintRoutes);
 app.use('/api/organizer-requests', organizerRequestRoutes);
 app.use('/api/feedbacks', feedbackRoutes);
 app.use('/api/organizer/feedback', organizerFeedbackRoutes);

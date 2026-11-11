@@ -25,6 +25,7 @@ import { fetchAssignedStaffEvents } from '@/services/operations.js'
 import { Modal } from '@/components/Modal.jsx'
 import { StaffPage, StaffPanel } from './StaffComponents.jsx'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
+import { translatePhrase } from '@/i18n/phraseDictionary.js'
 
 const emptyManualForm = {
   eventId: '',
@@ -100,11 +101,16 @@ function playScanBeep() {
   }
 }
 
+const getAutoIsEnglish = () =>
+  (typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
+  (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en')
+
 function normalizeTicket(ticket) {
   if (!ticket) return null
+  const isEnglish = getAutoIsEnglish()
   const rawAttendee = ticket.raw_attendee_name || ticket.attendee_name || ticket.attendeeName || ''
   const buyerName = ticket.buyer_name || ticket.buyer?.name || ticket.order?.buyer_name || ticket.buyerName || ''
-  const attendeeName = rawAttendee || buyerName || 'Không rõ'
+  const attendeeName = rawAttendee || buyerName || (isEnglish ? 'Unknown' : 'Không rõ')
 
   const rawAttendeeEmail = ticket.raw_attendee_email || ticket.attendee_email || ticket.attendeeEmail || ''
   const buyerEmail = ticket.buyer_email || ticket.buyer?.email || ticket.order?.buyer_email || ticket.buyerEmail || ''
@@ -126,20 +132,20 @@ function normalizeTicket(ticket) {
   return {
     id: ticket.id,
     ticketCode: ticket.ticket_code || ticket.ticketCode,
-    eventName: ticket.event?.title || 'Không rõ sự kiện',
+    eventName: (isEnglish ? (translatePhrase(ticket.event?.title, 'en') || ticket.event?.title) : ticket.event?.title) || (isEnglish ? 'Unknown event' : 'Không rõ sự kiện'),
     attendeeName,
     buyerName: buyerName || attendeeName,
     isDifferentAttendee,
     isDifferentEmail,
-    displayPrimaryName: attendeeName || buyerName || 'Không rõ',
-    buyerEmail: buyerEmail || rawAttendeeEmail || 'Không rõ',
-    attendeeEmail: rawAttendeeEmail || (isDifferentAttendee ? 'Chưa cung cấp' : buyerEmail) || 'Không rõ',
+    displayPrimaryName: attendeeName || buyerName || (isEnglish ? 'Unknown' : 'Không rõ'),
+    buyerEmail: buyerEmail || rawAttendeeEmail || (isEnglish ? 'Unknown' : 'Không rõ'),
+    attendeeEmail: rawAttendeeEmail || (isDifferentAttendee ? (isEnglish ? 'Not provided' : 'Chưa cung cấp') : buyerEmail) || (isEnglish ? 'Unknown' : 'Không rõ'),
     buyerPhone,
-    ticketType: ticket.ticket_type?.name || 'Không rõ hạng vé',
+    ticketType: (isEnglish ? (translatePhrase(ticket.ticket_type?.name, 'en') || ticket.ticket_type?.name) : ticket.ticket_type?.name) || (isEnglish ? 'Unknown tier' : 'Không rõ hạng vé'),
     seat: ticket.seat?.label || null,
     status: ticket.status,
     checkedInAt: ticket.checked_in_at,
-    checkedInBy: ticket.checked_in_by?.name || ticket.checked_in_by?.email || 'Nhân sự hiện tại',
+    checkedInBy: ticket.checked_in_by?.name || ticket.checked_in_by?.email || (isEnglish ? 'Current staff' : 'Nhân sự hiện tại'),
   }
 }
 
@@ -443,7 +449,7 @@ export function StaffQrCheckInPage() {
                     key={event.id}
                     className="flex flex-wrap items-center gap-2 text-xs"
                   >
-                    <span className="font-bold text-content">{event.title}</span>
+                    <span className="font-bold text-content">{isEnglish ? (translatePhrase(event.title, 'en') || event.title) : event.title}</span>
                     <span className="rounded-md bg-primary/10 px-2 py-0.5 font-bold text-primary">
                       {event.staff_role || 'Nhân sự'}
                     </span>
@@ -787,7 +793,7 @@ function ManualSearchPanel({
             </option>
             {assignedEvents.map((event) => (
               <option key={event.id} value={event.id}>
-                {event.title}
+                {isEnglish ? (translatePhrase(event.title, 'en') || event.title) : event.title}
               </option>
             ))}
           </select>

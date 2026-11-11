@@ -24,6 +24,7 @@ import { AiEventContentGeneratorModal } from './AiEventContentGeneratorModal.jsx
 import { AiDocumentExtractorModal } from './AiDocumentExtractorModal.jsx'
 import { validateRefundRules, generateRefundPolicyLines, generateRefundPolicyText } from '@/utils/refundPolicy.js'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
+import { getCategoryName } from '@/i18n/categoryNames.js'
 
 const getAutoLocale = () =>
   ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
@@ -49,6 +50,32 @@ const STEP_LABELS_EN = [
 
 const STEP_LABELS = STEP_LABELS_VI
 
+export const DEFAULT_EVENT_DESCRIPTION_VI = `<p><strong>[Tóm tắt ngắn gọn về sự kiện:</strong> Nội dung chính của sự kiện, điểm đặc sắc nhất và lý do khiến người tham gia không nên bỏ lỡ]</p><br/><p><strong>Chi tiết sự kiện:</strong></p><ul><li>Chương trình chính: [Liệt kê những hoạt động nổi bật trong sự kiện: các phần trình diễn, khách mời đặc biệt, lịch trình các tiết mục cụ thể nếu có.]</li><li>Khách mời: [Thông tin về các khách mời đặc biệt, nghệ sĩ, diễn giả sẽ tham gia sự kiện. Có thể bao gồm phần mô tả ngắn gọn về họ và những gì họ sẽ mang lại cho sự kiện.]</li><li>Trải nghiệm đặc biệt: [Nếu có các hoạt động đặc biệt khác như workshop, khu trải nghiệm, photo booth, khu vực check-in hay các phần quà/ưu đãi dành riêng cho người tham dự.]</li></ul><br/><p><strong>[Chèn ảnh sơ đồ chỗ ngồi tại đây]</strong></p><br/><p><strong>Điều khoản và điều kiện:</strong></p><p>[TnC] sự kiện</p><p>Lưu ý về điều khoản trẻ em</p><p>Lưu ý về điều khoản VAT</p>`
+
+export const DEFAULT_EVENT_DESCRIPTION_EN = `<p><strong>[Brief Event Summary:</strong> Main event highlights, unique features, and reasons why attendees should not miss it]</p><br/><p><strong>Event Details:</strong></p><ul><li>Main Program: [List standout activities in the event: performances, special guests, specific program schedules if available.]</li><li>Special Guests: [Information about special guests, artists, and speakers participating in the event. Can include a brief introduction and what they bring to the event.]</li><li>Special Experiences: [Any other special activities such as workshops, experiential zones, photo booths, check-in areas, or exclusive attendee gifts/offers.]</li></ul><br/><p><strong>[Insert seat map image here]</strong></p><br/><p><strong>Terms & Conditions:</strong></p><p>[TnC] Event Terms</p><p>Children Policy Notes</p><p>VAT Policy Notes</p>`
+
+export const isDefaultViDescription = (html) => {
+  if (!html) return false
+  const text = String(html).toLowerCase().replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ')
+  return (
+    text.includes('tóm tắt ngắn gọn') ||
+    text.includes('chi tiết sự kiện') ||
+    text.includes('chèn ảnh sơ đồ chỗ ngồi') ||
+    text.includes('điều khoản và điều kiện')
+  )
+}
+
+export const isDefaultEnDescription = (html) => {
+  if (!html) return false
+  const text = String(html).toLowerCase().replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ')
+  return (
+    text.includes('brief event summary') ||
+    text.includes('event details') ||
+    text.includes('insert seat map image') ||
+    text.includes('terms & conditions')
+  )
+}
+
 const INITIAL_FORM = {
   title: '',
   category_id: '',
@@ -56,7 +83,7 @@ const INITIAL_FORM = {
   format: 'OFFLINE',
   visibility: 'PUBLIC',
   short_description: '',
-  description: `<p><strong>[Tóm tắt ngắn gọn về sự kiện:</strong> Nội dung chính của sự kiện, điểm đặc sắc nhất và lý do khiến người tham gia không nên bỏ lỡ]</p><br/><p><strong>Chi tiết sự kiện:</strong></p><ul><li>Chương trình chính: [Liệt kê những hoạt động nổi bật trong sự kiện: các phần trình diễn, khách mời đặc biệt, lịch trình các tiết mục cụ thể nếu có.]</li><li>Khách mời: [Thông tin về các khách mời đặc biệt, nghệ sĩ, diễn giả sẽ tham gia sự kiện. Có thể bao gồm phần mô tả ngắn gọn về họ và những gì họ sẽ mang lại cho sự kiện.]</li><li>Trải nghiệm đặc biệt: [Nếu có các hoạt động đặc biệt khác như workshop, khu trải nghiệm, photo booth, khu vực check-in hay các phần quà/ưu đãi dành riêng cho người tham dự.]</li></ul><br/><p><strong>[Chèn ảnh sơ đồ chỗ ngồi tại đây]</strong></p><br/><p><strong>Điều khoản và điều kiện:</strong></p><p>[TnC] sự kiện</p><p>Lưu ý về điều khoản trẻ em</p><p>Lưu ý về điều khoản VAT</p>`,
+  description: DEFAULT_EVENT_DESCRIPTION_VI,
   thumbnail_url: '',
   banner_url: '',
   sessions: [],
@@ -192,6 +219,21 @@ function calculateEventCompleteness(formData, isEnglish = false) {
       const cDateObj = new Date(`${cDate}T00:00:00`).getTime()
       const sDateObj = new Date(`${sDate}T00:00:00`).getTime()
       if (cDateObj < today.getTime() || cDateObj > sDateObj) return false
+    }
+    if (s.direct_sale_start_time || s.direct_sale_start_date || s.direct_sale_end_time || s.direct_sale_end_date) {
+      if ((s.direct_sale_start_time && !s.direct_sale_start_date) || (!s.direct_sale_start_time && s.direct_sale_start_date)) return false
+      if ((s.direct_sale_end_time && !s.direct_sale_end_date) || (!s.direct_sale_end_time && s.direct_sale_end_date)) return false
+      let dsStart = null
+      if (s.direct_sale_start_date && s.direct_sale_start_time) {
+        dsStart = new Date(`${s.direct_sale_start_date}T${s.direct_sale_start_time}`)
+        if (isNaN(dsStart.getTime())) return false
+      }
+      let dsEnd = null
+      if (s.direct_sale_end_date && s.direct_sale_end_time) {
+        dsEnd = new Date(`${s.direct_sale_end_date}T${s.direct_sale_end_time}`)
+        if (isNaN(dsEnd.getTime())) return false
+      }
+      if (dsStart && dsEnd && dsEnd <= dsStart) return false
     }
     return true
   })
@@ -447,9 +489,22 @@ function Step1EventInfo({
   uploadingThumb,
   uploadingBanner,
   completeness,
+  isEditMode = false,
 }) {
   const { isEnglish } = useLanguage()
   const [isAiModalOpen, setIsAiModalOpen] = useState(false)
+
+  const displayDescription = useMemo(() => {
+    if (isEditMode) return formData.description || ''
+    const cur = formData.description || ''
+    if (isEnglish && (isDefaultViDescription(cur) || !cur.trim() || cur === '<p><br></p>')) {
+      return DEFAULT_EVENT_DESCRIPTION_EN
+    }
+    if (!isEnglish && (isDefaultEnDescription(cur) || !cur.trim() || cur === '<p><br></p>')) {
+      return DEFAULT_EVENT_DESCRIPTION_VI
+    }
+    return cur
+  }, [formData.description, isEnglish, isEditMode])
 
   const addTag = () => {
     const tag = tagInput.trim()
@@ -475,7 +530,7 @@ function Step1EventInfo({
               </label>
               <input
                 className="w-full px-4 py-2.5 border border-border-soft/40 rounded-lg text-sm bg-panel-soft text-content focus:ring-2 focus:ring-secondary/30 focus:border-tertiary outline-none transition"
-                placeholder="Ví dụ: Hội nghị Công nghệ Toàn cầu 2024"
+                placeholder={isEnglish ? 'For example: Global Technology Conference 2024' : 'Ví dụ: Hội nghị Công nghệ Toàn cầu 2024'}
                 value={formData.title}
                 onChange={(e) => setFormData((p) => ({ ...p, title: e.target.value }))}
               />
@@ -483,16 +538,16 @@ function Step1EventInfo({
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-[13px] font-medium mb-2 text-subtle">
-                  Danh mục <span className="text-red-500 font-bold ml-0.5">*</span>
+                  {isEnglish ? 'Category' : 'Danh mục'} <span className="text-red-500 font-bold ml-0.5">*</span>
                 </label>
                 <select
                   className="w-full px-4 py-2.5 border border-border-soft/40 rounded-lg text-sm bg-panel-soft text-content focus:ring-2 focus:ring-secondary/30 outline-none"
                   value={formData.category_id}
                   onChange={(e) => setFormData((p) => ({ ...p, category_id: e.target.value }))}
                 >
-                  <option value="">Chọn danh mục</option>
+                  <option value="">{isEnglish ? 'Select category' : 'Chọn danh mục'}</option>
                   {categories.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
+                    <option key={c.id} value={c.id}>{getCategoryName(c, isEnglish)}</option>
                   ))}
                 </select>
               </div>
@@ -501,7 +556,7 @@ function Step1EventInfo({
                 <div className="relative">
                   <input
                     className="w-full px-4 py-2.5 border border-border-soft/40 rounded-lg text-sm bg-panel-soft text-content placeholder:text-muted focus:ring-2 focus:ring-secondary/30 focus:border-tertiary outline-none transition pr-14"
-                    placeholder="Nhập tag rồi nhấn Enter..."
+                    placeholder={isEnglish ? 'Enter tag then press Enter...' : 'Nhập tag rồi nhấn Enter...'}
                     value={tagInput}
                     onChange={(e) => setTagInput(e.target.value)}
                     onKeyDown={(e) => {
@@ -554,19 +609,19 @@ function Step1EventInfo({
         <section className="bg-surface border border-border-soft/30 rounded-xl p-6 shadow-[0_2px_16px_rgba(0,0,0,0.12)]">
           <h3 className="text-[20px] font-semibold mb-6 flex items-center gap-2 text-content">
             <Icon name="description" className="text-[#C99A47]" />
-            Mô tả
+            {isEnglish ? 'Description' : 'Mô tả'}
           </h3>
           <div className="space-y-6">
             <div>
               <div className="flex justify-between mb-2">
                 <label className="text-[13px] font-medium text-subtle">
-                  Mô tả ngắn <span className="text-red-500 font-bold ml-0.5">*</span>
+                  {isEnglish ? 'Short Description' : 'Mô tả ngắn'} <span className="text-red-500 font-bold ml-0.5">*</span>
                 </label>
                 <span className="text-xs text-muted">{formData.short_description.length} / 500</span>
               </div>
               <textarea
                 className="w-full px-4 py-2.5 border border-border-soft/40 rounded-lg text-sm bg-panel-soft text-content focus:ring-2 focus:ring-secondary/30 outline-none resize-none placeholder:text-muted"
-                placeholder="Tóm tắt ngắn gọn về sự kiện của bạn..."
+                placeholder={isEnglish ? 'Brief summary of your event...' : 'Tóm tắt ngắn gọn về sự kiện của bạn...'}
                 rows={3}
                 maxLength={500}
                 value={formData.short_description}
@@ -575,11 +630,13 @@ function Step1EventInfo({
             </div>
             <div>
               <label className="block text-[13px] font-medium mb-2 text-subtle">
-                Thông tin sự kiện <span className="text-red-500 font-bold ml-0.5">*</span>
+                {isEnglish ? 'Event Information' : 'Thông tin sự kiện'} <span className="text-red-500 font-bold ml-0.5">*</span>
               </label>
               <RichTextEditor
-                value={formData.description}
+                key={isEnglish ? 'desc-en' : 'desc-vi'}
+                value={displayDescription}
                 onChange={(val) => setFormData((p) => ({ ...p, description: val }))}
+                placeholder={isEnglish ? 'Enter detailed description for the event...' : 'Nhập mô tả chi tiết cho sự kiện...'}
               />
             </div>
           </div>
@@ -671,7 +728,7 @@ function Step1EventInfo({
                 {formData.title || (isEnglish ? 'Untitled event' : 'Sự kiện không tiêu đề')}
               </h4>
               <p className="text-xs text-muted mt-1 italic">
-                {categories.find((c) => c.id === formData.category_id)?.name || (isEnglish ? 'Category not selected' : 'Chưa chọn danh mục')}
+                {getCategoryName(categories.find((c) => c.id === formData.category_id), isEnglish) || (isEnglish ? 'Category not selected' : 'Chưa chọn danh mục')}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -712,6 +769,7 @@ function Step1EventInfo({
 
 
 function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
+  const { isEnglish } = useLanguage()
   const todayStr = useMemo(() => {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -774,6 +832,10 @@ function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
           venue_id: '',
           checkin_start_date: '',
           checkin_start_time: '',
+          direct_sale_start_date: '',
+          direct_sale_start_time: '',
+          direct_sale_end_date: '',
+          direct_sale_end_time: '',
           seat_map_id: null,
           seating_type: 'GENERAL',
           zone_assignments: [],
@@ -908,7 +970,7 @@ function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
                       <input
                         type="text"
                         value={session.session_name || ''}
-                        placeholder={`Phiên ${index + 1}`}
+                        placeholder={isEnglish ? `Session ${index + 1}` : `Phiên ${index + 1}`}
                         title={session.session_name || `Phiên ${index + 1}`}
                         onClick={(e) => e.stopPropagation()}
                         onChange={(e) => updateSession(key, 'session_name', e.target.value)}
@@ -1123,6 +1185,122 @@ function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
                           </select>
                         </div>
                       </div>
+
+                      {/* Thời gian cho phép bán vé trực tiếp (ngay dưới phần giờ check-in) */}
+                      <div className="mt-3.5 pt-3.5 border-t border-border-soft/20">
+                        <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                          <label className="text-xs text-content font-bold flex items-center gap-1.5">
+                            <Icon name="confirmation_number" className="text-sm text-[#C99A47]" />
+                            <span>{isEnglish ? 'Direct Ticket Sales Window (Optional)' : 'Thời gian cho phép bán vé trực tiếp (Tùy chọn)'}</span>
+                          </label>
+                          <span className="text-[11px] text-muted">
+                            {isEnglish
+                              ? 'Staff is only permitted to sell tickets directly during this active window'
+                              : 'Staff chỉ được phép bán vé trực tiếp tại quầy trong khung thời gian này'}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-start">
+                          {/* Bắt đầu bán trực tiếp */}
+                          <div>
+                            <span className="text-[11px] text-subtle block mb-1 font-medium">
+                              {isEnglish ? 'Direct sales open:' : 'Bắt đầu mở bán trực tiếp:'}
+                            </span>
+                            <div className="w-full h-9.5 px-3 rounded-lg border border-border-soft/40 bg-panel-soft flex items-center gap-2 focus-within:border-tertiary focus-within:ring-1 focus-within:ring-secondary/30 transition-all">
+                              <input
+                                type="time"
+                                className="no-picker-indicator w-24 shrink-0 bg-transparent border-0 outline-none text-content text-sm cursor-pointer font-medium"
+                                value={session.direct_sale_start_time || ''}
+                                onClick={(e) => {
+                                  try { e.target.showPicker?.() } catch (err) {}
+                                }}
+                                onChange={(e) => {
+                                  const t = e.target.value
+                                  updateSessionFields(key, {
+                                    direct_sale_start_time: t,
+                                    direct_sale_start_date: session.direct_sale_start_date || (t ? session.start_date || '' : ''),
+                                  })
+                                }}
+                                title="Giờ bắt đầu bán trực tiếp"
+                              />
+                              <input
+                                type="date"
+                                min={todayStr}
+                                className="flex-1 min-w-0 bg-transparent border-0 outline-none text-content text-sm cursor-pointer font-medium"
+                                value={session.direct_sale_start_date || ''}
+                                onClick={(e) => {
+                                  try { e.target.showPicker?.() } catch (err) {}
+                                }}
+                                onChange={(e) => {
+                                  const d = e.target.value
+                                  updateSessionFields(key, {
+                                    direct_sale_start_date: d,
+                                  })
+                                }}
+                                title="Ngày bắt đầu bán trực tiếp"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Kết thúc bán trực tiếp */}
+                          <div>
+                            <span className="text-[11px] text-subtle block mb-1 font-medium">
+                              {isEnglish ? 'Direct sales close:' : 'Kết thúc bán trực tiếp:'}
+                            </span>
+                            <div className="w-full h-9.5 px-3 rounded-lg border border-border-soft/40 bg-panel-soft flex items-center gap-2 focus-within:border-tertiary focus-within:ring-1 focus-within:ring-secondary/30 transition-all">
+                              <input
+                                type="time"
+                                className="no-picker-indicator w-24 shrink-0 bg-transparent border-0 outline-none text-content text-sm cursor-pointer font-medium"
+                                value={session.direct_sale_end_time || ''}
+                                onClick={(e) => {
+                                  try { e.target.showPicker?.() } catch (err) {}
+                                }}
+                                onChange={(e) => {
+                                  const t = e.target.value
+                                  updateSessionFields(key, {
+                                    direct_sale_end_time: t,
+                                    direct_sale_end_date: session.direct_sale_end_date || (t ? session.end_date || session.start_date || '' : ''),
+                                  })
+                                }}
+                                title="Giờ kết thúc bán trực tiếp"
+                              />
+                              <input
+                                type="date"
+                                min={session.direct_sale_start_date || todayStr}
+                                className="flex-1 min-w-0 bg-transparent border-0 outline-none text-content text-sm cursor-pointer font-medium"
+                                value={session.direct_sale_end_date || ''}
+                                onClick={(e) => {
+                                  try { e.target.showPicker?.() } catch (err) {}
+                                }}
+                                onChange={(e) => {
+                                  const d = e.target.value
+                                  updateSessionFields(key, {
+                                    direct_sale_end_date: d,
+                                  })
+                                }}
+                                title="Ngày kết thúc bán trực tiếp"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {session.direct_sale_start_date && session.direct_sale_end_date &&
+                         session.direct_sale_start_time && session.direct_sale_end_time &&
+                         new Date(`${session.direct_sale_end_date}T${session.direct_sale_end_time}`) <= new Date(`${session.direct_sale_start_date}T${session.direct_sale_start_time}`) && (
+                          <p className="mt-1 text-[11px] text-red-500 font-medium">
+                            {isEnglish
+                              ? 'Direct sales closing time must be after opening time.'
+                              : 'Thời gian kết thúc bán trực tiếp phải diễn ra sau thời gian bắt đầu.'}
+                          </p>
+                        )}
+                        {session.direct_sale_start_date && todayStr && session.direct_sale_start_date < todayStr && (
+                          <p className="mt-1 text-[11px] text-red-500 font-medium">
+                            {isEnglish
+                              ? 'Direct sales opening date cannot be in the past.'
+                              : 'Ngày bắt đầu bán trực tiếp không được ở trong quá khứ.'}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1234,6 +1412,7 @@ function getGroupedMapItems(seatMap) {
 }
 
 function TicketDescriptionModal({ isOpen, ticketName, initialDescription, onSave, onClose }) {
+  const { isEnglish } = useLanguage()
   const [desc, setDesc] = useState(initialDescription || '')
 
   useEffect(() => {
@@ -1257,7 +1436,7 @@ function TicketDescriptionModal({ isOpen, ticketName, initialDescription, onSave
             rows={4}
             value={desc}
             onChange={(e) => setDesc(e.target.value)}
-            placeholder="VD: Bao gồm nước ngọt + snack miễn phí, vị trí gần sân khấu..."
+            placeholder={isEnglish ? 'e.g.: Free drinks + snacks included, close to stage...' : 'VD: Bao gồm nước ngọt + snack miễn phí, vị trí gần sân khấu...'}
             className="w-full rounded-xl border border-border-soft/40 bg-panel-soft p-3 text-xs text-content outline-none focus:border-tertiary shadow-inner leading-relaxed"
             autoFocus
           />
@@ -1439,6 +1618,7 @@ function Step3TicketsSeats({
   isEditMode = false,
   eventId = '',
 }) {
+  const { isEnglish } = useLanguage()
   const toast = useToast()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState(0)
@@ -2303,7 +2483,7 @@ function Step3TicketsSeats({
                                       onChange={(e) => {
                                         ensureGroupTicket({ name: e.target.value })
                                       }}
-                                      placeholder="Tên loại vé..."
+                                      placeholder={isEnglish ? 'Ticket type name...' : 'Tên loại vé...'}
                                     />
                                   </div>
                                   <div>
@@ -2640,7 +2820,7 @@ function Step3TicketsSeats({
                             className="w-full px-3 py-2 rounded-xl border border-border-soft/50 bg-panel-soft text-content text-sm outline-none focus:border-[#C99A47] focus:ring-1 focus:ring-[#C99A47]/20 resize-none placeholder:text-muted"
                             value={tt.description || ''}
                             onChange={(e) => updateTicket(key, 'description', e.target.value)}
-                            placeholder="Nhập mô tả các đặc quyền: Vé vào cửa, đã gồm nước uống, quà tặng lưu niệm..."
+                            placeholder={isEnglish ? 'Enter description of perks: Entrance ticket, drinks included, souvenirs...' : 'Nhập mô tả các đặc quyền: Vé vào cửa, đã gồm nước uống, quà tặng lưu niệm...'}
                           />
 
                           {/* Gợi ý quyền lợi nhanh - Đặt dưới ô input theo yêu cầu */}
@@ -2751,6 +2931,7 @@ function Step3TicketsSeats({
 }
 
 function Step4PoliciesSettings({ formData, setFormData, completeness, editPermissions }) {
+  const { isEnglish } = useLanguage()
   const { refund_policy: rp } = formData
   const [uploadingPolicy, setUploadingPolicy] = useState(false)
   const [uploadingPermits, setUploadingPermits] = useState(false)
@@ -3229,7 +3410,7 @@ function Step4PoliciesSettings({ formData, setFormData, completeness, editPermis
             </label>
             <textarea
               className="w-full border border-border-soft/40 rounded-xl px-4 py-3 text-sm h-36 resize-none outline-none bg-panel-soft text-content placeholder:text-muted focus:border-tertiary focus:ring-1 focus:ring-tertiary transition"
-              placeholder="Nhập hoặc import các điều khoản, quy định độ tuổi, trang phục, hoặc hướng dẫn bổ sung cho người giữ vé..."
+              placeholder={isEnglish ? 'Enter or import additional terms, age limits, dress code, or guidelines for ticket holders...' : 'Nhập hoặc import các điều khoản, quy định độ tuổi, trang phục, hoặc hướng dẫn bổ sung cho người giữ vé...'}
               value={formData.additional_terms}
               onChange={(e) => setFormData((p) => ({ ...p, additional_terms: e.target.value }))}
             />
@@ -3372,7 +3553,7 @@ function Step4PoliciesSettings({ formData, setFormData, completeness, editPermis
                 </div>
                 <textarea
                   className="w-full border border-border-soft/40 rounded-xl px-3.5 py-2.5 text-xs h-20 resize-none outline-none bg-panel-soft text-content placeholder:text-muted focus:border-tertiary focus:ring-1 focus:ring-tertiary transition"
-                  placeholder="Ví dụ: Vé tặng, vé giảm giá đặc biệt không áp dụng hoàn tiền; tiền hoàn sẽ được xử lý trong vòng 3-5 ngày làm việc..."
+                  placeholder={isEnglish ? 'e.g.: Promotional tickets not eligible for refunds; refunds will be processed in 3-5 business days...' : 'Ví dụ: Vé tặng, vé giảm giá đặc biệt không áp dụng hoàn tiền; tiền hoàn sẽ được xử lý trong vòng 3-5 ngày làm việc...'}
                   value={refundNotes}
                   onChange={handleNotesChange}
                 />
@@ -3468,7 +3649,7 @@ function Step4PoliciesSettings({ formData, setFormData, completeness, editPermis
 
 function Step5ReviewSubmit({ formData, setFormData, categories, venues, completeness, onGoToStep }) {
   const { isEnglish } = useLanguage()
-  const categoryName = categories.find((c) => c.id === formData.category_id)?.name
+  const categoryName = getCategoryName(categories.find((c) => c.id === formData.category_id), isEnglish)
   const firstSession = formData.sessions[0]
   const defaultVenue = venues.find((v) => v.id === firstSession?.venue_id)
 
@@ -3637,6 +3818,21 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
                               ({session.checkin_start_date})
                             </span>
                           )}
+                        </span>
+                      </div>
+                    )}
+
+                    {session.direct_sale_start_time && (
+                      <div className="flex items-center gap-2 text-content">
+                        <Icon name="confirmation_number" className="text-base text-tertiary shrink-0" />
+                        <span className="truncate">
+                          {isEnglish ? 'Direct sales:' : 'Bán vé trực tiếp:'}{' '}
+                          <strong className="text-content font-bold">
+                            {session.direct_sale_start_time}
+                            {session.direct_sale_start_date ? ` (${session.direct_sale_start_date})` : ''}
+                            {session.direct_sale_end_time ? ` - ${session.direct_sale_end_time}` : ''}
+                            {session.direct_sale_end_date && session.direct_sale_end_date !== session.direct_sale_start_date ? ` (${session.direct_sale_end_date})` : ''}
+                          </strong>
                         </span>
                       </div>
                     )}
@@ -3998,7 +4194,16 @@ export function CreateEventPage() {
   const [currentStep, setCurrentStep] = useState(1)
   const [maxCompletedStep, setMaxCompletedStep] = useState(1)
   const [eventId, setEventId] = useState(routeEventId || null)
-  const [formData, setFormData] = useState(INITIAL_FORM)
+  const [formData, setFormData] = useState(() => {
+    const isEn = Boolean(
+      (typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
+      (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en')
+    )
+    return {
+      ...INITIAL_FORM,
+      description: isEn ? DEFAULT_EVENT_DESCRIPTION_EN : DEFAULT_EVENT_DESCRIPTION_VI,
+    }
+  })
   const [categories, setCategories] = useState([])
   const [venues, setVenues] = useState([])
   const [tagInput, setTagInput] = useState('')
@@ -4038,6 +4243,21 @@ export function CreateEventPage() {
       window.history.replaceState({}, document.title)
     }
   }, [location.state, toast])
+
+  // Synchronize event description template when language changes, as long as user hasn't customized it yet
+  useEffect(() => {
+    if (isEditMode) return
+    setFormData((prev) => {
+      const cur = prev.description || ''
+      if (isEnglish && (isDefaultViDescription(cur) || !cur.trim() || cur === '<p><br></p>')) {
+        return { ...prev, description: DEFAULT_EVENT_DESCRIPTION_EN }
+      }
+      if (!isEnglish && (isDefaultEnDescription(cur) || !cur.trim() || cur === '<p><br></p>')) {
+        return { ...prev, description: DEFAULT_EVENT_DESCRIPTION_VI }
+      }
+      return prev
+    })
+  }, [isEnglish, isEditMode])
   const completeness = useMemo(() => calculateEventCompleteness(formData, isEnglish), [formData, isEnglish])
   const pageTopRef = useRef(null)
 
@@ -4102,6 +4322,8 @@ export function CreateEventPage() {
       const start = splitDateTime(s.start_time)
       const end = splitDateTime(s.end_time)
       const checkin = splitDateTime(s.checkin_start_time)
+      const dsStart = splitDateTime(s.direct_sale_start_time)
+      const dsEnd = splitDateTime(s.direct_sale_end_time)
       const sessionDate = start.date || end.date || ''
       return {
         id: s.id,
@@ -4118,6 +4340,10 @@ export function CreateEventPage() {
         disabled_seat_ids: s.disabled_seat_ids || [],
         checkin_start_date: checkin.date || sessionDate,
         checkin_start_time: checkin.time || '',
+        direct_sale_start_date: dsStart.date || '',
+        direct_sale_start_time: dsStart.time || '',
+        direct_sale_end_date: dsEnd.date || '',
+        direct_sale_end_time: dsEnd.time || '',
       }
     })
 
@@ -4372,6 +4598,36 @@ export function CreateEventPage() {
             return `${sName}: Thời gian check-in (${s.checkin_start_time} ngày ${s.checkin_start_date}) phải trước hoặc bằng giờ bắt đầu sự kiện (${s.start_time} ngày ${s.start_date}).`
           }
         }
+
+        if (s.direct_sale_start_time || s.direct_sale_start_date || s.direct_sale_end_time || s.direct_sale_end_date) {
+          if ((s.direct_sale_start_time && !s.direct_sale_start_date) || (!s.direct_sale_start_time && s.direct_sale_start_date)) {
+            return `${sName}: Vui lòng nhập đầy đủ cả ngày và giờ bắt đầu bán vé trực tiếp.`
+          }
+          if ((s.direct_sale_end_time && !s.direct_sale_end_date) || (!s.direct_sale_end_time && s.direct_sale_end_date)) {
+            return `${sName}: Vui lòng nhập đầy đủ cả ngày và giờ kết thúc bán vé trực tiếp.`
+          }
+
+          let dsStartTime = null
+          let dsEndTime = null
+
+          if (s.direct_sale_start_date && s.direct_sale_start_time) {
+            dsStartTime = new Date(`${s.direct_sale_start_date}T${s.direct_sale_start_time}`)
+            if (isNaN(dsStartTime.getTime())) {
+              return `${sName}: Thời gian bắt đầu bán vé trực tiếp không hợp lệ.`
+            }
+          }
+
+          if (s.direct_sale_end_date && s.direct_sale_end_time) {
+            dsEndTime = new Date(`${s.direct_sale_end_date}T${s.direct_sale_end_time}`)
+            if (isNaN(dsEndTime.getTime())) {
+              return `${sName}: Thời gian kết thúc bán vé trực tiếp không hợp lệ.`
+            }
+          }
+
+          if (dsStartTime && dsEndTime && dsEndTime <= dsStartTime) {
+            return `${sName}: Thời gian kết thúc bán vé trực tiếp phải diễn ra sau thời gian bắt đầu.`
+          }
+        }
       }
 
       // Check session overlap
@@ -4398,27 +4654,28 @@ export function CreateEventPage() {
       }
     }
     if (step === 3) {
-      if (!formData.sessions.length) return 'Cần có ít nhất 1 phiên sự kiện ở Bước 2.'
+      if (!formData.sessions.length) return isEnglish ? 'At least 1 event session is required in Step 2.' : 'Cần có ít nhất 1 phiên sự kiện ở Bước 2.'
       for (let i = 0; i < formData.sessions.length; i++) {
         const s = formData.sessions[i]
         const key = s.id || s.clientKey
-        const sName = s.session_name?.trim() || `Phiên ${i + 1}`
+        const sName = s.session_name?.trim() || (isEnglish ? `Session ${i + 1}` : `Phiên ${i + 1}`)
         const seatingType = s.seating_type || 'GENERAL'
         if (seatingType === 'ASSIGNED') {
           if (!s.seat_map_id) {
-            return `${sName} được thiết lập có chỗ ngồi nhưng chưa chọn sơ đồ ghế.`
+            return isEnglish ? `${sName} is set to assigned seating but no seat map is selected.` : `${sName} được thiết lập có chỗ ngồi nhưng chưa chọn sơ đồ ghế.`
           }
         }
         const tickets = formData.ticketTypes.filter((tt) => String(tt.session_key) === String(key))
-        if (!tickets.length) return `${sName} cần ít nhất 1 loại vé.`
+        if (!tickets.length) return isEnglish ? `${sName} requires at least 1 ticket tier.` : `${sName} cần ít nhất 1 loại vé.`
         for (const tt of tickets) {
-          if (!tt.name?.trim()) return `${sName}: Tên loại vé không được để trống.`
+          const tierLabel = tt.name || (isEnglish ? 'ticket tier' : 'loại vé')
+          if (!tt.name?.trim()) return isEnglish ? `${sName}: Ticket tier name cannot be empty.` : `${sName}: Tên loại vé không được để trống.`
           if (tt.price === '' || tt.price === null || tt.price === undefined || isNaN(Number(tt.price))) {
-            return `${sName}: Giá vé "${tt.name || 'loại vé'}" không được để trống.`
+            return isEnglish ? `${sName}: Price for "${tierLabel}" cannot be empty.` : `${sName}: Giá vé "${tierLabel}" không được để trống.`
           }
-          if (Number(tt.price) < 0) return `${sName}: Giá vé "${tt.name || 'loại vé'}" phải >= 0.`
+          if (Number(tt.price) < 0) return isEnglish ? `${sName}: Price for "${tierLabel}" must be >= 0.` : `${sName}: Giá vé "${tierLabel}" phải >= 0.`
           if (!tt.quantity || isNaN(Number(tt.quantity)) || Number(tt.quantity) <= 0) {
-            return `${sName}: Số lượng vé "${tt.name || 'loại vé'}" phải > 0.`
+            return isEnglish ? `${sName}: Quantity for "${tierLabel}" must be > 0.` : `${sName}: Số lượng vé "${tierLabel}" phải > 0.`
           }
         }
       }
@@ -4427,12 +4684,12 @@ export function CreateEventPage() {
       if (formData.refund_policy?.allow_refund) {
         const validation = validateRefundRules(formData.refund_policy.refund_rules)
         if (!validation.valid) {
-          return validation.error || 'Quy tắc hoàn vé không hợp lệ.'
+          return validation.error || (isEnglish ? 'Invalid refund rules.' : 'Quy tắc hoàn vé không hợp lệ.')
         }
       }
       const permitFiles = formData.refund_policy?.permit_files || []
       if (!permitFiles.length) {
-        return 'Vui lòng tải lên ít nhất 1 giấy phép tổ chức hoặc giấy tờ liên quan ở Bước 4.'
+        return isEnglish ? 'Please upload at least 1 permit or related document in Step 4.' : 'Vui lòng tải lên ít nhất 1 giấy phép tổ chức hoặc giấy tờ liên quan ở Bước 4.'
       }
     }
     return ''
@@ -4454,6 +4711,8 @@ export function CreateEventPage() {
       venue_id: s.venue_id,
       seat_map_id: s.seating_type === 'ASSIGNED' ? s.seat_map_id : null,
       checkin_start_time: (s.checkin_start_time && (s.checkin_start_date || s.start_date)) ? combineDateTime(s.checkin_start_date || s.start_date, s.checkin_start_time) : null,
+      direct_sale_start_time: (s.direct_sale_start_time && (s.direct_sale_start_date || s.start_date)) ? combineDateTime(s.direct_sale_start_date || s.start_date, s.direct_sale_start_time) : null,
+      direct_sale_end_time: (s.direct_sale_end_time && (s.direct_sale_end_date || s.end_date || s.start_date)) ? combineDateTime(s.direct_sale_end_date || s.end_date || s.start_date, s.direct_sale_end_time) : null,
     }))
 
   const buildTicketTypesPayload = () => {
@@ -4685,6 +4944,8 @@ export function CreateEventPage() {
           const start = splitDateTime(s.start_time)
           const end = splitDateTime(s.end_time)
           const checkin = splitDateTime(s.checkin_start_time)
+          const dsStart = splitDateTime(s.direct_sale_start_time)
+          const dsEnd = splitDateTime(s.direct_sale_end_time)
           const old = formData.sessions.find(
             (os) => (os.id && String(os.id) === String(s.id)) || (os.session_name === s.session_name && String(os.venue_id) === String(s.venue_id)),
           ) || formData.sessions[idx]
@@ -4702,6 +4963,10 @@ export function CreateEventPage() {
             zone_assignments: old?.zone_assignments || [],
             checkin_start_date: checkin.date || old?.checkin_start_date || start.date,
             checkin_start_time: checkin.time || old?.checkin_start_time || '',
+            direct_sale_start_date: dsStart.date || old?.direct_sale_start_date || '',
+            direct_sale_start_time: dsStart.time || old?.direct_sale_start_time || '',
+            direct_sale_end_date: dsEnd.date || old?.direct_sale_end_date || '',
+            direct_sale_end_time: dsEnd.time || old?.direct_sale_end_time || '',
           }
         })
         setFormData((p) => {
@@ -5129,6 +5394,7 @@ export function CreateEventPage() {
               uploadingThumb={uploadingThumb}
               uploadingBanner={uploadingBanner}
               completeness={completeness}
+              isEditMode={isEditMode}
             />
           )}
           {currentStep === 2 && (

@@ -10,6 +10,8 @@ import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { QRCodeImage } from '@/components/QRCodeImage.jsx'
 import logoSrc from '@/assets/eventhub-logo.png'
+import { translatePhrase } from '@/i18n/phraseDictionary.js'
+import { cleanAndFormatVenue } from '@/i18n/eventTranslations.js'
 
 const PAYMENT_METHODS = [
   { value: 'cash', label: 'Tiền mặt' },
@@ -41,6 +43,13 @@ function formatPrice(value) {
 
 function formatAmount(value) {
   return `${Number(value || 0).toLocaleString('vi-VN')} đ`
+}
+
+function formatMoneyInput(value) {
+  if (value === '' || value === null || value === undefined) return ''
+  const digits = String(value).replace(/\D/g, '').slice(0, 12)
+  if (!digits) return ''
+  return Number(digits).toLocaleString('vi-VN')
 }
 
 function getCashSuggestions(total) {
@@ -95,10 +104,7 @@ function formatDateTime(value) {
 
 function venueLine(venue) {
   const isEn = getAutoLocale() === 'en-US'
-  const fallback = isEn ? 'Venue will be updated' : 'Địa điểm cập nhật sau'
-  if (!venue) return fallback
-  if (typeof venue === 'string') return venue
-  return [venue.name, venue.address_line, venue.ward, venue.district, venue.city].filter(Boolean).join(', ') || fallback
+  return cleanAndFormatVenue(venue, isEn)
 }
 
 function qrPayload(ticket) {
@@ -463,7 +469,47 @@ export function StaffDirectBookingPage() {
   const phoneIsValid = /^(0|\+84)(3|5|7|8|9)[0-9]{8}$/.test(buyer.phone.trim())
   const phoneError = buyer.phone.trim() && !phoneIsValid ? 'Số điện thoại không đúng định dạng.' : ''
   const emailError = buyer.email.trim() && !emailIsValid ? 'Email không đúng định dạng.' : ''
-  const canReview = selectedEvent && buyer.name.trim().length >= 2 && phoneIsValid && emailIsValid && selectedItems.length > 0
+
+  const directSaleStatus = useMemo(() => {
+    if (!selectedSession) return { allowed: true }
+    const now = Date.now()
+    if (selectedSession.direct_sale_start_time) {
+      const startTime = new Date(selectedSession.direct_sale_start_time).getTime()
+      if (now < startTime) {
+        return {
+          allowed: false,
+          reason: 'NOT_STARTED',
+          message: `Chưa đến thời gian cho phép bán vé trực tiếp cho suất diễn này (Mở bán: ${formatDateTime(selectedSession.direct_sale_start_time)})`,
+          start: selectedSession.direct_sale_start_time,
+          end: selectedSession.direct_sale_end_time,
+        }
+      }
+    }
+    if (selectedSession.direct_sale_end_time) {
+      const endTime = new Date(selectedSession.direct_sale_end_time).getTime()
+      if (now > endTime) {
+        return {
+          allowed: false,
+          reason: 'ENDED',
+          message: `Thời gian cho phép bán vé trực tiếp cho suất diễn này đã kết thúc (Đóng lúc: ${formatDateTime(selectedSession.direct_sale_end_time)})`,
+          start: selectedSession.direct_sale_start_time,
+          end: selectedSession.direct_sale_end_time,
+        }
+      }
+    }
+    if (selectedSession.direct_sale_start_time || selectedSession.direct_sale_end_time) {
+      return {
+        allowed: true,
+        reason: 'ACTIVE',
+        message: 'Đang trong khung giờ cho phép bán vé trực tiếp',
+        start: selectedSession.direct_sale_start_time,
+        end: selectedSession.direct_sale_end_time,
+      }
+    }
+    return { allowed: true, reason: 'DEFAULT' }
+  }, [selectedSession])
+
+  const canReview = selectedEvent && directSaleStatus.allowed && buyer.name.trim().length >= 2 && phoneIsValid && emailIsValid && selectedItems.length > 0
   const canSubmit = canReview && cashIsEnough
 
   function updateQuantity(ticketType, nextValue) {
@@ -623,7 +669,7 @@ export function StaffDirectBookingPage() {
                     value={query}
                     onChange={(event) => setQuery(event.target.value)}
                     placeholder="Tìm sự kiện"
-                    className="h-11 w-full rounded-full border border-sky-900/60 bg-[#0d172e] pl-10 pr-4 text-sm font-normal text-white outline-none transition focus:border-violet-400 placeholder:text-white/50"
+                    className="h-11 w-full rounded-full border border-sky-900/60 bg-[#0d172e] pl-10 pr-4 text-sm font-normal text-white outline-none transition focus:border-[#C99A47] placeholder:text-white/50"
                   />
                 </div>
               </div>
@@ -658,14 +704,14 @@ export function StaffDirectBookingPage() {
                         setQuantities({})
                         setStandingTicketType(null)
                       }}
-                      className={`flex min-h-40 items-stretch gap-4 overflow-hidden rounded-lg border p-2 text-left transition sm:gap-5 sm:p-3 ${active ? 'border-violet-500 bg-violet-500/[0.06] shadow-[0_0_0_1px_rgba(139,92,246,0.2)]' : 'border-sky-900/50 bg-sky-950/25 hover:border-violet-400/70'
+                      className={`flex min-h-40 items-stretch gap-4 overflow-hidden rounded-lg border p-2 text-left transition sm:gap-5 sm:p-3 ${active ? 'border-[#C99A47] bg-[#C99A47]/[0.08] shadow-[0_0_12px_rgba(201,154,71,0.25)]' : 'border-sky-900/50 bg-sky-950/25 hover:border-[#C99A47]/70'
                         }`}
                     >
                       <div className="h-32 w-40 shrink-0 overflow-hidden rounded-md bg-surface sm:h-36 sm:w-56">
                         {image ? <img src={image} alt="" className="h-full w-full object-cover" /> : <div className="h-full w-full bg-sky-950" />}
                       </div>
                       <div className="flex min-w-0 flex-1 flex-col justify-center py-2 pr-2">
-                        <h3 className="line-clamp-2 break-words font-display text-lg font-black leading-6 text-content">{event.title}</h3>
+                        <h3 className="line-clamp-2 break-words font-display text-lg font-black leading-6 text-content">{getAutoLocale() === 'en-US' ? (translatePhrase(event.title, 'en') || event.title) : event.title}</h3>
                         <p className="mt-3 flex items-center gap-2 text-xs text-subtle"><CalendarDays className="size-3.5" />{formatDateTime(event.start_time)}</p>
                         <p className="mt-2 flex items-center gap-2 text-xs text-subtle"><MapPin className="size-3.5 shrink-0" /><span className="truncate">{venueLine(event.venue || event.sessions?.[0]?.venue)}</span></p>
                         <div className="mt-3 flex flex-wrap gap-2">
@@ -717,67 +763,96 @@ export function StaffDirectBookingPage() {
                         }}
                         className="mt-2 h-11 w-full rounded-md border border-border-soft/50 bg-panel-soft px-3 text-sm font-bold text-content outline-none focus:border-primary"
                       >
-                        {selectedEvent.sessions.map((session) => (
-                          <option key={session.id} value={session.id}>
-                            {session.session_name || formatDateTime(session.start_time)}
-                          </option>
-                        ))}
+                        {selectedEvent.sessions.map((session) => {
+                          let label = session.session_name || formatDateTime(session.start_time)
+                          if (session.direct_sale_start_time) {
+                            const now = Date.now()
+                            const isFuture = new Date(session.direct_sale_start_time).getTime() > now
+                            const isPast = session.direct_sale_end_time && new Date(session.direct_sale_end_time).getTime() < now
+                            if (isFuture) label += ' (Chưa mở bán trực tiếp)'
+                            else if (isPast) label += ' (Đã hết giờ bán trực tiếp)'
+                          }
+                          return (
+                            <option key={session.id} value={session.id}>
+                              {label}
+                            </option>
+                          )
+                        })}
                       </select>
                     </label>
                   )}
 
-                  {hasInteractiveSeatMap && (
-                    <div className="rounded-lg border border-sky-900/50 bg-sky-950/20 p-4">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div>
-                          <h3 className="font-bold text-content">Sơ đồ chọn vé</h3>
-                          <p className="mt-1 text-sm text-subtle">Bấm vào ghế hoặc khu vực đứng để chọn vé cho khách.</p>
-                        </div>
-                        <Badge tone="blue">Đã chọn {selectedSeatIds.length} ghế</Badge>
+                  {!directSaleStatus.allowed ? (
+                    <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-5 text-amber-200 space-y-2">
+                      <div className="flex items-center gap-2.5 font-bold text-amber-300 text-sm">
+                        <Info className="size-5 shrink-0 text-amber-400" />
+                        <span>{directSaleStatus.message}</span>
                       </div>
-                      {seatsQuery.isLoading && (
-                        <div className="mt-4 flex items-center gap-2 text-sm text-subtle">
-                          <Loader2 className="size-4 animate-spin" />
-                          Đang tải sơ đồ ghế...
-                        </div>
-                      )}
-                      {seatsQuery.isError && (
-                        <p className="mt-4 rounded-md border border-error/30 bg-error/10 px-4 py-3 text-sm font-semibold text-error">
-                          Không thể tải sơ đồ ghế.
-                        </p>
-                      )}
-                      <div className="mt-4 overflow-auto rounded-lg border border-sky-900/50 bg-slate-950/25 p-4">
-                        <SeatMapCanvas
-                          seats={seatsQuery.data?.seats || []}
-                          ticketTypes={currentTicketTypes}
-                          selectedSeatIds={selectedSeatIds}
-                          seatMap={seatsQuery.data?.seat_map}
-                          onSelectStandingArea={(area, index) => {
-                            const ticketType = unseatedTicketTypes.find(
-                              (type) => type.name?.trim().toLowerCase() === area.name?.trim().toLowerCase(),
-                            ) || unseatedTicketTypes[index]
-                            if (ticketType) setStandingTicketType(ticketType)
-                          }}
-                          onToggleSeat={(seat) => {
-                            setSelectedSeatIds((current) =>
-                              current.includes(seat)
-                                ? current.filter((item) => item !== seat)
-                                : [...current, seat],
-                            )
-                          }}
-                        />
-                      </div>
+                      <p className="text-xs text-amber-100/80 leading-relaxed pl-7">
+                        Ban tổ chức đã thiết lập giới hạn thời gian cho phép bán vé trực tiếp cho suất diễn này. Nhân sự (Staff) chỉ được phép xuất vé khi đến đúng khung giờ quy định.
+                      </p>
                     </div>
-                  )}
+                  ) : (
+                    <>
+                      {directSaleStatus.reason === 'ACTIVE' && (
+                        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-2.5 text-xs text-emerald-300 flex items-center gap-2">
+                          <ShieldCheck className="size-4 shrink-0 text-emerald-400" />
+                          <span>{directSaleStatus.message}</span>
+                        </div>
+                      )}
+
+                      {hasInteractiveSeatMap && (
+                        <div className="rounded-lg border border-sky-900/50 bg-sky-950/20 p-4">
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                              <h3 className="font-bold text-content">Sơ đồ chọn vé</h3>
+                              <p className="mt-1 text-sm text-subtle">Bấm vào ghế hoặc khu vực đứng để chọn vé cho khách.</p>
+                            </div>
+                            <Badge tone="blue">Đã chọn {selectedSeatIds.length} ghế</Badge>
+                          </div>
+                          {seatsQuery.isLoading && (
+                            <div className="mt-4 flex items-center gap-2 text-sm text-subtle">
+                              <Loader2 className="size-4 animate-spin" />
+                              Đang tải sơ đồ ghế...
+                            </div>
+                          )}
+                          {seatsQuery.isError && (
+                            <p className="mt-4 rounded-md border border-error/30 bg-error/10 px-4 py-3 text-sm font-semibold text-error">
+                              Không thể tải sơ đồ ghế.
+                            </p>
+                          )}
+                          <div className="mt-4 overflow-auto rounded-lg border border-sky-900/50 bg-slate-950/25 p-4">
+                            <SeatMapCanvas
+                              seats={seatsQuery.data?.seats || []}
+                              ticketTypes={currentTicketTypes}
+                              selectedSeatIds={selectedSeatIds}
+                              seatMap={seatsQuery.data?.seat_map}
+                              onSelectStandingArea={(area, index) => {
+                                const ticketType = unseatedTicketTypes.find(
+                                  (type) => type.name?.trim().toLowerCase() === area.name?.trim().toLowerCase(),
+                                ) || unseatedTicketTypes[index]
+                                if (ticketType) setStandingTicketType(ticketType)
+                              }}
+                              onToggleSeat={(seat) => {
+                                setSelectedSeatIds((current) =>
+                                  current.includes(seat)
+                                    ? current.filter((item) => item !== seat)
+                                    : [...current, seat],
+                                )
+                              }}
+                            />
+                          </div>
+                        </div>
+                      )}
 
                   {currentTicketTypes.map((ticketType) => (
                     <div key={ticketType.id} className={`grid gap-3 rounded-lg border p-4 transition md:grid-cols-[minmax(0,1fr)_160px] md:items-center ${selectedItems.some((item) => item.ticketType.id === ticketType.id)
-                      ? 'border-violet-500 bg-violet-500/[0.06]'
-                      : 'border-sky-900/50 bg-sky-950/25 hover:border-violet-400/60'
+                      ? 'border-[#C99A47] bg-[#C99A47]/[0.08]'
+                      : 'border-sky-900/50 bg-sky-950/25 hover:border-[#C99A47]/60'
                       }`}>
                       <div className="flex items-start gap-3">
-                        <span className={`mt-1 grid size-5 shrink-0 place-items-center rounded-full border ${selectedItems.some((item) => item.ticketType.id === ticketType.id) ? 'border-violet-400 bg-violet-500/20 text-violet-300' : 'border-slate-500 text-transparent'
-                          }`}><span className="size-2 rounded-full bg-violet-400" /></span>
+                        <span className={`mt-1 grid size-5 shrink-0 place-items-center rounded-full border ${selectedItems.some((item) => item.ticketType.id === ticketType.id) ? 'border-[#C99A47] bg-[#C99A47]/20 text-[#E6C17A]' : 'border-slate-500 text-transparent'
+                          }`}><span className="size-2 rounded-full bg-[#C99A47]" /></span>
                         <div>
                           <h3 className="font-bold text-content">{ticketType.name}</h3>
                           <p className="mt-1 text-sm text-subtle">
@@ -786,7 +861,7 @@ export function StaffDirectBookingPage() {
                         </div>
                       </div>
                       {ticketType.is_seated ? (
-                        <span className="rounded-lg border border-violet-400/40 bg-violet-500/10 px-3 py-2 text-center text-sm font-bold text-violet-200">
+                        <span className="rounded-lg border border-[#C99A47]/40 bg-[#C99A47]/15 px-3 py-2 text-center text-sm font-bold text-[#E6C17A]">
                           {selectedItems.find((item) => item.ticketType.id === ticketType.id)?.quantity || 0} ghế
                         </span>
                       ) : (
@@ -795,7 +870,7 @@ export function StaffDirectBookingPage() {
                             type="button"
                             disabled={Number(quantities[ticketType.id] || 0) <= 0}
                             onClick={() => updateQuantity(ticketType, Number(quantities[ticketType.id] || 0) - 1)}
-                            className="grid size-9 place-items-center rounded-full border border-sky-700/80 bg-sky-950/60 text-white transition hover:border-violet-400 hover:bg-sky-900/60 disabled:cursor-not-allowed disabled:opacity-30 cursor-pointer"
+                            className="grid size-9 place-items-center rounded-full border border-sky-700/80 bg-sky-950/60 text-white transition hover:border-[#C99A47] hover:bg-sky-900/60 disabled:cursor-not-allowed disabled:opacity-30 cursor-pointer"
                             aria-label="Giảm vé"
                           >
                             <Minus className="size-4" />
@@ -807,7 +882,7 @@ export function StaffDirectBookingPage() {
                             type="button"
                             disabled={Number(quantities[ticketType.id] || 0) >= Math.min(Number(ticketType.available_quantity ?? 99999), Number(ticketType.max_per_order || 20), 20)}
                             onClick={() => updateQuantity(ticketType, Number(quantities[ticketType.id] || 0) + 1)}
-                            className="grid size-9 place-items-center rounded-full border border-sky-700/80 bg-sky-950/60 text-white transition hover:border-violet-400 hover:bg-sky-900/60 disabled:cursor-not-allowed disabled:opacity-30 cursor-pointer"
+                            className="grid size-9 place-items-center rounded-full border border-sky-700/80 bg-sky-950/60 text-white transition hover:border-[#C99A47] hover:bg-sky-900/60 disabled:cursor-not-allowed disabled:opacity-30 cursor-pointer"
                             aria-label="Tăng vé"
                           >
                             <Plus className="size-4" />
@@ -816,6 +891,8 @@ export function StaffDirectBookingPage() {
                       )}
                     </div>
                   ))}
+                    </>
+                  )}
 
                 </div>
               )}
@@ -843,7 +920,7 @@ export function StaffDirectBookingPage() {
               <div className="my-6 border-t border-sky-900/50" />
               <div className="flex items-center justify-between gap-3">
                 <h3 className="font-display text-lg font-extrabold text-content">Chi tiết vé</h3>
-                <span className="rounded-lg border border-violet-400/30 bg-violet-500/15 px-2.5 py-1 text-xs font-bold text-violet-200">{totalQuantity} vé</span>
+                <span className="rounded-lg border border-[#C99A47]/30 bg-[#C99A47]/15 px-2.5 py-1 text-xs font-bold text-[#E6C17A]">{totalQuantity} vé</span>
               </div>
               <div className="mt-4 space-y-3">
                 {selectedItems.length === 0 ? <p className="text-sm text-subtle">Chưa chọn vé</p> : selectedItems.map((item) => (
@@ -859,10 +936,10 @@ export function StaffDirectBookingPage() {
                 <span className="font-extrabold text-white text-base">Tổng tiền</span>
                 <span className="font-display text-2xl font-black text-[#C99A47]">{hasSelectedItems ? formatPrice(totalAmount) : '0 đ'}</span>
               </div>
-              {isFreeSelection && <span className="mt-3 ml-auto block w-fit rounded-lg border border-violet-400/40 bg-violet-500/15 px-3 py-1 text-xs font-bold text-violet-200">Miễn phí</span>}
+              {isFreeSelection && <span className="mt-3 ml-auto block w-fit rounded-lg border border-[#C99A47]/40 bg-[#C99A47]/15 px-3 py-1 text-xs font-bold text-[#E6C17A]">Miễn phí</span>}
 
-              <p className="mt-6 flex gap-2 rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-3 text-xs leading-5 text-violet-200">
-                <Info className="mt-0.5 size-4 shrink-0 text-violet-400" />
+              <p className="mt-6 flex gap-2 rounded-lg border border-[#C99A47]/30 bg-[#C99A47]/10 px-3 py-3 text-xs leading-5 text-[#F5EBDD]">
+                <Info className="mt-0.5 size-4 shrink-0 text-[#E6C17A]" />
                 {isFreeSelection ? 'Vé miễn phí sẽ được gửi qua email cho khách hàng sau khi xác nhận.' : 'Chưa thu tiền và chưa xuất vé. Hãy kiểm tra lại trước khi tiếp tục.'}
               </p>
               <button
@@ -986,8 +1063,8 @@ function BookingReview({
             ) : null}
 
             {isFree && (
-              <div className="mt-5 flex gap-3 rounded-xl border border-violet-500/35 bg-violet-500/10 px-4 py-4 text-sm text-violet-200">
-                <Info className="mt-0.5 size-5 shrink-0 text-violet-400" />
+              <div className="mt-5 flex gap-3 rounded-xl border border-[#C99A47]/35 bg-[#C99A47]/10 px-4 py-4 text-sm text-[#F5EBDD]">
+                <Info className="mt-0.5 size-5 shrink-0 text-[#E6C17A]" />
                 <p>Vé miễn phí không cần thanh toán. Vui lòng kiểm tra thông tin trước khi xác nhận xuất vé.</p>
               </div>
             )}
@@ -995,10 +1072,10 @@ function BookingReview({
         </section>
 
         <aside className="xl:sticky xl:top-24">
-          <div className="rounded-2xl bg-gradient-to-br from-violet-600 via-fuchsia-600 to-sky-400 p-px shadow-[0_20px_70px_rgba(79,70,229,0.2)]">
+          <div className="rounded-2xl bg-gradient-to-br from-[#C99A47] via-[#E6C17A]/50 to-[#C99A47]/20 p-px shadow-[0_16px_50px_rgba(201,154,71,0.18)]">
             <section className="rounded-[15px] bg-[linear-gradient(145deg,rgba(7,18,40,0.98),rgba(9,27,57,0.98))] p-5 sm:p-6">
               <div className="flex items-center gap-3">
-                <span className="grid size-10 place-items-center rounded-full bg-violet-600/25 font-black text-violet-200">5</span>
+                <span className="grid size-10 place-items-center rounded-full bg-gradient-to-r from-[#C99A47] to-[#E6C17A] font-black text-[#0D1B2A] shadow-md shadow-[#C99A47]/30">5</span>
                 <h3 className="font-display text-2xl font-black text-content">Xác nhận xuất vé</h3>
               </div>
 
@@ -1012,7 +1089,7 @@ function BookingReview({
                 />
                 <ConfirmStep
                   icon={UsersRound}
-                  tone="purple"
+                  tone="gold"
                   title="Xác nhận xuất vé"
                   description="Vé sẽ được xuất và gửi đến email của khách."
                   marker="2"
@@ -1063,7 +1140,7 @@ function BookingReview({
                       <input
                         inputMode="numeric"
                         value={cashReceived}
-                        onChange={(event) => setCashReceived(event.target.value)}
+                        onChange={(event) => setCashReceived(formatMoneyInput(event.target.value))}
                         placeholder="Nhập số tiền"
                         className="h-11 w-full rounded-full border border-[#C99A47]/40 bg-slate-950/35 pl-4 pr-14 text-right text-sm font-extrabold text-white outline-none transition placeholder:text-slate-500 focus:border-[#C99A47]"
                       />
@@ -1080,7 +1157,7 @@ function BookingReview({
                           <button
                             key={amount}
                             type="button"
-                            onClick={() => setCashReceived(String(amount))}
+                            onClick={() => setCashReceived(formatMoneyInput(amount))}
                             className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-bold transition ${isSelected
                                 ? 'border-[#C99A47] bg-[#C99A47]/20 text-[#E6C17A] font-black shadow-[0_0_10px_rgba(201,154,71,0.2)]'
                                 : 'border-[#C99A47]/40 bg-transparent text-slate-200 hover:border-[#C99A47] hover:bg-[#C99A47]/10 hover:text-white'
@@ -1139,7 +1216,7 @@ function BookingReview({
 function ReviewInfoCard({ icon: Icon, label, value }) {
   return (
     <div className="flex min-h-24 items-center gap-4 rounded-xl border border-sky-900/45 bg-[linear-gradient(135deg,rgba(20,40,78,0.66),rgba(16,35,68,0.42))] px-4 py-4">
-      <span className="grid size-11 shrink-0 place-items-center rounded-full bg-violet-600/25 text-violet-300">
+      <span className="grid size-11 shrink-0 place-items-center rounded-full bg-[#C99A47]/15 text-[#E6C17A] border border-[#C99A47]/30 shadow-sm shadow-[#C99A47]/10">
         <Icon className="size-5" />
       </span>
       <div className="min-w-0">
@@ -1162,9 +1239,9 @@ function ReviewTicketRow({ label, value }) {
 function ConfirmStep({ icon: Icon, tone, title, description, marker }) {
   const isGreen = tone === 'green'
   return (
-    <div className={`flex items-center gap-3 rounded-xl border px-3 py-3.5 ${isGreen ? 'border-emerald-500/25 bg-emerald-500/[0.07]' : 'border-sky-900/50 bg-sky-950/25'
+    <div className={`flex items-center gap-3 rounded-xl border px-3 py-3.5 ${isGreen ? 'border-emerald-500/25 bg-emerald-500/[0.07]' : 'border-[#C99A47]/30 bg-[#C99A47]/[0.05]'
       }`}>
-      <span className={`grid size-11 shrink-0 place-items-center rounded-full ${isGreen ? 'bg-emerald-500/25 text-emerald-300' : 'bg-violet-600/25 text-violet-300'
+      <span className={`grid size-11 shrink-0 place-items-center rounded-full ${isGreen ? 'bg-emerald-500/25 text-emerald-300' : 'bg-[#C99A47]/15 text-[#E6C17A] border border-[#C99A47]/30'
         }`}>
         <Icon className="size-5" />
       </span>
@@ -1173,7 +1250,7 @@ function ConfirmStep({ icon: Icon, tone, title, description, marker }) {
         <p className="mt-0.5 text-xs leading-5 text-subtle">{description}</p>
       </div>
       {typeof marker === 'string' ? (
-        <span className="grid size-6 shrink-0 place-items-center rounded-full bg-violet-600/35 text-xs font-bold text-violet-200">{marker}</span>
+        <span className="grid size-6 shrink-0 place-items-center rounded-full bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-xs font-black text-[#0D1B2A] shadow-sm shadow-[#C99A47]/30">{marker}</span>
       ) : marker}
     </div>
   )
@@ -1304,7 +1381,7 @@ function BookingResult({ result, showDetail, setShowDetail, resetForm, onRefresh
               <div className="ticket-print-gradient absolute inset-0 bg-gradient-to-t from-[#101a33] via-[#101a33]/60 to-transparent" />
               <div className="ticket-print-hero-content relative flex min-h-40 flex-col justify-end p-5">
                 <span className="ticket-print-type w-fit rounded-full bg-white/10 px-3 py-1 text-[11px] font-extrabold uppercase text-slate-200">{ticket.ticket_type.name}</span>
-                <h3 className="ticket-print-title mt-3 line-clamp-2 font-display text-2xl font-black leading-tight text-white">{ticket.event.title}</h3>
+                <h3 className="ticket-print-title mt-3 line-clamp-2 font-display text-2xl font-black leading-tight text-white">{getAutoLocale() === 'en-US' ? (translatePhrase(ticket.event.title, 'en') || ticket.event.title) : ticket.event.title}</h3>
               </div>
             </div>
             <div className="space-y-5 p-5">
@@ -1352,7 +1429,7 @@ function Input({ label, value, onChange, type = 'text', required = false, hint, 
         value={value}
         placeholder={hint || ''}
         onChange={(event) => onChange(event.target.value)}
-        className={`mt-2 h-11 w-full rounded-lg border bg-sky-950/25 px-3 text-sm text-white outline-none transition placeholder:text-slate-400 focus:border-violet-400 ${error ? 'border-error/70' : 'border-sky-900/60'}`}
+        className={`mt-2 h-11 w-full rounded-lg border bg-sky-950/25 px-3 text-sm text-white outline-none transition placeholder:text-slate-400 focus:border-[#C99A47] ${error ? 'border-error/70' : 'border-sky-900/60'}`}
       />
       {error ? <span className="mt-2 block text-xs font-semibold text-error">{error}</span> : null}
     </label>

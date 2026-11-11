@@ -415,6 +415,36 @@ class OrdersService {
     }));
     const hasSelectedSeats = normalizedItems.some((item) => item.session_seat_ids.length > 0);
 
+    // Validate direct sale time window (if organizer configured for the session)
+    const sessionTimes = await ordersRepository.findSessionsDirectSaleTimesByTicketTypeIds(
+      normalizedItems.map((item) => item.ticket_type_id),
+    );
+    const now = new Date();
+    for (const sessionTime of sessionTimes) {
+      if (sessionTime.direct_sale_start_time && new Date(sessionTime.direct_sale_start_time) > now) {
+        const timeFormatted = new Intl.DateTimeFormat('vi-VN', {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        }).format(new Date(sessionTime.direct_sale_start_time));
+        throw new AppError(
+          `Chưa đến thời gian cho phép bán vé trực tiếp cho suất diễn "${sessionTime.session_name || 'này'}" (Mở bán lúc ${timeFormatted}).`,
+          400,
+          ErrorCodes.INVALID_OPERATION,
+        );
+      }
+      if (sessionTime.direct_sale_end_time && new Date(sessionTime.direct_sale_end_time) < now) {
+        const timeFormatted = new Intl.DateTimeFormat('vi-VN', {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        }).format(new Date(sessionTime.direct_sale_end_time));
+        throw new AppError(
+          `Thời gian cho phép bán vé trực tiếp cho suất diễn "${sessionTime.session_name || 'này'}" đã kết thúc (Đóng lúc ${timeFormatted}).`,
+          400,
+          ErrorCodes.INVALID_OPERATION,
+        );
+      }
+    }
+
     // Use one transactional checkout path for every staff-direct payment
     // method.  The previous cash/no-seat shortcut used a separate INSERT
     // flow and could fail on installations with slightly different schema.

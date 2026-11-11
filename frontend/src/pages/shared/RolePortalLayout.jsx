@@ -9,7 +9,7 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from '@/services/notifications.js'
-import { formatNotificationDisplay } from '@/lib/notifications.js'
+import { formatNotificationDisplay, stripNotificationHtml } from '@/lib/notifications.js'
 import { CosmicSpaceBackground } from '@/components/CosmicSpaceBackground.jsx'
 import { PortalCloudsBackground } from '@/components/PortalCloudsBackground.jsx'
 import { LanguageSwitcher } from '@/i18n/LanguageSwitcher.jsx'
@@ -21,13 +21,16 @@ const NAV_LABEL_MAP = {
   'Bảng điều khiển': { vi: 'Bảng điều khiển', en: 'Dashboard' },
   'Quản lý người dùng': { vi: 'Quản lý người dùng', en: 'User Management' },
   'Người dùng': { vi: 'Người dùng', en: 'Users' },
-  'Organizer': { vi: 'Organizer', en: 'Organizers' },
-  'Yêu cầu Organizer': { vi: 'Yêu cầu Organizer', en: 'Organizer Requests' },
+  'Ban tổ chức': { vi: 'Ban tổ chức', en: 'Organizer' },
+  'Organizer': { vi: 'Ban tổ chức', en: 'Organizer' },
+  'Yêu cầu Ban tổ chức': { vi: 'Yêu cầu Ban tổ chức', en: 'Organizer Requests' },
+  'Yêu cầu Organizer': { vi: 'Yêu cầu Ban tổ chức', en: 'Organizer Requests' },
   'Sự kiện & Nội dung': { vi: 'Sự kiện & Nội dung', en: 'Events & Content' },
   'Loại sự kiện': { vi: 'Loại sự kiện', en: 'Categories' },
   'Duyệt sự kiện': { vi: 'Duyệt sự kiện', en: 'Event Approvals' },
   'Tài chính & Gói dịch vụ': { vi: 'Tài chính & Gói dịch vụ', en: 'Finance & Plans' },
   'Tài chính': { vi: 'Tài chính', en: 'Finance' },
+  'Quản lý khiếu nại': { vi: 'Quản lý khiếu nại', en: 'Complaints' },
   'Gói dịch vụ': { vi: 'Gói dịch vụ', en: 'Service Plans' },
   'Hồ sơ': { vi: 'Hồ sơ', en: 'Profile' },
   'Sự kiện': { vi: 'Sự kiện', en: 'Events' },
@@ -60,7 +63,7 @@ const NAV_LABEL_MAP = {
 
 function getNavLabel(rawLabel, isVietnamese) {
   if (!rawLabel) return ''
-  if (isVietnamese) return rawLabel
+  if (isVietnamese) return NAV_LABEL_MAP[rawLabel]?.vi || rawLabel
   return NAV_LABEL_MAP[rawLabel]?.en || rawLabel
 }
 
@@ -420,7 +423,7 @@ export function RolePortalLayout({
               }`}
             >
               {Icon && <Icon className={`size-5 transition-transform ${active ? 'scale-110 drop-shadow' : ''}`} />}
-              <span className="text-[10px] mt-1 font-semibold leading-none truncate max-w-[64px] text-center">{item.label}</span>
+              <span className="text-[10px] mt-1 font-semibold leading-none truncate max-w-[64px] text-center">{getNavLabel(item.label, isVietnamese)}</span>
             </NavLink>
           )
         })}
@@ -813,11 +816,7 @@ function PortalNotificationBell({ theme }) {
       navigate(`/organizer/events/${notification.event_id}`)
       return
     }
-    if (notification.event?.slug) {
-      navigate(`/events/${notification.event.slug}`)
-      return
-    }
-    navigate('/notifications')
+    navigate(`/notifications#notification-${notification.id}`)
   }
 
   return (
@@ -893,7 +892,7 @@ function PortalNotificationBell({ theme }) {
               </p>
             )}
             {notifications.map((notification) => {
-              const display = formatNotificationDisplay(notification)
+              const display = formatNotificationDisplay(notification, !isVietnamese)
               return (
                 <button
                   key={notification.id}
@@ -914,7 +913,7 @@ function PortalNotificationBell({ theme }) {
                     )}
                     <div className="min-w-0 flex-1">
                       <p className={`line-clamp-1 text-xs font-extrabold ${isLight ? 'text-[#0D1B2A]' : 'text-content'}`}>{display.title}</p>
-                      <p className={`mt-1 line-clamp-2 text-xs leading-4 ${isLight ? 'text-[#1B365D]/80' : 'text-subtle'}`}>{display.content}</p>
+                      <p className={`mt-1 line-clamp-2 text-xs leading-4 ${isLight ? 'text-[#1B365D]/80' : 'text-subtle'}`}>{display.preview || stripNotificationHtml(display.content)}</p>
                       <p className={`mt-1 text-[10px] ${isLight ? 'text-[#506680]' : 'text-muted'}`}>
                         {formatTimeAgo(notification.created_at, isVietnamese)}
                       </p>

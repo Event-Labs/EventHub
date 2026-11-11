@@ -36,7 +36,8 @@ class AiFinancialService {
         {
           model: targetModel,
           max_tokens: 550,
-          num_ctx: 2048,
+          num_ctx: 4096,
+          timeoutMs: OLLAMA_TIMEOUT_MS,
           temperature: 0.2,
           think: false,
           signal: controller.signal,
@@ -68,22 +69,41 @@ class AiFinancialService {
 
   _ruleBasedFallback(financialData) {
     const fmt = (v) => `${Number(v || 0).toLocaleString('vi-VN')} VND`;
+    const round1 = (v) => Number(v || 0).toFixed(1);
     const tiers = Array.isArray(financialData.tier_breakdown) ? financialData.tier_breakdown : [];
     const starTier = tiers.find(t => t.status === 'Đang bán tốt') || tiers[0];
     const laggingTier = tiers.find(t => t.status === 'Chậm tiêu thụ');
 
-    const summary = `### 1. ĐÁNH GIÁ TỔNG QUAN DOANH THU & HIỆU SUẤT KHAI THÁC
-Sự kiện "${financialData.event_title}" ghi nhận tổng doanh thu bán vé đạt ${fmt(financialData.gross_revenue || financialData.net_revenue)}. Do nền tảng EventHub áp dụng mô hình gói thuê bao đăng sự kiện (không trích hoa hồng % trên vé), 100% dòng tiền bán vé thuộc về Nhà tổ chức. Doanh thu trên mỗi chỗ ngồi khả dụng (RevPAS) đạt ${fmt(financialData.revpas || 0)}, tương ứng hiệu suất khai thác doanh thu ${financialData.revpas > 0 && financialData.avg_ticket_price > 0 ? ((financialData.revpas / financialData.avg_ticket_price) * 100).toFixed(1) : 0}% so với giá vé niêm yết trung bình ${fmt(financialData.avg_ticket_price)}.
+    const occupancyRateFormatted = round1(financialData.occupancy_rate);
+    const starRevPct = Math.min(Number(starTier?.revenue_contribution_pct || 0), 100).toFixed(1);
+    const laggingOccRate = round1(laggingTier?.occupancy_rate);
 
-### 2. VẬN TỐC TIÊU THỤ & ĐỘ LỆCH HẠNG VÉ
-Tổng số lượng vé tiêu thụ đạt ${financialData.tickets_sold || 0} vé qua ${financialData.total_orders || 0} đơn hàng thành công, đạt tỷ lệ lấp đầy ${financialData.occupancy_rate || 0}%. Vận tốc bán vé gần nhất ghi nhận ở mức ${financialData.velocity_daily_tickets || 0} vé/ngày (bình quân ${fmt(financialData.velocity_daily_revenue || 0)}/ngày), trạng thái đà tăng trưởng: ${financialData.momentum_label || 'Ổn định'}. Về cơ cấu danh mục vé, hạng vé ${starTier ? `"${starTier.name}"` : (financialData.best_ticket_type || 'chủ lực')} là nguồn đóng góp doanh thu lớn nhất với tỷ trọng ${starTier?.revenue_contribution_pct || 0}% tổng doanh thu.
+    const riskText = {
+      LOW: 'Rủi ro thấp',
+      MEDIUM: 'Rủi ro trung bình',
+      HIGH: 'Rủi ro cao',
+      CRITICAL: 'Rủi ro rất cao',
+    }[financialData.risk_level] || financialData.risk_level || 'Rủi ro trung bình';
+
+    const invRiskText = {
+      LOW: 'THẤP',
+      MODERATE: 'TRUNG BÌNH',
+      HIGH: 'CAO',
+      CRITICAL: 'RẤT CAO',
+    }[financialData.inventory_risk_level] || 'TRUNG BÌNH';
+
+    const summary = `### 1. ĐÁNH GIÁ TỔNG QUAN DOANH THU & HIỆU SUẤT KHAI THÁC
+Sự kiện "${financialData.event_title}" ghi nhận tổng doanh thu bán vé đạt ${fmt(financialData.gross_revenue || financialData.net_revenue)}. Do nền tảng EventHub áp dụng mô hình gói thuê bao đăng sự kiện (không trích hoa hồng % trên vé), 100% dòng tiền bán vé thuộc về Nhà tổ chức. Doanh thu trên mỗi chỗ ngồi khả dụng đạt ${fmt(financialData.revpas || 0)}, tương ứng hiệu suất khai thác doanh thu ${financialData.revpas > 0 && financialData.avg_ticket_price > 0 ? ((financialData.revpas / financialData.avg_ticket_price) * 100).toFixed(1) : 0}% so với giá vé niêm yết trung bình ${fmt(financialData.avg_ticket_price)}.
+
+### 2. TỐC ĐỘ TIÊU THỤ & ĐỘ LỆCH HẠNG VÉ
+Tổng số lượng vé tiêu thụ đạt ${financialData.tickets_sold || 0} vé qua ${financialData.total_orders || 0} đơn hàng thành công, đạt tỷ lệ lấp đầy ${occupancyRateFormatted}%. Tốc độ bán vé gần nhất ghi nhận ở mức ${financialData.velocity_daily_tickets || 0} vé/ngày (bình quân ${fmt(financialData.velocity_daily_revenue || 0)}/ngày), trạng thái đà tăng trưởng: ${financialData.momentum_label || 'Ổn định'}. Về cơ cấu danh mục vé, hạng vé ${starTier ? `"${starTier.name}"` : (financialData.best_ticket_type || 'chủ lực')} là nguồn đóng góp doanh thu lớn nhất với tỷ trọng ${starRevPct}% tổng doanh thu.
 
 ### 3. ĐIỂM NGHẼN TỒN KHO & CẢNH BÁO RỦI RO
-Điểm sức khỏe tài chính đạt ${financialData.health_score || 0}/100 (${financialData.risk_level || 'TRUNG BÌNH'}). Số lượng vé còn tồn trong kho là ${financialData.remaining_tickets || 0} vé trên tổng sức chứa ${financialData.total_capacity || financialData.tickets_sold} chỗ. ${financialData.days_until_event !== null && financialData.days_until_event !== undefined ? `Với thời gian đếm ngược còn ${financialData.days_until_event} ngày đến sự kiện, mức độ rủi ro tồn kho được xếp loại ${financialData.inventory_risk_level === 'CRITICAL' ? 'RẤT CAO' : (financialData.inventory_risk_level === 'HIGH' ? 'CAO' : 'KIỂM SOÁT ĐƯỢC')}, đòi hỏi tốc độ tiêu thụ tối thiểu ${financialData.required_daily_tickets || 0} vé/ngày để giải phóng toàn bộ chỗ ngồi.` : 'Cần tiếp tục theo dõi sát sao tiến độ tiêu thụ theo từng mốc mở bán.'} ${laggingTier ? `Hạng vé "${laggingTier.name}" đang có tỷ lệ lấp đầy thấp (${laggingTier.occupancy_rate}%), là điểm nghẽn tồn đọng cần giải tỏa.` : ''}
+Điểm sức khỏe tài chính đạt ${financialData.health_score || 0}/100 (${riskText}). Số lượng vé còn tồn trong kho là ${financialData.remaining_tickets || 0} vé trên tổng sức chứa ${financialData.total_capacity || financialData.tickets_sold} chỗ. ${financialData.days_until_event !== null && financialData.days_until_event !== undefined ? `Với thời gian đếm ngược còn ${financialData.days_until_event} ngày đến sự kiện, mức độ rủi ro tồn kho được xếp loại ${invRiskText}, đòi hỏi tốc độ tiêu thụ tối thiểu ${financialData.required_daily_tickets || 0} vé/ngày để giải phóng toàn bộ chỗ ngồi.` : 'Cần tiếp tục theo dõi sát sao tiến độ tiêu thụ theo từng mốc mở bán.'} ${laggingTier ? `Hạng vé "${laggingTier.name}" đang có tỷ lệ lấp đầy thấp (${laggingOccRate}%), là điểm nghẽn tồn đọng cần giải tỏa.` : ''}
 
 ### 4. KẾ HOẠCH HÀNH ĐỘNG KÍCH CẦU & ĐỊNH GIÁ ĐỘNG
-1. **Tối ưu hóa giá vé & Kích cầu ngắn hạn (48h tới):** ${laggingTier ? `Kích hoạt chương trình Flash Bundle (mua 2 vé tặng kèm quyền lợi ưu đãi) hoặc voucher 10-15% cho hạng vé "${laggingTier.name}" để kích thích quyết định mua sớm.` : `Tập trung mở gói ưu đãi nhóm (Group Ticket) cho các hạng vé còn tồn để cải thiện doanh thu trung bình.`}
-2. **Khai thác tệp khách tiềm năng:** Thực hiện chiến dịch tiếp thị lại (Retargeting) hướng đến người dùng đã truy cập xem trang sự kiện nhưng chưa hoàn tất đặt vé.
+1. **Tối ưu hóa giá vé & Kích cầu ngắn hạn (48h tới):** ${laggingTier ? `Kích hoạt chương trình gói combo ưu đãi (mua 2 vé tặng kèm quyền lợi) hoặc mã giảm giá 10-15% cho hạng vé "${laggingTier.name}" để kích thích quyết định mua sớm.` : `Tập trung mở gói vé ưu đãi theo nhóm cho các hạng vé còn tồn để cải thiện doanh thu trung bình.`}
+2. **Khai thác tệp khách tiềm năng:** Thực hiện chiến dịch tiếp thị lại hướng đến người dùng đã truy cập xem trang sự kiện nhưng chưa hoàn tất đặt vé.
 3. **Mục tiêu doanh thu khả thi:** Ưu tiên đẩy mạnh bán vé cho các ngày cuối tuần để tối ưu hóa tỷ lệ lấp đầy trước giờ diễn ra sự kiện.`;
 
     return {

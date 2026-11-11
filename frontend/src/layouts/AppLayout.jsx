@@ -10,7 +10,7 @@ import {
 } from '@/services/notifications.js'
 import { fetchAssignedStaffEvents } from '@/services/operations.js'
 import { clearAuthSession, getAuthToken, getStoredUser, getStoredUserKey, getUserRoles, isAdminUser, isAuthenticated, updateStoredUser } from '@/lib/auth.js'
-import { formatNotificationDisplay } from '@/lib/notifications.js'
+import { formatNotificationDisplay, stripNotificationHtml } from '@/lib/notifications.js'
 import { ProfileAvatar } from '@/pages/shared/ProfileAvatar.jsx'
 import { CustomerAiAssistantWidget } from '@/components/ai/CustomerAiAssistantWidget.jsx'
 import { ActiveHoldFloatingBar } from '@/components/ActiveHoldFloatingBar.jsx'
@@ -125,12 +125,12 @@ function isStaffInvitationStoreNotification(notification) {
   return notification.title === 'STAFF_INVITATION'
 }
 
-function getNotificationDisplay(notification) {
-  return formatNotificationDisplay(notification)
+function getNotificationDisplay(notification, isEnglish = false) {
+  return formatNotificationDisplay(notification, isEnglish)
 }
 
 function getNotificationTarget(notification) {
-  if (isStaffInvitationNotification(notification)) return '/notifications'
+  if (isStaffInvitationNotification(notification)) return `/notifications#notification-${notification.id}`
 
   const title = (notification.title || '').toLowerCase()
   const content = (notification.content || '').toLowerCase()
@@ -141,8 +141,7 @@ function getNotificationTarget(notification) {
     return '/organizer-request?mode=edit'
   }
 
-  const eventTarget = notification.event?.slug || notification.event_id
-  return eventTarget ? `/events/${eventTarget}` : '/notifications'
+  return `/notifications#notification-${notification.id}`
 }
 
 function dedupeNavNotifications(items) {
@@ -490,27 +489,30 @@ export function AppLayout() {
                     {!notificationsQuery.isLoading && navNotifications.length === 0 && (
                       <p className="px-4 py-5 text-sm text-muted">{isEnglish ? 'You have no notifications.' : 'Bạn chưa có thông báo nào.'}</p>
                     )}
-                    {navNotifications.map((notification) => (
-                      <button
-                        key={notification.id}
-                        type="button"
-                        onClick={() => {
-                          if (!notification.is_read) markReadMutation.mutate(notification.id)
-                          setNotificationOpen(false)
-                          navigate(getNotificationTarget(notification))
-                        }}
-                        className={`block w-full border-b border-border-soft px-4 py-3 text-left last:border-b-0 hover:bg-panel-soft ${notification.is_read ? '' : 'bg-[#C99A47]/10'
-                          }`}
-                      >
-                        <div className="flex items-start gap-3">
-                          {!notification.is_read && <span className="mt-2 size-2 rounded-full bg-gradient-to-r from-[#C99A47] to-[#E6C17A]" />}
-                          <div className="min-w-0 flex-1">
-                            <p className="line-clamp-1 text-sm font-bold text-white">{getNotificationDisplay(notification).title}</p>
-                            <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted">{getNotificationDisplay(notification).content}</p>
+                    {navNotifications.map((notification) => {
+                      const display = getNotificationDisplay(notification, isEnglish)
+                      return (
+                        <button
+                          key={notification.id}
+                          type="button"
+                          onClick={() => {
+                            if (!notification.is_read) markReadMutation.mutate(notification.id)
+                            setNotificationOpen(false)
+                            navigate(getNotificationTarget(notification))
+                          }}
+                          className={`block w-full border-b border-border-soft px-4 py-3 text-left last:border-b-0 hover:bg-panel-soft ${notification.is_read ? '' : 'bg-[#C99A47]/10'
+                            }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            {!notification.is_read && <span className="mt-2 size-2 rounded-full bg-gradient-to-r from-[#C99A47] to-[#E6C17A]" />}
+                            <div className="min-w-0 flex-1">
+                              <p className="line-clamp-1 text-sm font-bold text-white">{display.title}</p>
+                              <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted">{display.preview || stripNotificationHtml(display.content)}</p>
+                            </div>
                           </div>
-                        </div>
-                      </button>
-                    ))}
+                        </button>
+                      )
+                    })}
                   </div>
                   <Link
                     to="/notifications"
@@ -533,8 +535,8 @@ export function AppLayout() {
                     </NavLink>
                   </div>
 
-                  <div className="border-t border-border-soft py-1">
-                    {!canOpenOrganizerPortal && !hasAdminRole && (
+                  {!canOpenOrganizerPortal && !hasAdminRole && (
+                    <div className="border-t border-border-soft py-1">
                       <NavLink
                         className="block px-4 py-2 text-sm font-semibold text-subtle hover:bg-panel-soft hover:text-[#E6C17A]"
                         to="/organizer-request"
@@ -542,7 +544,17 @@ export function AppLayout() {
                       >
                         {isEnglish ? 'Register as Organizer' : 'Đăng ký làm Ban Tổ Chức'}
                       </NavLink>
-                    )}
+                    </div>
+                  )}
+
+                  <div className="border-t border-border-soft py-1">
+                    <NavLink
+                      className="block px-4 py-2 text-sm font-semibold text-subtle hover:bg-panel-soft hover:text-[#E6C17A]"
+                      to="/complaints"
+                      onClick={() => setOpen(false)}
+                    >
+                      {isEnglish ? 'Complaints & Inquiries' : 'Khiếu nại & Phản ánh'}
+                    </NavLink>
                   </div>
 
                   <div className="border-t border-border-soft py-1">
@@ -579,7 +591,8 @@ export function AppLayout() {
           pathname === '/profile' ||
           pathname === '/my-tickets' ||
           pathname === '/favorites' ||
-          pathname === '/feedback'
+          pathname === '/feedback' ||
+          pathname === '/complaints'
             ? 'hidden md:block'
             : ''
         }`}

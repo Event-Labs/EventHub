@@ -21,6 +21,7 @@ import { SessionStackedBarChart } from './checkin/SessionStackedBarChart.jsx'
 import { OverallDonutChart } from './checkin/OverallDonutChart.jsx'
 import { TicketTypeStackedBarChart } from './checkin/TicketTypeStackedBarChart.jsx'
 import { CheckinTrendLineChart } from './checkin/CheckinTrendLineChart.jsx'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
 
 function fmtDateTime(iso) {
   if (!iso) return '—'
@@ -35,6 +36,7 @@ function fmtDateTime(iso) {
 }
 
 export function OrganizerCheckinDashboardPage() {
+  const { isEnglish } = useLanguage()
   const [searchParams] = useSearchParams()
   const initialEventId = searchParams.get('eventId') || ''
 
@@ -126,7 +128,7 @@ export function OrganizerCheckinDashboardPage() {
 
   return (
     <OrganizerPage
-      title="Theo dõi Check-in"
+      title={isEnglish ? 'Check-in Monitoring' : 'Theo dõi Check-in'}
     >
       {/* ── ROW 1: HEADER CONTROLS & REAL-TIME STATUS ── */}
       <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between border-b border-white/10 [html.light_&]:border-slate-200 pb-5">
@@ -134,20 +136,20 @@ export function OrganizerCheckinDashboardPage() {
         <div className="w-full lg:max-w-xl">
           {eventsLoading ? (
             <div className="flex items-center gap-2 text-sm text-slate-400">
-              <Loader2 className="size-4 animate-spin text-primary" /> Đang tải danh sách sự kiện...
+              <Loader2 className="size-4 animate-spin text-primary" /> {isEnglish ? 'Loading events list...' : 'Đang tải danh sách sự kiện...'}
             </div>
           ) : events.length === 0 ? (
-            <p className="text-sm text-slate-400">Chưa có sự kiện nào trong hệ thống.</p>
+            <p className="text-sm text-slate-400">{isEnglish ? 'No events found in the system.' : 'Chưa có sự kiện nào trong hệ thống.'}</p>
           ) : (
             <OrganizerEventPicker
               events={events}
               selectedEventId={selectedEventId}
               onSelectEvent={setSelectedEventId}
               loading={eventsLoading}
-              label="Chọn sự kiện theo dõi"
+              label={isEnglish ? 'Select event to monitor' : 'Chọn sự kiện theo dõi'}
               allowAll={false}
               showCalendarIcon={false}
-              placeholder="Chọn sự kiện để theo dõi check-in..."
+              placeholder={isEnglish ? 'Select an event to monitor check-in...' : 'Chọn sự kiện để theo dõi check-in...'}
             />
           )}
         </div>
@@ -160,16 +162,16 @@ export function OrganizerCheckinDashboardPage() {
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
                 <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
               </span>
-              <span>Cập nhật trực tiếp</span>
+              <span>{isEnglish ? 'Live Updates' : 'Cập nhật trực tiếp'}</span>
               <span className="text-emerald-500/40">|</span>
               <span className="text-slate-300 font-normal">
-                {lastRefresh ? lastRefresh.toLocaleTimeString('vi-VN') : '—'}
+                {lastRefresh ? lastRefresh.toLocaleTimeString(isEnglish ? 'en-US' : 'vi-VN') : '—'}
               </span>
             </div>
           ) : (
             <div className="flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3.5 py-1.5 text-xs font-semibold text-amber-400">
               <span className="size-2 rounded-full bg-amber-500 animate-pulse" />
-              <span>Đang kết nối lại...</span>
+              <span>{isEnglish ? 'Reconnecting...' : 'Đang kết nối lại...'}</span>
             </div>
           )}
         </div>
@@ -184,7 +186,7 @@ export function OrganizerCheckinDashboardPage() {
       {initialLoading && !stats ? (
         <OrganizerPanel className="flex flex-col items-center justify-center py-24 text-center">
           <Loader2 className="size-10 animate-spin text-primary mb-3" />
-          <p className="text-sm font-semibold text-white">Đang tổng hợp số liệu check-in thời gian thực...</p>
+          <p className="text-sm font-semibold text-white">{isEnglish ? 'Aggregating real-time check-in metrics...' : 'Đang tổng hợp số liệu check-in thời gian thực...'}</p>
         </OrganizerPanel>
       ) : stats ? (
         <div className="space-y-6">
@@ -199,9 +201,9 @@ export function OrganizerCheckinDashboardPage() {
                 <div className="mb-4 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <BarChart3 className="size-5 text-emerald-400" />
-                    <h2 className="font-bold text-content text-base">Check-in theo phiên</h2>
+                    <h2 className="font-bold text-content text-base">{isEnglish ? 'Check-in by Session' : 'Check-in theo phiên'}</h2>
                   </div>
-                  <span className="text-xs text-slate-400">{bySession.length} phiên</span>
+                  <span className="text-xs text-slate-400">{bySession.length} {isEnglish ? 'sessions' : 'phiên'}</span>
                 </div>
                 <SessionStackedBarChart data={bySession} />
               </OrganizerPanel>
@@ -212,7 +214,7 @@ export function OrganizerCheckinDashboardPage() {
               <OrganizerPanel className="h-full flex flex-col justify-between">
                 <div className="mb-2 flex items-center gap-2">
                   <PieChart className="size-5 text-cyan-400" />
-                  <h2 className="font-bold text-content text-base">Tổng thể check-in sự kiện</h2>
+                  <h2 className="font-bold text-content text-base">{isEnglish ? 'Overall Event Check-in' : 'Tổng thể check-in sự kiện'}</h2>
                 </div>
                 <div className="my-auto py-2">
                   <OverallDonutChart overall={overall} />
@@ -226,9 +228,9 @@ export function OrganizerCheckinDashboardPage() {
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Ticket className="size-5 text-amber-400" />
-                <h2 className="font-bold text-content text-base">Check-in theo hạng vé</h2>
+                <h2 className="font-bold text-content text-base">{isEnglish ? 'Check-in by Ticket Tier' : 'Check-in theo hạng vé'}</h2>
               </div>
-              <span className="text-xs text-slate-400">{byTicketType.length} hạng vé</span>
+              <span className="text-xs text-slate-400">{byTicketType.length} {isEnglish ? 'ticket tiers' : 'hạng vé'}</span>
             </div>
             <TicketTypeStackedBarChart data={byTicketType} />
           </OrganizerPanel>
@@ -237,7 +239,7 @@ export function OrganizerCheckinDashboardPage() {
           <OrganizerPanel>
             <div className="mb-4 flex items-center gap-2">
               <TrendingUp className="size-5 text-cyan-400" />
-              <h2 className="font-bold text-content text-base">Xu hướng check-in theo thời gian</h2>
+              <h2 className="font-bold text-content text-base">{isEnglish ? 'Check-in Trend Over Time' : 'Xu hướng check-in theo thời gian'}</h2>
             </div>
             <CheckinTrendLineChart timeline={timeline} />
           </OrganizerPanel>
@@ -248,19 +250,19 @@ export function OrganizerCheckinDashboardPage() {
               <div className="mb-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <History className="size-5 text-slate-400" />
-                  <h2 className="font-bold text-content text-base">Lịch sử check-in gần nhất (20 lượt)</h2>
+                  <h2 className="font-bold text-content text-base">{isEnglish ? 'Recent Check-in History (Last 20)' : 'Lịch sử check-in gần nhất (20 lượt)'}</h2>
                 </div>
-                <span className="text-xs text-slate-400 font-mono">Đồng bộ tự động</span>
+                <span className="text-xs text-slate-400 font-mono">{isEnglish ? 'Auto synced' : 'Đồng bộ tự động'}</span>
               </div>
               <div className="w-full max-w-full min-w-0 overflow-hidden rounded-xl border border-white/10 [html.light_&]:border-slate-200 bg-[#121b33] [html.light_&]:bg-white">
                 <div className="w-full overflow-x-auto">
                   <table className="w-full min-w-[650px] text-xs">
                     <thead className="border-b border-white/10 [html.light_&]:border-slate-200 bg-[#172242] [html.light_&]:bg-slate-100 text-slate-400 font-bold uppercase tracking-wider">
                       <tr>
-                        <th className="px-4 py-3 text-left">Người tham dự</th>
-                        <th className="px-4 py-3 text-left">Hạng vé</th>
-                        <th className="px-4 py-3 text-left">Phiên diễn</th>
-                        <th className="px-4 py-3 text-right">Thời gian check-in</th>
+                        <th className="px-4 py-3 text-left">{isEnglish ? 'Attendee' : 'Người tham dự'}</th>
+                        <th className="px-4 py-3 text-left">{isEnglish ? 'Ticket Tier' : 'Hạng vé'}</th>
+                        <th className="px-4 py-3 text-left">{isEnglish ? 'Session' : 'Phiên diễn'}</th>
+                        <th className="px-4 py-3 text-right">{isEnglish ? 'Check-in Time' : 'Thời gian check-in'}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5 font-medium text-slate-300 [html.light_&]:text-slate-700">
@@ -300,9 +302,9 @@ export function OrganizerCheckinDashboardPage() {
               <div className="mx-auto grid size-14 place-items-center rounded-2xl border border-[#C99A47]/30 bg-[#C99A47]/10 text-[#E6C17A] shadow-[0_0_20px_rgba(201,154,71,0.15)] mb-3">
                 <TicketCheck className="size-6 text-[#E6C17A]" />
               </div>
-              <h3 className="text-base font-bold text-content">Sự kiện này chưa có vé nào được bán</h3>
+              <h3 className="text-base font-bold text-content">{isEnglish ? 'No tickets have been sold for this event yet' : 'Sự kiện này chưa có vé nào được bán'}</h3>
               <p className="mt-1 text-sm text-subtle">
-                Dữ liệu check-in sẽ xuất hiện tự động khi có đơn hàng được thanh toán thành công.
+                {isEnglish ? 'Check-in data will appear automatically once orders are successfully paid.' : 'Dữ liệu check-in sẽ xuất hiện tự động khi có đơn hàng được thanh toán thành công.'}
               </p>
             </OrganizerPanel>
           )}

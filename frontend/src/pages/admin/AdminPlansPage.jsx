@@ -231,7 +231,7 @@ export function AdminPlansPage() {
                   : (isEnglish ? 'No promo codes' : 'Không hỗ trợ mã giảm giá'),
               ]} />,
               <FeatureList key="features" plan={plan} isEnglish={isEnglish} />,
-              <StatusBadge key="status" status={plan.is_active ? 'ACTIVE' : 'INACTIVE'} className="!text-white font-black" />,
+              <StatusBadge key="status" status={plan.is_active ? 'ACTIVE' : 'INACTIVE'} />,
               <span key="subscribers" className="text-sm font-extrabold text-white block text-center">{Number(plan.subscriber_count || 0)}</span>,
               <div key="actions" className="flex items-center justify-center gap-2">
                 <TableActionButton title={isEnglish ? 'Edit' : 'Sửa'} icon={Edit3} tone="primary" disabled={busy} onClick={() => openEdit(plan)} />

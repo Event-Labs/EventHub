@@ -36,8 +36,11 @@ import {
 import { uploadOrganizerDocument } from '@/services/uploads.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { VIETNAMESE_BANKS, resolveBankName } from '@/constants/banks.js'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
+import { translatePhrase } from '@/i18n/phraseDictionary.js'
 import { renderCosmicTitle } from '@/lib/formatTitle.jsx'
 import { StatusBadge } from '@/components/StatusBadge.jsx'
+import { formatRefundReason } from '@/utils/refundPolicy.js'
 
 const getAutoLocale = () =>
   ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
@@ -117,6 +120,7 @@ function getStatusBadge(status, disputed) {
 }
 
 export function OrganizerRefundDetailPage() {
+  const { isEnglish } = useLanguage()
   const { refundId } = useParams()
   const navigate = useNavigate()
   const toast = useToast()
@@ -1364,8 +1368,8 @@ export function OrganizerRefundDetailPage() {
 
             {/* Event Info */}
             <div className="rounded-xl border border-white/5 bg-[#121c33] p-3.5 space-y-2 [html.light_&]:border-[#C99A47]/20 [html.light_&]:bg-[#FDFBF7] [html.light_&]:shadow-sm">
-              <span className="text-[11px] text-slate-400 [html.light_&]:text-[#536b88] font-semibold uppercase tracking-wider">Sự kiện</span>
-              <p className="font-bold text-white [html.light_&]:text-[#0D1B2A] text-sm leading-snug">{item.event?.title || 'N/A'}</p>
+              <span className="text-[11px] text-slate-400 [html.light_&]:text-[#536b88] font-semibold uppercase tracking-wider">{isEnglish ? 'Event' : 'Sự kiện'}</span>
+              <p className="font-bold text-white [html.light_&]:text-[#0D1B2A] text-sm leading-snug">{isEnglish ? (translatePhrase(item.event?.title, 'en') || item.event?.title || 'N/A') : (item.event?.title || 'N/A')}</p>
               {item.event?.start_time && (
                 <p className="text-[11px] text-slate-400 [html.light_&]:text-[#536b88] flex items-center gap-1.5">
                   <Calendar className="size-3.5 text-primary [html.light_&]:text-[#C99A47]" />
@@ -1417,7 +1421,7 @@ export function OrganizerRefundDetailPage() {
             {/* Refund Reason */}
             <div className="rounded-xl border border-white/5 bg-[#121c33] p-3.5 space-y-1 text-xs [html.light_&]:border-[#C99A47]/20 [html.light_&]:bg-[#FDFBF7] [html.light_&]:shadow-sm">
               <span className="text-slate-400 [html.light_&]:text-[#536b88]">Lý do yêu cầu:</span>
-              <p className="font-semibold text-slate-200 [html.light_&]:text-[#1B365D] break-words">{item.reason}</p>
+              <p className="font-semibold text-slate-200 [html.light_&]:text-[#1B365D] break-words">{formatRefundReason(item.reason)}</p>
             </div>
 
             {/* Information Header / Tóm tắt tính toán */}

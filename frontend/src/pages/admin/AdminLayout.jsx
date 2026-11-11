@@ -12,7 +12,7 @@ const navSections = [
     label: 'Quản lý người dùng',
     items: [
       { label: 'Người dùng', to: '/admin/accounts', icon: Users },
-      { label: 'Organizer', to: '/admin/organizers', icon: Building2 },
+      { label: 'Ban tổ chức', to: '/admin/organizers', icon: Building2 },
       { label: 'Yêu cầu Organizer', to: '/admin/organizer-requests', icon: ClipboardList },
     ],
   },
@@ -27,7 +27,7 @@ const navSections = [
     label: 'Tài chính & Gói dịch vụ',
     items: [
       { label: 'Tài chính', to: '/admin/platform-fee', icon: CreditCard },
-      { label: 'Khiếu nại hoàn tiền', to: '/admin/disputes', icon: ShieldAlert },
+      { label: 'Quản lý khiếu nại', to: '/admin/disputes', icon: ShieldAlert },
       { label: 'Gói dịch vụ', to: '/admin/plans', icon: BriefcaseBusiness },
     ],
   },
