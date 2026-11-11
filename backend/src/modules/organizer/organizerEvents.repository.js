@@ -336,6 +336,8 @@ class OrganizerEventsRepository {
           'venue_id', es.venue_id,
           'seat_map_id', es.seat_map_id,
           'checkin_start_time', es.checkin_start_time,
+          'direct_sale_start_time', es.direct_sale_start_time,
+          'direct_sale_end_time', es.direct_sale_end_time,
           'status', es.status,
           'disabled_seat_ids', COALESCE((
             SELECT json_agg(ss.seat_id)
@@ -639,9 +641,11 @@ class OrganizerEventsRepository {
         session_name,
         start_time,
         end_time,
-        checkin_start_time
+        checkin_start_time,
+        direct_sale_start_time,
+        direct_sale_end_time
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING *
       `,
       [
@@ -652,6 +656,8 @@ class OrganizerEventsRepository {
         data.start_time,
         data.end_time,
         data.checkin_start_time || null,
+        data.direct_sale_start_time || null,
+        data.direct_sale_end_time || null,
       ],
     );
     return rows[0];
@@ -662,7 +668,16 @@ class OrganizerEventsRepository {
     const values = [];
     let idx = 1;
 
-    ['venue_id', 'seat_map_id', 'session_name', 'start_time', 'end_time', 'checkin_start_time'].forEach((key) => {
+    [
+      'venue_id',
+      'seat_map_id',
+      'session_name',
+      'start_time',
+      'end_time',
+      'checkin_start_time',
+      'direct_sale_start_time',
+      'direct_sale_end_time',
+    ].forEach((key) => {
       if (data[key] !== undefined) {
         fields.push(`${key} = $${idx}`);
         values.push(data[key]);

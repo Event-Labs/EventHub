@@ -27,7 +27,7 @@ const navSections = [
     label: 'Tài chính & Gói dịch vụ',
     items: [
       { label: 'Tài chính', to: '/admin/platform-fee', icon: CreditCard },
-      { label: 'Khiếu nại hoàn tiền', to: '/admin/disputes', icon: ShieldAlert },
+      { label: 'Quản lý khiếu nại', to: '/admin/disputes', icon: ShieldAlert },
       { label: 'Gói dịch vụ', to: '/admin/plans', icon: BriefcaseBusiness },
     ],
   },

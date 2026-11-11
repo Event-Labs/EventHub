@@ -220,6 +220,21 @@ function calculateEventCompleteness(formData, isEnglish = false) {
       const sDateObj = new Date(`${sDate}T00:00:00`).getTime()
       if (cDateObj < today.getTime() || cDateObj > sDateObj) return false
     }
+    if (s.direct_sale_start_time || s.direct_sale_start_date || s.direct_sale_end_time || s.direct_sale_end_date) {
+      if ((s.direct_sale_start_time && !s.direct_sale_start_date) || (!s.direct_sale_start_time && s.direct_sale_start_date)) return false
+      if ((s.direct_sale_end_time && !s.direct_sale_end_date) || (!s.direct_sale_end_time && s.direct_sale_end_date)) return false
+      let dsStart = null
+      if (s.direct_sale_start_date && s.direct_sale_start_time) {
+        dsStart = new Date(`${s.direct_sale_start_date}T${s.direct_sale_start_time}`)
+        if (isNaN(dsStart.getTime())) return false
+      }
+      let dsEnd = null
+      if (s.direct_sale_end_date && s.direct_sale_end_time) {
+        dsEnd = new Date(`${s.direct_sale_end_date}T${s.direct_sale_end_time}`)
+        if (isNaN(dsEnd.getTime())) return false
+      }
+      if (dsStart && dsEnd && dsEnd <= dsStart) return false
+    }
     return true
   })
 
@@ -754,6 +769,7 @@ function Step1EventInfo({
 
 
 function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
+  const { isEnglish } = useLanguage()
   const todayStr = useMemo(() => {
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -816,6 +832,10 @@ function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
           venue_id: '',
           checkin_start_date: '',
           checkin_start_time: '',
+          direct_sale_start_date: '',
+          direct_sale_start_time: '',
+          direct_sale_end_date: '',
+          direct_sale_end_time: '',
           seat_map_id: null,
           seating_type: 'GENERAL',
           zone_assignments: [],
@@ -1164,6 +1184,122 @@ function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
                             ))}
                           </select>
                         </div>
+                      </div>
+
+                      {/* Thời gian cho phép bán vé trực tiếp (ngay dưới phần giờ check-in) */}
+                      <div className="mt-3.5 pt-3.5 border-t border-border-soft/20">
+                        <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                          <label className="text-xs text-content font-bold flex items-center gap-1.5">
+                            <Icon name="confirmation_number" className="text-sm text-[#C99A47]" />
+                            <span>{isEnglish ? 'Direct Ticket Sales Window (Optional)' : 'Thời gian cho phép bán vé trực tiếp (Tùy chọn)'}</span>
+                          </label>
+                          <span className="text-[11px] text-muted">
+                            {isEnglish
+                              ? 'Staff is only permitted to sell tickets directly during this active window'
+                              : 'Staff chỉ được phép bán vé trực tiếp tại quầy trong khung thời gian này'}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-start">
+                          {/* Bắt đầu bán trực tiếp */}
+                          <div>
+                            <span className="text-[11px] text-subtle block mb-1 font-medium">
+                              {isEnglish ? 'Direct sales open:' : 'Bắt đầu mở bán trực tiếp:'}
+                            </span>
+                            <div className="w-full h-9.5 px-3 rounded-lg border border-border-soft/40 bg-panel-soft flex items-center gap-2 focus-within:border-tertiary focus-within:ring-1 focus-within:ring-secondary/30 transition-all">
+                              <input
+                                type="time"
+                                className="no-picker-indicator w-24 shrink-0 bg-transparent border-0 outline-none text-content text-sm cursor-pointer font-medium"
+                                value={session.direct_sale_start_time || ''}
+                                onClick={(e) => {
+                                  try { e.target.showPicker?.() } catch (err) {}
+                                }}
+                                onChange={(e) => {
+                                  const t = e.target.value
+                                  updateSessionFields(key, {
+                                    direct_sale_start_time: t,
+                                    direct_sale_start_date: session.direct_sale_start_date || (t ? session.start_date || '' : ''),
+                                  })
+                                }}
+                                title="Giờ bắt đầu bán trực tiếp"
+                              />
+                              <input
+                                type="date"
+                                min={todayStr}
+                                className="flex-1 min-w-0 bg-transparent border-0 outline-none text-content text-sm cursor-pointer font-medium"
+                                value={session.direct_sale_start_date || ''}
+                                onClick={(e) => {
+                                  try { e.target.showPicker?.() } catch (err) {}
+                                }}
+                                onChange={(e) => {
+                                  const d = e.target.value
+                                  updateSessionFields(key, {
+                                    direct_sale_start_date: d,
+                                  })
+                                }}
+                                title="Ngày bắt đầu bán trực tiếp"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Kết thúc bán trực tiếp */}
+                          <div>
+                            <span className="text-[11px] text-subtle block mb-1 font-medium">
+                              {isEnglish ? 'Direct sales close:' : 'Kết thúc bán trực tiếp:'}
+                            </span>
+                            <div className="w-full h-9.5 px-3 rounded-lg border border-border-soft/40 bg-panel-soft flex items-center gap-2 focus-within:border-tertiary focus-within:ring-1 focus-within:ring-secondary/30 transition-all">
+                              <input
+                                type="time"
+                                className="no-picker-indicator w-24 shrink-0 bg-transparent border-0 outline-none text-content text-sm cursor-pointer font-medium"
+                                value={session.direct_sale_end_time || ''}
+                                onClick={(e) => {
+                                  try { e.target.showPicker?.() } catch (err) {}
+                                }}
+                                onChange={(e) => {
+                                  const t = e.target.value
+                                  updateSessionFields(key, {
+                                    direct_sale_end_time: t,
+                                    direct_sale_end_date: session.direct_sale_end_date || (t ? session.end_date || session.start_date || '' : ''),
+                                  })
+                                }}
+                                title="Giờ kết thúc bán trực tiếp"
+                              />
+                              <input
+                                type="date"
+                                min={session.direct_sale_start_date || todayStr}
+                                className="flex-1 min-w-0 bg-transparent border-0 outline-none text-content text-sm cursor-pointer font-medium"
+                                value={session.direct_sale_end_date || ''}
+                                onClick={(e) => {
+                                  try { e.target.showPicker?.() } catch (err) {}
+                                }}
+                                onChange={(e) => {
+                                  const d = e.target.value
+                                  updateSessionFields(key, {
+                                    direct_sale_end_date: d,
+                                  })
+                                }}
+                                title="Ngày kết thúc bán trực tiếp"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {session.direct_sale_start_date && session.direct_sale_end_date &&
+                         session.direct_sale_start_time && session.direct_sale_end_time &&
+                         new Date(`${session.direct_sale_end_date}T${session.direct_sale_end_time}`) <= new Date(`${session.direct_sale_start_date}T${session.direct_sale_start_time}`) && (
+                          <p className="mt-1 text-[11px] text-red-500 font-medium">
+                            {isEnglish
+                              ? 'Direct sales closing time must be after opening time.'
+                              : 'Thời gian kết thúc bán trực tiếp phải diễn ra sau thời gian bắt đầu.'}
+                          </p>
+                        )}
+                        {session.direct_sale_start_date && todayStr && session.direct_sale_start_date < todayStr && (
+                          <p className="mt-1 text-[11px] text-red-500 font-medium">
+                            {isEnglish
+                              ? 'Direct sales opening date cannot be in the past.'
+                              : 'Ngày bắt đầu bán trực tiếp không được ở trong quá khứ.'}
+                          </p>
+                        )}
                       </div>
                     </div>
                   )}
@@ -3683,6 +3819,21 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
                       </div>
                     )}
 
+                    {session.direct_sale_start_time && (
+                      <div className="flex items-center gap-2 text-content">
+                        <Icon name="confirmation_number" className="text-base text-tertiary shrink-0" />
+                        <span className="truncate">
+                          {isEnglish ? 'Direct sales:' : 'Bán vé trực tiếp:'}{' '}
+                          <strong className="text-content font-bold">
+                            {session.direct_sale_start_time}
+                            {session.direct_sale_start_date ? ` (${session.direct_sale_start_date})` : ''}
+                            {session.direct_sale_end_time ? ` - ${session.direct_sale_end_time}` : ''}
+                            {session.direct_sale_end_date && session.direct_sale_end_date !== session.direct_sale_start_date ? ` (${session.direct_sale_end_date})` : ''}
+                          </strong>
+                        </span>
+                      </div>
+                    )}
+
                     <div className="flex items-center gap-2 text-content sm:col-span-2">
                       <Icon name="location_on" className="text-base text-tertiary shrink-0" />
                       <span className="truncate">
@@ -4168,6 +4319,8 @@ export function CreateEventPage() {
       const start = splitDateTime(s.start_time)
       const end = splitDateTime(s.end_time)
       const checkin = splitDateTime(s.checkin_start_time)
+      const dsStart = splitDateTime(s.direct_sale_start_time)
+      const dsEnd = splitDateTime(s.direct_sale_end_time)
       const sessionDate = start.date || end.date || ''
       return {
         id: s.id,
@@ -4184,6 +4337,10 @@ export function CreateEventPage() {
         disabled_seat_ids: s.disabled_seat_ids || [],
         checkin_start_date: checkin.date || sessionDate,
         checkin_start_time: checkin.time || '',
+        direct_sale_start_date: dsStart.date || '',
+        direct_sale_start_time: dsStart.time || '',
+        direct_sale_end_date: dsEnd.date || '',
+        direct_sale_end_time: dsEnd.time || '',
       }
     })
 
@@ -4438,6 +4595,36 @@ export function CreateEventPage() {
             return `${sName}: Thời gian check-in (${s.checkin_start_time} ngày ${s.checkin_start_date}) phải trước hoặc bằng giờ bắt đầu sự kiện (${s.start_time} ngày ${s.start_date}).`
           }
         }
+
+        if (s.direct_sale_start_time || s.direct_sale_start_date || s.direct_sale_end_time || s.direct_sale_end_date) {
+          if ((s.direct_sale_start_time && !s.direct_sale_start_date) || (!s.direct_sale_start_time && s.direct_sale_start_date)) {
+            return `${sName}: Vui lòng nhập đầy đủ cả ngày và giờ bắt đầu bán vé trực tiếp.`
+          }
+          if ((s.direct_sale_end_time && !s.direct_sale_end_date) || (!s.direct_sale_end_time && s.direct_sale_end_date)) {
+            return `${sName}: Vui lòng nhập đầy đủ cả ngày và giờ kết thúc bán vé trực tiếp.`
+          }
+
+          let dsStartTime = null
+          let dsEndTime = null
+
+          if (s.direct_sale_start_date && s.direct_sale_start_time) {
+            dsStartTime = new Date(`${s.direct_sale_start_date}T${s.direct_sale_start_time}`)
+            if (isNaN(dsStartTime.getTime())) {
+              return `${sName}: Thời gian bắt đầu bán vé trực tiếp không hợp lệ.`
+            }
+          }
+
+          if (s.direct_sale_end_date && s.direct_sale_end_time) {
+            dsEndTime = new Date(`${s.direct_sale_end_date}T${s.direct_sale_end_time}`)
+            if (isNaN(dsEndTime.getTime())) {
+              return `${sName}: Thời gian kết thúc bán vé trực tiếp không hợp lệ.`
+            }
+          }
+
+          if (dsStartTime && dsEndTime && dsEndTime <= dsStartTime) {
+            return `${sName}: Thời gian kết thúc bán vé trực tiếp phải diễn ra sau thời gian bắt đầu.`
+          }
+        }
       }
 
       // Check session overlap
@@ -4521,6 +4708,8 @@ export function CreateEventPage() {
       venue_id: s.venue_id,
       seat_map_id: s.seating_type === 'ASSIGNED' ? s.seat_map_id : null,
       checkin_start_time: (s.checkin_start_time && (s.checkin_start_date || s.start_date)) ? combineDateTime(s.checkin_start_date || s.start_date, s.checkin_start_time) : null,
+      direct_sale_start_time: (s.direct_sale_start_time && (s.direct_sale_start_date || s.start_date)) ? combineDateTime(s.direct_sale_start_date || s.start_date, s.direct_sale_start_time) : null,
+      direct_sale_end_time: (s.direct_sale_end_time && (s.direct_sale_end_date || s.end_date || s.start_date)) ? combineDateTime(s.direct_sale_end_date || s.end_date || s.start_date, s.direct_sale_end_time) : null,
     }))
 
   const buildTicketTypesPayload = () => {
@@ -4752,6 +4941,8 @@ export function CreateEventPage() {
           const start = splitDateTime(s.start_time)
           const end = splitDateTime(s.end_time)
           const checkin = splitDateTime(s.checkin_start_time)
+          const dsStart = splitDateTime(s.direct_sale_start_time)
+          const dsEnd = splitDateTime(s.direct_sale_end_time)
           const old = formData.sessions.find(
             (os) => (os.id && String(os.id) === String(s.id)) || (os.session_name === s.session_name && String(os.venue_id) === String(s.venue_id)),
           ) || formData.sessions[idx]
@@ -4769,6 +4960,10 @@ export function CreateEventPage() {
             zone_assignments: old?.zone_assignments || [],
             checkin_start_date: checkin.date || old?.checkin_start_date || start.date,
             checkin_start_time: checkin.time || old?.checkin_start_time || '',
+            direct_sale_start_date: dsStart.date || old?.direct_sale_start_date || '',
+            direct_sale_start_time: dsStart.time || old?.direct_sale_start_time || '',
+            direct_sale_end_date: dsEnd.date || old?.direct_sale_end_date || '',
+            direct_sale_end_time: dsEnd.time || old?.direct_sale_end_time || '',
           }
         })
         setFormData((p) => {

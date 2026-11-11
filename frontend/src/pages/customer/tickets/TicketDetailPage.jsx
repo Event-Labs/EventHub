@@ -32,6 +32,8 @@ import { VIETNAMESE_BANKS, getBankDisplayName, resolveBankName } from '@/constan
 import logoSrc from '@/assets/eventhub-logo.png'
 import { buildUniversalTicketSvg } from '@/utils/ticketSvgGenerator.js'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
+import { formatRefundReason } from '@/utils/refundPolicy.js'
+import { CustomerComplaintModal } from '@/components/CustomerComplaintModal.jsx'
 import { cleanAndFormatVenue } from '@/i18n/eventTranslations.js'
 import { translatePhrase } from '@/i18n/phraseDictionary.js'
 
@@ -188,6 +190,7 @@ export function TicketDetailPage() {
   const [downloadError, setDownloadError] = useState('')
   const [downloading, setDownloading] = useState(false)
   const [refundDetailOpen, setRefundDetailOpen] = useState(false)
+  const [complaintModalOpen, setComplaintModalOpen] = useState(false)
   const currentUserKey = getStoredUserKey()
 
   useEffect(() => {
@@ -502,6 +505,15 @@ export function TicketDetailPage() {
                 {isEnglish ? 'Tickets are non-refundable according to event policy.' : 'Vé không hỗ trợ hoàn hủy theo chính sách của sự kiện.'}
               </div>
             ) : null}
+            {/* Nút Khiếu nại lên Quản trị viên */}
+            <button
+              type="button"
+              onClick={() => setComplaintModalOpen(true)}
+              className="w-full py-3 text-xs font-bold rounded-2xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 hover:text-rose-200 flex items-center justify-center gap-2 transition-all cursor-pointer"
+            >
+              <ShieldAlert className="size-4 text-rose-400" />
+              {isEnglish ? 'File Complaint to Admin' : 'Khiếu nại / Phản ánh lên Quản trị viên'}
+            </button>
           </div>
         </div>
       </div>
@@ -517,6 +529,23 @@ export function TicketDetailPage() {
           refundsQuery.refetch()
           queryClient.invalidateQueries({ queryKey: ['my-refunds'] })
           queryClient.invalidateQueries({ queryKey: ['ticket-detail'] })
+        }}
+      />
+
+      <CustomerComplaintModal
+        isOpen={complaintModalOpen}
+        onClose={() => setComplaintModalOpen(false)}
+        initialData={{
+          eventId: ticket?.event?.id,
+          eventTitle: ticket?.event?.title,
+          organizerId: ticket?.event?.organizer_id,
+          organizerName: ticket?.event?.organizer?.business_name || ticket?.event?.organizer?.organization_name,
+          ticketId: ticket?.id,
+          ticketCode: ticket?.ticket_code,
+          orderId: ticket?.order?.id,
+          orderCode: ticket?.order?.order_code,
+          contactEmail: ticket?.customer?.email,
+          contactPhone: ticket?.customer?.phone,
         }}
       />
     </div>
