@@ -174,6 +174,28 @@ function assertValidSessionTimes(startTime, endTime, validatePast = true, checki
   }
 }
 
+function assertValidDirectSaleTimes(directSaleStartTime, directSaleEndTime) {
+  if (directSaleStartTime) {
+    const dsStart = new Date(directSaleStartTime);
+    if (isNaN(dsStart.getTime())) {
+      throw new AppError('Thời gian bắt đầu bán vé trực tiếp không hợp lệ.', 400, ErrorCodes.INVALID_INPUT);
+    }
+  }
+  if (directSaleEndTime) {
+    const dsEnd = new Date(directSaleEndTime);
+    if (isNaN(dsEnd.getTime())) {
+      throw new AppError('Thời gian kết thúc bán vé trực tiếp không hợp lệ.', 400, ErrorCodes.INVALID_INPUT);
+    }
+  }
+  if (directSaleStartTime && directSaleEndTime) {
+    const dsStart = new Date(directSaleStartTime);
+    const dsEnd = new Date(directSaleEndTime);
+    if (dsEnd <= dsStart) {
+      throw new AppError('Thời gian kết thúc bán vé trực tiếp phải diễn ra sau thời gian bắt đầu.', 400, ErrorCodes.INVALID_INPUT);
+    }
+  }
+}
+
 function assertNoOverlappingSessions(sessions) {
   if (!Array.isArray(sessions) || sessions.length <= 1) return;
   for (let i = 0; i < sessions.length; i++) {
@@ -646,6 +668,7 @@ class OrganizerEventsService {
           new Date(existingSession.checkin_start_time || 0).getTime() !== new Date(session.checkin_start_time || 0).getTime();
 
         assertValidSessionTimes(session.start_time, session.end_time, isNewOrChangedStartTime, session.checkin_start_time);
+        assertValidDirectSaleTimes(session.direct_sale_start_time, session.direct_sale_end_time);
         await this.assertVenueAccessible(organizerId, session.venue_id);
 
         const sessionData = {
@@ -655,6 +678,8 @@ class OrganizerEventsService {
           venue_id: session.venue_id,
           seat_map_id: session.seat_map_id || null,
           checkin_start_time: session.checkin_start_time || null,
+          direct_sale_start_time: session.direct_sale_start_time || null,
+          direct_sale_end_time: session.direct_sale_end_time || null,
         };
 
         if (session.id && existingIds.has(session.id)) {
