@@ -14,6 +14,7 @@ import {
   HelpCircle,
   Star,
   ShieldAlert,
+  Edit2,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useLocation } from 'react-router-dom'
@@ -1101,28 +1102,73 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest, onPayoutSub
 
   const toast = useToast()
   const eventTitle = isEnglish ? (translatePhrase(ticket.event?.title, 'en') || ticket.event?.title) : ticket.event?.title
-  const status = refundRequest?.status || (ticket.status === 'REFUNDED' ? 'REFUNDED' : 'PENDING')
-  const [bankName, setBankName] = useState(refundRequest?.bank_name || '')
-  const [accountNumber, setAccountNumber] = useState('')
-  const [accountName, setAccountName] = useState(refundRequest?.bank_account_name || ticket.order?.buyer_name || '')
+  const [currentRefundRequest, setCurrentRefundRequest] = useState(refundRequest)
+  useEffect(() => {
+    setCurrentRefundRequest(refundRequest)
+  }, [refundRequest])
+
+  const status = currentRefundRequest?.status || (ticket.status === 'REFUNDED' ? 'REFUNDED' : 'PENDING')
+  const [bankName, setBankName] = useState(
+    resolveBankName(currentRefundRequest?.bank_name) || currentRefundRequest?.bank_name || ''
+  )
+  const [accountNumber, setAccountNumber] = useState(
+    currentRefundRequest?.bank_account_number && !currentRefundRequest.bank_account_number.startsWith('enc.')
+      ? currentRefundRequest.bank_account_number
+      : ''
+  )
+  const [accountName, setAccountName] = useState(
+    currentRefundRequest?.bank_account_name || ticket.order?.buyer_name || ''
+  )
+  const [isEditingPayout, setIsEditingPayout] = useState(false)
   const [submittingPayout, setSubmittingPayout] = useState(false)
   const [showDisputeForm, setShowDisputeForm] = useState(false)
   const [disputeReason, setDisputeReason] = useState('')
   const [submittingDispute, setSubmittingDispute] = useState(false)
   const isCustomerConfirmed = Boolean(
-    refundRequest?.audit_trail?.some?.((a) => a.action === 'CONFIRM_REFUND_RECEIVED' || a.action === 'CUSTOMER_CONFIRMED')
+    currentRefundRequest?.audit_trail?.some?.((a) => a.action === 'CONFIRM_REFUND_RECEIVED' || a.action === 'CUSTOMER_CONFIRMED')
   )
   const [confirmedReceived, setConfirmedReceived] = useState(isCustomerConfirmed)
   useEffect(() => {
     setConfirmedReceived(isCustomerConfirmed)
   }, [isCustomerConfirmed])
 
+  useEffect(() => {
+    if (currentRefundRequest) {
+      setBankName(resolveBankName(currentRefundRequest.bank_name) || currentRefundRequest.bank_name || '')
+      setAccountNumber(
+        currentRefundRequest.bank_account_number && !currentRefundRequest.bank_account_number.startsWith('enc.')
+          ? currentRefundRequest.bank_account_number
+          : ''
+      )
+      setAccountName(currentRefundRequest.bank_account_name || ticket.order?.buyer_name || '')
+    }
+  }, [currentRefundRequest, ticket])
+
   const needsPayoutInfo = Boolean(
-    refundRequest &&
-    !refundRequest.bank_account_number &&
+    currentRefundRequest &&
+    !currentRefundRequest.bank_account_number &&
     status !== 'REFUNDED' &&
     status !== 'REJECTED'
   )
+
+  const canEditPayout = Boolean(
+    currentRefundRequest &&
+    currentRefundRequest.bank_account_number &&
+    status !== 'REFUNDED' &&
+    status !== 'REJECTED' &&
+    status !== 'SUBMITTED'
+  )
+
+  const startEditingPayout = () => {
+    setBankName(resolveBankName(currentRefundRequest?.bank_name) || currentRefundRequest?.bank_name || '')
+    setAccountNumber(
+      currentRefundRequest?.bank_account_number && !currentRefundRequest.bank_account_number.startsWith('enc.')
+        ? currentRefundRequest.bank_account_number
+        : ''
+    )
+    setAccountName(currentRefundRequest?.bank_account_name || ticket.order?.buyer_name || '')
+    setIsEditingPayout(true)
+  }
 
   const handlePayoutSubmit = async (e) => {
     e.preventDefault()
@@ -1131,16 +1177,32 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest, onPayoutSub
       return
     }
     setSubmittingPayout(true)
+    const cleanAccountNumber = accountNumber.trim().replace(/\s+/g, '')
+    const cleanAccountName = accountName.trim().toUpperCase()
     try {
       await submitPayoutInfo({
-        refund_request_id: refundRequest.id,
+        refund_request_id: currentRefundRequest?.id || refundRequest?.id,
         bank_name: bankName,
-        bank_account_number: accountNumber.trim(),
-        bank_account_name: accountName.trim().toUpperCase(),
+        bank_account_number: cleanAccountNumber,
+        bank_account_name: cleanAccountName,
       })
-      toast.success(isEnglish ? 'Bank account info saved. The organizer will process the payout.' : 'Đã lưu thông tin nhận tiền hoàn. Ban tổ chức sẽ tiến hành chuyển khoản.')
+      toast.success(
+        isEditingPayout
+          ? (isEnglish ? 'Bank account info updated successfully.' : 'Đã cập nhật thông tin tài khoản nhận tiền thành công.')
+          : (isEnglish ? 'Bank account info saved. The organizer will process the payout.' : 'Đã lưu thông tin nhận tiền hoàn. Ban tổ chức sẽ tiến hành chuyển khoản.')
+      )
+      setCurrentRefundRequest((prev) => ({
+        ...prev,
+        bank_name: bankName,
+        bank_account_number: cleanAccountNumber,
+        bank_account_name: cleanAccountName,
+      }))
+      const wasEditing = isEditingPayout
+      setIsEditingPayout(false)
       onPayoutSubmitted?.()
-      onClose()
+      if (!wasEditing) {
+        onClose()
+      }
     } catch (err) {
       toast.error(err.response?.data?.message || (isEnglish ? 'Unable to save payout info.' : 'Không thể lưu thông tin nhận tiền.'))
     } finally {
@@ -1150,7 +1212,7 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest, onPayoutSub
 
   const handleConfirmReceived = async () => {
     try {
-      await confirmReceivedRefund(refundRequest.id)
+      await confirmReceivedRefund(currentRefundRequest?.id || refundRequest?.id)
       setConfirmedReceived(true)
       toast.success(isEnglish ? 'Thank you for confirming receipt of the full refund.' : 'Cảm ơn bạn đã xác nhận đã nhận đủ tiền hoàn.')
       onPayoutSubmitted?.()
@@ -1167,7 +1229,7 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest, onPayoutSub
     }
     setSubmittingDispute(true)
     try {
-      await disputeRefund(refundRequest.id, disputeReason.trim())
+      await disputeRefund(currentRefundRequest?.id || refundRequest?.id, disputeReason.trim())
       toast.warning(isEnglish ? 'Dispute submitted. Organizer and Admin will review the transaction.' : 'Đã gửi khiếu nại chưa nhận được tiền. Ban tổ chức và Admin sẽ kiểm tra lại giao dịch.')
       setShowDisputeForm(false)
       setDisputeReason('')
@@ -1228,7 +1290,7 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest, onPayoutSub
     }
   }
 
-  const refundAmount = refundRequest?.refund_amount ?? (ticket.order_item?.actual_price || ticket.order_item?.final_price || ticket.ticket_type?.price || 0)
+  const refundAmount = currentRefundRequest?.refund_amount ?? (ticket.order_item?.actual_price || ticket.order_item?.final_price || ticket.ticket_type?.price || 0)
 
   return (
     <div
@@ -1285,7 +1347,7 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest, onPayoutSub
                     value={bankName}
                     onChange={(e) => setBankName(e.target.value)}
                     required
-                    className="w-full rounded-xl border border-white/15 bg-slate-900 p-2.5 text-xs text-white outline-none focus:border-amber-400"
+                    className="w-full rounded-xl border border-white/15 bg-slate-900 p-2.5 text-xs text-white outline-none focus:border-amber-400 cursor-pointer"
                   >
                     <option value="">{isEnglish ? '-- Select Bank --' : '-- Chọn ngân hàng thụ hưởng --'}</option>
                     {VIETNAMESE_BANKS.map((b) => (
@@ -1301,8 +1363,8 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest, onPayoutSub
                     required
                     placeholder={isEnglish ? 'Bank account number' : 'Số tài khoản ngân hàng'}
                     value={accountNumber}
-                    onChange={(e) => setAccountNumber(e.target.value)}
-                    className="w-full rounded-xl border border-white/15 bg-slate-900 p-2.5 text-xs text-white outline-none focus:border-amber-400"
+                    onChange={(e) => setAccountNumber(e.target.value.replace(/\s+/g, ''))}
+                    className="w-full rounded-xl border border-white/15 bg-slate-900 p-2.5 text-xs text-white font-mono outline-none focus:border-amber-400"
                   />
                 </div>
                 <div>
@@ -1312,7 +1374,7 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest, onPayoutSub
                     placeholder={isEnglish ? 'Account holder name (CAPITALS)' : 'Tên chủ tài khoản (VIẾT HOA KHÔNG DẤU)'}
                     value={accountName}
                     onChange={(e) => setAccountName(e.target.value.toUpperCase())}
-                    className="w-full rounded-xl border border-white/15 bg-slate-900 p-2.5 text-xs text-white outline-none focus:border-amber-400"
+                    className="w-full rounded-xl border border-white/15 bg-slate-900 p-2.5 text-xs text-white uppercase outline-none focus:border-amber-400"
                   />
                 </div>
                 <button
@@ -1326,26 +1388,128 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest, onPayoutSub
             </div>
           )}
 
+          {/* Form to edit payout info when user clicks "Chỉnh sửa" */}
+          {isEditingPayout && (
+            <div className="rounded-[20px] border border-amber-500/40 bg-amber-500/10 p-5 shadow-lg shadow-amber-500/5 animate-in fade-in duration-200">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-xs font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <Edit2 className="size-3.5" />
+                  {isEnglish ? 'Edit Payout Bank Account' : 'Chỉnh sửa tài khoản nhận tiền hoàn'}
+                </h4>
+                <button
+                  type="button"
+                  onClick={() => setIsEditingPayout(false)}
+                  className="rounded-full p-1 text-slate-400 hover:text-white transition cursor-pointer"
+                  title={isEnglish ? 'Cancel' : 'Hủy'}
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
+              <p className="text-xs text-amber-200/90 mb-3 leading-relaxed">
+                {isEnglish
+                  ? 'Update your bank account information before the organizer processes the refund transfer.'
+                  : 'Cập nhật lại thông tin tài khoản ngân hàng trước khi Ban tổ chức thực hiện lệnh chuyển khoản hoàn tiền.'}
+              </p>
+              <form onSubmit={handlePayoutSubmit} className="space-y-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                    {isEnglish ? 'Beneficiary Bank' : 'Ngân hàng thụ hưởng'} <span className="text-amber-400">*</span>
+                  </label>
+                  <select
+                    value={bankName}
+                    onChange={(e) => setBankName(e.target.value)}
+                    required
+                    className="w-full rounded-xl border border-white/15 bg-slate-900 p-2.5 text-xs text-white outline-none focus:border-amber-400 cursor-pointer"
+                  >
+                    <option value="">{isEnglish ? '-- Select Bank --' : '-- Chọn ngân hàng thụ hưởng --'}</option>
+                    {VIETNAMESE_BANKS.map((b) => (
+                      <option key={b.code} value={b.shortName}>
+                        {b.shortName} - {b.fullName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                    {isEnglish ? 'Account Number' : 'Số tài khoản ngân hàng'} <span className="text-amber-400">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder={isEnglish ? 'Bank account number' : 'Nhập số tài khoản ngân hàng'}
+                    value={accountNumber}
+                    onChange={(e) => setAccountNumber(e.target.value.replace(/\s+/g, ''))}
+                    className="w-full rounded-xl border border-white/15 bg-slate-900 p-2.5 text-xs text-white font-mono outline-none focus:border-amber-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                    {isEnglish ? 'Account Holder Name' : 'Tên chủ tài khoản'} <span className="text-amber-400">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder={isEnglish ? 'Account holder name (CAPITALS)' : 'Tên chủ tài khoản (VIẾT HOA KHÔNG DẤU)'}
+                    value={accountName}
+                    onChange={(e) => setAccountName(e.target.value.toUpperCase())}
+                    className="w-full rounded-xl border border-white/15 bg-slate-900 p-2.5 text-xs text-white uppercase outline-none focus:border-amber-400"
+                  />
+                </div>
+                <div className="flex items-center gap-2 pt-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingPayout(false)}
+                    disabled={submittingPayout}
+                    className="flex-1 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 py-2.5 text-xs font-semibold text-slate-300 transition cursor-pointer"
+                  >
+                    {isEnglish ? 'Cancel' : 'Hủy'}
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submittingPayout}
+                    className="flex-1 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:brightness-110 py-2.5 text-xs font-bold text-slate-950 transition disabled:opacity-50 cursor-pointer shadow-[0_0_15px_rgba(245,158,11,0.3)]"
+                  >
+                    {submittingPayout
+                      ? (isEnglish ? 'Saving...' : 'Đang lưu...')
+                      : (isEnglish ? 'Save Changes' : 'Lưu thay đổi')}
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
           {/* Display submitted bank account info if already provided */}
-          {!needsPayoutInfo && refundRequest?.bank_name && (
+          {!needsPayoutInfo && !isEditingPayout && currentRefundRequest?.bank_name && (
             <div className="rounded-[20px] border border-blue-500/30 bg-blue-500/10 p-4">
-              <h4 className="text-xs font-bold text-blue-300 uppercase tracking-wider mb-2.5">
-                {isEnglish ? 'Registered Payout Bank Account' : 'Tài khoản nhận tiền hoàn đã ghi nhận'}
-              </h4>
+              <div className="flex items-center justify-between mb-2.5">
+                <h4 className="text-xs font-bold text-blue-300 uppercase tracking-wider">
+                  {isEnglish ? 'Registered Payout Bank Account' : 'Tài khoản nhận tiền hoàn đã ghi nhận'}
+                </h4>
+                {canEditPayout && (
+                  <button
+                    type="button"
+                    onClick={startEditingPayout}
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg border border-blue-400/40 bg-blue-500/20 hover:bg-blue-500/35 text-xs font-semibold text-blue-200 transition cursor-pointer"
+                  >
+                    <Edit2 className="size-3.5" />
+                    <span>{isEnglish ? 'Edit' : 'Chỉnh sửa'}</span>
+                  </button>
+                )}
+              </div>
               <div className="space-y-1.5 text-xs text-blue-100">
                 <div className="flex items-start justify-between gap-3">
                   <span className="text-blue-200/70 font-medium shrink-0">{isEnglish ? 'Bank:' : 'Ngân hàng:'}</span>
-                  <span className="font-semibold text-right text-white">{resolveBankName(refundRequest.bank_name)}</span>
+                  <span className="font-semibold text-right text-white">{resolveBankName(currentRefundRequest.bank_name)}</span>
                 </div>
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-blue-200/70 font-medium shrink-0">{isEnglish ? 'Account No:' : 'Số TK:'}</span>
                   <span className="font-mono font-bold text-amber-300 tracking-wider">
-                    {refundRequest.bank_account_number?.startsWith?.('enc.') ? '••••••••' : refundRequest.bank_account_number}
+                    {currentRefundRequest.bank_account_number?.startsWith?.('enc.') ? '••••••••' : currentRefundRequest.bank_account_number}
                   </span>
                 </div>
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-blue-200/70 font-medium shrink-0">{isEnglish ? 'Account Holder:' : 'Chủ TK:'}</span>
-                  <span className="font-bold text-white uppercase">{refundRequest.bank_account_name || 'N/A'}</span>
+                  <span className="font-bold text-white uppercase">{currentRefundRequest.bank_account_name || 'N/A'}</span>
                 </div>
               </div>
               <p className="text-[11px] text-blue-200/80 mt-3 pt-2 border-t border-blue-500/20">
@@ -1356,10 +1520,10 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest, onPayoutSub
 
           {/* Details list */}
           <div className="rounded-[20px] border border-white/10 bg-white/[0.02] p-5 space-y-3.5 text-xs">
-            {refundRequest?.id && (
+            {currentRefundRequest?.id && (
               <div className="flex justify-between items-center gap-4 border-b border-white/5 pb-2.5">
                 <span className="text-slate-400 font-medium">{isEnglish ? 'Request ID:' : 'Mã yêu cầu:'}</span>
-                <span className="font-mono font-bold text-primary">REQ #{refundRequest.id.slice(0, 8)}</span>
+                <span className="font-mono font-bold text-primary">REQ #{currentRefundRequest.id.slice(0, 8)}</span>
               </div>
             )}
             <div className="flex justify-between items-start gap-4 border-b border-white/5 pb-2.5">
@@ -1424,16 +1588,32 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest, onPayoutSub
               </div>
             )}
 
-            {refundRequest?.bank_name && (
+            {(currentRefundRequest?.bank_name || refundRequest?.bank_name) && (
               <div className="flex justify-between items-start gap-4 border-b border-white/5 pb-2.5">
-                <span className="text-slate-400 font-medium shrink-0">{isEnglish ? 'Receiving Account:' : 'Tài khoản nhận:'}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-400 font-medium shrink-0">{isEnglish ? 'Receiving Account:' : 'Tài khoản nhận:'}</span>
+                  {canEditPayout && !isEditingPayout && (
+                    <button
+                      type="button"
+                      onClick={startEditingPayout}
+                      className="text-blue-400 hover:text-blue-300 text-[11px] underline flex items-center gap-1 cursor-pointer font-medium"
+                    >
+                      <Edit2 className="size-2.5" />
+                      {isEnglish ? 'Edit' : 'Chỉnh sửa'}
+                    </button>
+                  )}
+                </div>
                 <div className="text-right text-slate-200 space-y-0.5">
-                  <p className="font-semibold text-white">{resolveBankName(refundRequest.bank_name)}</p>
+                  <p className="font-semibold text-white">{resolveBankName(currentRefundRequest?.bank_name || refundRequest?.bank_name)}</p>
                   <p className="font-mono font-bold text-amber-300">
-                    {refundRequest.bank_account_number?.startsWith?.('enc.') ? '••••••••' : refundRequest.bank_account_number}
+                    {(currentRefundRequest?.bank_account_number || refundRequest?.bank_account_number)?.startsWith?.('enc.')
+                      ? '••••••••'
+                      : (currentRefundRequest?.bank_account_number || refundRequest?.bank_account_number)}
                   </p>
-                  {refundRequest.bank_account_name && (
-                    <p className="font-medium text-slate-400 uppercase text-[11px]">({refundRequest.bank_account_name})</p>
+                  {(currentRefundRequest?.bank_account_name || refundRequest?.bank_account_name) && (
+                    <p className="font-medium text-slate-400 uppercase text-[11px]">
+                      ({currentRefundRequest?.bank_account_name || refundRequest?.bank_account_name})
+                    </p>
                   )}
                 </div>
               </div>
