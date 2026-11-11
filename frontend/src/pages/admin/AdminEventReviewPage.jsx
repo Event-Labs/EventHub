@@ -974,6 +974,7 @@ function EventReviewModal({
   onUnhide,
   onClose,
 }) {
+  const navigate = useNavigate()
   const { isEnglish } = useLanguage()
   const eventTitle = isEnglish ? (translatePhrase(event.title, 'en') || event.title) : event.title
   const shortDesc = isEnglish ? (translatePhrase(event.short_description, 'en') || event.short_description) : event.short_description

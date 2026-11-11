@@ -161,6 +161,7 @@ function formatEventDate(iso) {
 // Publish Confirm Modal
 // ---------------------------------------------------------------------------
 function PublishConfirmModal({ event, onConfirm, onClose, loading }) {
+  const { isEnglish } = useLanguage()
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/75 p-4 backdrop-blur-sm">
       <div className="w-full max-w-md rounded-2xl border border-white/15 bg-[#0b1329] p-6 shadow-2xl shadow-black/90 text-white">
@@ -229,6 +230,7 @@ function PublishConfirmModal({ event, onConfirm, onClose, loading }) {
 // Cancel / Request Cancel Modal
 // ---------------------------------------------------------------------------
 function CancelOrRequestCancelModal({ event, onConfirm, onClose, loading, error }) {
+  const { isEnglish } = useLanguage()
   const hasPaidOrders = Number(event.paid_orders_count || 0) > 0
   const [reasonCode, setReasonCode] = useState('ORGANIZER_REASON')
   const [reasonNote, setReasonNote] = useState('')
@@ -438,6 +440,7 @@ function CancelOrRequestCancelModal({ event, onConfirm, onClose, loading, error 
 // Toggle Hide Confirm Modal
 // ---------------------------------------------------------------------------
 function ToggleHideConfirmModal({ event, onConfirm, onClose, loading }) {
+  const { isEnglish } = useLanguage()
   const isCurrentlyHidden = event?.display_state === 'HIDDEN_BY_ORGANIZER'
   const [reasonNote, setReasonNote] = useState('')
 
@@ -538,6 +541,7 @@ function ToggleHideConfirmModal({ event, onConfirm, onClose, loading }) {
 // Delete Draft Confirm Modal
 // ---------------------------------------------------------------------------
 function DeleteDraftConfirmModal({ event, onConfirm, onClose, loading }) {
+  const { isEnglish } = useLanguage()
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4 backdrop-blur-sm">
       <div className="w-full max-w-md rounded-2xl border border-border-soft/50 bg-surface p-6 shadow-[0_24px_80px_rgba(0,0,0,0.5)]">

@@ -13,6 +13,7 @@ import {
   ExternalLink,
   HelpCircle,
   Star,
+  ShieldAlert,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useLocation } from 'react-router-dom'
@@ -34,6 +35,8 @@ import { buildUniversalTicketSvg } from '@/utils/ticketSvgGenerator.js'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
 import { cleanAndFormatVenue, translateTicketName } from '@/i18n/eventTranslations.js'
 import { translatePhrase } from '@/i18n/phraseDictionary.js'
+import { CustomerComplaintModal } from '@/components/CustomerComplaintModal.jsx'
+import { formatRefundReason } from '@/utils/refundPolicy.js'
 
 const getAutoIsEnglish = () => (typeof document !== 'undefined' && document.documentElement.lang === 'en') || (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en')
 
@@ -554,6 +557,7 @@ function CancelFreeTicketButton({ ticket, onCancelled, isEnglish = false }) {
   const [isOpen, setIsOpen] = useState(false)
   const [reason, setReason] = useState('')
   const toast = useToast()
+  const eventTitle = isEnglish ? (translatePhrase(ticket.event?.title, 'en') || ticket.event?.title) : ticket.event?.title
 
   const cancelMutation = useMutation({
     mutationFn: () => cancelFreeTicket(ticket.id, reason.trim() || (isEnglish ? 'User self-cancelled free ticket' : 'Khách hàng tự hủy vé miễn phí')),
@@ -649,6 +653,8 @@ function CancelFreeTicketButton({ ticket, onCancelled, isEnglish = false }) {
 function RefundButton({ ticket, onRefundSubmitted, isEnglish = false }) {
   const [isOpen, setIsOpen] = useState(false)
   const toast = useToast()
+  const eventTitle = isEnglish ? (translatePhrase(ticket.event?.title, 'en') || ticket.event?.title) : ticket.event?.title
+  const ticketTypeName = isEnglish ? (translatePhrase(ticket.ticket_type?.name, 'en') || ticket.ticket_type?.name) : ticket.ticket_type?.name
   const [reason, setReason] = useState('Trùng lịch cá nhân')
   const [customerNote, setCustomerNote] = useState('')
   const [bankName, setBankName] = useState('')
@@ -1094,6 +1100,7 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest, onPayoutSub
   if (!isOpen || !ticket) return null
 
   const toast = useToast()
+  const eventTitle = isEnglish ? (translatePhrase(ticket.event?.title, 'en') || ticket.event?.title) : ticket.event?.title
   const status = refundRequest?.status || (ticket.status === 'REFUNDED' ? 'REFUNDED' : 'PENDING')
   const [bankName, setBankName] = useState(refundRequest?.bank_name || '')
   const [accountNumber, setAccountNumber] = useState('')
