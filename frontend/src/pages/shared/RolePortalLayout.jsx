@@ -30,6 +30,7 @@ const NAV_LABEL_MAP = {
   'Duyệt sự kiện': { vi: 'Duyệt sự kiện', en: 'Event Approvals' },
   'Tài chính & Gói dịch vụ': { vi: 'Tài chính & Gói dịch vụ', en: 'Finance & Plans' },
   'Tài chính': { vi: 'Tài chính', en: 'Finance' },
+  'Quản lý khiếu nại': { vi: 'Quản lý khiếu nại', en: 'Complaints' },
   'Gói dịch vụ': { vi: 'Gói dịch vụ', en: 'Service Plans' },
   'Hồ sơ': { vi: 'Hồ sơ', en: 'Profile' },
   'Sự kiện': { vi: 'Sự kiện', en: 'Events' },

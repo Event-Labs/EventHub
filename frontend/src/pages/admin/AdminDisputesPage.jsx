@@ -24,6 +24,7 @@ import {
   ImageIcon,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { Modal } from '@/components/Modal.jsx'
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { Page, Panel, Table, TableActionButton } from './AdminComponents.jsx'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
@@ -39,9 +40,9 @@ import {
   getStatusBadgeClass,
 } from '@/services/complaints.js'
 
-function formatDateTime(value) {
+function formatDateTime(value, isEnglish = false) {
   if (!value) return 'N/A'
-  return new Intl.DateTimeFormat('vi-VN', {
+  return new Intl.DateTimeFormat(isEnglish ? 'en-US' : 'vi-VN', {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(value))
@@ -56,19 +57,55 @@ function formatCurrency(value) {
   }).format(value)
 }
 
+function getLocalizedCategoryLabel(catValue, isEnglish = false) {
+  if (!isEnglish) return getCategoryLabel(catValue)
+  switch (catValue) {
+    case 'EVENT_CONTENT':
+      return 'Event Content / Misleading Info'
+    case 'ORGANIZER_SERVICE':
+      return 'Organizer Service Quality'
+    case 'TICKET_CHECKIN':
+      return 'Ticket & Check-in Issue'
+    case 'FRAUD_SCAM':
+      return 'Suspected Fraud / Scam'
+    case 'REFUND_ISSUE':
+      return 'Payment & Refund Issue'
+    case 'OTHER':
+      return 'Other Issue'
+    default:
+      return catValue || 'Uncategorized'
+  }
+}
+
+function getLocalizedStatusLabel(status, isEnglish = false) {
+  if (!isEnglish) return getStatusLabel(status)
+  switch (status) {
+    case 'PENDING':
+      return 'Pending Review'
+    case 'IN_PROGRESS':
+      return 'In Progress'
+    case 'RESOLVED':
+      return 'Resolved'
+    case 'REJECTED':
+      return 'Rejected'
+    default:
+      return status || 'Unknown'
+  }
+}
+
 const REFUND_DISPUTE_FILTERS = [
-  { value: 'ALL', label: 'Tất cả trạng thái' },
-  { value: 'UNRESOLVED', label: 'Chưa giải quyết' },
-  { value: 'HAS_PROOF', label: 'BTC đã có chứng từ' },
-  { value: 'NO_PROOF', label: 'BTC chưa có chứng từ' },
+  { value: 'ALL', label: { vi: 'Tất cả trạng thái', en: 'All Statuses' } },
+  { value: 'UNRESOLVED', label: { vi: 'Chưa giải quyết', en: 'Unresolved' } },
+  { value: 'HAS_PROOF', label: { vi: 'BTC đã có chứng từ', en: 'Proof Uploaded' } },
+  { value: 'NO_PROOF', label: { vi: 'BTC chưa có chứng từ', en: 'Missing Proof' } },
 ]
 
 const CUSTOMER_COMPLAINT_STATUS_FILTERS = [
-  { value: 'ALL', label: 'Tất cả trạng thái' },
-  { value: 'PENDING', label: 'Chờ xử lý' },
-  { value: 'IN_PROGRESS', label: 'Đang giải quyết' },
-  { value: 'RESOLVED', label: 'Đã giải quyết' },
-  { value: 'REJECTED', label: 'Bác bỏ' },
+  { value: 'ALL', label: { vi: 'Tất cả trạng thái', en: 'All Statuses' } },
+  { value: 'PENDING', label: { vi: 'Chờ xử lý', en: 'Pending Review' } },
+  { value: 'IN_PROGRESS', label: { vi: 'Đang giải quyết', en: 'In Progress' } },
+  { value: 'RESOLVED', label: { vi: 'Đã giải quyết', en: 'Resolved' } },
+  { value: 'REJECTED', label: { vi: 'Bác bỏ', en: 'Rejected' } },
 ]
 
 export function AdminDisputesPage() {
@@ -385,6 +422,7 @@ export function AdminDisputesPage() {
               <div className="flex items-center gap-1.5 flex-nowrap overflow-x-auto">
                 {CUSTOMER_COMPLAINT_STATUS_FILTERS.map((f) => {
                   const isActive = selectedComplaintStatus === f.value
+                  const label = isEnglish ? f.label.en : f.label.vi
                   return (
                     <button
                       key={f.value}
@@ -396,7 +434,7 @@ export function AdminDisputesPage() {
                           : 'border border-border-soft/40 bg-panel-soft text-subtle hover:border-[#C99A47]/50 hover:bg-surface hover:text-[#E6C17A]'
                       }`}
                     >
-                      {f.label}
+                      {label}
                     </button>
                   )
                 })}
@@ -412,7 +450,7 @@ export function AdminDisputesPage() {
                   <option value="ALL">{isEnglish ? 'All categories' : 'Tất cả danh mục'}</option>
                   {COMPLAINT_CATEGORIES.map((c) => (
                     <option key={c.value} value={c.value}>
-                      {c.label}
+                      {getLocalizedCategoryLabel(c.value, isEnglish)}
                     </option>
                   ))}
                 </select>
@@ -431,208 +469,231 @@ export function AdminDisputesPage() {
             </div>
 
             {/* Complaints Table */}
-            <Panel className="p-0 overflow-hidden">
-              {complaintsQuery.isLoading ? (
-                <div className="p-10 text-center text-sm text-slate-400">
-                  <Loader2 className="size-6 animate-spin mx-auto text-rose-400 mb-2" />
-                  Đang tải danh sách khiếu nại...
-                </div>
-              ) : complaintItems.length === 0 ? (
-                <div className="p-12 text-center">
-                  <CheckCircle2 className="mx-auto size-12 text-emerald-500/60" />
-                  <p className="mt-3 text-sm font-bold text-white">
-                    Không có khiếu nại nào phù hợp
-                  </p>
-                  <p className="mt-1 text-xs text-slate-400">
-                    Hiện tại không có phản ánh nào từ khách hàng ở trạng thái hoặc bộ lọc này.
-                  </p>
-                </div>
-              ) : (
-                <Table
-                  compact
-                  headers={[
-                    'Mã KN / Ngày gửi',
-                    'Khách hàng',
-                    'Đối tượng liên quan',
-                    'Danh mục',
-                    'Tiêu đề & Nội dung phản ánh',
-                    'Trạng thái',
-                    'Thao tác',
-                  ]}
-                  rows={complaintItems.map((item) => {
-                    const hasEvidences = Array.isArray(item.evidence_urls) && item.evidence_urls.length > 0
-                    return [
-                      // 1. Mã KN / Ngày
-                      <div key="id" className="space-y-0.5">
-                        <span className="font-mono text-xs font-bold text-sky-400">
-                          #{item.id?.slice(0, 8)}
+            {complaintsQuery.isLoading ? (
+              <div className="rounded-2xl border border-border-soft/40 bg-panel-soft p-10 text-center text-sm text-slate-400">
+                <Loader2 className="size-6 animate-spin mx-auto text-rose-400 mb-2" />
+                {isEnglish ? 'Loading complaints list...' : 'Đang tải danh sách khiếu nại...'}
+              </div>
+            ) : complaintItems.length === 0 ? (
+              <div className="rounded-2xl border border-border-soft/40 bg-panel-soft p-12 text-center">
+                <p className="text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">
+                  {isEnglish ? 'No matching complaints found' : 'Không có khiếu nại nào phù hợp'}
+                </p>
+                <p className="mt-1 text-xs text-slate-400">
+                  {isEnglish
+                    ? 'There are currently no customer complaints matching the selected filters.'
+                    : 'Hiện tại không có phản ánh nào từ khách hàng ở trạng thái hoặc bộ lọc này.'}
+                </p>
+              </div>
+            ) : (
+              <Table
+                compact
+                headers={
+                  isEnglish
+                    ? [
+                        'COMPLAINT ID / DATE',
+                        'CUSTOMER',
+                        'RELATED TARGET',
+                        'CATEGORIES',
+                        'TITLE & DESCRIPTION',
+                        'STATUS',
+                        'ACTIONS',
+                      ]
+                    : [
+                        'MÃ KN / NGÀY GỬI',
+                        'KHÁCH HÀNG',
+                        'ĐỐI TƯỢNG LIÊN QUAN',
+                        'DANH MỤC',
+                        'TIÊU ĐỀ & NỘI DUNG PHẢN ÁNH',
+                        'TRẠNG THÁI',
+                        'THAO TÁC',
+                      ]
+                }
+                rows={complaintItems.map((item) => {
+                  const hasEvidences = Array.isArray(item.evidence_urls) && item.evidence_urls.length > 0
+                  return [
+                    // 1. Mã KN / Ngày
+                    <div key="id" className="space-y-0.5">
+                      <span className="font-mono text-xs font-bold text-sky-400">
+                        #{item.id?.slice(0, 8)}
+                      </span>
+                      <p className="text-[11px] text-slate-400 flex items-center gap-1">
+                        <Clock className="size-3" />
+                        {formatDateTime(item.created_at, isEnglish)}
+                      </p>
+                    </div>,
+
+                    // 2. Khách hàng
+                    <div key="customer" className="space-y-0.5">
+                      <p className="text-xs font-bold text-white [html.light_&]:text-[#0D1B2A]">
+                        {item.customer_name || (isEnglish ? 'Customer' : 'Khách hàng')}
+                      </p>
+                      <p className="text-[11px] text-slate-400 truncate">
+                        {item.contact_email || item.customer_email || ''}
+                      </p>
+                      {(item.contact_phone || item.customer_phone) && (
+                        <p className="text-[10px] text-slate-500 font-mono">
+                          {item.contact_phone || item.customer_phone}
+                        </p>
+                      )}
+                    </div>,
+
+                    // 3. Đối tượng liên quan
+                    <div key="target" className="max-w-[200px] space-y-0.5">
+                      {item.event_title ? (
+                        <p className="text-xs font-bold text-white [html.light_&]:text-[#0D1B2A] truncate" title={item.event_title}>
+                          {item.event_title}
+                        </p>
+                      ) : (
+                        <p className="text-xs italic text-slate-500">
+                          {isEnglish ? 'General platform issue' : 'Khiếu nại chung'}
+                        </p>
+                      )}
+                      {item.organizer_name && (
+                        <p className="text-[11px] text-amber-300 [html.light_&]:text-amber-800 truncate font-semibold">
+                          {isEnglish ? 'Organizer: ' : 'BTC: '}{item.organizer_name}
+                        </p>
+                      )}
+                      {item.ticket_code && (
+                        <span className="font-mono text-[10px] text-sky-300 [html.light_&]:text-sky-700">
+                          {isEnglish ? 'Ticket: ' : 'Vé: '}{item.ticket_code}
                         </span>
-                        <p className="text-[11px] text-slate-400 flex items-center gap-1">
-                          <Clock className="size-3" />
-                          {formatDateTime(item.created_at)}
-                        </p>
-                      </div>,
+                      )}
+                    </div>,
 
-                      // 2. Khách hàng
-                      <div key="customer" className="space-y-0.5">
-                        <p className="text-xs font-bold text-white">
-                          {item.customer_name || 'Khách hàng'}
-                        </p>
-                        <p className="text-[11px] text-slate-400 truncate">
-                          {item.contact_email || item.customer_email || ''}
-                        </p>
-                        {(item.contact_phone || item.customer_phone) && (
-                          <p className="text-[10px] text-slate-500 font-mono">
-                            {item.contact_phone || item.customer_phone}
-                          </p>
-                        )}
-                      </div>,
+                    // 4. Danh mục
+                    <div key="category">
+                      <span className={`inline-block rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${getCategoryBadgeClass(item.category)}`}>
+                        {getLocalizedCategoryLabel(item.category, isEnglish)}
+                      </span>
+                    </div>,
 
-                      // 3. Đối tượng liên quan
-                      <div key="target" className="max-w-[200px] space-y-0.5">
-                        {item.event_title ? (
-                          <p className="text-xs font-bold text-white truncate" title={item.event_title}>
-                            {item.event_title}
-                          </p>
-                        ) : (
-                          <p className="text-xs italic text-slate-500">Khiếu nại chung</p>
-                        )}
-                        {item.organizer_name && (
-                          <p className="text-[11px] text-amber-300 truncate font-semibold">
-                            BTC: {item.organizer_name}
-                          </p>
-                        )}
-                        {item.ticket_code && (
-                          <span className="font-mono text-[10px] text-sky-300">
-                            Vé: {item.ticket_code}
-                          </span>
-                        )}
-                      </div>,
-
-                      // 4. Danh mục
-                      <div key="category">
-                        <span className={`inline-block rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${getCategoryBadgeClass(item.category)}`}>
-                          {getCategoryLabel(item.category)}
+                    // 5. Tiêu đề & Nội dung
+                    <div key="content" className="max-w-[260px] space-y-1">
+                      <p className="text-xs font-bold text-white [html.light_&]:text-[#0D1B2A] truncate" title={item.title}>
+                        {item.title}
+                      </p>
+                      <p className="text-[11px] text-slate-300 [html.light_&]:text-slate-600 line-clamp-2 leading-relaxed">
+                        {item.description}
+                      </p>
+                      {hasEvidences && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-rose-300 [html.light_&]:text-rose-700">
+                          <ImageIcon className="size-3" />
+                          {item.evidence_urls.length} {isEnglish ? (item.evidence_urls.length > 1 ? 'evidence photos' : 'evidence photo') : 'ảnh minh chứng'}
                         </span>
-                      </div>,
+                      )}
+                    </div>,
 
-                      // 5. Tiêu đề & Nội dung
-                      <div key="content" className="max-w-[260px] space-y-1">
-                        <p className="text-xs font-bold text-white truncate" title={item.title}>
-                          {item.title}
+                    // 6. Trạng thái
+                    <div key="status">
+                      <span className={`inline-block rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${getStatusBadgeClass(item.status)}`}>
+                        {getLocalizedStatusLabel(item.status, isEnglish)}
+                      </span>
+                      {item.admin_note && (
+                        <p className="text-[10px] text-slate-400 mt-1 italic truncate max-w-[120px]" title={item.admin_note}>
+                          {isEnglish ? 'Note: ' : 'Ghi chú: '}{item.admin_note}
                         </p>
-                        <p className="text-[11px] text-slate-300 line-clamp-2 leading-relaxed">
-                          {item.description}
-                        </p>
-                        {hasEvidences && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-rose-300">
-                            <ImageIcon className="size-3" />
-                            {item.evidence_urls.length} ảnh minh chứng
-                          </span>
-                        )}
-                      </div>,
+                      )}
+                    </div>,
 
-                      // 6. Trạng thái
-                      <div key="status">
-                        <span className={`inline-block rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${getStatusBadgeClass(item.status)}`}>
-                          {getStatusLabel(item.status)}
-                        </span>
-                        {item.admin_note && (
-                          <p className="text-[10px] text-slate-400 mt-1 italic truncate max-w-[120px]" title={item.admin_note}>
-                            Ghi chú: {item.admin_note}
-                          </p>
-                        )}
-                      </div>,
-
-                      // 7. Thao tác
-                      <div key="actions" className="flex items-center justify-center">
-                        <TableActionButton
-                          title={isEnglish ? 'View details & resolve complaint' : 'Xem chi tiết & Xử lý khiếu nại'}
-                          onClick={() => handleOpenComplaintDetail(item)}
-                          icon={Eye}
-                          tone="default"
-                        />
-                      </div>,
-                    ]
-                  })}
-                />
-              )}
-            </Panel>
+                    // 7. Thao tác
+                    <div key="actions" className="flex items-center justify-center">
+                      <TableActionButton
+                        title={isEnglish ? 'View details & resolve complaint' : 'Xem chi tiết & Xử lý khiếu nại'}
+                        onClick={() => handleOpenComplaintDetail(item)}
+                        icon={Eye}
+                        tone="default"
+                      />
+                    </div>,
+                  ]
+                })}
+              />
+            )}
 
             {/* DETAIL & RESOLUTION MODAL FOR CUSTOMER COMPLAINTS */}
             {complaintDetailModalItem && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm animate-in fade-in duration-150">
-                <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl border border-border-soft/60 bg-[#0f172a] p-6 shadow-2xl text-white space-y-5">
-                  {/* Modal Header */}
-                  <div className="flex items-start justify-between border-b border-border-soft/60 pb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="flex size-11 items-center justify-center rounded-2xl bg-[#C99A47]/15 text-[#E6C17A] border border-[#C99A47]/30 shrink-0">
-                        <ShieldAlert className="size-6" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="text-lg font-bold text-white">
-                            {isEnglish ? 'Complaint' : 'Khiếu nại'} #{complaintDetailModalItem.id?.slice(0, 8)}
-                          </h3>
-                          <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${getStatusBadgeClass(complaintDetailModalItem.status)}`}>
-                            {getStatusLabel(complaintDetailModalItem.status)}
-                          </span>
-                        </div>
-                        <p className="text-xs text-subtle mt-0.5">
-                          {isEnglish ? 'Submitted at:' : 'Thời gian gửi:'} {formatDateTime(complaintDetailModalItem.created_at)}
-                        </p>
-                      </div>
-                    </div>
+              <Modal
+                open={Boolean(complaintDetailModalItem)}
+                title={
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <span>
+                      {isEnglish ? 'Complaint' : 'Khiếu nại'} #{complaintDetailModalItem.id?.slice(0, 8)}
+                    </span>
+                    <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${getStatusBadgeClass(complaintDetailModalItem.status)}`}>
+                      {getLocalizedStatusLabel(complaintDetailModalItem.status, isEnglish)}
+                    </span>
+                  </div>
+                }
+                onClose={() => setComplaintDetailModalItem(null)}
+                maxWidth="max-w-3xl"
+                footer={
+                  <div className="flex w-full items-center justify-end gap-3">
                     <button
                       type="button"
                       onClick={() => setComplaintDetailModalItem(null)}
-                      className="rounded-xl p-1.5 text-slate-400 hover:bg-white/10 hover:text-white transition cursor-pointer"
+                      className="admin-secondary px-6"
                     >
-                      <X className="size-5" />
+                      {isEnglish ? 'Cancel' : 'Hủy'}
+                    </button>
+                    <button
+                      type="submit"
+                      form="complaint-resolution-form"
+                      disabled={updateComplaintMutation.isPending}
+                      className="admin-primary px-6 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {updateComplaintMutation.isPending
+                        ? (isEnglish ? 'Saving...' : 'Đang lưu...')
+                        : (isEnglish ? 'Save' : 'Lưu')}
                     </button>
                   </div>
-
+                }
+              >
+                <form id="complaint-resolution-form" onSubmit={handleSaveComplaintResolution} className="space-y-6 py-1">
                   {/* Customer & Target Information Grid */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                     {/* Customer Info */}
-                    <div className="rounded-2xl border border-border-soft/40 bg-panel-soft/60 p-4 space-y-2">
-                      <span className="font-bold uppercase tracking-wider text-subtle block text-[10px]">
+                    <div className="rounded-xl border border-white/10 bg-[#121c38]/50 p-4 space-y-2 [html.light_&]:border-slate-200 [html.light_&]:bg-slate-50/70 [html.light_&]:text-[#0D1B2A]">
+                      <span className="font-black uppercase tracking-wider text-white [html.light_&]:text-slate-600 block text-xs">
                         {isEnglish ? 'Complainant Info' : 'Thông tin Người khiếu nại'}
                       </span>
-                      <p className="text-sm font-bold text-white flex items-center gap-2">
-                        <User className="size-4 text-[#E6C17A]" />
+                      <p className="text-sm font-bold text-white [html.light_&]:text-[#0D1B2A] flex items-center gap-2">
+                        <User className="size-4 text-[#C99A47]" />
                         {complaintDetailModalItem.customer_name || (isEnglish ? 'Customer' : 'Khách hàng')}
                       </p>
-                      <p className="text-slate-300 flex items-center gap-2">
-                        <Mail className="size-3.5 text-subtle" />
+                      <p className="text-slate-300 [html.light_&]:text-slate-600 flex items-center gap-2">
+                        <Mail className="size-3.5 text-[#C99A47]" />
                         {complaintDetailModalItem.contact_email || complaintDetailModalItem.customer_email || 'N/A'}
                       </p>
                       {(complaintDetailModalItem.contact_phone || complaintDetailModalItem.customer_phone) && (
-                        <p className="text-slate-300 flex items-center gap-2">
-                          <Phone className="size-3.5 text-subtle" />
+                        <p className="text-slate-300 [html.light_&]:text-slate-600 flex items-center gap-2">
+                          <Phone className="size-3.5 text-[#C99A47]" />
                           {complaintDetailModalItem.contact_phone || complaintDetailModalItem.customer_phone}
                         </p>
                       )}
+                      <p className="text-[11px] text-slate-400 [html.light_&]:text-slate-500 pt-1 border-t border-white/5 [html.light_&]:border-slate-200 flex items-center gap-1">
+                        <Clock className="size-3" />
+                        {isEnglish ? 'Submitted:' : 'Thời gian gửi:'} {formatDateTime(complaintDetailModalItem.created_at, isEnglish)}
+                      </p>
                     </div>
 
                     {/* Target Event / Organizer */}
-                    <div className="rounded-2xl border border-border-soft/40 bg-panel-soft/60 p-4 space-y-2">
-                      <span className="font-bold uppercase tracking-wider text-subtle block text-[10px]">
+                    <div className="rounded-xl border border-white/10 bg-[#121c38]/50 p-4 space-y-2 [html.light_&]:border-slate-200 [html.light_&]:bg-slate-50/70 [html.light_&]:text-[#0D1B2A]">
+                      <span className="font-black uppercase tracking-wider text-white [html.light_&]:text-slate-600 block text-xs">
                         {isEnglish ? 'Reported Target' : 'Đối tượng bị phản ánh'}
                       </span>
                       {complaintDetailModalItem.event_title ? (
                         <>
-                          <p className="text-sm font-bold text-white truncate" title={complaintDetailModalItem.event_title}>
+                          <p className="text-sm font-bold text-white [html.light_&]:text-[#0D1B2A] truncate" title={complaintDetailModalItem.event_title}>
                             {complaintDetailModalItem.event_title}
                           </p>
                           {complaintDetailModalItem.organizer_name && (
-                            <p className="text-amber-300 font-semibold flex items-center gap-1.5">
+                            <p className="text-amber-400 [html.light_&]:text-amber-800 font-semibold flex items-center gap-1.5">
                               <Building2 className="size-3.5" />
-                              BTC: {complaintDetailModalItem.organizer_name}
+                              {isEnglish ? 'Organizer: ' : 'BTC: '}{complaintDetailModalItem.organizer_name}
                             </p>
                           )}
                           {complaintDetailModalItem.ticket_code && (
-                            <p className="font-mono text-sky-400 flex items-center gap-1.5">
+                            <p className="font-mono text-sky-400 [html.light_&]:text-sky-700 flex items-center gap-1.5">
                               <Ticket className="size-3.5" />
                               {isEnglish ? 'Ticket code:' : 'Mã vé:'} {complaintDetailModalItem.ticket_code}
                             </p>
@@ -641,7 +702,7 @@ export function AdminDisputesPage() {
                             <div className="pt-1">
                               <Link
                                 to={`/admin/organizers/${complaintDetailModalItem.organizer_id}`}
-                                className="inline-flex items-center gap-1.5 rounded-lg border border-[#C99A47]/40 bg-[#C99A47]/10 px-2.5 py-1 text-[11px] font-semibold text-[#E6C17A] hover:bg-[#C99A47]/20 transition"
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-[#C99A47]/40 bg-[#C99A47]/10 px-2.5 py-1 text-[11px] font-semibold text-[#E6C17A] [html.light_&]:bg-amber-100 [html.light_&]:text-amber-800 [html.light_&]:border-amber-300 hover:opacity-80 transition"
                               >
                                 <Building2 className="size-3" /> {isEnglish ? 'View Organizer Profile' : 'Xem hồ sơ Ban tổ chức'}
                               </Link>
@@ -649,32 +710,36 @@ export function AdminDisputesPage() {
                           )}
                         </>
                       ) : (
-                        <p className="text-subtle italic">{isEnglish ? 'General platform complaint' : 'Khiếu nại dịch vụ chung nền tảng'}</p>
+                        <p className="text-slate-400 [html.light_&]:text-slate-500 italic">
+                          {isEnglish ? 'General platform complaint' : 'Khiếu nại dịch vụ chung nền tảng'}
+                        </p>
                       )}
                     </div>
                   </div>
 
                   {/* Complaint Details Box */}
-                  <div className="rounded-2xl border border-border-soft/50 bg-[#121b33]/60 p-4 space-y-2.5">
+                  <div className="rounded-xl border border-white/10 bg-[#121c38]/50 p-4 space-y-2.5 [html.light_&]:border-slate-200 [html.light_&]:bg-slate-50/70 [html.light_&]:text-[#0D1B2A]">
                     <div className="flex items-center justify-between">
                       <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${getCategoryBadgeClass(complaintDetailModalItem.category)}`}>
-                        {getCategoryLabel(complaintDetailModalItem.category)}
+                        {getLocalizedCategoryLabel(complaintDetailModalItem.category, isEnglish)}
                       </span>
                     </div>
-                    <h4 className="text-sm font-bold text-white">
+                    <h4 className="text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">
                       {complaintDetailModalItem.title}
                     </h4>
-                    <p className="text-xs text-slate-200 leading-relaxed whitespace-pre-line">
+                    <p className="text-xs text-slate-200 [html.light_&]:text-slate-700 leading-relaxed whitespace-pre-line">
                       {complaintDetailModalItem.description}
                     </p>
 
                     {/* Evidence Gallery */}
                     {Array.isArray(complaintDetailModalItem.evidence_urls) &&
                       complaintDetailModalItem.evidence_urls.length > 0 && (
-                        <div className="pt-2 border-t border-white/10 space-y-2">
-                          <span className="text-[11px] font-bold text-[#E6C17A] flex items-center gap-1.5">
+                        <div className="pt-3 border-t border-white/10 [html.light_&]:border-slate-200 space-y-2">
+                          <span className="text-[11px] font-bold text-[#E6C17A] [html.light_&]:text-amber-800 flex items-center gap-1.5">
                             <ImageIcon className="size-3.5" />
-                            {isEnglish ? `Attached proof images (${complaintDetailModalItem.evidence_urls.length}):` : `Ảnh minh chứng đính kèm (${complaintDetailModalItem.evidence_urls.length} ảnh):`}
+                            {isEnglish
+                              ? `Attached proof images (${complaintDetailModalItem.evidence_urls.length}):`
+                              : `Ảnh minh chứng đính kèm (${complaintDetailModalItem.evidence_urls.length} ảnh):`}
                           </span>
                           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                             {complaintDetailModalItem.evidence_urls.map((imgUrl, i) => (
@@ -702,43 +767,48 @@ export function AdminDisputesPage() {
 
                   {/* Previous Resolution Note if any */}
                   {complaintDetailModalItem.admin_note && (
-                    <div className="rounded-2xl border border-border-soft/40 bg-panel-soft/60 p-4 space-y-1 text-xs">
-                      <span className="font-bold text-subtle text-[10px] uppercase tracking-wider block">
+                    <div className="rounded-xl border border-white/10 bg-[#121c38]/50 p-4 space-y-1 text-xs [html.light_&]:border-slate-200 [html.light_&]:bg-slate-50/70 [html.light_&]:text-[#0D1B2A]">
+                      <span className="font-bold text-slate-400 [html.light_&]:text-slate-500 text-[10px] uppercase tracking-wider block">
                         {isEnglish ? 'Previous Resolution Note' : 'Ghi chú xử lý trước đó'}
                       </span>
-                      <p className="text-slate-200 italic">
+                      <p className="text-slate-200 [html.light_&]:text-slate-700 italic">
                         &ldquo;{complaintDetailModalItem.admin_note}&rdquo;
                       </p>
                       {complaintDetailModalItem.resolved_by_name && (
-                        <p className="text-[11px] text-subtle pt-1">
-                          {isEnglish ? 'Resolved by:' : 'Người xử lý:'} <strong>{complaintDetailModalItem.resolved_by_name}</strong> {complaintDetailModalItem.resolved_at && `(${formatDateTime(complaintDetailModalItem.resolved_at)})`}
+                        <p className="text-[11px] text-slate-400 [html.light_&]:text-slate-500 pt-1">
+                          {isEnglish ? 'Resolved by:' : 'Người xử lý:'} <strong>{complaintDetailModalItem.resolved_by_name}</strong>{' '}
+                          {complaintDetailModalItem.resolved_at && `(${formatDateTime(complaintDetailModalItem.resolved_at)})`}
                         </p>
                       )}
                     </div>
                   )}
 
-                  {/* ADMIN RESOLUTION FORM */}
-                  <form onSubmit={handleSaveComplaintResolution} className="space-y-4 pt-2 border-t border-border-soft/60 text-xs">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-[#E6C17A]">
-                      {isEnglish ? 'Update Status & Customer Feedback' : 'Cập nhật trạng thái & Phản hồi khiếu nại'}
-                    </h4>
+                  <div className="border-t border-white/10 [html.light_&]:border-slate-200" />
+
+                  {/* ADMIN RESOLUTION SECTION */}
+                  <div className="space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <h4 className="text-xs font-black uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">
+                        {isEnglish ? 'Update Status & Customer Feedback' : 'Cập nhật trạng thái & Phản hồi khiếu nại'}
+                      </h4>
+                    </div>
 
                     {/* Status Select */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       {[
-                        { val: 'PENDING', label: isEnglish ? 'Pending' : 'Chờ xử lý', color: 'amber' },
-                        { val: 'IN_PROGRESS', label: isEnglish ? 'In Progress' : 'Đang giải quyết', color: 'sky' },
-                        { val: 'RESOLVED', label: isEnglish ? 'Resolved' : 'Đã giải quyết', color: 'emerald' },
-                        { val: 'REJECTED', label: isEnglish ? 'Rejected' : 'Từ chối / Bác bỏ', color: 'rose' },
+                        { val: 'PENDING', label: isEnglish ? 'Pending' : 'Chờ xử lý' },
+                        { val: 'IN_PROGRESS', label: isEnglish ? 'In Progress' : 'Đang giải quyết' },
+                        { val: 'RESOLVED', label: isEnglish ? 'Resolved' : 'Đã giải quyết' },
+                        { val: 'REJECTED', label: isEnglish ? 'Rejected' : 'Từ chối / Bác bỏ' },
                       ].map((st) => (
                         <button
                           key={st.val}
                           type="button"
                           onClick={() => setResolveStatus(st.val)}
-                          className={`rounded-xl border p-2.5 text-center font-bold transition cursor-pointer ${
+                          className={`rounded-xl border p-2.5 text-center text-xs font-bold transition cursor-pointer ${
                             resolveStatus === st.val
-                              ? 'border-[#C99A47] bg-[#C99A47]/20 text-[#E6C17A] shadow-md shadow-[#C99A47]/20'
-                              : 'border-border-soft/40 bg-[#121b33] text-subtle hover:text-white hover:border-[#C99A47]/40'
+                              ? 'border-[#C99A47] bg-[#C99A47]/20 text-[#E6C17A] [html.light_&]:border-[#C99A47] [html.light_&]:bg-amber-100 [html.light_&]:text-amber-900 shadow-sm'
+                              : 'border-white/15 bg-[#121c38]/60 text-slate-400 hover:text-white [html.light_&]:border-slate-200 [html.light_&]:bg-white [html.light_&]:text-slate-700 [html.light_&]:hover:bg-slate-50'
                           }`}
                         >
                           {st.label}
@@ -748,51 +818,29 @@ export function AdminDisputesPage() {
 
                     {/* Admin Note / Resolution message */}
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                      <span className="block text-xs font-bold uppercase tracking-wider text-slate-300 [html.light_&]:text-[#1B365D] mb-2">
                         {isEnglish ? 'Resolution notes / Message to customer:' : 'Ghi chú xử lý / Nội dung phản hồi đến khách hàng:'}
-                      </label>
+                      </span>
                       <textarea
                         rows={3}
-                        placeholder={isEnglish ? 'Enter resolution details, action taken with organizer or advice for customer...' : 'Nhập kết quả xử lý, đôn đốc BTC hoặc hướng dẫn cho khách hàng...'}
+                        placeholder={
+                          isEnglish
+                            ? 'Enter resolution details, action taken with organizer or advice for customer...'
+                            : 'Nhập kết quả xử lý, đôn đốc BTC hoặc hướng dẫn cho khách hàng...'
+                        }
                         value={resolveAdminNote}
                         onChange={(e) => setResolveAdminNote(e.target.value)}
-                        className="w-full rounded-xl border border-border-soft/60 bg-[#121b33] p-3 text-xs text-white placeholder:text-subtle focus:border-[#C99A47] focus:outline-none leading-relaxed"
+                        className="w-full rounded-xl border border-white/15 bg-[#121c38]/60 p-3.5 text-xs text-white placeholder:text-slate-500 outline-none focus:border-[#C99A47] [html.light_&]:border-slate-300 [html.light_&]:bg-white [html.light_&]:text-[#0D1B2A] leading-relaxed"
                       />
-                      <p className="mt-1 text-[11px] text-subtle italic">
-                        {isEnglish ? '* When status is set to "Resolved" or "Rejected", a notification will be sent to the customer.' : '* Khi chuyển sang trạng thái "Đã giải quyết" hoặc "Bác bỏ", hệ thống sẽ tự động gửi thông báo phản hồi tới tài khoản của khách hàng.'}
+                      <p className="mt-1.5 text-[11px] text-slate-400 [html.light_&]:text-slate-500 italic">
+                        {isEnglish
+                          ? '* When status is set to "Resolved" or "Rejected", an email notification will be sent to the customer.'
+                          : '* Khi chuyển sang trạng thái "Đã giải quyết" hoặc "Bác bỏ", hệ thống sẽ tự động gửi thông báo phản hồi qua email tới khách hàng.'}
                       </p>
                     </div>
-
-                    {/* Footer Actions */}
-                    <div className="flex items-center justify-end gap-3 pt-2">
-                      <button
-                        type="button"
-                        onClick={() => setComplaintDetailModalItem(null)}
-                        className="rounded-xl px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-white/10 transition cursor-pointer"
-                      >
-                        {isEnglish ? 'Close' : 'Đóng'}
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={updateComplaintMutation.isPending}
-                        className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-5 py-2.5 text-xs font-black text-[#0D1B2A] shadow-lg shadow-[#C99A47]/25 hover:brightness-110 transition cursor-pointer disabled:opacity-50"
-                      >
-                        {updateComplaintMutation.isPending ? (
-                          <>
-                            <Loader2 className="size-4 animate-spin" />
-                            <span>{isEnglish ? 'Saving...' : 'Đang lưu...'}</span>
-                          </>
-                        ) : (
-                          <>
-                            <CheckCircle2 className="size-4" />
-                            <span>{isEnglish ? 'Save Resolution' : 'Lưu kết quả xử lý'}</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              </div>
+                  </div>
+                </form>
+              </Modal>
             )}
           </div>
         )}
@@ -900,6 +948,7 @@ export function AdminDisputesPage() {
               <div className="flex items-center gap-1.5 flex-nowrap overflow-x-auto">
                 {REFUND_DISPUTE_FILTERS.map((f) => {
                   const isActive = selectedRefundFilter === f.value
+                  const label = isEnglish ? f.label.en : f.label.vi
                   return (
                     <button
                       key={f.value}
@@ -911,7 +960,7 @@ export function AdminDisputesPage() {
                           : 'border border-border-soft/40 bg-panel-soft text-subtle hover:border-[#C99A47]/50 hover:bg-surface hover:text-[#E6C17A]'
                       }`}
                     >
-                      {f.label}
+                      {label}
                     </button>
                   )
                 })}
@@ -931,160 +980,175 @@ export function AdminDisputesPage() {
             </div>
 
             {/* Table */}
-            <Panel className="p-0 overflow-hidden">
-              {refundDisputesQuery.isLoading ? (
-                <div className="p-8 text-center text-sm text-slate-400">
-                  Đang tải danh sách khiếu nại hoàn tiền...
-                </div>
-              ) : filteredRefundList.length === 0 ? (
-                <div className="p-12 text-center">
-                  <CheckCircle2 className="mx-auto size-12 text-emerald-500/60" />
-                  <p className="mt-3 text-sm font-bold text-white">
-                    Không có khiếu nại hoàn tiền nào cần xử lý
-                  </p>
-                  <p className="mt-1 text-xs text-slate-400">
-                    Tất cả khách hàng đã nhận được tiền hoàn vé hoặc không có tranh chấp nào phát sinh.
-                  </p>
-                </div>
-              ) : (
-                <Table
-                  compact
-                  headers={[
-                    'Mã YC / Ngày khiếu nại',
-                    'Ban tổ chức / Sự kiện',
-                    'Khách hàng',
-                    'Số tiền',
-                    'Lý do khiếu nại',
-                    'Đối soát từ BTC',
-                    'Thao tác',
-                  ]}
-                  rows={filteredRefundList.map((item) => {
-                    const hasProof = Boolean(
-                      item.proof_url ||
-                        item.organizer_proof_url ||
-                        item.transaction_ref ||
-                        item.organizer_transaction_ref
-                    )
-                    return [
-                      // 1. Mã YC / Ngày
-                      <div key="code" className="space-y-0.5">
-                        <span className="font-mono text-xs font-bold text-sky-400">
-                          #{item.id?.slice(0, 8)}
+            {refundDisputesQuery.isLoading ? (
+              <div className="rounded-2xl border border-border-soft/40 bg-panel-soft p-8 text-center text-sm text-slate-400">
+                {isEnglish ? 'Loading refund disputes list...' : 'Đang tải danh sách khiếu nại hoàn tiền...'}
+              </div>
+            ) : filteredRefundList.length === 0 ? (
+              <div className="rounded-2xl border border-border-soft/40 bg-panel-soft p-12 text-center">
+                <p className="text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">
+                  {isEnglish ? 'No refund disputes needing action' : 'Không có khiếu nại hoàn tiền nào cần xử lý'}
+                </p>
+                <p className="mt-1 text-xs text-slate-400">
+                  {isEnglish
+                    ? 'All customers have received their refunds or no disputes have been raised.'
+                    : 'Tất cả khách hàng đã nhận được tiền hoàn vé hoặc không có tranh chấp nào phát sinh.'}
+                </p>
+              </div>
+            ) : (
+              <Table
+                compact
+                headers={
+                  isEnglish
+                    ? [
+                        'REQUEST ID / DATE',
+                        'ORGANIZER / EVENT',
+                        'CUSTOMER',
+                        'AMOUNT',
+                        'DISPUTE REASON',
+                        'PROOF & AUDIT',
+                        'ACTIONS',
+                      ]
+                    : [
+                        'MÃ YC / NGÀY KHIẾU NẠI',
+                        'BAN TỔ CHỨC / SỰ KIỆN',
+                        'KHÁCH HÀNG',
+                        'SỐ TIỀN',
+                        'LÝ DO KHIẾU NẠI',
+                        'ĐỐI SOÁT TỪ BTC',
+                        'THAO TÁC',
+                      ]
+                }
+                rows={filteredRefundList.map((item) => {
+                  const hasProof = Boolean(
+                    item.proof_url ||
+                      item.organizer_proof_url ||
+                      item.transaction_ref ||
+                      item.organizer_transaction_ref
+                  )
+                  return [
+                    // 1. Mã YC / Ngày
+                    <div key="code" className="space-y-0.5">
+                      <span className="font-mono text-xs font-bold text-sky-400">
+                        #{item.id?.slice(0, 8)}
+                      </span>
+                      <p className="text-[11px] text-rose-300 flex items-center gap-1 font-medium">
+                        <Clock className="size-3" />
+                        {formatDateTime(item.disputed_at || item.updated_at, isEnglish)}
+                      </p>
+                    </div>,
+
+                    // 2. BTC / Sự kiện
+                    <div key="event" className="max-w-[220px] space-y-0.5">
+                      <p
+                        className="text-xs font-bold text-white [html.light_&]:text-[#0D1B2A] truncate"
+                        title={item.event?.title}
+                      >
+                        {item.event?.title || (isEnglish ? 'Event' : 'Sự kiện')}
+                      </p>
+                      <p className="text-[11px] text-amber-300 [html.light_&]:text-amber-800 truncate font-semibold">
+                        {isEnglish ? 'Organizer: ' : 'BTC: '}{item.event?.organizers?.business_name || item.organizer_name || (isEnglish ? 'Organizer' : 'Ban tổ chức')}
+                      </p>
+                    </div>,
+
+                    // 3. Khách hàng
+                    <div key="buyer" className="space-y-0.5">
+                      <p className="text-xs font-bold text-slate-200 [html.light_&]:text-[#0D1B2A]">
+                        {item.customer?.full_name || item.order?.buyer_name || (isEnglish ? 'Customer' : 'Khách hàng')}
+                      </p>
+                      <p className="text-[11px] text-slate-400 truncate">
+                        {item.customer?.email || item.order?.buyer_email || ''}
+                      </p>
+                      <p className="font-mono text-[10px] text-slate-500">
+                        {isEnglish ? 'Ticket: ' : 'Mã vé: '}{item.ticket?.ticket_code || item.order?.order_code || 'N/A'}
+                      </p>
+                    </div>,
+
+                    // 4. Số tiền
+                    <span key="amount" className="font-mono font-bold text-amber-400 [html.light_&]:text-amber-700 text-xs">
+                      {formatCurrency(item.refund_amount)}
+                    </span>,
+
+                    // 5. Lý do khiếu nại
+                    <div key="reason" className="max-w-[240px]">
+                      <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-2 text-xs text-rose-200 [html.light_&]:text-rose-800 leading-snug">
+                        &ldquo;{item.dispute_reason || (isEnglish ? 'Customer reported that refund was not received into bank account.' : 'Khách hàng báo chưa nhận được tiền hoàn vào tài khoản.')}&rdquo;
+                      </div>
+                    </div>,
+
+                    // 6. Đối soát từ BTC
+                    <div key="proof" className="space-y-1">
+                      {hasProof ? (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-300 [html.light_&]:text-emerald-800">
+                          <CheckCircle2 className="size-3 text-emerald-400 [html.light_&]:text-emerald-700" />
+                          {isEnglish ? 'Proof / Txn Ref provided' : 'Đã có mã GD / biên lai'}
                         </span>
-                        <p className="text-[11px] text-rose-300 flex items-center gap-1 font-medium">
-                          <Clock className="size-3" />
-                          {formatDateTime(item.disputed_at || item.updated_at)}
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold text-amber-300 [html.light_&]:text-amber-800">
+                          <AlertCircle className="size-3 text-amber-400 [html.light_&]:text-amber-700" />
+                          {isEnglish ? 'Missing proof' : 'Chưa có chứng từ'}
+                        </span>
+                      )}
+                      {item.refund_method && (
+                        <p className="text-[10px] text-slate-400">
+                          {isEnglish ? 'Method: ' : 'Phương thức: '}{item.refund_method === 'PAYOS' ? 'PayOS' : (isEnglish ? 'Manual transfer' : 'Thủ công')}
                         </p>
-                      </div>,
+                      )}
+                    </div>,
 
-                      // 2. BTC / Sự kiện
-                      <div key="event" className="max-w-[220px] space-y-0.5">
-                        <p
-                          className="text-xs font-bold text-white truncate"
-                          title={item.event?.title}
-                        >
-                          {item.event?.title || 'Sự kiện'}
-                        </p>
-                        <p className="text-[11px] text-amber-300 truncate font-semibold">
-                          BTC: {item.event?.organizers?.business_name || item.organizer_name || 'Ban tổ chức'}
-                        </p>
-                      </div>,
-
-                      // 3. Khách hàng
-                      <div key="buyer" className="space-y-0.5">
-                        <p className="text-xs font-bold text-slate-200">
-                          {item.customer?.full_name || item.order?.buyer_name || 'Khách hàng'}
-                        </p>
-                        <p className="text-[11px] text-slate-400 truncate">
-                          {item.customer?.email || item.order?.buyer_email || ''}
-                        </p>
-                        <p className="font-mono text-[10px] text-slate-500">
-                          Mã vé: {item.ticket?.ticket_code || item.order?.order_code || 'N/A'}
-                        </p>
-                      </div>,
-
-                      // 4. Số tiền
-                      <span key="amount" className="font-mono font-bold text-amber-400 text-xs">
-                        {formatCurrency(item.refund_amount)}
-                      </span>,
-
-                      // 5. Lý do khiếu nại
-                      <div key="reason" className="max-w-[240px]">
-                        <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-2 text-xs text-rose-200 leading-snug">
-                          &ldquo;{item.dispute_reason || 'Khách hàng báo chưa nhận được tiền hoàn vào tài khoản.'}&rdquo;
-                        </div>
-                      </div>,
-
-                      // 6. Đối soát từ BTC
-                      <div key="proof" className="space-y-1">
-                        {hasProof ? (
-                          <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-300">
-                            <CheckCircle2 className="size-3 text-emerald-400" />
-                            Đã có mã GD / biên lai
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold text-amber-300">
-                            <AlertCircle className="size-3 text-amber-400" />
-                            Chưa có chứng từ
-                          </span>
-                        )}
-                        {item.refund_method && (
-                          <p className="text-[10px] text-slate-400">
-                            Phương thức: {item.refund_method === 'PAYOS' ? 'PayOS' : 'Thủ công'}
-                          </p>
-                        )}
-                      </div>,
-
-                      // 7. Thao tác
-                      <div key="actions" className="flex items-center justify-center">
-                        <TableActionButton
-                          title={isEnglish ? 'View refund dispute details & audit' : 'Xem chi tiết khiếu nại & đối soát'}
-                          onClick={() => setRefundDetailModalItem(item)}
-                          icon={Eye}
-                          tone="default"
-                        />
-                      </div>,
-                    ]
-                  })}
-                />
-              )}
-            </Panel>
+                    // 7. Thao tác
+                    <div key="actions" className="flex items-center justify-center">
+                      <TableActionButton
+                        title={isEnglish ? 'View refund dispute details & audit' : 'Xem chi tiết khiếu nại & đối soát'}
+                        onClick={() => setRefundDetailModalItem(item)}
+                        icon={Eye}
+                        tone="default"
+                      />
+                    </div>,
+                  ]
+                })}
+              />
+            )}
 
             {/* Detail Modal for Refund Dispute Review */}
             {refundDetailModalItem && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-in fade-in duration-150">
-                <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl border border-border-soft/60 bg-[#0f172a] p-6 shadow-2xl text-white space-y-5">
-                  {/* Modal Header */}
-                  <div className="flex items-center justify-between border-b border-border-soft/60 pb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="flex size-11 items-center justify-center rounded-2xl bg-[#C99A47]/15 text-[#E6C17A] border border-[#C99A47]/30 shrink-0">
-                        <ShieldAlert className="size-6" />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                          {isEnglish ? 'Refund Dispute' : 'Chi tiết Khiếu nại'} #{refundDetailModalItem.id?.slice(0, 8)}
-                        </h3>
-                        <p className="text-xs text-subtle">
-                          {isEnglish ? 'Submitted at:' : 'Gửi lúc:'} {formatDateTime(refundDetailModalItem.disputed_at || refundDetailModalItem.updated_at)}
-                        </p>
-                      </div>
-                    </div>
+              <Modal
+                open={Boolean(refundDetailModalItem)}
+                title={
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <span>
+                      {isEnglish ? 'Refund Dispute' : 'Chi tiết Khiếu nại hoàn tiền'} #{refundDetailModalItem.id?.slice(0, 8)}
+                    </span>
+                    <span className="text-xs font-normal text-slate-400 [html.light_&]:text-slate-500">
+                      ({isEnglish ? 'Submitted: ' : 'Gửi lúc: '} {formatDateTime(refundDetailModalItem.disputed_at || refundDetailModalItem.updated_at, isEnglish)})
+                    </span>
+                  </div>
+                }
+                onClose={() => setRefundDetailModalItem(null)}
+                maxWidth="max-w-3xl"
+                footer={
+                  <div className="flex w-full items-center justify-between gap-3 flex-wrap">
+                    <p className="text-[11px] text-slate-400 [html.light_&]:text-slate-500 italic">
+                      * {isEnglish ? 'If organizer does not refund in time, Admin may suspend them via Organizer Profile.' : 'Nếu Ban tổ chức không hoàn tiền đúng hạn, Admin có thể đình chỉ hoạt động tại trang Hồ sơ Organizer.'}
+                    </p>
                     <button
                       type="button"
                       onClick={() => setRefundDetailModalItem(null)}
-                      className="rounded-xl p-1.5 text-slate-400 hover:bg-white/10 hover:text-white transition cursor-pointer"
+                      className="admin-secondary px-6"
                     >
-                      <X className="size-5" />
+                      {isEnglish ? 'Close' : 'Đóng'}
                     </button>
                   </div>
-
+                }
+              >
+                <div className="space-y-6 py-1">
                   {/* Dispute Alert Banner */}
-                  <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 space-y-1 text-xs text-amber-200">
-                    <div className="flex items-center gap-2 font-bold text-amber-300 text-sm">
+                  <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-1 text-xs text-amber-200 [html.light_&]:border-amber-300 [html.light_&]:bg-amber-50 [html.light_&]:text-amber-900">
+                    <div className="flex items-center gap-2 font-bold text-amber-400 [html.light_&]:text-amber-800 text-sm">
                       <AlertCircle className="size-4 shrink-0" />
                       {isEnglish ? 'Customer Dispute Content' : 'Nội dung khiếu nại từ khách hàng'}
                     </div>
-                    <p className="text-sm font-medium text-white pt-1 leading-relaxed">
+                    <p className="text-sm font-medium text-white [html.light_&]:text-[#0D1B2A] pt-1 leading-relaxed">
                       &ldquo;{refundDetailModalItem.dispute_reason || (isEnglish ? 'Customer reported that refund was not received after organizer confirmation.' : 'Khách hàng báo chưa nhận được tiền vào tài khoản ngân hàng sau khi BTC xác nhận hoàn tiền.')}&rdquo;
                     </p>
                   </div>
@@ -1092,21 +1156,21 @@ export function AdminDisputesPage() {
                   {/* Grid Information */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                     {/* Event & Organizer */}
-                    <div className="rounded-2xl border border-border-soft/40 bg-panel-soft/60 p-4 space-y-2">
-                      <span className="font-bold uppercase tracking-wider text-subtle block text-[11px]">
+                    <div className="rounded-xl border border-white/10 bg-[#121c38]/50 p-4 space-y-2 [html.light_&]:border-slate-200 [html.light_&]:bg-slate-50/70 [html.light_&]:text-[#0D1B2A]">
+                      <span className="font-black uppercase tracking-wider text-white [html.light_&]:text-slate-600 block text-xs">
                         {isEnglish ? 'Event & Organizer' : 'Sự kiện & Ban tổ chức'}
                       </span>
-                      <p className="font-bold text-white text-sm">
+                      <p className="font-bold text-white [html.light_&]:text-[#0D1B2A] text-sm truncate" title={refundDetailModalItem.event?.title}>
                         {refundDetailModalItem.event?.title || (isEnglish ? 'Event' : 'Sự kiện')}
                       </p>
-                      <p className="text-amber-300 font-semibold">
+                      <p className="text-amber-400 [html.light_&]:text-amber-800 font-semibold">
                         BTC: {refundDetailModalItem.event?.organizers?.business_name || refundDetailModalItem.organizer_name || 'N/A'}
                       </p>
                       {refundDetailModalItem.organizer_id && (
                         <div className="pt-1">
                           <Link
                             to={`/admin/organizers/${refundDetailModalItem.organizer_id}`}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-[#C99A47]/40 bg-[#C99A47]/10 px-2.5 py-1 text-xs font-semibold text-[#E6C17A] hover:bg-[#C99A47]/20 transition"
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-[#C99A47]/40 bg-[#C99A47]/10 px-2.5 py-1 text-xs font-semibold text-[#E6C17A] [html.light_&]:bg-amber-100 [html.light_&]:text-amber-800 [html.light_&]:border-amber-300 hover:opacity-80 transition"
                           >
                             <Building2 className="size-3.5" /> {isEnglish ? 'View Organizer Profile' : 'Xem hồ sơ Ban tổ chức'}
                           </Link>
@@ -1115,74 +1179,74 @@ export function AdminDisputesPage() {
                     </div>
 
                     {/* Customer Contact */}
-                    <div className="rounded-2xl border border-border-soft/40 bg-panel-soft/60 p-4 space-y-2">
-                      <span className="font-bold uppercase tracking-wider text-subtle block text-[11px]">
+                    <div className="rounded-xl border border-white/10 bg-[#121c38]/50 p-4 space-y-2 [html.light_&]:border-slate-200 [html.light_&]:bg-slate-50/70 [html.light_&]:text-[#0D1B2A]">
+                      <span className="font-black uppercase tracking-wider text-white [html.light_&]:text-slate-600 block text-xs">
                         {isEnglish ? 'Complainant Customer' : 'Khách hàng khiếu nại'}
                       </span>
-                      <p className="font-bold text-white text-sm flex items-center gap-1.5">
-                        <User className="size-4 text-[#E6C17A]" />
+                      <p className="font-bold text-white [html.light_&]:text-[#0D1B2A] text-sm flex items-center gap-1.5">
+                        <User className="size-4 text-[#C99A47]" />
                         {refundDetailModalItem.customer?.full_name || refundDetailModalItem.order?.buyer_name || (isEnglish ? 'Customer' : 'Khách hàng')}
                       </p>
-                      <p className="text-slate-300 flex items-center gap-1.5">
-                        <Mail className="size-3.5 text-subtle" />
+                      <p className="text-slate-300 [html.light_&]:text-slate-600 flex items-center gap-1.5">
+                        <Mail className="size-3.5 text-[#C99A47]" />
                         {refundDetailModalItem.customer?.email || refundDetailModalItem.order?.buyer_email || 'N/A'}
                       </p>
                       {refundDetailModalItem.customer?.phone && (
-                        <p className="text-slate-300 flex items-center gap-1.5">
-                          <Phone className="size-3.5 text-subtle" />
+                        <p className="text-slate-300 [html.light_&]:text-slate-600 flex items-center gap-1.5">
+                          <Phone className="size-3.5 text-[#C99A47]" />
                           {refundDetailModalItem.customer.phone}
                         </p>
                       )}
-                      <p className="font-mono text-subtle text-[11px] pt-1">
+                      <p className="font-mono text-slate-400 [html.light_&]:text-slate-500 text-[11px] pt-1 border-t border-white/5 [html.light_&]:border-slate-200">
                         {isEnglish ? 'Ticket code:' : 'Mã vé:'} {refundDetailModalItem.ticket?.ticket_code || refundDetailModalItem.order?.order_code || 'N/A'}
                       </p>
                     </div>
 
                     {/* Amount & Bank Account of Customer */}
-                    <div className="rounded-2xl border border-border-soft/40 bg-panel-soft/60 p-4 space-y-2">
-                      <span className="font-bold uppercase tracking-wider text-subtle block text-[11px]">
+                    <div className="rounded-xl border border-white/10 bg-[#121c38]/50 p-4 space-y-2 [html.light_&]:border-slate-200 [html.light_&]:bg-slate-50/70 [html.light_&]:text-[#0D1B2A]">
+                      <span className="font-black uppercase tracking-wider text-slate-400 [html.light_&]:text-slate-500 block text-[10px]">
                         {isEnglish ? 'Recipient Bank Account' : 'Tài khoản khách nhận hoàn tiền'}
                       </span>
                       <div className="flex justify-between items-center">
-                        <span className="text-subtle">{isEnglish ? 'Amount:' : 'Số tiền hoàn:'}</span>
-                        <span className="font-mono font-bold text-[#E6C17A] text-sm">
+                        <span className="text-slate-400 [html.light_&]:text-slate-500">{isEnglish ? 'Amount:' : 'Số tiền hoàn:'}</span>
+                        <span className="font-mono font-bold text-[#E6C17A] [html.light_&]:text-amber-800 text-sm">
                           {formatCurrency(refundDetailModalItem.refund_amount)}
                         </span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-subtle">{isEnglish ? 'Bank:' : 'Ngân hàng:'}</span>
-                        <span className="font-semibold text-white">
+                        <span className="text-slate-400 [html.light_&]:text-slate-500">{isEnglish ? 'Bank:' : 'Ngân hàng:'}</span>
+                        <span className="font-semibold text-white [html.light_&]:text-[#0D1B2A]">
                           {refundDetailModalItem.bank_name || 'N/A'}
                         </span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-subtle">{isEnglish ? 'Account number:' : 'Số tài khoản:'}</span>
-                        <span className="font-mono font-bold text-white">
+                        <span className="text-slate-400 [html.light_&]:text-slate-500">{isEnglish ? 'Account number:' : 'Số tài khoản:'}</span>
+                        <span className="font-mono font-bold text-white [html.light_&]:text-[#0D1B2A]">
                           {refundDetailModalItem.bank_account_number || 'N/A'}
                         </span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-subtle">{isEnglish ? 'Account name:' : 'Chủ tài khoản:'}</span>
-                        <span className="font-semibold text-white uppercase">
+                        <span className="text-slate-400 [html.light_&]:text-slate-500">{isEnglish ? 'Account name:' : 'Chủ tài khoản:'}</span>
+                        <span className="font-semibold text-white [html.light_&]:text-[#0D1B2A] uppercase">
                           {refundDetailModalItem.bank_account_name || 'N/A'}
                         </span>
                       </div>
                     </div>
 
                     {/* Organizer Proof & Audit */}
-                    <div className="rounded-2xl border border-border-soft/40 bg-panel-soft/60 p-4 space-y-2">
-                      <span className="font-bold uppercase tracking-wider text-subtle block text-[11px]">
+                    <div className="rounded-xl border border-white/10 bg-[#121c38]/50 p-4 space-y-2 [html.light_&]:border-slate-200 [html.light_&]:bg-slate-50/70 [html.light_&]:text-[#0D1B2A]">
+                      <span className="font-black uppercase tracking-wider text-slate-400 [html.light_&]:text-slate-500 block text-[10px]">
                         {isEnglish ? 'Organizer Payment Proof' : 'Chứng từ đối soát từ Ban tổ chức'}
                       </span>
                       <div className="flex justify-between items-center">
-                        <span className="text-subtle">{isEnglish ? 'Method:' : 'Phương thức:'}</span>
-                        <span className="font-semibold text-white">
+                        <span className="text-slate-400 [html.light_&]:text-slate-500">{isEnglish ? 'Method:' : 'Phương thức:'}</span>
+                        <span className="font-semibold text-white [html.light_&]:text-[#0D1B2A]">
                           {refundDetailModalItem.refund_method === 'PAYOS' ? 'PayOS (Tự động)' : 'Chuyển khoản thủ công'}
                         </span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-subtle">{isEnglish ? 'Transaction ref:' : 'Mã giao dịch:'}</span>
-                        <span className="font-mono text-emerald-400 font-bold">
+                        <span className="text-slate-400 [html.light_&]:text-slate-500">{isEnglish ? 'Transaction ref:' : 'Mã giao dịch:'}</span>
+                        <span className="font-mono text-emerald-400 [html.light_&]:text-emerald-700 font-bold">
                           {refundDetailModalItem.transaction_ref || refundDetailModalItem.organizer_transaction_ref || (isEnglish ? 'Not provided' : 'Chưa cung cấp')}
                         </span>
                       </div>
@@ -1192,39 +1256,25 @@ export function AdminDisputesPage() {
                             href={refundDetailModalItem.proof_url || refundDetailModalItem.organizer_proof_url}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex items-center gap-1.5 text-xs text-sky-400 hover:underline"
+                            className="inline-flex items-center gap-1.5 text-xs text-sky-400 [html.light_&]:text-sky-700 hover:underline font-semibold"
                           >
                             <FileText className="size-3.5" /> {isEnglish ? 'View proof receipt' : 'Xem ảnh biên lai chuyển tiền (Ủy nhiệm chi)'}
                           </a>
                         </div>
                       ) : (
-                        <p className="text-[11px] text-amber-400 pt-1">
+                        <p className="text-[11px] text-amber-400 [html.light_&]:text-amber-800 pt-1">
                           ⚠️ {isEnglish ? 'Organizer has not uploaded proof of transfer.' : 'Ban tổ chức chưa tải lên ảnh biên lai chuyển khoản.'}
                         </p>
                       )}
                       {refundDetailModalItem.organizer_note && (
-                        <p className="text-[11px] text-slate-300 pt-1 italic">
+                        <p className="text-[11px] text-slate-300 [html.light_&]:text-slate-600 pt-1 italic">
                           {isEnglish ? 'Organizer note:' : 'Ghi chú của BTC:'} &ldquo;{refundDetailModalItem.organizer_note}&rdquo;
                         </p>
                       )}
                     </div>
                   </div>
-
-                  {/* Modal Footer */}
-                  <div className="flex items-center justify-between pt-3 border-t border-border-soft/60">
-                    <p className="text-[11px] text-subtle">
-                      * {isEnglish ? 'If organizer does not refund in time, Admin may suspend them via Organizer Profile.' : 'Nếu Ban tổ chức không hoàn tiền đúng hạn, Admin có thể đình chỉ hoạt động tại trang Hồ sơ Organizer.'}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setRefundDetailModalItem(null)}
-                      className="rounded-xl border border-border-soft/60 px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-white/10 hover:text-white transition cursor-pointer"
-                    >
-                      {isEnglish ? 'Close' : 'Đóng'}
-                    </button>
-                  </div>
                 </div>
-              </div>
+              </Modal>
             )}
           </div>
         )}
