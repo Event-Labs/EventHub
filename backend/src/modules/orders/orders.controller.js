@@ -1,5 +1,6 @@
 const ApiResponse = require('../../core/response/ApiResponse');
 const ordersService = require('./orders.service');
+const waitingRoomService = require('../waiting-room/waitingRoom.service');
 const {
   checkoutSchema,
   orderIdParamSchema,
@@ -23,6 +24,19 @@ class OrdersController {
       const message = data.is_completed
         ? 'Đặt vé thành công.'
         : 'Order created. Waiting for PayOS payment.';
+
+      // Release waiting room active slot upon successful checkout transition
+      const token =
+        req.headers['x-booking-token'] ||
+        req.headers['x-queue-token'] ||
+        req.body?.booking_token ||
+        null;
+      if (token && payload.event_id) {
+        waitingRoomService
+          .releaseActiveSlot({ eventId: payload.event_id, token })
+          .catch(() => {});
+      }
+
       res.status(201).json(ApiResponse.success(data, message));
     } catch (err) {
       next(err);

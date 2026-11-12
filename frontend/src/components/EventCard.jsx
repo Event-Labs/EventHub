@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils.js'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
 import { getCategoryName } from '@/i18n/categoryNames.js'
 import { translatePhrase } from '@/i18n/phraseDictionary.js'
-import { cleanAndFormatVenue } from '@/i18n/eventTranslations.js'
+import { cleanAndFormatVenue, translateEventTitle } from '@/i18n/eventTranslations.js'
 
 const getAutoIsEnglish = () => (typeof document !== 'undefined' && document.documentElement.lang === 'en') || (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en')
 
@@ -70,7 +70,7 @@ function normalizeEvent(event, isEnglish = false) {
   const rawLocation = formatLocation(event, isEnglish)
   return {
     id: event.slug || event.id,
-    title: isEnglish ? translatePhrase(rawTitle, 'en') : rawTitle,
+    title: isEnglish ? translateEventTitle(rawTitle, true) : rawTitle,
     subtitle: isEnglish ? translatePhrase(rawSubtitle, 'en') : rawSubtitle,
     image: event.thumbnail_url || event.banner_url || event.image,
     category: formatCategory(event.category, isEnglish),

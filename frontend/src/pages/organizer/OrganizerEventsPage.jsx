@@ -28,6 +28,7 @@ import {
 } from './OrganizerComponents.jsx'
 import { EventActionsDropdown } from './EventActionsDropdown.jsx'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
+import { getPaginationItems } from '@/utils/pagination.js'
 import { getCategoryName } from '@/i18n/categoryNames.js'
 import { translatePhrase } from '@/i18n/phraseDictionary.js'
 import { CosmicSelect } from '@/components/CosmicSelect.jsx'
@@ -1094,19 +1095,33 @@ export function OrganizerEventsPage() {
                 >
                   <ChevronLeft className="size-4" />
                 </button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pNum) => (
-                  <button
-                    key={pNum}
-                    type="button"
-                    onClick={() => setPage(pNum)}
-                    className={`size-8 rounded-xl text-xs font-bold transition cursor-pointer ${page === pNum
-                        ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] font-black shadow-md shadow-[#C99A47]/30'
-                        : 'border border-border-soft/40 text-subtle bg-panel-soft hover:border-tertiary hover:text-tertiary'
-                      }`}
-                  >
-                    {pNum}
-                  </button>
-                ))}
+                {getPaginationItems(page, totalPages).map((item) => {
+                  if (typeof item === 'string') {
+                    return (
+                      <span
+                        key={item}
+                        className="grid size-8 place-items-center text-xs font-bold text-slate-500 select-none"
+                        aria-hidden="true"
+                      >
+                        ...
+                      </span>
+                    )
+                  }
+                  const pNum = item
+                  return (
+                    <button
+                      key={pNum}
+                      type="button"
+                      onClick={() => setPage(pNum)}
+                      className={`size-8 rounded-xl text-xs font-bold transition cursor-pointer ${page === pNum
+                          ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] font-black shadow-md shadow-[#C99A47]/30'
+                          : 'border border-border-soft/40 text-subtle bg-panel-soft hover:border-tertiary hover:text-tertiary'
+                        }`}
+                    >
+                      {pNum}
+                    </button>
+                  )
+                })}
                 <button
                   type="button"
                   className="grid size-8 place-items-center rounded-xl border border-border-soft/40 text-subtle bg-panel-soft hover:border-tertiary hover:text-tertiary disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"

@@ -8,6 +8,7 @@ import { fetchMyTickets } from '@/services/tickets.js'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
 import { cleanAndFormatVenue, translateTicketName } from '@/i18n/eventTranslations.js'
 import { translatePhrase } from '@/i18n/phraseDictionary.js'
+import { getPaginationItems } from '@/utils/pagination.js'
 
 const TICKETS_PER_PAGE = 6
 
@@ -242,21 +243,36 @@ export function MyTicketsPage() {
             >
               <ChevronLeft className="size-5" />
             </button>
-            {Array.from({ length: totalPages }, (_, index) => index + 1).map((pageNumber) => (
-              <button
-                key={pageNumber}
-                type="button"
-                onClick={() => handlePageChange(pageNumber)}
-                className={`size-10 rounded-full text-sm font-extrabold transition-all ${page === pageNumber
-                  ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] font-black shadow-[0_0_18px_rgba(201,154,71,0.6)] scale-105'
-                  : 'border border-white/20 bg-slate-800 text-white hover:border-[#E6C17A] hover:bg-[#C99A47]/20 hover:text-[#E6C17A] hover:shadow-[0_0_12px_rgba(201,154,71,0.35)]'
-                  }`}
-                aria-current={page === pageNumber ? 'page' : undefined}
-                aria-label={isEnglish ? `Page ${pageNumber}` : `Trang ${pageNumber}`}
-              >
-                {pageNumber}
-              </button>
-            ))}
+            {getPaginationItems(page, totalPages).map((item) => {
+              if (typeof item === 'string') {
+                return (
+                  <span
+                    key={item}
+                    className="grid size-10 place-items-center text-sm font-black text-slate-500 select-none"
+                    aria-hidden="true"
+                  >
+                    ...
+                  </span>
+                )
+              }
+
+              const pageNumber = item
+              return (
+                <button
+                  key={pageNumber}
+                  type="button"
+                  onClick={() => handlePageChange(pageNumber)}
+                  className={`size-10 rounded-full text-sm font-extrabold transition-all cursor-pointer ${page === pageNumber
+                    ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] font-black shadow-[0_0_18px_rgba(201,154,71,0.6)] scale-105'
+                    : 'border border-white/20 bg-slate-800 text-white hover:border-[#E6C17A] hover:bg-[#C99A47]/20 hover:text-[#E6C17A] hover:shadow-[0_0_12px_rgba(201,154,71,0.35)]'
+                    }`}
+                  aria-current={page === pageNumber ? 'page' : undefined}
+                  aria-label={isEnglish ? `Page ${pageNumber}` : `Trang ${pageNumber}`}
+                >
+                  {pageNumber}
+                </button>
+              )
+            })}
             <button
               type="button"
               onClick={() => handlePageChange(Math.min(totalPages, page + 1))}
@@ -395,7 +411,7 @@ function TicketCard({ ticket }) {
               : 'border border-white/5 bg-white/5 text-slate-400 shadow-none'
           }`}>
           <Clock3 className="size-4 shrink-0" />
-          <span className="truncate">{isEnglish ? 'Purchased at ' : 'Mua lúc '}{formatDateTime(ticket.order?.created_at, isEnglish)}</span>
+          <span className="truncate">{isEnglish ? `Purchased at ${formatDateTime(ticket.order?.created_at, isEnglish)}` : `Mua lúc ${formatDateTime(ticket.order?.created_at, isEnglish)}`}</span>
         </div>
       </section>
     </Link>

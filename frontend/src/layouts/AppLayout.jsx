@@ -16,7 +16,7 @@ import { CustomerAiAssistantWidget } from '@/components/ai/CustomerAiAssistantWi
 import { ActiveHoldFloatingBar } from '@/components/ActiveHoldFloatingBar.jsx'
 import { CosmicStarryBackground } from '@/components/CosmicStarryBackground.jsx'
 import { LanguageSwitcher } from '@/i18n/LanguageSwitcher.jsx'
-import { useLanguage } from '@/i18n/LanguageContext'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
 import logoSrc from '@/assets/eventhub-logo.png'
 
 function getCenterNavItems(isEnglish) {

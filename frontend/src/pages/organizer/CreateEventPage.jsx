@@ -209,9 +209,8 @@ function calculateEventCompleteness(formData, isEnglish = false) {
     const start = new Date(`${sDate}T${s.start_time}`)
     const end = new Date(`${sDate}T${s.end_time}`)
     if (isNaN(start.getTime()) || isNaN(end.getTime()) || end <= start) return false
-    if (s.checkin_start_time || s.checkin_start_date) {
-      if (!s.checkin_start_time || !s.checkin_start_date) return false
-      const cDate = s.checkin_start_date
+    if (s.checkin_start_time) {
+      const cDate = s.checkin_start_date || sDate
       const checkin = new Date(`${cDate}T${s.checkin_start_time}`)
       if (isNaN(checkin.getTime()) || checkin > start) return false
       const today = new Date()
@@ -1038,10 +1037,8 @@ function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
                             const d = e.target.value
                             const prevStartDate = session.start_date
                             const prevCheckinDate = session.checkin_start_date
-                            let newCheckinDate = prevCheckinDate
-                            if (!prevCheckinDate || prevCheckinDate === prevStartDate) {
-                              newCheckinDate = d
-                            } else if (d && prevCheckinDate > d) {
+                            let newCheckinDate = prevCheckinDate || ''
+                            if (newCheckinDate && d && newCheckinDate > d) {
                               newCheckinDate = d
                             }
                             updateSessionFields(key, {
@@ -1106,16 +1103,13 @@ function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
                             {/* Giờ check-in */}
                             <input
                               type="time"
-                              className="no-picker-indicator w-24 shrink-0 bg-transparent border-0 outline-none text-content text-sm cursor-pointer font-medium"
+                              className="no-picker-indicator w-32 shrink-0 bg-transparent border-0 outline-none text-content text-sm font-medium"
                               value={session.checkin_start_time || ''}
-                              onClick={(e) => {
-                                try { e.target.showPicker?.() } catch (err) {}
-                              }}
                               onChange={(e) => {
                                 const t = e.target.value
                                 updateSessionFields(key, {
                                   checkin_start_time: t,
-                                  checkin_start_date: session.checkin_start_date || (t ? session.start_date || '' : ''),
+                                  checkin_start_date: session.checkin_start_date || '',
                                 })
                               }}
                               title="Giờ check-in"
@@ -1126,11 +1120,8 @@ function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
                               type="date"
                               min={todayStr}
                               max={session.start_date || undefined}
-                              className="flex-1 min-w-0 bg-transparent border-0 outline-none text-content text-sm cursor-pointer font-medium"
+                              className="flex-1 min-w-0 bg-transparent border-0 outline-none text-content text-sm font-medium"
                               value={session.checkin_start_date || ''}
-                              onClick={(e) => {
-                                try { e.target.showPicker?.() } catch (err) {}
-                              }}
                               onChange={(e) => {
                                 const d = e.target.value
                                 updateSessionFields(key, {
@@ -1189,8 +1180,7 @@ function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
                       {/* Thời gian cho phép bán vé trực tiếp (ngay dưới phần giờ check-in) */}
                       <div className="mt-3.5 pt-3.5 border-t border-border-soft/20">
                         <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                          <label className="text-xs text-content font-bold flex items-center gap-1.5">
-                            <Icon name="confirmation_number" className="text-sm text-[#C99A47]" />
+                          <label className="text-sm text-content font-bold">
                             <span>{isEnglish ? 'Direct Ticket Sales Window (Optional)' : 'Thời gian cho phép bán vé trực tiếp (Tùy chọn)'}</span>
                           </label>
                           <span className="text-[11px] text-muted">
@@ -1209,11 +1199,8 @@ function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
                             <div className="w-full h-9.5 px-3 rounded-lg border border-border-soft/40 bg-panel-soft flex items-center gap-2 focus-within:border-tertiary focus-within:ring-1 focus-within:ring-secondary/30 transition-all">
                               <input
                                 type="time"
-                                className="no-picker-indicator w-24 shrink-0 bg-transparent border-0 outline-none text-content text-sm cursor-pointer font-medium"
+                                className="no-picker-indicator w-32 shrink-0 bg-transparent border-0 outline-none text-content text-sm font-medium"
                                 value={session.direct_sale_start_time || ''}
-                                onClick={(e) => {
-                                  try { e.target.showPicker?.() } catch (err) {}
-                                }}
                                 onChange={(e) => {
                                   const t = e.target.value
                                   updateSessionFields(key, {
@@ -1226,11 +1213,8 @@ function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
                               <input
                                 type="date"
                                 min={todayStr}
-                                className="flex-1 min-w-0 bg-transparent border-0 outline-none text-content text-sm cursor-pointer font-medium"
+                                className="flex-1 min-w-0 bg-transparent border-0 outline-none text-content text-sm font-medium"
                                 value={session.direct_sale_start_date || ''}
-                                onClick={(e) => {
-                                  try { e.target.showPicker?.() } catch (err) {}
-                                }}
                                 onChange={(e) => {
                                   const d = e.target.value
                                   updateSessionFields(key, {
@@ -1250,11 +1234,8 @@ function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
                             <div className="w-full h-9.5 px-3 rounded-lg border border-border-soft/40 bg-panel-soft flex items-center gap-2 focus-within:border-tertiary focus-within:ring-1 focus-within:ring-secondary/30 transition-all">
                               <input
                                 type="time"
-                                className="no-picker-indicator w-24 shrink-0 bg-transparent border-0 outline-none text-content text-sm cursor-pointer font-medium"
+                                className="no-picker-indicator w-32 shrink-0 bg-transparent border-0 outline-none text-content text-sm font-medium"
                                 value={session.direct_sale_end_time || ''}
-                                onClick={(e) => {
-                                  try { e.target.showPicker?.() } catch (err) {}
-                                }}
                                 onChange={(e) => {
                                   const t = e.target.value
                                   updateSessionFields(key, {
@@ -1267,11 +1248,8 @@ function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
                               <input
                                 type="date"
                                 min={session.direct_sale_start_date || todayStr}
-                                className="flex-1 min-w-0 bg-transparent border-0 outline-none text-content text-sm cursor-pointer font-medium"
+                                className="flex-1 min-w-0 bg-transparent border-0 outline-none text-content text-sm font-medium"
                                 value={session.direct_sale_end_date || ''}
-                                onClick={(e) => {
-                                  try { e.target.showPicker?.() } catch (err) {}
-                                }}
                                 onChange={(e) => {
                                   const d = e.target.value
                                   updateSessionFields(key, {
@@ -1697,27 +1675,29 @@ function Step3TicketsSeats({
         return p;
       }
 
-      const newTicketTypes = p.ticketTypes.filter((t) => String(t.session_key) === String(sessionKey))
+      const sourceTickets = p.ticketTypes.filter((t) => String(t.session_key) === String(sessionKey))
+      const allSyncedTickets = [...sourceTickets]
+
       for (const s of newSessions) {
         if (String(s.id || s.clientKey) === String(sessionKey) || s.venue_id !== activeSession.venue_id) continue
-        const cloned = newTicketTypes.map(t => {
-          const idStr = String(t.id || t.clientKey);
+        const cloned = sourceTickets.map((t) => {
+          const idStr = String(t.id || t.clientKey)
           return {
             ...t,
             id: idStr.startsWith('tmp-') ? null : undefined,
             clientKey: newClientKey(),
-            session_key: s.id || s.clientKey
-          };
+            session_key: s.id || s.clientKey,
+          }
         })
-        newTicketTypes.push(...cloned)
+        allSyncedTickets.push(...cloned)
       }
 
       const untouchedTicketTypes = p.ticketTypes.filter((t) => {
-        const sess = p.sessions.find(x => String(x.id || x.clientKey) === String(t.session_key));
-        return sess && sess.venue_id !== activeSession.venue_id && String(sess.id || sess.clientKey) !== String(sessionKey);
-      });
+        const sess = p.sessions.find((x) => String(x.id || x.clientKey) === String(t.session_key))
+        return sess && sess.venue_id !== activeSession.venue_id && String(sess.id || sess.clientKey) !== String(sessionKey)
+      })
 
-      return { ...p, sessions: newSessions, ticketTypes: [...newTicketTypes, ...untouchedTicketTypes] }
+      return { ...p, sessions: newSessions, ticketTypes: [...allSyncedTickets, ...untouchedTicketTypes] }
     })
     window.dispatchEvent(new CustomEvent('eventhub:toast', { detail: { type: 'success', message: 'Đã áp dụng cấu hình cho các phiên cùng địa điểm.' } }))
     setShowSyncConfirm(false)
@@ -2055,7 +2035,7 @@ function Step3TicketsSeats({
         {sessions.length > 1 && (
           <div className="space-y-3.5 border-b border-border-soft/30 pb-5">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+              <span className="text-base font-bold uppercase tracking-wider text-white">
                 Danh sách phiên biểu diễn ({sessions.length})
               </span>
               <button
@@ -2741,13 +2721,10 @@ function Step3TicketsSeats({
                                 Tên loại vé <span className="text-red-500 font-bold ml-0.5">*</span>
                               </label>
                             </div>
-                            <div className="relative">
-                              <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-muted">
-                                <Icon name="confirmation_number" className="text-sm" />
-                              </span>
+                            <div>
                               <input
                                 type="text"
-                                className="w-full h-10 pl-9 pr-3 rounded-xl border border-border-soft/50 bg-panel-soft text-content text-sm font-bold focus:border-[#C99A47] focus:ring-1 focus:ring-[#C99A47]/20 outline-none transition"
+                                className="w-full h-10 px-3.5 rounded-xl border border-border-soft/50 bg-panel-soft text-content text-sm font-bold focus:border-[#C99A47] focus:ring-1 focus:ring-[#C99A47]/20 outline-none transition"
                                 value={tt.name || ''}
                                 onChange={(e) => updateTicket(key, 'name', e.target.value)}
                                 placeholder="VD: Early Bird, Standard, VIP..."
@@ -2764,7 +2741,7 @@ function Step3TicketsSeats({
                               <button
                                 type="button"
                                 onClick={() => updateTicket(key, 'price', 0)}
-                                className="text-xs font-bold text-[#C99A47] hover:text-[#E6C17A] hover:underline cursor-pointer"
+                                className="text-xs font-bold text-[#C99A47] hover:text-[#E6C17A] cursor-pointer transition-colors no-underline hover:no-underline"
                               >
                                 + Miễn phí
                               </button>
@@ -2915,7 +2892,7 @@ function Step3TicketsSeats({
               <span className="font-extrabold text-content bg-panel-soft px-3 py-1 rounded-xl border border-border-soft/20">{totalQty.toLocaleString('vi-VN')}</span>
             </div>
             <div className="border-t border-border-soft/30 pt-4 space-y-1">
-              <span className="text-xs font-bold uppercase tracking-wider text-subtle block">Tổng Doanh Thu</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-white block">Tổng Doanh Thu</span>
               <div className="flex items-baseline gap-2 pt-1">
                 <span className="text-2xl font-black text-[#C99A47] tracking-tight">
                   {totalRevenue.toLocaleString('vi-VN')}
@@ -3232,25 +3209,11 @@ function Step4PoliciesSettings({ formData, setFormData, completeness, editPermis
                     key={file.id || file.url}
                     className="flex items-center justify-between p-3 rounded-xl bg-panel-soft border border-border-soft/40 shadow-sm hover:border-border-soft transition"
                   >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="size-9 rounded-lg bg-tertiary/10 text-tertiary flex items-center justify-center shrink-0">
-                        <Icon
-                          name={
-                            file.type?.includes('pdf') || file.name?.endsWith('.pdf')
-                              ? 'picture_as_pdf'
-                              : file.type?.includes('image')
-                                ? 'image'
-                                : 'description'
-                          }
-                          className="text-lg"
-                        />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs font-bold text-content truncate">{file.name}</p>
-                        <p className="text-[11px] text-muted">
-                          {formatFileSize(file.size)} · {file.uploaded_at ? new Date(file.uploaded_at).toLocaleDateString(getAutoLocale()) : (getAutoLocale() === 'en-US' ? 'Uploaded' : 'Đã tải lên')}
-                        </p>
-                      </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-content truncate">{file.name}</p>
+                      <p className="text-[11px] text-muted">
+                        {formatFileSize(file.size)} · {file.uploaded_at ? new Date(file.uploaded_at).toLocaleDateString(getAutoLocale()) : (getAutoLocale() === 'en-US' ? 'Uploaded' : 'Đã tải lên')}
+                      </p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <a
@@ -3327,8 +3290,7 @@ function Step4PoliciesSettings({ formData, setFormData, completeness, editPermis
           {/* Import Policy File Card */}
           <div className="p-4 rounded-xl bg-panel-soft/60 border border-border-soft/40 space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <Icon name="upload_file" className="text-tertiary text-lg" />
+              <div>
                 <span className="text-xs font-bold text-content uppercase tracking-wider">
                   Import file chính sách sự kiện
                 </span>
@@ -4242,7 +4204,7 @@ export function CreateEventPage() {
       toast.error(location.state.error)
       window.history.replaceState({}, document.title)
     }
-  }, [location.state, toast])
+  }, [location.state])
 
   // Synchronize event description template when language changes, as long as user hasn't customized it yet
   useEffect(() => {
@@ -4315,7 +4277,7 @@ export function CreateEventPage() {
       .finally(() => {
         if (!routeEventId) setInitialLoading(false)
       })
-  }, [routeEventId, toast])
+  }, [routeEventId])
 
   const populateFromEvent = useCallback((event) => {
     const sessions = (event.sessions || []).map((s) => {
@@ -4338,7 +4300,7 @@ export function CreateEventPage() {
         seating_type: s.seat_map_id ? 'ASSIGNED' : 'GENERAL',
         zone_assignments: [],
         disabled_seat_ids: s.disabled_seat_ids || [],
-        checkin_start_date: checkin.date || sessionDate,
+        checkin_start_date: checkin.date || '',
         checkin_start_time: checkin.time || '',
         direct_sale_start_date: dsStart.date || '',
         direct_sale_start_time: dsStart.time || '',
@@ -4429,7 +4391,7 @@ export function CreateEventPage() {
         toast.error('Không thể tải sự kiện.')
       })
       .finally(() => setInitialLoading(false))
-  }, [routeEventId, populateFromEvent, toast])
+  }, [routeEventId, populateFromEvent])
 
   const handleApplyAiDraft = (aiData) => {
     if (!aiData) return
@@ -4471,7 +4433,7 @@ export function CreateEventPage() {
         seat_map_id: aiData.seat_map_id || null,
         seating_type: aiData.seat_map_id ? (aiData.seating_type || 'ASSIGNED_SEATS') : 'GENERAL',
         zone_assignments: [],
-        checkin_start_date: s.checkin_start_date || sessionDate,
+        checkin_start_date: s.checkin_start_date || '',
         checkin_start_time: s.checkin_start_time || '',
       }
     })
@@ -4575,17 +4537,15 @@ export function CreateEventPage() {
           return `${sName}: Giờ kết thúc (${s.end_time}) phải diễn ra sau giờ bắt đầu (${s.start_time}).`
         }
 
-        if (s.checkin_start_time || s.checkin_start_date) {
-          if (!s.checkin_start_time || !s.checkin_start_date) {
-            return `${sName}: Vui lòng nhập đầy đủ cả ngày và giờ check-in (hoặc để trống cả hai).`
-          }
-          const checkinTime = new Date(`${s.checkin_start_date}T${s.checkin_start_time}`)
+        if (s.checkin_start_time) {
+          const cDate = s.checkin_start_date || s.start_date
+          const checkinTime = new Date(`${cDate}T${s.checkin_start_time}`)
           if (isNaN(checkinTime.getTime())) {
             return `${sName}: Thời gian check-in không hợp lệ.`
           }
           const today = new Date()
           today.setHours(0, 0, 0, 0)
-          const checkinDateOnly = new Date(`${s.checkin_start_date}T00:00:00`)
+          const checkinDateOnly = new Date(`${cDate}T00:00:00`)
           const sessionDateOnly = new Date(`${s.start_date}T00:00:00`)
 
           if (checkinDateOnly < today) {
@@ -4595,7 +4555,7 @@ export function CreateEventPage() {
             return `${sName}: Ngày check-in không được sau ngày diễn ra sự kiện (${s.start_date}).`
           }
           if (checkinTime > startTime) {
-            return `${sName}: Thời gian check-in (${s.checkin_start_time} ngày ${s.checkin_start_date}) phải trước hoặc bằng giờ bắt đầu sự kiện (${s.start_time} ngày ${s.start_date}).`
+            return `${sName}: Thời gian check-in (${s.checkin_start_time} ngày ${cDate}) phải trước hoặc bằng giờ bắt đầu sự kiện (${s.start_time} ngày ${s.start_date}).`
           }
         }
 
@@ -4961,7 +4921,7 @@ export function CreateEventPage() {
             seat_map_id: s.seat_map_id,
             seating_type: old?.seating_type || (s.seat_map_id ? 'ASSIGNED' : 'GENERAL'),
             zone_assignments: old?.zone_assignments || [],
-            checkin_start_date: checkin.date || old?.checkin_start_date || start.date,
+            checkin_start_date: checkin.date || old?.checkin_start_date || '',
             checkin_start_time: checkin.time || old?.checkin_start_time || '',
             direct_sale_start_date: dsStart.date || old?.direct_sale_start_date || '',
             direct_sale_start_time: dsStart.time || old?.direct_sale_start_time || '',
@@ -5113,7 +5073,7 @@ export function CreateEventPage() {
       }
     }
 
-    // Business Rule: Thời điểm nộp duyệt sự kiện phải cách thời điểm bắt đầu sự kiện tối thiểu 3 tuần (21 ngày)
+    // Business Rule: Thời điểm nộp duyệt sự kiện phải cách thời điểm bắt đầu sự kiện tối thiểu 72 giờ (3 ngày) đồng bộ backend
     const validSessionStarts = (formData.sessions || [])
       .map((s) => new Date(`${s.start_date}T${s.start_time}`).getTime())
       .filter((time) => !Number.isNaN(time))
@@ -5121,13 +5081,11 @@ export function CreateEventPage() {
     if (validSessionStarts.length > 0) {
       const earliestStart = Math.min(...validSessionStarts)
       const leadTimeMs = earliestStart - Date.now()
-      const requiredLeadTimeMs = 21 * 24 * 60 * 60 * 1000 // 3 tuần (21 ngày)
+      const requiredLeadTimeMs = 72 * 60 * 60 * 1000 // 72 giờ (3 ngày) đồng bộ với backend
 
       if (leadTimeMs < requiredLeadTimeMs) {
-        const daysLeft = Math.max(0, Math.round((leadTimeMs / (24 * 60 * 60 * 1000)) * 10) / 10)
-        const minD = new Date(Date.now() + 21 * 24 * 60 * 60 * 1000)
-        const minDateStr = `${String(minD.getDate()).padStart(2, '0')}/${String(minD.getMonth() + 1).padStart(2, '0')}/${minD.getFullYear()}`
-        const leadMsg = `Sự kiện phải được nộp duyệt trước thời điểm bắt đầu tối thiểu 3 tuần (hiện tại còn ${daysLeft} ngày, yêu cầu từ ngày ${minDateStr} trở đi). Vui lòng quay lại Bước 2 để điều chỉnh lịch trình sự kiện.`
+        const hoursLeft = Math.max(0, Math.round((leadTimeMs / (60 * 60 * 1000)) * 10) / 10)
+        const leadMsg = `Sự kiện phải được nộp duyệt trước thời điểm bắt đầu tối thiểu 72 giờ (hiện tại còn ${hoursLeft} giờ). Vui lòng quay lại Bước 2 để điều chỉnh lịch trình sự kiện.`
         setError(leadMsg)
         toast.error(leadMsg)
         setCurrentStep(2)
@@ -5381,6 +5339,25 @@ export function CreateEventPage() {
         )}
 
         
+        {error && (
+          <div className="mb-6 p-4 rounded-xl border border-red-500/40 bg-red-500/10 flex items-start justify-between gap-3 text-sm text-red-200 animate-in fade-in">
+            <div className="flex items-start gap-3">
+              <Icon name="error_outline" className="text-red-400 text-xl shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-white">Chưa thể gửi duyệt sự kiện</p>
+                <p className="text-xs text-red-200 mt-0.5 leading-relaxed">{error}</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setError('')}
+              className="text-red-400 hover:text-white p-1 rounded-lg cursor-pointer"
+            >
+              <Icon name="close" className="text-sm" />
+            </button>
+          </div>
+        )}
+
         <fieldset>
           {currentStep === 1 && (
             <Step1EventInfo

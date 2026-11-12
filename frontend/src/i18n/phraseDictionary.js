@@ -2,6 +2,7 @@ import {
   EVENT_SYSTEM_TRANSLATIONS,
   registerPhraseTranslator,
   translateAddress,
+  autoTranslateEventTitle,
 } from './eventTranslations.js'
 
 /**
@@ -9,6 +10,30 @@ import {
  * Used for instant bidirectional phrase lookup and automatic translation.
  */
 export const VI_TO_EN = {
+  "Van Gogh Timeless - Triển lãm bản quyền - đa giác quan hàng đầu Châu Á": "Van Gogh Timeless - Official Copyright & Asia's Leading Multisensory Exhibition",
+  "Van Gogh Timeless - Triển lãm bản quyền đa giác quan hàng đầu Châu Á": "Van Gogh Timeless - Official Copyright & Asia's Leading Multisensory Exhibition",
+  "Van Gogh Timeless": "Van Gogh Timeless",
+  "Triển lãm bản quyền - đa giác quan hàng đầu Châu Á": "Official Copyright & Asia's Leading Multisensory Exhibition",
+  "Triển lãm bản quyền đa giác quan hàng đầu Châu Á": "Official Copyright & Asia's Leading Multisensory Exhibition",
+  "Triển lãm bản quyền": "Official Copyright Exhibition",
+  "đa giác quan hàng đầu Châu Á": "Asia's Leading Multisensory Exhibition",
+  "Đa giác quan hàng đầu Châu Á": "Asia's Leading Multisensory Exhibition",
+  "Trải rộng gần 4,000 m2 với 13 khu triển lãm và điểm nhấn chiều cao choáng ngợp, Van Gogh Timeless - Triển lãm bản quyền đa giác quan kiến tạo không gian thưởng lãm nghệ thuật đỉnh cao, nơi từng centimet diện tích đều kỳ công tạo tác để đưa người xem chìm đắm trong hành trình trải nghiệm độc bản.": "Spanning nearly 4,000 m² with 13 exhibition zones and breathtaking ceiling heights, Van Gogh Timeless - Asia's Leading Multisensory Exhibition creates a premier art appreciation space, where every square centimeter is meticulously crafted to immerse visitors in a singular experiential journey.",
+  "Công Ty TNHH Sân Khấu - Nghệ Thuật Thái Dương": "Thai Duong Stage & Arts Co., Ltd.",
+  "Công ty TNHH Sân khấu - Nghệ thuật Thái Dương": "Thai Duong Stage & Arts Co., Ltd.",
+  "Sân Khấu - Nghệ Thuật Thái Dương": "Thai Duong Stage & Arts",
+  "QUANG PHỔ (STANDARD)": "SPECTRUM (STANDARD)",
+  "Quang Phổ (Standard)": "Spectrum (Standard)",
+  "QUANG PHỔ": "SPECTRUM",
+  "Quang Phổ": "Spectrum",
+  "MẶT TRỜI (VIP)": "SUN (VIP)",
+  "Mặt Trời (VIP)": "Sun (VIP)",
+  "MẶT TRỜI": "SUN",
+  "Mặt Trời": "Sun",
+  "ÁNH SÁNG (LUXURY)": "LIGHT (LUXURY)",
+  "Ánh Sáng (Luxury)": "Light (Luxury)",
+  "ÁNH SÁNG": "LIGHT",
+  "Ánh Sáng": "Light",
   "Xác nhận mở bán lại vé": "Confirm Resuming Ticket Sales",
   "Khách hàng có thể tiếp tục mua vé sau khi mở bán lại.": "Customers can continue purchasing tickets after sales resume.",
   "Tạm dừng bán toàn bộ sự kiện, theo loại vé hoặc tùy chọn trực tiếp từng vị trí trên sơ đồ ghế.": "Pause sales for entire event, specific ticket types, or individual seats on the seat map.",
@@ -5252,14 +5277,43 @@ export function translateComposite(text, locale) {
     return res.replace(trimmed, VI_TO_EN[trimmed])
   }
 
-  // Address and venue translation
-  if (/(?:Hẻm|Đường|Phường|Quận|Huyện|Thị\s*xã|Thành\s*phố|TP\.?|Lầu|Tầng|Khu\s*phố|Việt\s*Nam)/i.test(res) ||
-      /(?:Lá Nhà Garden|Garden Art|Sân khấu|Nhà hát|Cung Điền Kinh|APEC|Trưng Vương|Trần Hữu Trang|IDECAF)/i.test(res)) {
+  // 1. Auto-translate event titles
+  const autoTitle = autoTranslateEventTitle(res)
+  if (autoTitle && autoTitle !== res) {
+    return autoTitle
+  }
+
+  // 2. Address and venue translation
+  if (/(?:Hẻm|Đường|Phường|Quận|Huyện|Thị\s*xã|Thành\s*phố|TP\.?|Lầu|Tầng|Khu\s*phố|Việt\s*Nam|Sảnh|Toà\s*nhà|Tòa\s*nhà|Đối\s*diện)/i.test(res) ||
+      /(?:Lá Nhà Garden|Garden Art|Sân khấu|Nhà hát|Cung Điền Kinh|APEC|Trưng Vương|Trần Hữu Trang|IDECAF|UDIC)/i.test(res)) {
     const translatedAddr = translateAddress(res)
     if (translatedAddr && translatedAddr !== res) {
       return translatedAddr
     }
   }
+
+  // 3. Event description and ticket benefit patterns
+  res = res.replace(/Trải\s*rộng\s*gần\s*([\d.,]+)\s*m2/gi, 'Spanning nearly $1 m²')
+  res = res.replace(/Trải\s*rộng\s*([\d.,]+)\s*m2/gi, 'Spanning $1 m²')
+  res = res.replace(/với\s*(\d+)\s*khu\s*triển\s*lãm/gi, 'with $1 exhibition zones')
+  res = res.replace(/điểm\s*nhấn\s*chiều\s*cao\s*choáng\s*ngợp/gi, 'breathtaking ceiling heights')
+  res = res.replace(/kiến\s*tạo\s*không\s*gian\s*thưởng\s*lãm\s*nghệ\s*thuật\s*đỉnh\s*cao/gi, 'creates a premier art appreciation space')
+  res = res.replace(/nơi\s*từng\s*centimet\s*diện\s*tích\s*đều\s*kỳ\s*công\s*tạo\s*tác\s*để\s*đưa\s*người\s*xem\s*chìm\s*đắm\s*trong\s*hành\s*trình\s*trải\s*nghiệm\s*độc\s*bản/gi, 'where every square centimeter is meticulously crafted to immerse visitors in a singular experiential journey')
+  res = res.replace(/Không\s*bao\s*gồm:\s*/gi, 'Excluded: ')
+  res = res.replace(/Bao\s*gồm:\s*/gi, 'Included: ')
+  res = res.replace(/(\d+)\s*khu\s*vực\s*trải\s*nghiệm\s*tiêu\s*chuẩn/gi, '$1 standard experience zones')
+  res = res.replace(/Khu\s*vực\s*Tái\s*sinh/gi, 'Rebirth Area')
+  res = res.replace(/Khu\s*vực\s*Lắng/gi, 'Meditation Area')
+  res = res.replace(/Bàn\s*nâng\s*Cổng\s*ánh\s*sáng/gi, 'Lifting Platform Light Gate')
+  res = res.replace(/Quà\s*tặng:\s*/gi, 'Gifts: ')
+  res = res.replace(/Khăn\s*Bandana/gi, 'Bandana scarf')
+  res = res.replace(/Thiệp\s*\/\s*Vé\s*cứng\s*lưu\s*niệm/gi, 'Postcard / Collector physical ticket')
+  res = res.replace(/Vé\s*cứng\s*lưu\s*niệm/gi, 'Collector physical ticket')
+  res = res.replace(/Quà\s*tặng\s*lưu\s*niệm/gi, 'Souvenir gift')
+  res = res.replace(/Vé\s*vào\s*cổng\s*tiêu\s*chuẩn/gi, 'Standard admission ticket')
+  res = res.replace(/Đã\s*bao\s*gồm\s*F&B/gi, 'F&B included')
+  res = res.replace(/Check-in\s*lối\s*ưu\s*tiên/gi, 'Priority check-in line')
+  res = res.replace(/Chỗ\s*ngồi\s*gần\s*sân\s*khấu/gi, 'Near-stage seating')
 
   // Seat map element and layout composite patterns
   res = res.replace(/\bCửa\s*vào\s*(\d*)\b/gi, (m, num) => num ? `Entrance ${num}` : 'Entrance')

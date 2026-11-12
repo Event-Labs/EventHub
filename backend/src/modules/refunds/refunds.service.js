@@ -441,7 +441,7 @@ class RefundsService {
                WHERE organizer_id = (SELECT organizer_id FROM events WHERE id = $1)
                   OR organizer_id = $2
                   OR organizer_id IN (SELECT id FROM organizers WHERE user_id = $2)
-               ORDER BY updated_at DESC LIMIT 1`,
+               ORDER BY is_default DESC NULLS LAST, updated_at DESC LIMIT 1`,
               [refund.event_id, refund.organizer_id]
             );
             const latest = latestChannelRes.rows[0];

@@ -1,6 +1,7 @@
 const express = require('express');
 const ordersController = require('./orders.controller');
 const { protect, authorize } = require('../../middlewares/auth.middleware');
+const { requireBookingToken } = require('../waiting-room/waitingRoom.middleware');
 
 const router = express.Router();
 
@@ -26,7 +27,7 @@ router.post(
   authorize('STAFF', 'ADMIN', 'SUPER_ADMIN'),
   ordersController.createStaffComplimentaryBooking,
 );
-router.post('/checkout', ordersController.checkout);
+router.post('/checkout', requireBookingToken, ordersController.checkout);
 router.get('/:orderId/status', ordersController.status);
 router.post('/:orderId/cancel', ordersController.cancel);
 

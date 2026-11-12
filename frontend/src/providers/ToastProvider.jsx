@@ -103,10 +103,69 @@ export function ToastProvider({ children }) {
   )
 }
 
+const FALLBACK_TOAST = Object.freeze({
+  showToast: (message, options) => {
+    try {
+      window.dispatchEvent(
+        new CustomEvent('eventhub:toast', {
+          detail: { message, type: options?.type || 'info', duration: options?.duration },
+        })
+      )
+    } catch (_) {}
+  },
+  success: (message, options) => {
+    try {
+      window.dispatchEvent(
+        new CustomEvent('eventhub:toast', {
+          detail: { message, type: 'success', duration: options?.duration },
+        })
+      )
+    } catch (_) {}
+  },
+  error: (message, options) => {
+    try {
+      window.dispatchEvent(
+        new CustomEvent('eventhub:toast', {
+          detail: { message, type: 'error', duration: options?.duration },
+        })
+      )
+    } catch (_) {}
+  },
+  warning: (message, options) => {
+    try {
+      window.dispatchEvent(
+        new CustomEvent('eventhub:toast', {
+          detail: { message, type: 'warning', duration: options?.duration },
+        })
+      )
+    } catch (_) {}
+  },
+  info: (message, options) => {
+    try {
+      window.dispatchEvent(
+        new CustomEvent('eventhub:toast', {
+          detail: { message, type: 'info', duration: options?.duration },
+        })
+      )
+    } catch (_) {}
+  },
+  warn: (message, options) => {
+    try {
+      window.dispatchEvent(
+        new CustomEvent('eventhub:toast', {
+          detail: { message, type: 'warning', duration: options?.duration },
+        })
+      )
+    } catch (_) {}
+  },
+  dismiss: () => {},
+  toasts: [],
+})
+
 export function useToast() {
   const context = useContext(ToastContext)
   if (!context) {
-    throw new Error('useToast must be used within ToastProvider')
+    return FALLBACK_TOAST
   }
   return context
 }

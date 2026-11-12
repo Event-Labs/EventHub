@@ -11,6 +11,7 @@ import { optimisticallySetFavorite, refreshFavoriteQueries, restoreFavoriteSnaps
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
 import { getCategoryName } from '@/i18n/categoryNames.js'
+import { getPaginationItems } from '@/utils/pagination.js'
 
 function readFilters(searchParams) {
   return {
@@ -362,11 +363,28 @@ export function EventsPage() {
             <button type="button" onClick={() => changePage(pagination.page - 1)} disabled={pagination.page === 1} className="grid size-10 place-items-center rounded-full border border-border-soft bg-panel text-white transition hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40" aria-label={isEnglish ? 'Previous page' : 'Trang trước'}>
               <ChevronLeft className="size-5" />
             </button>
-            {Array.from({ length: pagination.total_pages }, (_, index) => index + 1).map((pageNumber) => (
-              <button key={pageNumber} type="button" onClick={() => changePage(pageNumber)} className={`size-10 rounded-full text-sm font-bold transition ${pagination.page === pageNumber ? 'bg-primary text-slate-950' : 'border border-border-soft bg-panel text-white hover:border-primary hover:text-primary'}`} aria-current={pagination.page === pageNumber ? 'page' : undefined} aria-label={isEnglish ? `Page ${pageNumber}` : `Trang ${pageNumber}`}>
-                {pageNumber}
-              </button>
-            ))}
+            {getPaginationItems(pagination.page, pagination.total_pages).map((item) => {
+              if (typeof item === 'string') {
+                return (
+                  <span key={item} className="grid size-10 place-items-center text-sm font-bold text-slate-500 select-none" aria-hidden="true">
+                    ...
+                  </span>
+                )
+              }
+              const pageNumber = item
+              return (
+                <button
+                  key={pageNumber}
+                  type="button"
+                  onClick={() => changePage(pageNumber)}
+                  className={`size-10 rounded-full text-sm font-bold transition ${pagination.page === pageNumber ? 'bg-primary text-slate-950' : 'border border-border-soft bg-panel text-white hover:border-primary hover:text-primary'}`}
+                  aria-current={pagination.page === pageNumber ? 'page' : undefined}
+                  aria-label={isEnglish ? `Page ${pageNumber}` : `Trang ${pageNumber}`}
+                >
+                  {pageNumber}
+                </button>
+              )
+            })}
             <button type="button" onClick={() => changePage(pagination.page + 1)} disabled={pagination.page === pagination.total_pages} className="grid size-10 place-items-center rounded-full border border-border-soft bg-panel text-white transition hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-40" aria-label={isEnglish ? 'Next page' : 'Trang sau'}>
               <ChevronRight className="size-5" />
             </button>
