@@ -21,7 +21,13 @@ import { getResumeBookingPath, hasActiveSeatHold, readBookingDraft } from '@/uti
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
 import { getCategoryName } from '@/i18n/categoryNames.js'
 import { translatePhrase } from '@/i18n/phraseDictionary.js'
-import { cleanAndFormatVenue, translateEventHtmlDescription } from '@/i18n/eventTranslations.js'
+import {
+  cleanAndFormatVenue,
+  translateEventHtmlDescription,
+  translateEventTitle,
+  translateTicketName,
+  formatOrganizerName
+} from '@/i18n/eventTranslations.js'
 import '@/components/RichTextEditor.css'
 
 function getActiveIsEnglish(explicitIsEnglish) {
@@ -68,6 +74,9 @@ function formatSessionName(name, isEnglish = getActiveIsEnglish()) {
   if (!name) return ''
   if (!isEnglish) return name
   return name
+    .replace(/^(?:Phiên|Session)?\s*Ngày\s*(\d+)/i, 'Day $1')
+    .replace(/^Ngày\s*(\d+)/i, 'Day $1')
+    .replace(/^Phiên\s*(\d+)/i, 'Session $1')
     .replace(/^Buổi\s*(\d+)/i, 'Session $1')
     .replace(/^Suất\s*(?:diễn)?\s*(\d+)/i, 'Showtime $1')
     .replace(/^Ca\s*(\d+)/i, 'Shift $1')
@@ -325,6 +334,21 @@ export function EventDetailPage() {
       return
     }
 
+    // Check if Virtual Waiting Room is enabled for this event
+    const isWaitingRoomEnabled = Boolean(event.waiting_room_config?.enabled)
+    const existingBookingToken =
+      sessionStorage.getItem('eventhub_booking_token') ||
+      localStorage.getItem('eventhub_booking_token')
+
+    if (isWaitingRoomEnabled && !existingBookingToken) {
+      navigate(`/events/${event.id}/queue`, {
+        state: {
+          cart: baseCart,
+        },
+      })
+      return
+    }
+
     navigate('/booking/seats', {
       state: {
         cart: baseCart,
@@ -429,7 +453,7 @@ export function EventDetailPage() {
               </span>
             )}
             <h1 className="mt-2.5 break-words font-display text-3xl font-black leading-tight text-white sm:mt-3 sm:text-4xl lg:text-5xl drop-shadow-xl">
-              {isEnglish ? (translatePhrase(event.title, 'en') || event.title) : event.title}
+              {isEnglish ? translateEventTitle(event.title, true) : event.title}
             </h1>
             {event.short_description && (
               <p className="mt-2 max-w-3xl break-words text-sm leading-relaxed text-slate-200/90 sm:mt-2.5 sm:text-base drop-shadow-md">
@@ -437,7 +461,7 @@ export function EventDetailPage() {
               </p>
             )}
             <div className="mt-3.5 flex max-w-full flex-wrap items-center gap-x-5 gap-y-2 text-xs sm:mt-4 sm:text-sm text-slate-200">
-              <Info icon={UserCircle} text={`${isEnglish ? 'Organizer:' : 'Ban tổ chức:'} ${event.organizer?.full_name || 'EventHub'}`} />
+              <Info icon={UserCircle} text={`${isEnglish ? 'Organizer:' : 'Ban tổ chức:'} ${formatOrganizerName(event.organizer?.full_name || 'EventHub', isEnglish)}`} />
               <Info icon={Calendar} text={`${formatDateTime(event.start_time, isEnglish)} - ${formatDateTime(event.end_time, isEnglish)}`} />
               <Info icon={MapPin} text={venueSummary(event.venue, isEnglish) || venueSummary(firstVenue, isEnglish)} />
             </div>
@@ -665,10 +689,12 @@ export function EventDetailPage() {
                                     )}
                                   >
                                     <div className="max-w-3xl min-w-0">
-                                      <p className={cn('font-bold text-lg', saleOpen ? 'text-primary drop-shadow-sm' : 'text-inherit')}>{ticketType.name}</p>
+                                      <p className={cn('font-bold text-lg', saleOpen ? 'text-primary drop-shadow-sm' : 'text-inherit')}>
+                                        {isEnglish ? translateTicketName(ticketType.name, true) : ticketType.name}
+                                      </p>
                                       {ticketType.description && (
                                         <p className={cn('mt-1 max-w-2xl whitespace-pre-line text-sm leading-6', saleOpen ? 'text-slate-300' : 'text-inherit')}>
-                                          {ticketType.description}
+                                          {isEnglish ? (translatePhrase(ticketType.description, 'en') || ticketType.description) : ticketType.description}
                                         </p>
                                       )}
                                     </div>

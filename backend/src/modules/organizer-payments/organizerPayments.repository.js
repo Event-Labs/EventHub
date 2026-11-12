@@ -6,8 +6,30 @@ class OrganizerPaymentsRepository {
       `SELECT * FROM organizer_payment_channels 
        WHERE organizer_id = $1 
           OR organizer_id IN (SELECT id FROM organizers WHERE user_id = $1)
-       ORDER BY updated_at DESC LIMIT 1`,
+       ORDER BY is_default DESC NULLS LAST, updated_at DESC LIMIT 1`,
       [organizerId]
+    );
+    return rows[0] || null;
+  }
+
+  /**
+   * Update only the single canonical (default, then most recently updated)
+   * payment channel row for an organizer so stale non-default rows are never
+   * touched or returned by UPDATE ... RETURNING *.
+   */
+  async _updatePrimaryChannel(organizerId, setClause, params = []) {
+    const orgParamIndex = params.length + 1;
+    const { rows } = await pool.query(
+      `UPDATE organizer_payment_channels
+       SET ${setClause}, updated_at = NOW()
+       WHERE id = (
+         SELECT id FROM organizer_payment_channels
+         WHERE organizer_id = $${orgParamIndex}
+         ORDER BY is_default DESC NULLS LAST, updated_at DESC
+         LIMIT 1
+       )
+       RETURNING *`,
+      [...params, organizerId]
     );
     return rows[0] || null;
   }
@@ -67,14 +89,7 @@ class OrganizerPaymentsRepository {
   }
 
   async updateChannelStatus(organizerId, status) {
-    const { rows } = await pool.query(
-      `UPDATE organizer_payment_channels 
-       SET status = $1, updated_at = NOW() 
-       WHERE organizer_id = $2 
-       RETURNING *`,
-      [status, organizerId]
-    );
-    return rows[0];
+    return this._updatePrimaryChannel(organizerId, 'status = $1', [status]);
   }
 
   async updatePayoutChannel(organizerId, data) {
@@ -84,50 +99,33 @@ class OrganizerPaymentsRepository {
       payout_checksum_key_encrypted,
       payout_status,
     } = data;
-    const { rows } = await pool.query(
-      `UPDATE organizer_payment_channels
-       SET payout_client_id = $1,
-           payout_api_key_encrypted = COALESCE($2, payout_api_key_encrypted),
-           payout_checksum_key_encrypted = COALESCE($3, payout_checksum_key_encrypted),
-           payout_status = $4,
-           updated_at = NOW()
-       WHERE organizer_id = $5
-       RETURNING *`,
+    return this._updatePrimaryChannel(
+      organizerId,
+      `payout_client_id = $1,
+       payout_api_key_encrypted = COALESCE($2, payout_api_key_encrypted),
+       payout_checksum_key_encrypted = COALESCE($3, payout_checksum_key_encrypted),
+       payout_status = $4`,
       [
         payout_client_id,
         payout_api_key_encrypted,
         payout_checksum_key_encrypted,
         payout_status || 'PENDING',
-        organizerId,
       ]
     );
-    return rows[0] || null;
   }
 
   async updatePayoutStatus(organizerId, status) {
-    const { rows } = await pool.query(
-      `UPDATE organizer_payment_channels 
-       SET payout_status = $1, updated_at = NOW() 
-       WHERE organizer_id = $2 
-       RETURNING *`,
-      [status, organizerId]
-    );
-    return rows[0] || null;
+    return this._updatePrimaryChannel(organizerId, 'payout_status = $1', [status]);
   }
 
   async clearPayoutCredentials(organizerId) {
-    const { rows } = await pool.query(
-      `UPDATE organizer_payment_channels
-       SET payout_client_id = NULL,
-           payout_api_key_encrypted = NULL,
-           payout_checksum_key_encrypted = NULL,
-           payout_status = 'SAME_AS_INBOUND',
-           updated_at = NOW()
-       WHERE organizer_id = $1
-       RETURNING *`,
-      [organizerId]
+    return this._updatePrimaryChannel(
+      organizerId,
+      `payout_client_id = NULL,
+       payout_api_key_encrypted = NULL,
+       payout_checksum_key_encrypted = NULL,
+       payout_status = 'SAME_AS_INBOUND'`
     );
-    return rows[0] || null;
   }
 }
 

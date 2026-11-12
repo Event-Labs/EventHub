@@ -3,6 +3,7 @@ const eventsController = require('./events.controller');
 const optionalAuth = require('../../middlewares/optionalAuth.middleware');
 const { protect } = require('../../middlewares/auth.middleware');
 const { cacheMiddleware } = require('../../middlewares/cache.middleware');
+const { requireBookingToken } = require('../waiting-room/waitingRoom.middleware');
 
 const router = express.Router();
 
@@ -18,7 +19,7 @@ router.get('/sessions/:sessionId/seats', cacheMiddleware(3, { isUserSpecific: fa
 
 // Các endpoint đặt / giữ vé thời gian thực: TUYỆT ĐỐI KHÔNG CACHE
 router.post('/availability/check', protect, eventsController.checkTicketAvailability);
-router.post('/availability/hold', protect, eventsController.holdSeats);
+router.post('/availability/hold', protect, requireBookingToken, eventsController.holdSeats);
 router.post('/availability/release', protect, eventsController.releaseSeatHolds);
 router.get('/favorites/me', protect, eventsController.getFavoriteEvents);
 

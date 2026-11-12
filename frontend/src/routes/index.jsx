@@ -8,6 +8,7 @@ import {
   BookingSeatsPage,
 } from '@/pages/customer/booking/BookingFlowPages.jsx'
 import { EventDetailPage } from '@/pages/customer/events/EventDetailPage.jsx'
+import { WaitingRoomPage } from '@/pages/customer/waiting-room/WaitingRoomPage.jsx'
 import { EventsPage } from '@/pages/customer/events/EventsPage.jsx'
 import { FavoriteEventsPage } from '@/pages/customer/favorites/FavoriteEventsPage.jsx'
 import { FeedbackPage } from '@/pages/customer/FeedbackPage.jsx'
@@ -335,6 +336,10 @@ export const router = createBrowserRouter([
       {
         path: 'events/:eventId',
         element: <EventDetailPage />,
+      },
+      {
+        path: 'events/:eventId/queue',
+        element: <WaitingRoomPage />,
       },
       {
         path: 'booking',

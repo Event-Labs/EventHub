@@ -20,6 +20,16 @@ http.interceptors.request.use((config) => {
     config.headers.Authorization = `Bearer ${token}`
   }
 
+  // Automatically attach Virtual Waiting Room booking token
+  try {
+    const bookingToken =
+      sessionStorage.getItem('eventhub_booking_token') ||
+      localStorage.getItem('eventhub_booking_token')
+    if (bookingToken) {
+      config.headers['x-booking-token'] = bookingToken
+    }
+  } catch (_) {}
+
   return config
 })
 

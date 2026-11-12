@@ -19,6 +19,7 @@ import {
 } from '@/services/organizerOrders.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
+import { WaitingRoomAdminPanel } from '@/components/waiting-room/WaitingRoomAdminPanel.jsx'
 import {
     OrganizerPage,
     OrganizerPanel,
@@ -712,6 +713,8 @@ export function OrganizerEventDetailPage() {
                             )}
                         </div>
                     </OrganizerPanel>
+
+                    <WaitingRoomAdminPanel eventId={event.id} />
 
                     <div className="grid grid-cols-2 gap-4">
                         <Link

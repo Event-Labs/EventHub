@@ -420,14 +420,14 @@ export function ToggleSalesConfirmModal({ event, onConfirm, onClose, loading }) 
         scope === 'SEATS' ? 'max-w-4xl' : 'max-w-2xl'
       }`}>
         <div className="flex items-start gap-3">
-          <span className={`grid size-10 shrink-0 place-items-center rounded-xl ${isCurrentlyPaused ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'}`}>
+          <span className={`grid size-10 shrink-0 place-items-center rounded-xl ${isCurrentlyPaused ? 'bg-emerald-500/15 text-emerald-400' : 'border border-[#C99A47]/35 bg-[#C99A47]/15 text-[#E6C17A]'}`}>
             {isCurrentlyPaused ? <PlayCircle className="size-5" /> : <PauseCircle className="size-5" />}
           </span>
           <div>
             <h3 className="text-xl font-black text-white">
               {isCurrentlyPaused ? 'Xác nhận mở bán lại vé' : 'Tạm dừng bán vé'}
             </h3>
-            <p className="mt-1 text-xs text-slate-300">
+            <p className="mt-1 text-sm text-white">
               {isCurrentlyPaused
                 ? 'Khách hàng có thể tiếp tục mua vé sau khi mở bán lại.'
                 : 'Tạm dừng bán toàn bộ sự kiện, theo loại vé hoặc tùy chọn trực tiếp từng vị trí trên sơ đồ ghế.'}
@@ -436,15 +436,15 @@ export function ToggleSalesConfirmModal({ event, onConfirm, onClose, loading }) 
         </div>
 
         <div className="mt-4 rounded-xl border border-white/10 bg-[#121c38] p-3.5">
-          <p className="text-sm font-bold text-white">{event.title}</p>
-          <p className="mt-1 text-xs text-slate-300">
+          <p className="text-base font-bold text-white">{event.title}</p>
+          <p className="mt-1 text-sm text-white">
             Ngày diễn ra: {formatModalDate(event.start_time)}
           </p>
         </div>
 
         {/* If event is hidden, explain that sales cannot resume until unhidden */}
         {isCurrentlyPaused && isHidden ? (
-          <div className="mt-4 rounded-xl border border-rose-500/40 bg-rose-500/15 p-3.5 text-xs text-rose-200 [html.light_&]:border-rose-500/40 [html.light_&]:bg-rose-500/15 [html.light_&]:text-rose-950 font-medium">
+          <div className="mt-4 rounded-xl border border-rose-500/40 bg-rose-500/15 p-3.5 text-sm text-rose-200 [html.light_&]:border-rose-500/40 [html.light_&]:bg-rose-500/15 [html.light_&]:text-rose-950 font-medium">
             <p className="font-bold flex items-center gap-1.5 text-rose-300 [html.light_&]:text-rose-900 mb-1">
               <AlertTriangle className="size-4 shrink-0" /> Sự kiện đang ở trạng thái TẠM ẨN
             </p>
@@ -456,8 +456,8 @@ export function ToggleSalesConfirmModal({ event, onConfirm, onClose, loading }) 
           <>
             {/* Scope selection: Toàn bộ sự kiện vs loại ghế / hạng vé cụ thể vs sơ đồ ghế */}
             <div className="mt-4">
-              <label className="block text-xs font-semibold text-slate-300 mb-2">
-                Phạm vi tạm dừng bán <span className="text-amber-400">*</span>
+              <label className="block text-sm font-semibold text-white mb-2">
+                Phạm vi tạm dừng bán <span className="text-rose-500">*</span>
               </label>
               <div className={`grid gap-2 ${hasAssignedSeating ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2'}`}>
                 <button
@@ -465,14 +465,14 @@ export function ToggleSalesConfirmModal({ event, onConfirm, onClose, loading }) 
                   onClick={() => setScope('ALL')}
                   className={`rounded-xl border p-2.5 text-left transition ${scope === 'ALL'
                       ? 'border-[#C99A47] bg-[#C99A47]/15 text-white ring-1 ring-[#C99A47]'
-                      : 'border-white/10 bg-[#121c38] text-slate-300 hover:border-white/20'
+                      : 'border-white/10 bg-[#121c38] text-white hover:border-white/25'
                     }`}
                 >
-                  <p className="text-xs font-bold flex items-center gap-1.5">
-                    <span className={`size-2 rounded-full ${scope === 'ALL' ? 'bg-[#C99A47]' : 'bg-slate-500'}`} />
+                  <p className="text-sm font-bold text-white flex items-center gap-1.5">
+                    <span className={`size-2 rounded-full ${scope === 'ALL' ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A]' : 'bg-slate-500'}`} />
                     Toàn bộ sự kiện
                   </p>
-                  <p className="text-[11px] text-slate-400 mt-0.5">Tất cả loại ghế / hạng vé</p>
+                  <p className="text-xs text-white mt-0.5">Tất cả loại ghế / hạng vé</p>
                 </button>
 
                 <button
@@ -480,14 +480,14 @@ export function ToggleSalesConfirmModal({ event, onConfirm, onClose, loading }) 
                   onClick={() => setScope('SPECIFIC')}
                   className={`rounded-xl border p-2.5 text-left transition ${scope === 'SPECIFIC'
                       ? 'border-[#C99A47] bg-[#C99A47]/15 text-white ring-1 ring-[#C99A47]'
-                      : 'border-white/10 bg-[#121c38] text-slate-300 hover:border-white/20'
+                      : 'border-white/10 bg-[#121c38] text-white hover:border-white/25'
                     }`}
                 >
-                  <p className="text-xs font-bold flex items-center gap-1.5">
-                    <span className={`size-2 rounded-full ${scope === 'SPECIFIC' ? 'bg-[#C99A47]' : 'bg-slate-500'}`} />
+                  <p className="text-sm font-bold text-white flex items-center gap-1.5">
+                    <span className={`size-2 rounded-full ${scope === 'SPECIFIC' ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A]' : 'bg-slate-500'}`} />
                     Từng loại vé / ghế
                   </p>
-                  <p className="text-[11px] text-slate-400 mt-0.5">Chọn 1 hoặc nhiều loại vé</p>
+                  <p className="text-xs text-white mt-0.5">Chọn 1 hoặc nhiều loại vé</p>
                 </button>
 
                 {hasAssignedSeating && (
@@ -496,14 +496,14 @@ export function ToggleSalesConfirmModal({ event, onConfirm, onClose, loading }) 
                     onClick={() => setScope('SEATS')}
                     className={`rounded-xl border p-2.5 text-left transition ${scope === 'SEATS'
                         ? 'border-[#C99A47] bg-[#C99A47]/15 text-white ring-1 ring-[#C99A47]'
-                        : 'border-white/10 bg-[#121c38] text-slate-300 hover:border-white/20'
+                        : 'border-white/10 bg-[#121c38] text-white hover:border-white/25'
                       }`}
                   >
-                    <p className="text-xs font-bold flex items-center gap-1.5">
-                      <span className={`size-2 rounded-full ${scope === 'SEATS' ? 'bg-[#C99A47]' : 'bg-slate-500'}`} />
+                    <p className="text-sm font-bold text-white flex items-center gap-1.5">
+                      <span className={`size-2 rounded-full ${scope === 'SEATS' ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A]' : 'bg-slate-500'}`} />
                       Theo sơ đồ ghế
                     </p>
-                    <p className="text-[11px] text-slate-400 mt-0.5">Chọn vị trí ghế trực tiếp</p>
+                    <p className="text-xs text-white mt-0.5">Chọn vị trí ghế trực tiếp</p>
                   </button>
                 )}
               </div>
@@ -543,7 +543,7 @@ export function ToggleSalesConfirmModal({ event, onConfirm, onClose, loading }) 
                       onClick={() => setSeatAction('PAUSE')}
                       className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
                         seatAction === 'PAUSE'
-                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 ring-1 ring-amber-500/30'
+                          ? 'bg-[#C99A47]/20 text-[#E6C17A] border border-[#C99A47]/45 ring-1 ring-[#C99A47]/30'
                           : 'text-slate-400 hover:text-white'
                       }`}
                     >
@@ -563,8 +563,8 @@ export function ToggleSalesConfirmModal({ event, onConfirm, onClose, loading }) 
                       Mở bán lại ghế đang dừng
                     </button>
                   </div>
-                  <div className="text-xs text-slate-300">
-                    Đã chọn: <strong className="text-amber-300 font-bold">{selectedSeatIds.length}</strong> ghế
+                  <div className="text-xs text-white">
+                    Đã chọn: <strong className="text-[#E6C17A] font-bold">{selectedSeatIds.length}</strong> ghế
                   </div>
                 </div>
 
@@ -597,7 +597,7 @@ export function ToggleSalesConfirmModal({ event, onConfirm, onClose, loading }) 
                     <button
                       type="button"
                       onClick={handleSelectAllActionableSeats}
-                      className="text-[11px] font-bold text-amber-400 hover:text-amber-300 transition"
+                      className="text-xs font-bold text-[#E6C17A] hover:text-[#f2d497] transition"
                     >
                       {selectedSeatIds.length > 0 ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
                     </button>
@@ -655,8 +655,8 @@ export function ToggleSalesConfirmModal({ event, onConfirm, onClose, loading }) 
             {scope === 'SPECIFIC' && (
               <div className="mt-3.5">
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-semibold text-slate-300">
-                    Chọn các loại ghế / hạng vé tạm dừng <span className="text-amber-400">*</span>
+                  <label className="text-sm font-semibold text-white">
+                    Chọn các loại ghế / hạng vé tạm dừng <span className="text-rose-500">*</span>
                   </label>
                   {ticketTypes.length > 0 && (
                     <button
@@ -671,7 +671,7 @@ export function ToggleSalesConfirmModal({ event, onConfirm, onClose, loading }) 
                           setSelectedTicketTypeIds(availableIds)
                         }
                       }}
-                      className="text-[11px] font-bold text-amber-400 hover:text-amber-300 transition"
+                      className="text-xs font-bold text-[#E6C17A] hover:text-[#f2d497] transition"
                     >
                       {selectedTicketTypeIds.length > 0 &&
                         selectedTicketTypeIds.length === ticketTypes.filter((t) => !pausedTicketIds.has(String(t.id))).length
@@ -707,7 +707,7 @@ export function ToggleSalesConfirmModal({ event, onConfirm, onClose, loading }) 
                             )
                           }}
                           className={`flex items-center justify-between rounded-xl border p-2.5 transition select-none ${isTtPaused
-                              ? 'border-amber-500/20 bg-amber-500/5 opacity-60 cursor-not-allowed'
+                              ? 'border-[#C99A47]/25 bg-[#C99A47]/5 opacity-60 cursor-not-allowed'
                               : isChecked
                                 ? 'border-[#C99A47] bg-[#C99A47]/15 ring-1 ring-[#C99A47] cursor-pointer'
                                 : 'border-white/10 bg-[#121c38] hover:border-white/20 cursor-pointer'
@@ -722,17 +722,17 @@ export function ToggleSalesConfirmModal({ event, onConfirm, onClose, loading }) 
                               className="size-4 rounded border-white/20 text-[#C99A47] focus:ring-[#C99A47] cursor-pointer"
                             />
                             <div className="min-w-0">
-                              <p className="text-xs font-bold text-white truncate">{tt.name}</p>
-                              <p className="text-[10px] text-slate-400">
+                              <p className="text-sm font-bold text-white truncate">{tt.name}</p>
+                              <p className="text-xs text-slate-300">
                                 {tt.is_seated ? 'Ghế ngồi' : 'Vé đứng'}
                                 {tt.quantity ? ` • Tổng ${tt.quantity} vé` : ''}
                               </p>
                             </div>
                           </div>
                           <div className="text-right shrink-0 pl-2">
-                            <p className="text-xs font-bold text-amber-300">{formatCurrency(tt.price)}</p>
+                            <p className="text-xs font-bold text-[#E6C17A]">{formatCurrency(tt.price)}</p>
                             {isTtPaused && (
-                              <span className="text-[10px] font-semibold text-amber-400 block">Đang tạm dừng</span>
+                              <span className="text-[10px] font-semibold text-[#E6C17A] block">Đang tạm dừng</span>
                             )}
                           </div>
                         </div>
@@ -745,9 +745,9 @@ export function ToggleSalesConfirmModal({ event, onConfirm, onClose, loading }) 
 
             {/* List of currently paused ticket types */}
             {activeSpecificBlocks.length > 0 && (
-              <div className="mt-3.5 rounded-xl border border-amber-500/25 bg-amber-500/10 p-3">
+              <div className="mt-3.5 rounded-xl border border-[#C99A47]/30 bg-[#C99A47]/10 p-3">
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                  <p className="text-xs font-bold text-[#E6C17A] flex items-center gap-1.5">
                     <PauseCircle className="size-3.5 shrink-0" /> Các loại vé đang tạm dừng ({activeSpecificBlocks.length}):
                   </p>
                   {activeSpecificBlocks.length > 1 && (
@@ -847,8 +847,8 @@ export function ToggleSalesConfirmModal({ event, onConfirm, onClose, loading }) 
             )}
 
             {/* Reason input */}
-            <div className="mt-3">
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
+            <div className="mt-3.5">
+              <label className="block text-sm font-semibold text-white mb-1.5">
                 Lý do tạm dừng bán (Tùy chọn)
               </label>
               <input
@@ -856,17 +856,17 @@ export function ToggleSalesConfirmModal({ event, onConfirm, onClose, loading }) 
                 value={reasonNote}
                 onChange={(e) => setReasonNote(e.target.value)}
                 placeholder="Ví dụ: Kiểm tra số lượng vé, bảo trì thông tin, giữ chỗ nội bộ..."
-                className="w-full rounded-xl border border-white/15 bg-[#121c38] p-2.5 text-xs text-white placeholder:text-slate-500 outline-none focus:border-primary"
+                className="w-full rounded-xl border border-white/15 bg-[#121c38] p-2.5 text-sm text-white placeholder:text-slate-400 outline-none focus:border-[#C99A47]"
               />
             </div>
           </>
         ) : null}
 
         {!isHidden && (
-          <div className={`mt-4 rounded-xl border p-3 text-xs ${
+          <div className={`mt-4 rounded-xl border p-3.5 text-sm font-medium ${
             isCurrentlyPaused
-              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200 [html.light_&]:border-emerald-600/40 [html.light_&]:bg-emerald-500/15 [html.light_&]:text-emerald-950 font-medium'
-              : 'border-amber-500/30 bg-amber-500/10 text-amber-200 [html.light_&]:border-amber-500/40 [html.light_&]:bg-amber-500/15 [html.light_&]:text-amber-950 font-medium'
+              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200 [html.light_&]:border-emerald-600/40 [html.light_&]:bg-emerald-500/15 [html.light_&]:text-emerald-950'
+              : 'border-[#C99A47]/35 bg-[#C99A47]/12 text-white [html.light_&]:border-[#C99A47]/50 [html.light_&]:bg-[#C99A47]/15 [html.light_&]:text-[#0D1B2A]'
           }`}>
             {isCurrentlyPaused ? (
               <p>Các loại vé và ghế còn số lượng sẽ ngay lập tức mở cho khách hàng đặt mua.</p>
@@ -881,7 +881,7 @@ export function ToggleSalesConfirmModal({ event, onConfirm, onClose, loading }) 
             type="button"
             onClick={onClose}
             disabled={loading}
-            className="flex-1 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold text-slate-300 transition hover:bg-white/10 hover:text-white disabled:opacity-50"
+            className="flex-1 rounded-full border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/10 disabled:opacity-50 cursor-pointer"
           >
             Hủy bỏ
           </button>
@@ -889,7 +889,7 @@ export function ToggleSalesConfirmModal({ event, onConfirm, onClose, loading }) 
             type="button"
             onClick={handleConfirm}
             disabled={isSubmitDisabled}
-            className="flex-1 rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-4 py-2.5 text-sm font-black text-[#0D1B2A] shadow-md shadow-[#C99A47]/30 transition hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+            className="org-btn-primary flex-1 !py-2.5 cursor-pointer"
           >
             {loading ? (
               <span className="flex items-center justify-center gap-2">

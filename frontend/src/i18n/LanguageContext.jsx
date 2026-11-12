@@ -362,10 +362,51 @@ export function LanguageProvider({ children }) {
   return <LanguageContext.Provider value={contextValue}>{children}</LanguageContext.Provider>
 }
 
+const FALLBACK_LANG_VI = Object.freeze({
+  language: 'vi',
+  setLanguage: () => {},
+  t: (key) => key,
+  formatCurrency: (num, opts = {}) => {
+    const val = Number(num || 0)
+    const formatted = new Intl.NumberFormat('vi-VN').format(val)
+    return opts.symbol === false ? formatted : `${formatted} ₫`
+  },
+  formatDate: (date, opts = {}) => {
+    if (!date) return ''
+    const d = new Date(date)
+    if (Number.isNaN(d.getTime())) return ''
+    return new Intl.DateTimeFormat('vi-VN', opts).format(d)
+  },
+  isVietnamese: true,
+  isEnglish: false,
+})
+
+const FALLBACK_LANG_EN = Object.freeze({
+  language: 'en',
+  setLanguage: () => {},
+  t: (key) => key,
+  formatCurrency: (num, opts = {}) => {
+    const val = Number(num || 0)
+    const formatted = new Intl.NumberFormat('en-US').format(val)
+    return opts.symbol === false ? formatted : `$${formatted}`
+  },
+  formatDate: (date, opts = {}) => {
+    if (!date) return ''
+    const d = new Date(date)
+    if (Number.isNaN(d.getTime())) return ''
+    return new Intl.DateTimeFormat('en-US', opts).format(d)
+  },
+  isVietnamese: false,
+  isEnglish: true,
+})
+
 export function useLanguage() {
   const context = useContext(LanguageContext)
   if (!context) {
-    throw new Error('useLanguage must be used within a LanguageProvider')
+    const locale =
+      (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale')) ||
+      'vi'
+    return locale === 'en' ? FALLBACK_LANG_EN : FALLBACK_LANG_VI
   }
   return context
 }

@@ -17,6 +17,35 @@ export const EVENT_SYSTEM_TRANSLATIONS = {
   // ---------------------------------------------------------------------------
   // 1. EVENT TITLES (ALL CURRENT & ACTIVE SYSTEM EVENTS)
   // ---------------------------------------------------------------------------
+  "Van Gogh Timeless - Triển lãm bản quyền - đa giác quan hàng đầu Châu Á": "Van Gogh Timeless - Official Copyright & Asia's Leading Multisensory Exhibition",
+  "Van Gogh Timeless - Triển lãm bản quyền đa giác quan hàng đầu Châu Á": "Van Gogh Timeless - Official Copyright & Asia's Leading Multisensory Exhibition",
+  "Van Gogh Timeless - Triển lãm bản quyền đa giác quan": "Van Gogh Timeless - Official Copyright Multisensory Exhibition",
+  "Van Gogh Timeless": "Van Gogh Timeless",
+  "Triển lãm bản quyền - đa giác quan hàng đầu Châu Á": "Official Copyright & Asia's Leading Multisensory Exhibition",
+  "Triển lãm bản quyền đa giác quan hàng đầu Châu Á": "Official Copyright & Asia's Leading Multisensory Exhibition",
+  "Triển lãm bản quyền": "Official Copyright Exhibition",
+  "đa giác quan hàng đầu Châu Á": "Asia's Leading Multisensory Exhibition",
+  "Đa giác quan hàng đầu Châu Á": "Asia's Leading Multisensory Exhibition",
+  "Trải rộng gần 4,000 m2 với 13 khu triển lãm và điểm nhấn chiều cao choáng ngợp, Van Gogh Timeless - Triển lãm bản quyền đa giác quan kiến tạo không gian thưởng lãm nghệ thuật đỉnh cao, nơi từng centimet diện tích đều kỳ công tạo tác để đưa người xem chìm đắm trong hành trình trải nghiệm độc bản.": "Spanning nearly 4,000 m² with 13 exhibition zones and breathtaking ceiling heights, Van Gogh Timeless - Asia's Leading Multisensory Exhibition creates a premier art appreciation space, where every square centimeter is meticulously crafted to immerse visitors in a singular experiential journey.",
+  "Công Ty TNHH Sân Khấu - Nghệ Thuật Thái Dương": "Thai Duong Stage & Arts Co., Ltd.",
+  "Công ty TNHH Sân khấu - Nghệ thuật Thái Dương": "Thai Duong Stage & Arts Co., Ltd.",
+  "Sân Khấu - Nghệ Thuật Thái Dương": "Thai Duong Stage & Arts",
+  "Sân khấu - Nghệ thuật Thái Dương": "Thai Duong Stage & Arts",
+  "QUANG PHỔ (STANDARD)": "SPECTRUM (STANDARD)",
+  "Quang Phổ (Standard)": "Spectrum (Standard)",
+  "QUANG PHỔ": "SPECTRUM",
+  "Quang Phổ": "Spectrum",
+  "Quang phổ": "Spectrum",
+  "MẶT TRỜI (VIP)": "SUN (VIP)",
+  "Mặt Trời (VIP)": "Sun (VIP)",
+  "MẶT TRỜI": "SUN",
+  "Mặt Trời": "Sun",
+  "Mặt trời": "Sun",
+  "ÁNH SÁNG (LUXURY)": "LIGHT (LUXURY)",
+  "Ánh Sáng (Luxury)": "Light (Luxury)",
+  "ÁNH SÁNG": "LIGHT",
+  "Ánh Sáng": "Light",
+  "Ánh sáng": "Light",
   "Workshop Túi thảo mộc healing": "Healing Herbal Bag Workshop",
   "Workshop Túi Thảo Mộc Healing": "Healing Herbal Bag Workshop",
   "Túi thảo mộc healing": "Healing herbal bag",
@@ -406,6 +435,15 @@ export const EVENT_SYSTEM_TRANSLATIONS = {
   "Uỷ ban nhân dân": "People's Committee"
 }
 
+export function removeVietnameseTones(str) {
+  if (!str || typeof str !== 'string') return ''
+  return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+}
+
 /**
  * Translates address string into English and deduplicates redundant city/district parts.
  */
@@ -432,12 +470,11 @@ export function translateAddress(addr) {
   res = res.replace(/(^|[^\p{L}\p{N}])Đà\s*Nẵng(?=[^\p{L}\p{N}]|$)/gui, '$1Da Nang')
   res = res.replace(/(^|[^\p{L}\p{N}])Việt\s*Nam(?=[^\p{L}\p{N}]|$)/gui, '$1Vietnam')
 
-  // 2. Specific compound terms
+  // 2. Specific compound terms & venues
   res = res.replace(/Khu\s+phố\s+cổ/gui, 'Old Quarter')
   res = res.replace(/Khu\s+phố\s+(\d+)/gui, 'Quarter $1')
-  res = res.replace(/Khu\s+phố\s+([^,]+)/gui, '$1 Quarter')
+  res = res.replace(/Khu\s+phố\s+([^,]+)/gui, (m, p1) => `${removeVietnameseTones(p1.trim())} Quarter`)
 
-  // 3. Known venues
   const VENUES = {
     "Lá Nhà Garden": "La Nha Garden",
     "Nhà hát Kịch Sân Khấu Nhỏ": "Small Stage Drama Theatre",
@@ -462,32 +499,86 @@ export function translateAddress(addr) {
     "Sự kiện ngoài trời": "Outdoor Event",
     "Kịch Phú Nhuận": "Phu Nhuan Drama Stage",
     "Uỷ ban nhân dân thành phố Hà Nội": "Hanoi People's Committee",
-    "Trường Tiểu học Trưng Vương": "Trung Vuong Primary School"
+    "Trường Tiểu học Trưng Vương": "Trung Vuong Primary School",
+    "Tòa nhà UDIC Westlake": "UDIC Westlake Building",
+    "Toà nhà UDIC Westlake": "UDIC Westlake Building",
+    "UDIC Westlake Building": "UDIC Westlake Building",
+    "UDIC Westlake": "UDIC Westlake Building"
   }
 
   for (const [vi, en] of Object.entries(VENUES)) {
     res = res.split(vi).join(en)
   }
 
-  // 4. Street, Alley, Ward, District with Unicode boundary
-  res = res.replace(/(?:^|[^\p{L}\p{N}])Hẻm\s+(\S+)\s*(?:Đường\s+)?([^,]+)/gui, 'Alley $1, $2 Street')
-  res = res.replace(/(?:^|[^\p{L}\p{N}])Hẻm\s+(\S+)/gui, 'Alley $1')
-  res = res.replace(/(?:^|[^\p{L}\p{N}])Ngõ\s+(\S+)/gui, 'Lane $1')
-  res = res.replace(/(?:^|[^\p{L}\p{N}])Ngách\s+(\S+)/gui, 'Alley $1')
-  res = res.replace(/(^|\s)(?:Đường|Phố)\s+([^,]+)/gui, (m, sp, street) => `${sp}${street.trim()} Street`)
-  res = res.replace(/(?:^|[^\p{L}\p{N}])Phường\s+(\d+)/gui, 'Ward $1')
-  res = res.replace(/(?:^|[^\p{L}\p{N}])Phường\s+([^,]+)/gui, (m, p1) => `${p1.trim()} Ward`)
-  res = res.replace(/(?:^|[^\p{L}\p{N}])Quận\s+(\d+)/gui, 'District $1')
-  res = res.replace(/(?:^|[^\p{L}\p{N}])Quận\s+([^,]+)/gui, (m, p1) => `${p1.trim()} District`)
-  res = res.replace(/(?:^|[^\p{L}\p{N}])Huyện\s+([^,]+)/gui, (m, p1) => `${p1.trim()} District`)
-  res = res.replace(/(?:^|[^\p{L}\p{N}])Thị\s*xã\s+([^,]+)/gui, (m, p1) => `${p1.trim()} Town`)
-  res = res.replace(/(?:^|[^\p{L}\p{N}])Xã\s+([^,]+)/gui, (m, p1) => `${p1.trim()} Commune`)
-  res = res.replace(/(?:^|[^\p{L}\p{N}])Tỉnh\s+([^,]+)/gui, (m, p1) => `${p1.trim()} Province`)
-  res = res.replace(/(?:^|[^\p{L}\p{N}])Lầu\s+(\d+)/gui, 'Floor $1')
-  res = res.replace(/(?:^|[^\p{L}\p{N}])Tầng\s+(\d+)/gui, 'Floor $1')
-  res = res.replace(/(?:^|[^\p{L}\p{N}])Số\s+(\d+)/gui, 'No. $1')
+  // 3. Directional & Location markers (cleanly preserve spacing)
+  res = res.replace(/(^|[,\s])Đối\s*diện\s+/gui, '$1Opposite ')
+  res = res.replace(/(^|[,\s])(?:Bên\s+cạnh|Cạnh)\s+/gui, '$1Next to ')
+  res = res.replace(/(^|[,\s])Gần\s+/gui, '$1Near ')
+  res = res.replace(/(^|[,\s])(?:Phía\s+sau|Sau)\s+/gui, '$1Behind ')
+  res = res.replace(/(^|[,\s])(?:Phía\s+trước|Trước)\s+/gui, '$1In front of ')
 
-  // 5. Clean up duplicate parts and trim
+  // 4. Building structures, halls, lobbies, floors
+  res = res.replace(/(^|[,\s])(?:Tòa\s*nhà|Toà\s*nhà|Tòa|Toà)\s+([^,]+)/gui, (m, sp, bld) => {
+    const cleanBld = bld.trim().replace(/\s+Building$/i, '')
+    return `${sp}${cleanBld} Building`
+  })
+  res = res.replace(/\bBuilding\s+Building\b/gi, 'Building')
+  res = res.replace(/(^|[,\s])Sảnh\s+([A-Za-z0-9\-_]+)/gui, '$1Lobby $2')
+  res = res.replace(/(^|[,\s])Sảnh(?=[,\s]|$)/gui, '$1Lobby')
+  res = res.replace(/(^|[,\s])Tầng\s*hầm\s*([A-Za-z0-9\-_]*)/gui, (m, sp, num) => num ? `${sp}Basement ${num}` : `${sp}Basement`)
+  res = res.replace(/(^|[,\s])(?:Tầng\s*trệt|Trệt)(?=[,\s]|$)/gui, '$1Ground Floor')
+  res = res.replace(/(^|[,\s])(?:Tầng|Lầu)\s+(\d+)/gui, '$1Floor $2')
+  res = res.replace(/(^|[,\s])Số\s+(\d+)/gui, '$1No. $2')
+
+  // 5. Street, Alley, Lane, Ward, District, Town, Commune, Province (CRITICAL: preserve $1 preceding boundary!)
+  res = res.replace(/(^|[^\p{L}\p{N}])Hẻm\s+(\S+)\s*(?:Đường\s+)?([^,]+)/gui, (m, p0, p1, p2) => `${p0}Alley ${p1}, ${removeVietnameseTones(p2.trim())} Street`)
+  res = res.replace(/(^|[^\p{L}\p{N}])Hẻm\s+(\S+)/gui, '$1Alley $2')
+  res = res.replace(/(^|[^\p{L}\p{N}])Ngõ\s+(\S+)/gui, '$1Lane $2')
+  res = res.replace(/(^|[^\p{L}\p{N}])Ngách\s+(\S+)/gui, '$1Alley $2')
+  res = res.replace(/(^|[^\p{L}\p{N}])(?:Đường|Phố)\s+([^,]+)/gui, (m, p0, street) => `${p0}${removeVietnameseTones(street.trim())} Street`)
+  res = res.replace(/(^|[^\p{L}\p{N}])Phường\s+(\d+)/gui, '$1Ward $2')
+  res = res.replace(/(^|[^\p{L}\p{N}])Phường\s+([^,]+)/gui, (m, p0, p1) => `${p0}${removeVietnameseTones(p1.trim())} Ward`)
+  res = res.replace(/(^|[^\p{L}\p{N}])Quận\s+(\d+)/gui, '$1District $2')
+  res = res.replace(/(^|[^\p{L}\p{N}])Quận\s+([^,]+)/gui, (m, p0, p1) => `${p0}${removeVietnameseTones(p1.trim())} District`)
+  res = res.replace(/(^|[^\p{L}\p{N}])Huyện\s+([^,]+)/gui, (m, p0, p1) => `${p0}${removeVietnameseTones(p1.trim())} District`)
+  res = res.replace(/(^|[^\p{L}\p{N}])Thị\s*xã\s+([^,]+)/gui, (m, p0, p1) => `${p0}${removeVietnameseTones(p1.trim())} Town`)
+  res = res.replace(/(^|[^\p{L}\p{N}])Xã\s+([^,]+)/gui, (m, p0, p1) => `${p0}${removeVietnameseTones(p1.trim())} Commune`)
+  res = res.replace(/(^|[^\p{L}\p{N}])Tỉnh\s+([^,]+)/gui, (m, p0, p1) => `${p0}${removeVietnameseTones(p1.trim())} Province`)
+
+  // 6. Normalize street/district names attached to Lane or without prefix
+  res = res.replace(/Lane\s+(\d+[A-Za-z0-9\/-]*)\s+([^,]+)/gui, (m, num, street) => {
+    return `Lane ${num} ${removeVietnameseTones(street.trim())}`
+  })
+
+  // Known districts without prefix
+  const DISTRICTS = {
+    'Tây Hồ': 'Tay Ho District',
+    'Hoàn Kiếm': 'Hoan Kiem District',
+    'Ba Đình': 'Ba Dinh District',
+    'Đống Đa': 'Dong Da District',
+    'Cầu Giấy': 'Cau Giay District',
+    'Hai Bà Trưng': 'Hai Ba Trung District',
+    'Thanh Xuân': 'Thanh Xuan District',
+    'Hoàng Mai': 'Hoang Mai District',
+    'Long Biên': 'Long Bien District',
+    'Nam Từ Liêm': 'Nam Tu Liem District',
+    'Bắc Từ Liêm': 'Bac Tu Liem District',
+    'Hà Đông': 'Ha Dong District',
+    'Bình Thạnh': 'Binh Thanh District',
+    'Phú Nhuận': 'Phu Nhuan District',
+    'Gò Vấp': 'Go Vap District',
+    'Tân Bình': 'Tan Binh District',
+    'Tân Phú': 'Tan Phu District',
+    'Hải Châu': 'Hai Chau District',
+    'Sơn Trà': 'Son Tra District',
+    'Ngũ Hành Sơn': 'Ngu Hanh Son District'
+  }
+  for (const [vi, en] of Object.entries(DISTRICTS)) {
+    const reg = new RegExp(`(^|[,\\s])${vi}(?=[,\\s]|$)`, 'gui')
+    res = res.replace(reg, `$1${en}`)
+  }
+
+  // 7. Clean up duplicate parts and trim
   const parts = res.split(',').map((p) => p.trim()).filter(Boolean)
   const seen = new Set()
   const deduped = []
@@ -555,7 +646,163 @@ export function translateEventHtmlDescription(html, isEnglish = false) {
 }
 
 /**
- * Translates event title if an official English translation is available.
+ * Translates event segment (genre, event type, modifiers).
+ */
+function translateEventSegment(seg) {
+  if (!seg) return ''
+  const trimmed = seg.trim()
+  if (EVENT_SYSTEM_TRANSLATIONS[trimmed]) return EVENT_SYSTEM_TRANSLATIONS[trimmed]
+  const lower = trimmed.toLowerCase()
+  for (const [k, v] of Object.entries(EVENT_SYSTEM_TRANSLATIONS)) {
+    if (k.toLowerCase() === lower) return v
+  }
+
+  // Check if text has Vietnamese accents
+  const hasVietnameseAccent = /[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ]/i.test(trimmed)
+  if (!hasVietnameseAccent) {
+    return trimmed
+  }
+
+  let res = trimmed
+  const PHRASES = [
+    [/Triển\s*lãm\s*bản\s*quyền/gi, 'Official Copyright Exhibition'],
+    [/Triển\s*lãm\s*đa\s*giác\s*quan/gi, 'Multisensory Exhibition'],
+    [/Triển\s*lãm\s*nghệ\s*thuật\s*đương\s*đại/gi, 'Contemporary Art Exhibition'],
+    [/Triển\s*lãm\s*nghệ\s*thuật/gi, 'Art Exhibition'],
+    [/Triển\s*lãm/gi, 'Exhibition'],
+    [/Đa\s*giác\s*quan\s*hàng\s*đầu\s*Châu\s*Á/gi, "Asia's Leading Multisensory Experience"],
+    [/đa\s*giác\s*quan\s*hàng\s*đầu\s*Châu\s*Á/gi, "Asia's leading multisensory experience"],
+    [/đa\s*giác\s*quan\s*hàng\s*đầu/gi, 'leading multisensory'],
+    [/đa\s*giác\s*quan/gi, 'multisensory'],
+    [/Đa\s*giác\s*quan/gi, 'Multisensory'],
+    [/hàng\s*đầu\s*Châu\s*Á/gi, "Asia's Leading"],
+    [/hàng\s*đầu\s*Việt\s*Nam/gi, "Vietnam's Leading"],
+    [/hàng\s*đầu\s*thế\s*giới/gi, 'World Leading'],
+    [/hàng\s*đầu/gi, 'Leading'],
+    [/bản\s*quyền/gi, 'Official Copyright'],
+    [/Đêm\s*nhạc\s*Acoustic/gi, 'Acoustic Music Night'],
+    [/Đêm\s*nhạc/gi, 'Music Night'],
+    [/Hòa\s*nhạc\s*giao\s*hưởng/gi, 'Symphony Concert'],
+    [/Hòa\s*nhạc\s*cổ\s*điển/gi, 'Classical Concert'],
+    [/Hòa\s*nhạc/gi, 'Concert'],
+    [/Nhạc\s*kịch\s*thiếu\s*nhi/gi, "Children's Musical"],
+    [/Nhạc\s*kịch/gi, 'Musical'],
+    [/Vở\s*kịch\s*ma\s*4D/gi, '4D Horror Play'],
+    [/Vở\s*kịch\s*ma/gi, 'Horror Play'],
+    [/Vở\s*kịch\s*nói/gi, 'Drama Play'],
+    [/Vở\s*kịch/gi, 'Stage Play'],
+    [/Vở\s*hài\s*kịch/gi, 'Comedy Play'],
+    [/Hài\s*kịch/gi, 'Comedy Play'],
+    [/Kịch\s*thiếu\s*nhi/gi, "Children's Play"],
+    [/Kịch\s*xã\s*hội/gi, 'Social Drama Play'],
+    [/Kịch\s*nói/gi, 'Drama Play'],
+    [/Hội\s*thảo\s*quốc\s*tế/gi, 'International Conference'],
+    [/Hội\s*thảo\s*công\s*nghệ/gi, 'Technology Seminar'],
+    [/Hội\s*thảo\s*khoa\s*học/gi, 'Scientific Symposium'],
+    [/Hội\s*thảo\s*chuyên\s*đề/gi, 'Specialized Workshop'],
+    [/Hội\s*thảo/gi, 'Seminar'],
+    [/Hội\s*nghị\s*cấp\s*cao/gi, 'High-Level Summit'],
+    [/Hội\s*nghị\s*khách\s*hàng/gi, 'Customer Conference'],
+    [/Hội\s*nghị/gi, 'Conference'],
+    [/Lễ\s*hội\s*âm\s*nhạc/gi, 'Music Festival'],
+    [/Lễ\s*hội\s*ẩm\s*thực/gi, 'Food Festival'],
+    [/Lễ\s*hội\s*ánh\s*sáng/gi, 'Light Festival'],
+    [/Lễ\s*hội\s*văn\s*hóa/gi, 'Cultural Festival'],
+    [/Lễ\s*hội/gi, 'Festival'],
+    [/Giải\s*chạy\s*marathon\s*quốc\s*tế/gi, 'International Marathon Race'],
+    [/Giải\s*chạy\s*marathon/gi, 'Marathon Race'],
+    [/Giải\s*chạy/gi, 'Running Race'],
+    [/Giải\s*đấu\s*esports/gi, 'Esports Tournament'],
+    [/Giải\s*đấu\s*thể\s*thao/gi, 'Sports Tournament'],
+    [/Giải\s*đấu/gi, 'Tournament'],
+    [/Buổi\s*giao\s*lưu\s*người\s*hâm\s*mộ/gi, 'Fan Meeting'],
+    [/Gặp\s*gỡ\s*người\s*hâm\s*mộ/gi, 'Fan Meeting'],
+    [/Họp\s*fan/gi, 'Fan Meeting'],
+    [/Lễ\s*ra\s*mắt\s*sản\s*phẩm/gi, 'Product Launch Event'],
+    [/Lễ\s*ra\s*mắt/gi, 'Launch Event'],
+    [/Lễ\s*kỷ\s*niệm/gi, 'Anniversary Celebration'],
+    [/Kỷ\s*niệm/gi, 'Anniversary'],
+    [/Gala\s*trao\s*giải/gi, 'Awards Gala'],
+    [/Gala\s*cuối\s*năm/gi, 'Year-End Gala'],
+    [/Chung\s*kết\s*toàn\s*quốc/gi, 'National Grand Finale'],
+    [/Chung\s*kết/gi, 'Grand Finale'],
+    [/Bán\s*kết/gi, 'Semi-Final'],
+    [/Vòng\s*loại/gi, 'Qualifying Round'],
+    [/Mùa\s+(\d+)/gi, 'Season $1'],
+    [/Tập\s+(\d+)/gi, 'Episode $1'],
+    [/Phần\s+(\d+)/gi, 'Part $1'],
+    [/Đêm\s+(\d+)/gi, 'Night $1'],
+    [/Ngày\s+(\d+)/gi, 'Day $1'],
+    [/Ngoại\s*truyện/gi, 'Spin-off'],
+    [/Trải\s*nghiệm\s*làm\s*gốm/gi, 'Pottery Making Experience'],
+    [/Làm\s*gốm/gi, 'Pottery Making'],
+    [/Làm\s*nến\s*thơm/gi, 'Scented Candle Making'],
+    [/Vẽ\s*tranh/gi, 'Painting Workshop'],
+    [/Túi\s*thảo\s*mộc/gi, 'Herbal Bag'],
+    [/Chữa\s*lành/gi, 'Healing'],
+    [/Sắc\s*màu\s*thời\s*gian/gi, 'Colors of Time'],
+    [/Giai\s*điệu\s*mùa\s*thu/gi, 'Autumn Melody'],
+    [/Mùa\s*hè\s*rực\s*rỡ/gi, 'Vibrant Summer'],
+    [/Về\s*nguồn/gi, 'Back to Roots'],
+    [/Mùa\s*Thu/gi, 'Autumn'],
+    [/Mùa\s*Hè/gi, 'Summer'],
+    [/Mùa\s*Xuân/gi, 'Spring'],
+    [/Mùa\s*Đông/gi, 'Winter'],
+    [/Giai\s*điệu\s*thời\s*gian/gi, 'Melodies of Time'],
+    [/Giai\s*điệu/gi, 'Melodies'],
+    [/Thời\s*gian/gi, 'Time'],
+    [/Không\s*gian/gi, 'Space'],
+    [/Nghệ\s*thuật/gi, 'Art'],
+    [/Kết\s*nối/gi, 'Connect'],
+    [/Phát\s*triển/gi, 'Development'],
+    [/Khởi\s*nghiệp/gi, 'Startup'],
+    [/Công\s*nghệ/gi, 'Technology'],
+    [/Sáng\s*tạo/gi, 'Creative'],
+    [/Đương\s*đại/gi, 'Contemporary'],
+    [/Truyền\s*thống/gi, 'Traditional'],
+    [/Đặc\s*biệt/gi, 'Special'],
+    [/Tuổi\s*trẻ|Thanh\s*xuân/gi, 'Youth'],
+    [/Tình\s*yêu/gi, 'Love'],
+    [/Ước\s*mơ/gi, 'Dreams'],
+    [/Tương\s*lai/gi, 'Future']
+  ]
+
+  for (const [pattern, replacement] of PHRASES) {
+    res = res.replace(pattern, replacement)
+  }
+
+  return res.trim()
+}
+
+/**
+ * Automatically translates compound event titles by segment decomposition.
+ */
+export function autoTranslateEventTitle(title) {
+  if (!title || typeof title !== 'string') return ''
+  const trimmed = title.trim()
+  if (!trimmed) return ''
+
+  if (EVENT_SYSTEM_TRANSLATIONS[trimmed]) return EVENT_SYSTEM_TRANSLATIONS[trimmed]
+  const lower = trimmed.toLowerCase()
+  for (const [k, v] of Object.entries(EVENT_SYSTEM_TRANSLATIONS)) {
+    if (k.toLowerCase() === lower) return v
+  }
+
+  const DELIM_REGEX = /(\s*[-–—|:]\s*|\s+[-–—|]\s+)/
+  if (DELIM_REGEX.test(trimmed)) {
+    const parts = trimmed.split(DELIM_REGEX)
+    const translatedParts = parts.map((seg, idx) => {
+      if (idx % 2 === 1) return seg
+      return translateEventSegment(seg)
+    })
+    return translatedParts.join('')
+  }
+
+  return translateEventSegment(trimmed)
+}
+
+/**
+ * Translates event title with automatic dictionary lookup and dynamic fallback.
  */
 export function translateEventTitle(title, isEnglish = false) {
   if (!title || typeof title !== 'string') return title || ''
@@ -566,6 +813,8 @@ export function translateEventTitle(title, isEnglish = false) {
     for (const [k, v] of Object.entries(EVENT_SYSTEM_TRANSLATIONS)) {
       if (k.toLowerCase() === lower) return v
     }
+    const auto = autoTranslateEventTitle(trimmed)
+    if (auto && auto !== trimmed) return auto
     return title
   }
 
@@ -574,6 +823,65 @@ export function translateEventTitle(title, isEnglish = false) {
     if (en.toLowerCase() === trimmed.toLowerCase()) return vi
   }
   return title
+}
+
+/**
+ * Formats and translates organizer/company names into English.
+ */
+export function formatOrganizerName(name, isEnglish = false) {
+  if (!name || typeof name !== 'string') return name || ''
+  if (!isEnglish) return name
+
+  const trimmed = name.trim()
+  if (EVENT_SYSTEM_TRANSLATIONS[trimmed]) return EVENT_SYSTEM_TRANSLATIONS[trimmed]
+  const lower = trimmed.toLowerCase()
+  for (const [k, v] of Object.entries(EVENT_SYSTEM_TRANSLATIONS)) {
+    if (k.toLowerCase() === lower) return v
+  }
+
+  let res = trimmed
+
+  if (/Sân Khấu\s*[-–]\s*Nghệ Thuật Thái Dương/i.test(res)) {
+    return 'Thai Duong Stage & Arts Co., Ltd.'
+  }
+
+  let suffix = ''
+  if (/^(?:Công\s*ty\s+TNHH\s+MTV|Công\s*ty\s+TNHH\s+Một\s+Thành\s+Viên)\s+/i.test(res)) {
+    res = res.replace(/^(?:Công\s*ty\s+TNHH\s+MTV|Công\s*ty\s+TNHH\s+Một\s+Thành\s+Viên)\s+/i, '')
+    suffix = ' Co., Ltd.'
+  } else if (/^(?:Công\s*ty\s+TNHH|Cty\s+TNHH)\s+/i.test(res)) {
+    res = res.replace(/^(?:Công\s*ty\s+TNHH|Cty\s+TNHH)\s+/i, '')
+    suffix = ' Co., Ltd.'
+  } else if (/^(?:Công\s*ty\s+Cổ\s+Phần|Cty\s+CP|CTCP)\s+/i.test(res)) {
+    res = res.replace(/^(?:Công\s*ty\s+Cổ\s+Phần|Cty\s+CP|CTCP)\s+/i, '')
+    suffix = ' JSC'
+  } else if (/^(?:Doanh\s*nghiệp\s+tư\s+nhân|DNTN)\s+/i.test(res)) {
+    res = res.replace(/^(?:Doanh\s*nghiệp\s+tư\s+nhân|DNTN)\s+/i, '')
+    suffix = ' Private Enterprise'
+  } else if (/^(?:Tập\s*đoàn)\s+/i.test(res)) {
+    res = res.replace(/^(?:Tập\s*đoàn)\s+/i, '')
+    suffix = ' Group'
+  }
+
+  res = res.replace(/Sân\s*Khấu\s*[-–]\s*Nghệ\s*Thuật/gi, 'Stage & Arts')
+  res = res.replace(/Sân\s*Khấu\s*&\s*Nghệ\s*Thuật/gi, 'Stage & Arts')
+  res = res.replace(/Sân\s*Khấu\s*Kịch/gi, 'Drama Stage')
+  res = res.replace(/Sân\s*Khấu/gi, 'Stage')
+  res = res.replace(/Nhà\s*Hát/gi, 'Theatre')
+  res = res.replace(/Truyền\s*Thông/gi, 'Media')
+  res = res.replace(/Giải\s*Trí/gi, 'Entertainment')
+  res = res.replace(/Công\s*Nghệ/gi, 'Technology')
+  res = res.replace(/Quốc\s*Tế/gi, 'International')
+  res = res.replace(/Việt\s*Nam/gi, 'Vietnam')
+
+  const words = res.split(/\s+/).map((w) => {
+    if (/^(?:Stage|Arts|Drama|Theatre|Media|Entertainment|Technology|International|Vietnam|Group|JSC|Co\.|Ltd\.)$/i.test(w)) {
+      return w
+    }
+    return removeVietnameseTones(w)
+  })
+
+  return `${words.join(' ').trim()}${suffix}`
 }
 
 /**
@@ -624,9 +932,9 @@ export function translateTicketName(name, isEnglish = false) {
 
   const coreLower = core.toLowerCase()
   let translatedCore = ''
-  if (coreLower === 'tiêu chuẩn' || coreLower === 'tieu chuan') {
+  if (coreLower === 'tiêu chuẩn' || coreLower === 'tieu chuan' || coreLower === 'standard') {
     translatedCore = 'Standard'
-  } else if (coreLower === 'phổ thông' || coreLower === 'pho thong') {
+  } else if (coreLower === 'phổ thông' || coreLower === 'pho thong' || coreLower === 'general admission') {
     translatedCore = 'General Admission'
   } else if (coreLower === 'thường' || coreLower === 'thuong' || coreLower === 'regular') {
     translatedCore = 'Regular'
@@ -648,6 +956,14 @@ export function translateTicketName(name, isEnglish = false) {
     translatedCore = 'VIP'
   } else if (coreLower === 'vvip') {
     translatedCore = 'VVIP'
+  } else if (coreLower === 'luxury') {
+    translatedCore = 'Luxury'
+  } else if (coreLower === 'quang phổ' || coreLower === 'quang pho' || coreLower === 'spectrum') {
+    translatedCore = 'Spectrum'
+  } else if (coreLower === 'mặt trời' || coreLower === 'mat troi' || coreLower === 'sun') {
+    translatedCore = 'Sun'
+  } else if (coreLower === 'ánh sáng' || coreLower === 'anh sang' || coreLower === 'light') {
+    translatedCore = 'Light'
   } else if (coreLower === 'sinh viên' || coreLower === 'hssv' || coreLower === 'học sinh sinh viên') {
     translatedCore = 'Student'
   } else if (coreLower === 'trẻ em' || coreLower === 'tre em') {

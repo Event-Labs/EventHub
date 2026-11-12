@@ -246,7 +246,9 @@ class RefundsRepository {
       ORDER BY
         CASE WHEN po.provider = 'PAYOS' AND po.status = 'PAID' THEN 0 ELSE 1 END,
         po.paid_at DESC NULLS LAST,
-        po.created_at DESC
+        po.created_at DESC,
+        org_ch.is_default DESC NULLS LAST,
+        org_ch.updated_at DESC NULLS LAST
       LIMIT 1
       `,
       [orderId],
