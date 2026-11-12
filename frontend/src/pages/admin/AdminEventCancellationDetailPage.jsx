@@ -454,19 +454,21 @@ export function AdminEventCancellationDetailPage() {
 
               {/* Thông số phương thức & cam kết */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                <div className="rounded-xl border border-white/10 bg-[#121c38] p-3 text-xs [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
-                  <span className="text-sm font-semibold text-slate-400 [html.light_&]:text-slate-600 block mb-1">
-                    {isEnglish ? 'Refund Method:' : 'Phương thức hoàn tiền:'}
-                  </span>
-                  <span className="font-semibold text-white [html.light_&]:text-[#0D1B2A] flex items-center gap-1.5">
-                    <Coins className="size-3.5 text-[#C99A47] [html.light_&]:text-[#C99A47]" />
-                    {cancelRequest?.refund_mode === 'MODE_A'
-                      ? (isEnglish ? 'Automatic via PayOS' : 'Tự động qua cổng PayOS')
-                      : (isEnglish ? 'Manual VietQR Transfer' : 'Chuyển khoản thủ công VietQR')}
-                  </span>
-                </div>
+                {cancelRequest?.refund_mode && (
+                  <div className="rounded-xl border border-white/10 bg-[#121c38] p-3 text-xs [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                    <span className="text-sm font-semibold text-slate-400 [html.light_&]:text-slate-600 block mb-1">
+                      {isEnglish ? 'Refund Method:' : 'Phương thức hoàn tiền:'}
+                    </span>
+                    <span className="font-semibold text-white [html.light_&]:text-[#0D1B2A] flex items-center gap-1.5">
+                      <Coins className="size-3.5 text-[#C99A47] [html.light_&]:text-[#C99A47]" />
+                      {cancelRequest?.refund_mode === 'MODE_A'
+                        ? (isEnglish ? 'Automatic via PayOS' : 'Tự động qua cổng PayOS')
+                        : (isEnglish ? 'Manual VietQR Transfer' : 'Chuyển khoản thủ công VietQR')}
+                    </span>
+                  </div>
+                )}
 
-                <div className="rounded-xl border border-white/10 bg-[#121c38] p-3 text-xs [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                <div className={`rounded-xl border border-white/10 bg-[#121c38] p-3 text-xs [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200 ${!cancelRequest?.refund_mode ? 'sm:col-span-2' : ''}`}>
                   <span className="text-sm font-semibold text-slate-400 [html.light_&]:text-slate-600 block mb-1">
                     {isEnglish ? 'Refund Commitment:' : 'Cam kết hoàn tiền:'}
                   </span>

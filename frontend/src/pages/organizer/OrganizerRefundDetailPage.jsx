@@ -35,7 +35,7 @@ import {
 } from '@/services/refunds.js'
 import { uploadOrganizerDocument } from '@/services/uploads.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
-import { VIETNAMESE_BANKS, resolveBankName } from '@/constants/banks.js'
+import { VIETNAMESE_BANKS, resolveBankName, resolveBankBin } from '@/constants/banks.js'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
 import { translatePhrase } from '@/i18n/phraseDictionary.js'
 import { renderCosmicTitle } from '@/lib/formatTitle.jsx'
@@ -90,26 +90,20 @@ function formatShortErrorMessage(error) {
   return error
 }
 
-function resolveBankBin(bankInput) {
-  if (!bankInput) return null
-  const cleaned = String(bankInput).trim().toLowerCase()
-  if (/^\d{6}$/.test(cleaned)) return cleaned
 
-  const found = VIETNAMESE_BANKS.find((b) => {
-    const code = b.code.toLowerCase()
-    const shortName = b.shortName.toLowerCase()
-    const fullName = b.fullName.toLowerCase()
-    return cleaned.includes(code) || cleaned.includes(shortName) || cleaned.includes(fullName)
-  })
-  if (found?.bin) return found.bin
-  return null
-}
 
-function getStatusBadge(status, disputed) {
+function getStatusBadge(status, disputed, isOverdue) {
   if (disputed) {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-500/40 bg-rose-500/15 px-3 py-1 text-xs font-bold text-rose-300 shadow-[0_0_10px_rgba(244,63,94,0.25)]">
         <AlertCircle className="size-3.5" /> Khách khiếu nại
+      </span>
+    )
+  }
+  if (isOverdue) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-red-500/50 bg-red-500/20 px-3 py-1 text-xs font-bold text-red-300 shadow-[0_0_10px_rgba(239,68,68,0.3)] animate-pulse">
+        <AlertCircle className="size-3.5" /> Quá hạn SLA
       </span>
     )
   }
@@ -167,6 +161,15 @@ export function OrganizerRefundDetailPage() {
     item?.audit_trail?.some?.((a) => a.action === 'CONFIRM_REFUND_RECEIVED' || a.action === 'CUSTOMER_CONFIRMED')
   )
   const isDisputed = Boolean(item?.disputed)
+  const isCustomerBankConfirmed = Boolean(
+    item?.customer_confirmed_bank_at ||
+    item?.audit_trail?.some?.((a) => a.action === 'CONFIRM_PAYOUT_BANK' || a.action === 'SUBMIT_PAYOUT_INFO')
+  )
+  const isOverdue = Boolean(
+    item?.due_at &&
+    new Date(item.due_at).getTime() < Date.now() &&
+    ['APPROVED', 'PROCESSING', 'PENDING'].includes(item?.status)
+  )
 
   // Calculation breakdown
   const defaultRefundAmount = Number(item?.refund_amount || 0)
@@ -226,7 +229,7 @@ export function OrganizerRefundDetailPage() {
     account_holder: item.bank_account_name,
   } : null)
 
-  const bin = resolveBankBin(bankInfo?.bank_name) || '970422'
+  const bin = resolveBankBin(bankInfo?.bank_name) || resolveBankBin(item?.bank_name) || '970422'
   const transferMemo = `Hoan tien ${item?.ticket?.ticket_code || item?.order?.order_code || ''}`
   const qrUrl = bankInfo?.account_number
     ? `https://img.vietqr.io/image/${bin}-${bankInfo.account_number}-compact2.png?amount=${defaultRefundAmount}&addInfo=${encodeURIComponent(transferMemo)}&accountName=${encodeURIComponent(bankInfo.account_holder || '')}`
@@ -504,6 +507,32 @@ export function OrganizerRefundDetailPage() {
               </div>
             </div>
           </div>
+
+          {/* ─────────────────────────────────────────────────────────
+              OVERDUE SLA WARNING (Hiển thị khi quá hạn cam kết 7 ngày)
+          ───────────────────────────────────────────────────────── */}
+          {isOverdue && (
+            <div className="rounded-2xl border-2 border-red-500/50 bg-red-500/15 p-5 shadow-xl shadow-red-500/10 [html.light_&]:border-red-400 [html.light_&]:bg-red-50 text-white [html.light_&]:text-red-950 animate-pulse">
+              <div className="flex items-start gap-3.5">
+                <div className="flex size-10 items-center justify-center rounded-xl bg-red-500/20 text-red-400 [html.light_&]:bg-red-100 [html.light_&]:text-red-600 shrink-0">
+                  <AlertCircle className="size-6" />
+                </div>
+                <div className="flex-1 space-y-1">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="text-base font-bold text-red-300 [html.light_&]:text-red-900">
+                      Cảnh báo: Đã quá hạn xử lý hoàn tiền (SLA)
+                    </h3>
+                    <span className="rounded-lg bg-red-500/20 px-2.5 py-1 text-[11px] font-semibold text-red-300 [html.light_&]:bg-red-100 [html.light_&]:text-red-800">
+                      Hạn chót: {formatDateTime(item.due_at)}
+                    </span>
+                  </div>
+                  <p className="text-xs text-red-200/90 [html.light_&]:text-red-800 leading-relaxed">
+                    Yêu cầu này đã vượt quá thời hạn cam kết xử lý hoàn tiền 7 ngày. Ban tổ chức vui lòng chuyển khoản và tải lên biên lai ngay lập tức để tránh việc tài khoản bị giới hạn quyền tạo sự kiện mới.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* ─────────────────────────────────────────────────────────
               DISPUTE BANNER (Hiển thị ngay đầu trang khi có khiếu nại)
@@ -845,6 +874,30 @@ export function OrganizerRefundDetailPage() {
                               Quét mã VietQR hoặc sao chép thông tin tài khoản bên dưới để chuyển tiền đến khách hàng
                             </p>
                           </div>
+
+                          {/* Customer Confirmation Indicator */}
+                          {isCustomerBankConfirmed ? (
+                            <div className="flex items-center gap-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 p-3.5 text-xs text-emerald-300 [html.light_&]:bg-emerald-50 [html.light_&]:border-emerald-300 [html.light_&]:text-emerald-800">
+                              <CheckCircle2 className="size-5 shrink-0 text-emerald-400 [html.light_&]:text-emerald-600" />
+                              <div className="space-y-0.5">
+                                <p className="font-bold">Khách hàng đã kiểm tra & xác nhận tài khoản nhận tiền</p>
+                                <p className="text-[11px] text-emerald-200/90 [html.light_&]:text-emerald-700">
+                                  Thông tin tài khoản bên dưới đã được người mua vé chủ động kiểm tra và xác nhận chính xác{item.customer_confirmed_bank_at ? ` (lúc ${formatDateTime(item.customer_confirmed_bank_at)})` : ''}.
+                                  {item.due_at && ` Hạn chót hoàn tiền của bạn: ${formatDateTime(item.due_at)}.`}
+                                </p>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2.5 rounded-xl bg-amber-500/15 border border-amber-500/30 p-3.5 text-xs text-amber-300 [html.light_&]:bg-amber-50 [html.light_&]:border-amber-300 [html.light_&]:text-amber-800">
+                              <Clock className="size-5 shrink-0 text-amber-400 [html.light_&]:text-amber-600" />
+                              <div className="space-y-0.5">
+                                <p className="font-bold">Đang chờ khách hàng kiểm tra / xác nhận STK</p>
+                                <p className="text-[11px] text-amber-200/90 [html.light_&]:text-amber-700">
+                                  Thông tin STK bên dưới được tự động trích xuất từ giao dịch mua vé. Khách hàng chưa bấm xác nhận STK này. Thời hạn cam kết 7 ngày của Ban tổ chức sẽ bắt đầu kích hoạt khi khách hàng xác nhận hoặc đổi STK.
+                                </p>
+                              </div>
+                            </div>
+                          )}
 
                           {/* QR and Account Details */}
                           <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 py-2">
@@ -1197,8 +1250,23 @@ export function OrganizerRefundDetailPage() {
                     Chi tiết giao dịch và đối soát đã được lưu trữ trong hệ thống
                   </p>
                 </div>
-                {getStatusBadge(item.status, item.disputed)}
+                {getStatusBadge(item.status, item.disputed, isOverdue)}
               </div>
+
+              {/* Status banner for auto-closure */}
+              {item.auto_closed_at && (
+                <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 [html.light_&]:bg-emerald-50 [html.light_&]:border-emerald-300 p-4 flex items-start gap-3 text-xs text-emerald-300 [html.light_&]:text-emerald-800 shadow-[0_0_15px_rgba(16,185,129,0.12)]">
+                  <CheckCircle className="size-5 text-emerald-400 [html.light_&]:text-emerald-600 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="font-bold text-emerald-200 [html.light_&]:text-emerald-900 text-sm">
+                      Yêu cầu hoàn tiền đã hoàn tất tự động
+                    </p>
+                    <p className="text-emerald-300/90 [html.light_&]:text-emerald-700 leading-relaxed">
+                      Hệ thống đã tự động đóng hoàn tất hồ sơ sau 72 giờ không có khiếu nại từ khách hàng ({formatDateTime(item.auto_closed_at)}).
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* Status banner for customer confirmation or dispute */}
               {isDisputed && (
@@ -1381,23 +1449,43 @@ export function OrganizerRefundDetailPage() {
             {/* Ticket / Order Code */}
             <div className="rounded-xl border border-white/5 bg-[#121c33] p-3.5 space-y-2 text-xs [html.light_&]:border-[#C99A47]/20 [html.light_&]:bg-[#FDFBF7] [html.light_&]:shadow-sm">
               <div className="flex items-center justify-between">
-                <span className="text-slate-400 [html.light_&]:text-[#536b88]">Mã vé / Mã đơn:</span>
-                <span className="font-mono font-bold text-amber-400 [html.light_&]:text-amber-800">
-                  {item.ticket?.ticket_code || `Đơn: ${item.order?.order_code}`}
+                <span className="text-slate-400 [html.light_&]:text-[#536b88]">Mã đơn hàng:</span>
+                <span className="font-mono font-bold text-white [html.light_&]:text-[#1B365D]">
+                  #{item.order?.order_code || 'N/A'}
                 </span>
               </div>
+              {Number(item.order_ticket_count) > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400 [html.light_&]:text-[#536b88]">Tổng số vé trong đơn:</span>
+                  <span className="font-semibold text-amber-400 [html.light_&]:text-amber-800">
+                    {item.order_ticket_count} vé
+                  </span>
+                </div>
+              )}
+              {item.ticket?.ticket_code && (
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400 [html.light_&]:text-[#536b88]">Mã vé liên kết:</span>
+                  <span className="font-mono font-bold text-amber-400 [html.light_&]:text-amber-800">
+                    {item.ticket.ticket_code}
+                  </span>
+                </div>
+              )}
               {item.ticket?.ticket_type?.name && (
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400 [html.light_&]:text-[#536b88]">Loại vé:</span>
                   <span className="font-semibold text-white [html.light_&]:text-[#0D1B2A]">{item.ticket.ticket_type.name}</span>
                 </div>
               )}
-              {item.order?.order_code && item.ticket?.ticket_code && (
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-400 [html.light_&]:text-[#536b88]">Mã đơn hàng:</span>
-                  <span className="font-mono text-slate-300 [html.light_&]:text-[#1B365D]">{item.order.order_code}</span>
-                </div>
-              )}
+              <div className="flex items-center justify-between border-t border-white/5 [html.light_&]:border-slate-200 pt-2">
+                <span className="text-slate-400 [html.light_&]:text-[#536b88]">Hạn chót hoàn tiền:</span>
+                {item.due_at ? (
+                  <span className={`font-semibold ${isOverdue ? 'text-red-400 font-bold' : 'text-slate-200 [html.light_&]:text-[#0D1B2A]'}`}>
+                    {formatDateTime(item.due_at)} {isOverdue && '(Quá hạn)'}
+                  </span>
+                ) : (
+                  <span className="text-amber-400 text-[11px] font-medium">Chưa kích hoạt (Chờ khách xác nhận STK)</span>
+                )}
+              </div>
             </div>
 
             {/* Customer Details */}

@@ -18,35 +18,7 @@ const {
   classifyEventChanges,
 } = require('./eventLifecycleHelper');
 
-const BIN_TO_BANK_NAME = {
-  '970436': 'Vietcombank',
-  '970415': 'VietinBank',
-  '970418': 'BIDV',
-  '970405': 'Agribank',
-  '970407': 'Techcombank',
-  '970422': 'MB Bank',
-  '970416': 'ACB',
-  '970432': 'VPBank',
-  '970423': 'TPBank',
-  '970441': 'VIB',
-  '970403': 'Sacombank',
-  '970437': 'HDBank',
-  '970443': 'SHB',
-  '970448': 'OCB',
-  '970426': 'MSB',
-  '970449': 'LPBank',
-  '970412': 'PVcomBank',
-  '970409': 'Bac A Bank',
-  '970428': 'Nam A Bank',
-  '970452': 'Kienlongbank',
-  '970454': 'BVBank',
-  '970438': 'BaoViet Bank',
-  '970400': 'Saigonbank',
-  '970433': 'VietBank',
-  '970419': 'NCB',
-  '970424': 'Shinhan Bank',
-  '970457': 'Woori Bank',
-};
+const { resolveBankName, resolveBankBin, BIN_TO_BANK_NAME } = require('../../common/utils/bankHelper');
 
 function resolvePayerBankInfo(po, fallbackOrganizerId) {
   let rawAccNum = po.payer_account_number;
@@ -60,8 +32,21 @@ function resolvePayerBankInfo(po, fallbackOrganizerId) {
     }
   }
 
-  const bankName = BIN_TO_BANK_NAME[po.payer_bank_id] || po.payer_bank_id || null;
-  return { bankAccountNumber: rawAccNum, bankName };
+  let bankName = resolveBankName(po.payer_bank_id);
+  if (!bankName && po.raw_payload) {
+    try {
+      const rawData = typeof po.raw_payload === 'string' ? JSON.parse(po.raw_payload) : po.raw_payload;
+      const tx0 = rawData?.data?.transactions?.[0] || rawData?.transactions?.[0] || {};
+      const candidate =
+        rawData?.data?.counterAccountBankName ||
+        rawData?.counterAccountBankName ||
+        tx0.counterAccountBankName ||
+        rawData?.data?.counterAccountBankId ||
+        tx0.counterAccountBankId;
+      bankName = resolveBankName(candidate) || candidate;
+    } catch (_) {}
+  }
+  return { bankAccountNumber: rawAccNum, bankName: bankName || null };
 }
 
 class EventBusinessRulesService {
@@ -1013,7 +998,7 @@ class EventBusinessRulesService {
         reason_code: reason_code || 'ORG_VOLUNTARY',
         note: resolvedNote,
         reason_note: resolvedNote,
-        refund_mode: refund_mode || 'MODE_B',
+        refund_mode: refund_mode || null,
         commitment_accepted_at: new Date().toISOString(),
         commitment_accepted_by: userId,
         commitment_version: '1.0',
@@ -1146,7 +1131,9 @@ class EventBusinessRulesService {
         const { bankAccountNumber, bankName } = resolvePayerBankInfo(po, event.organizer_id);
         const hasCounter = Boolean(bankName && bankAccountNumber && po.payer_account_name);
         const dest = hasCounter ? 'PAYER_ACCOUNT' : 'CUSTOMER_INPUT';
-        const readyAt = hasCounter ? new Date() : null;
+        // Dual SLA: ready_at and due_at (7-day timer) start only after customer confirms or supplies payout info
+        const readyAt = null;
+        const dueAt = null;
         const refundCode = `RF_${po.order_code || po.id.slice(0, 8)}`;
 
         await client.query(
@@ -1161,8 +1148,8 @@ class EventBusinessRulesService {
           SELECT
             $1, $2, $3, $4,
             $5, 'Sự kiện bị hủy', 'APPROVED', 'ORGANIZER_MANUAL',
-            $6, $7, now() + interval '7 days',
-            $8, $9, $10, $11,
+            $6, $7, $8,
+            $9, $10, $11, $12,
             now(), now(), now()
           WHERE NOT EXISTS (
             SELECT 1 FROM refund_requests WHERE order_id = $1
@@ -1176,6 +1163,7 @@ class EventBusinessRulesService {
             po.total_amount,
             dest,
             readyAt,
+            dueAt,
             refundCode,
             bankName,
             bankAccountNumber,
@@ -1615,7 +1603,9 @@ class EventBusinessRulesService {
         const { bankAccountNumber, bankName } = resolvePayerBankInfo(po, event.organizer_id);
         const hasCounter = Boolean(bankName && bankAccountNumber && po.payer_account_name);
         const dest = hasCounter ? 'PAYER_ACCOUNT' : 'CUSTOMER_INPUT';
-        const readyAt = hasCounter ? new Date() : null;
+        // Dual SLA: ready_at and due_at (7-day timer) start only after customer confirms or supplies payout info
+        const readyAt = null;
+        const dueAt = null;
         const refundCode = `RF_${po.order_code || po.id.slice(0, 8)}`;
 
         await client.query(
@@ -1630,8 +1620,8 @@ class EventBusinessRulesService {
           SELECT
             $1, $2, $3, $4,
             $5, 'Sự kiện bị hủy', 'APPROVED', 'ORGANIZER_MANUAL',
-            $6, $7, now() + interval '7 days',
-            $8, $9, $10, $11,
+            $6, $7, $8,
+            $9, $10, $11, $12,
             now(), now(), now()
           WHERE NOT EXISTS (
             SELECT 1 FROM refund_requests WHERE order_id = $1
@@ -1645,6 +1635,7 @@ class EventBusinessRulesService {
             po.total_amount,
             dest,
             readyAt,
+            dueAt,
             refundCode,
             bankName,
             bankAccountNumber,
@@ -1772,6 +1763,7 @@ class EventBusinessRulesService {
           bank_account_name = $4,
           refund_destination_source = 'CUSTOMER_INPUT',
           status = 'PROCESSING',
+          customer_confirmed_bank_at = NOW(),
           ready_at = NOW(),
           due_at = NOW() + interval '7 days',
           audit_trail = $5::jsonb,
@@ -1780,6 +1772,62 @@ class EventBusinessRulesService {
       RETURNING *
       `,
       [refundId, bankName, bankAccountNumber, bankAccountName, JSON.stringify(auditTrail)],
+    );
+
+    return updated[0];
+  }
+
+  /**
+   * Customer confirms existing payout bank info "Xác nhận tài khoản này chính xác"
+   */
+  async confirmPayoutBank(userId, refundId) {
+    if (!refundId) {
+      throw new AppError('Thiếu mã yêu cầu hoàn tiền.', 400, ErrorCodes.INVALID_INPUT);
+    }
+
+    const { rows } = await db.query(
+      `
+      SELECT rr.*, o.organizer_id, o.buyer_name
+      FROM refund_requests rr
+      JOIN orders o ON o.id = rr.order_id
+      WHERE rr.id = $1 AND (rr.customer_id = $2 OR o.user_id = $2)
+      `,
+      [refundId, userId],
+    );
+    const refund = rows[0];
+    if (!refund) throw new AppError('Không tìm thấy yêu cầu hoàn tiền.', 404, ErrorCodes.RESOURCE_NOT_FOUND);
+
+    if (!refund.bank_name || !refund.bank_account_number) {
+      throw new AppError('Chưa có thông tin tài khoản ngân hàng để xác nhận.', 400, ErrorCodes.INVALID_INPUT);
+    }
+
+    if (['REFUNDED'].includes(refund.status)) {
+      throw new AppError('Yêu cầu hoàn tiền đã hoàn tất, không thể thay đổi thông tin.', 400, ErrorCodes.REFUND_INFO_LOCKED);
+    }
+
+    const auditTrail = appendAuditTrail(refund.audit_trail, {
+      userId,
+      role: 'CUSTOMER',
+      action: 'CONFIRM_PAYOUT_BANK',
+      bankName: refund.bank_name,
+      bankAccountNumber: refund.bank_account_number,
+      bankAccountName: refund.bank_account_name,
+      confirmed_at: new Date().toISOString(),
+    });
+
+    const { rows: updated } = await db.query(
+      `
+      UPDATE refund_requests
+      SET customer_confirmed_bank_at = NOW(),
+          ready_at = NOW(),
+          due_at = NOW() + interval '7 days',
+          status = CASE WHEN status = 'PENDING' THEN 'PROCESSING' ELSE status END,
+          audit_trail = $2::jsonb,
+          updated_at = NOW()
+      WHERE id = $1
+      RETURNING *
+      `,
+      [refundId, JSON.stringify(auditTrail)],
     );
 
     return updated[0];

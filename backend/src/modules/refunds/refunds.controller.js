@@ -39,6 +39,16 @@ class RefundsController {
     }
   };
 
+  confirmPayoutBank = async (req, res, next) => {
+    try {
+      const refundId = req.params.id || req.body?.refundId || req.body?.id;
+      const data = await eventBusinessRulesService.confirmPayoutBank(req.user.sub, refundId);
+      res.status(200).json(ApiResponse.success(data, 'Đã xác nhận tài khoản nhận tiền hoàn chính xác'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
   disputeRefund = async (req, res, next) => {
     try {
       const data = await eventBusinessRulesService.disputeRefund(req.user.sub, req.params.id, req.body || {});

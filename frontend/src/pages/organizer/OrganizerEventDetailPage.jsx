@@ -380,7 +380,6 @@ export function OrganizerEventDetailPage() {
                 await submitCancellationRequest(cancelTarget.id, {
                     reason_code: payload.reason_code,
                     reason_note: payload.reason_note,
-                    refund_mode: payload.refund_mode,
                     commitment_accepted: payload.commitment_accepted,
                 })
                 toast.success('Đã gửi yêu cầu hủy sự kiện tới Quản trị viên để xét duyệt.')

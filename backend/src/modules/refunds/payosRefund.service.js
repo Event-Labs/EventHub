@@ -10,6 +10,7 @@ const axios = require('axios');
 const logger = require('../../core/logger');
 const organizerEgressService = require('../egress/organizerEgress.service');
 const { assertEgressIp, payoutAxiosConfig } = require('../payments/payoutEgress');
+const { resolveBankBin: resolveUniversalBankBin } = require('../../common/utils/bankHelper');
 
 const PAYOS_BASE_URL = process.env.PAYOS_BASE_URL || 'https://api-merchant.payos.vn';
 
@@ -64,6 +65,8 @@ const VIETQR_BANK_BINS = {
 
 function resolveBankBin(bankInput) {
   if (!bankInput) return null;
+  const universal = resolveUniversalBankBin(bankInput);
+  if (universal) return universal;
   const cleaned = String(bankInput).trim().toLowerCase();
   if (/^\d{6}$/.test(cleaned)) {
     return cleaned;

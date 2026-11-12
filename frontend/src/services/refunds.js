@@ -31,6 +31,11 @@ export async function submitPayoutInfo(payload) {
   return response.data.data
 }
 
+export async function confirmPayoutBank(id) {
+  const response = await http.post(`/refunds/${id}/confirm-bank`)
+  return response.data.data
+}
+
 export async function disputeRefund(id, reason = '') {
   const response = await http.post(`/refunds/${id}/dispute`, { reason })
   return response.data.data
