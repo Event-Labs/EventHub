@@ -6,6 +6,9 @@ const mockIotRepository = {
   claimPendingSecretAtomic: jest.fn(),
   updateHeartbeat: jest.fn(),
   updateHeartbeatWithAutoConfirm: jest.fn(),
+  recordScanLog: jest.fn(),
+  queryDeviceHistory: jest.fn(),
+  getDeviceHistoryStats: jest.fn(),
 };
 
 const mockTicketsRepository = {
@@ -20,7 +23,7 @@ jest.mock('../tickets/ticketSvgGenerator', () => ({ buildUniversalTicketSvg: jes
 
 const iotService = require('./iot.service');
 const { requireDeviceAuth } = require('./iot.middleware');
-const { heartbeatSchema } = require('./iot.validation');
+const { heartbeatSchema, deviceHistoryQuerySchema } = require('./iot.validation');
 const {
   normalizeMacAddress,
   sha256Hex,
@@ -537,6 +540,104 @@ describe('IoT Check-in Device Flow', () => {
         autoDevice.id,
         autoDevice.assigned_event_id,
       );
+      expect(mockIotRepository.recordScanLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          deviceId: autoDevice.id,
+          eventId: autoDevice.assigned_event_id,
+          ticketId: 'ticket-1',
+          ticketCode: 'TCK-001',
+          action: 'auto',
+          result: 'OK',
+          success: true,
+        }),
+      );
+    });
+  });
+
+  describe('getDeviceHistory', () => {
+    const activeDevice = {
+      id: '11111111-1111-4111-8111-111111111111',
+      name: 'Cong A1',
+      assigned_event_id: '22222222-2222-4222-8222-222222222222',
+    };
+
+    it('returns paginated own scan history and stats for ESP32 device', async () => {
+      mockIotRepository.queryDeviceHistory.mockResolvedValue({
+        items: [
+          {
+            id: 'log-1',
+            ticket_code: 'TCK-001',
+            attendee_name: 'Nguyen Van A',
+            event_id: activeDevice.assigned_event_id,
+            event_code: 'tech-2026',
+            event_title: 'Tech Summit 2026',
+            action: 'auto',
+            result: 'OK',
+            success: true,
+            message: 'Check-in thanh cong',
+            scanned_at: '2026-11-12T16:50:00.000Z',
+          },
+        ],
+        total: 12,
+        page: 1,
+        limit: 10,
+        total_pages: 2,
+      });
+      mockIotRepository.getDeviceHistoryStats.mockResolvedValue({
+        total_scans: 12,
+        ok_count: 10,
+        verified_count: 1,
+        failed_count: 1,
+      });
+
+      const query = deviceHistoryQuerySchema.parse({
+        page: '1',
+        limit: '10',
+        result: 'OK',
+        event_only: 'true',
+      });
+
+      const res = await iotService.getDeviceHistory(activeDevice, query);
+
+      expect(mockIotRepository.queryDeviceHistory).toHaveBeenCalledWith(activeDevice.id, {
+        page: 1,
+        limit: 10,
+        result: 'OK',
+        eventId: activeDevice.assigned_event_id,
+      });
+      expect(res.httpStatus).toBe(200);
+      expect(res.body).toEqual({
+        success: true,
+        device_id: activeDevice.id,
+        device_name: 'Cong A1',
+        pagination: {
+          page: 1,
+          limit: 10,
+          total: 12,
+          has_more: true,
+        },
+        stats: {
+          total_scans: 12,
+          ok_count: 10,
+          verified_count: 1,
+          failed_count: 1,
+        },
+        items: [
+          {
+            id: 'log-1',
+            ticket_code: 'TCK-001',
+            attendee_name: 'Nguyen Van A',
+            event_id: activeDevice.assigned_event_id,
+            event_code: 'tech-2026',
+            event_name: 'Tech Summit 2026',
+            action: 'auto',
+            result: 'OK',
+            success: true,
+            message: 'Check-in thanh cong',
+            scanned_at: '2026-11-12T16:50:00.000Z',
+          },
+        ],
+      });
     });
   });
 

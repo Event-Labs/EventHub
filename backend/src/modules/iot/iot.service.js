@@ -297,12 +297,74 @@ class IotService {
       action: payload.action,
     });
 
-    const { httpStatus, ...body } = result;
+    const { httpStatus, _logMeta, ...body } = result;
+
+    if (device?.id && typeof iotRepository.recordScanLog === 'function') {
+      try {
+        await iotRepository.recordScanLog({
+          deviceId: device.id,
+          eventId: _logMeta?.eventId ?? device.assigned_event_id ?? null,
+          ticketId: _logMeta?.ticketId ?? null,
+          ticketCode: body.ticket_code || null,
+          qrCodeRaw: typeof payload.qr_code === 'string' ? payload.qr_code.slice(0, 255) : null,
+          action: payload.action || 'auto',
+          result: body.result || 'UNKNOWN',
+          success: Boolean(body.success),
+          message: body.message || null,
+          attendeeName: _logMeta?.attendeeName ?? null,
+        });
+      } catch (_err) {
+        // Không làm hỏng phản hồi quét vé nếu ghi lịch sử gặp lỗi tạm thời
+      }
+    }
+
     return {
       httpStatus,
       body: {
         ...body,
         device_config: buildDeviceConfigPayload(device),
+      },
+    };
+  }
+
+  async getDeviceHistory(device, query = {}) {
+    const eventFilter = query.event_only && device.assigned_event_id ? device.assigned_event_id : '';
+    const [history, stats] = await Promise.all([
+      iotRepository.queryDeviceHistory(device.id, {
+        page: query.page || 1,
+        limit: query.limit || 10,
+        result: query.result || 'ALL',
+        eventId: eventFilter,
+      }),
+      iotRepository.getDeviceHistoryStats(device.id),
+    ]);
+
+    return {
+      httpStatus: 200,
+      body: {
+        success: true,
+        device_id: device.id,
+        device_name: device.name || null,
+        pagination: {
+          page: history.page,
+          limit: history.limit,
+          total: history.total,
+          has_more: history.page * history.limit < history.total,
+        },
+        stats,
+        items: history.items.map((item) => ({
+          id: item.id,
+          ticket_code: item.ticket_code || null,
+          attendee_name: item.attendee_name || null,
+          event_id: item.event_id || null,
+          event_code: item.event_code || null,
+          event_name: item.event_title || null,
+          action: item.action,
+          result: item.result,
+          success: Boolean(item.success),
+          message: item.message || null,
+          scanned_at: item.scanned_at,
+        })),
       },
     };
   }

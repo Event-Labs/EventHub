@@ -22,6 +22,7 @@ import {
   disableAdminDevice,
   enableAdminDevice,
   fetchAdminDeviceDetail,
+  fetchAdminDeviceHistory,
   fetchAdminDevices,
   fetchAssignableEvents,
   resetAdminDevicePairing,
@@ -105,6 +106,32 @@ function getRssiMeta(rssi, isEnglish = false) {
   return { label: `${val} dBm (${isEnglish ? 'Weak' : 'Yếu'})`, tone: 'text-rose-400' }
 }
 
+function getScanResultMeta(result, isEnglish = false) {
+  switch (result) {
+    case 'OK':
+      return { tone: 'green', label: isEnglish ? 'Checked In' : 'Check-in OK' }
+    case 'VERIFIED':
+      return { tone: 'amber', label: isEnglish ? 'Verified' : 'Chỉ xác thực' }
+    case 'USED':
+      return { tone: 'orange', label: isEnglish ? 'Already Used' : 'Đã sử dụng' }
+    case 'WRONG_EVENT':
+      return { tone: 'red', label: isEnglish ? 'Wrong Event' : 'Sai sự kiện' }
+    case 'NOT_FOUND':
+      return { tone: 'red', label: isEnglish ? 'Not Found' : 'Không thấy vé' }
+    case 'INVALID_QR':
+      return { tone: 'red', label: isEnglish ? 'Invalid QR' : 'QR không hợp lệ' }
+    default:
+      return { tone: 'red', label: result || '—' }
+  }
+}
+
+const initialHistoryFilters = {
+  page: 1,
+  limit: 15,
+  result: 'ALL',
+  search: '',
+}
+
 const emptyConfigForm = {
   name: '',
   assigned_event_id: '',
@@ -127,6 +154,7 @@ export function AdminDevicesPage() {
   const [configModal, setConfigModal] = useState({ open: false, mode: 'approve', device: null })
   const [configForm, setConfigForm] = useState(emptyConfigForm)
   const [detailDeviceId, setDetailDeviceId] = useState(null)
+  const [historyFilters, setHistoryFilters] = useState(initialHistoryFilters)
   const [confirmModal, setConfirmModal] = useState({ open: false, action: null, device: null })
 
   const devicesQuery = useQuery({
@@ -145,6 +173,17 @@ export function AdminDevicesPage() {
     queryFn: () => fetchAdminDeviceDetail(detailDeviceId),
     enabled: Boolean(detailDeviceId),
   })
+
+  const historyQuery = useQuery({
+    queryKey: ['admin-device-history', detailDeviceId, historyFilters],
+    queryFn: () => fetchAdminDeviceHistory(detailDeviceId, historyFilters),
+    enabled: Boolean(detailDeviceId),
+  })
+
+  const openDetailModal = (deviceId) => {
+    setHistoryFilters(initialHistoryFilters)
+    setDetailDeviceId(deviceId)
+  }
 
   const devices = useMemo(() => devicesQuery.data?.items || [], [devicesQuery.data?.items])
   const stats = devicesQuery.data?.stats || {
@@ -190,6 +229,7 @@ export function AdminDevicesPage() {
     queryClient.invalidateQueries({ queryKey: ['admin-devices'] })
     if (detailDeviceId) {
       queryClient.invalidateQueries({ queryKey: ['admin-device-detail', detailDeviceId] })
+      queryClient.invalidateQueries({ queryKey: ['admin-device-history', detailDeviceId] })
     }
   }
 
@@ -514,8 +554,8 @@ export function AdminDevicesPage() {
 
         <TableActionButton
           icon={Eye}
-          label={isEnglish ? 'Details' : 'Chi tiết'}
-          onClick={() => setDetailDeviceId(device.id)}
+          label={isEnglish ? 'History & Details' : 'Chi tiết & Lịch sử'}
+          onClick={() => openDetailModal(device.id)}
         />
 
         {device.status === 'ACTIVE' && (
@@ -820,11 +860,11 @@ export function AdminDevicesPage() {
         )}
       </Modal>
 
-      {/* Device Detail Modal */}
+      {/* Device Detail & History Modal */}
       <Modal
         open={Boolean(detailDeviceId)}
         onClose={() => setDetailDeviceId(null)}
-        maxWidth="max-w-2xl"
+        maxWidth="max-w-4xl"
         title={isEnglish ? 'Device Telemetry & Check-in History' : 'Chi tiết thiết bị & Lịch sử quét vé'}
         footer={
           <button type="button" className="admin-secondary" onClick={() => setDetailDeviceId(null)}>
@@ -871,42 +911,213 @@ export function AdminDevicesPage() {
               </div>
             </div>
 
-            <div>
-              <h4 className="mb-2.5 text-xs font-black uppercase tracking-wider text-slate-400">
-                {isEnglish ? 'Recent Check-ins (Latest 20)' : 'Lịch sử check-in gần nhất (20 vé)'}
-              </h4>
-              {detailQuery.data.recent_checkins?.length > 0 ? (
-                <div className="max-h-64 overflow-y-auto rounded-xl border border-white/10 [html.light_&]:border-slate-200">
-                  <table className="w-full text-left text-xs">
-                    <thead className="border-b border-white/10 bg-[#172242] text-slate-200 [html.light_&]:bg-slate-100 [html.light_&]:text-slate-700">
-                      <tr>
-                        <th className="px-3 py-2">{isEnglish ? 'Ticket' : 'Mã vé'}</th>
-                        <th className="px-3 py-2">{isEnglish ? 'Attendee' : 'Người tham dự'}</th>
-                        <th className="px-3 py-2">{isEnglish ? 'Event' : 'Sự kiện'}</th>
-                        <th className="px-3 py-2">{isEnglish ? 'Time' : 'Thời gian'}</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/5 [html.light_&]:divide-slate-200">
-                      {detailQuery.data.recent_checkins.map((item) => (
-                        <tr key={item.id}>
-                          <td className="px-3 py-2 font-mono font-bold text-primary">{item.ticket_code}</td>
-                          <td className="px-3 py-2">
-                            <p className="font-semibold text-white [html.light_&]:text-[#0D1B2A]">{item.attendee_name}</p>
-                            <p className="text-[11px] text-slate-400">{item.ticket_type_name}</p>
-                          </td>
-                          <td className="px-3 py-2 text-slate-300 [html.light_&]:text-slate-700">{item.event_title}</td>
-                          <td className="px-3 py-2 text-slate-400">{formatDateTime(item.checked_in_at, isEnglish)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+            {(() => {
+              const historyStats = historyQuery.data?.stats || detailQuery.data.scan_stats || {
+                total_scans: 0,
+                ok_count: 0,
+                verified_count: 0,
+                failed_count: 0,
+              }
+              const historyItems = historyQuery.data?.items || detailQuery.data.recent_checkins || []
+              const pagination = historyQuery.data?.pagination || {
+                page: 1,
+                limit: 15,
+                total: historyItems.length,
+                total_pages: 1,
+              }
+
+              return (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                    <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 [html.light_&]:border-slate-200 [html.light_&]:bg-slate-50">
+                      <p className="text-[11px] font-bold uppercase text-slate-400">
+                        {isEnglish ? 'Total Scans' : 'Tổng lượt quét'}
+                      </p>
+                      <p className="mt-0.5 text-lg font-black text-white [html.light_&]:text-[#0D1B2A]">
+                        {historyStats.total_scans}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-emerald-400/25 bg-emerald-500/10 px-3 py-2">
+                      <p className="text-[11px] font-bold uppercase text-emerald-300 [html.light_&]:text-emerald-700">
+                        {isEnglish ? 'Check-in OK' : 'Check-in OK'}
+                      </p>
+                      <p className="mt-0.5 text-lg font-black text-emerald-300 [html.light_&]:text-emerald-700">
+                        {historyStats.ok_count}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-amber-400/25 bg-amber-500/10 px-3 py-2">
+                      <p className="text-[11px] font-bold uppercase text-amber-300 [html.light_&]:text-amber-700">
+                        {isEnglish ? 'Verified Only' : 'Chỉ xác thực'}
+                      </p>
+                      <p className="mt-0.5 text-lg font-black text-amber-300 [html.light_&]:text-amber-700">
+                        {historyStats.verified_count}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-rose-400/25 bg-rose-500/10 px-3 py-2">
+                      <p className="text-[11px] font-bold uppercase text-rose-300 [html.light_&]:text-rose-700">
+                        {isEnglish ? 'Rejected / Failed' : 'Từ chối / Lỗi'}
+                      </p>
+                      <p className="mt-0.5 text-lg font-black text-rose-300 [html.light_&]:text-rose-700">
+                        {historyStats.failed_count}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
+                    <div className="relative flex-1">
+                      <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        value={historyFilters.search}
+                        onChange={(e) =>
+                          setHistoryFilters((prev) => ({ ...prev, page: 1, search: e.target.value }))
+                        }
+                        placeholder={
+                          isEnglish
+                            ? 'Search ticket code, attendee, QR...'
+                            : 'Tìm mã vé, người tham dự, chuỗi QR...'
+                        }
+                        className="w-full rounded-xl border border-white/15 bg-[#121c38] py-2 pl-9 pr-3 text-xs text-white placeholder:text-slate-500 focus:border-primary/60 focus:outline-none [html.light_&]:border-slate-300 [html.light_&]:bg-white [html.light_&]:text-[#0D1B2A]"
+                      />
+                    </div>
+                    <div className="w-full sm:w-52">
+                      <CosmicSelect
+                        value={historyFilters.result}
+                        onChange={(val) =>
+                          setHistoryFilters((prev) => ({ ...prev, page: 1, result: val }))
+                        }
+                        options={[
+                          { value: 'ALL', label: isEnglish ? 'All Results' : 'Tất cả kết quả' },
+                          { value: 'OK', label: isEnglish ? 'Check-in OK' : 'Check-in OK' },
+                          { value: 'VERIFIED', label: isEnglish ? 'Verified Only' : 'Chỉ xác thực' },
+                          { value: 'FAILED', label: isEnglish ? 'Failed / Rejected' : 'Thất bại / Từ chối' },
+                          { value: 'USED', label: isEnglish ? 'Already Used' : 'Vé đã dùng (USED)' },
+                          { value: 'WRONG_EVENT', label: isEnglish ? 'Wrong Event' : 'Sai sự kiện' },
+                          { value: 'NOT_FOUND', label: isEnglish ? 'Not Found' : 'Không tìm thấy vé' },
+                          { value: 'INVALID_QR', label: isEnglish ? 'Invalid QR' : 'QR không hợp lệ' },
+                        ]}
+                        className="w-full"
+                        buttonClassName="w-full py-2 text-xs"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => historyQuery.refetch()}
+                      className="admin-secondary inline-flex shrink-0 items-center justify-center gap-1.5 px-3 py-2 text-xs"
+                    >
+                      <RefreshCw className={`size-3.5 ${historyQuery.isFetching ? 'animate-spin' : ''}`} />
+                      <span>{isEnglish ? 'Refresh' : 'Làm mới'}</span>
+                    </button>
+                  </div>
+
+                  {historyQuery.isLoading ? (
+                    <p className="rounded-xl border border-white/10 p-4 text-center text-xs text-slate-400">
+                      {isEnglish ? 'Loading scan history...' : 'Đang tải lịch sử quét vé...'}
+                    </p>
+                  ) : historyItems.length > 0 ? (
+                    <>
+                      <div className="max-h-72 overflow-y-auto rounded-xl border border-white/10 [html.light_&]:border-slate-200">
+                        <table className="w-full text-left text-xs">
+                          <thead className="sticky top-0 border-b border-white/10 bg-[#172242] text-slate-200 [html.light_&]:bg-slate-100 [html.light_&]:text-slate-700">
+                            <tr>
+                              <th className="px-3 py-2">{isEnglish ? 'Ticket / QR' : 'Mã vé / QR'}</th>
+                              <th className="px-3 py-2">{isEnglish ? 'Attendee' : 'Người tham dự'}</th>
+                              <th className="px-3 py-2">{isEnglish ? 'Event' : 'Sự kiện'}</th>
+                              <th className="px-3 py-2">{isEnglish ? 'Result' : 'Kết quả'}</th>
+                              <th className="px-3 py-2">{isEnglish ? 'Time' : 'Thời gian'}</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-white/5 [html.light_&]:divide-slate-200">
+                            {historyItems.map((item) => {
+                              const resultMeta = getScanResultMeta(item.result, isEnglish)
+                              return (
+                                <tr key={item.id}>
+                                  <td className="px-3 py-2">
+                                    <p className="font-mono font-bold text-primary">
+                                      {item.ticket_code || '—'}
+                                    </p>
+                                    {!item.ticket_code && item.qr_code_raw && (
+                                      <p className="max-w-[140px] truncate font-mono text-[11px] text-slate-400">
+                                        {item.qr_code_raw}
+                                      </p>
+                                    )}
+                                  </td>
+                                  <td className="px-3 py-2">
+                                    <p className="font-semibold text-white [html.light_&]:text-[#0D1B2A]">
+                                      {item.attendee_name || '—'}
+                                    </p>
+                                    {item.ticket_type_name && (
+                                      <p className="text-[11px] text-slate-400">{item.ticket_type_name}</p>
+                                    )}
+                                  </td>
+                                  <td className="px-3 py-2 text-slate-300 [html.light_&]:text-slate-700">
+                                    {item.event_title || item.event_code || '—'}
+                                  </td>
+                                  <td className="px-3 py-2">
+                                    <StatusBadge
+                                      status={item.result}
+                                      tone={resultMeta.tone}
+                                      label={resultMeta.label}
+                                      dot
+                                    />
+                                    {item.message && (
+                                      <p className="mt-0.5 text-[11px] text-slate-400">{item.message}</p>
+                                    )}
+                                  </td>
+                                  <td className="px-3 py-2 whitespace-nowrap text-slate-400">
+                                    {formatDateTime(item.scanned_at, isEnglish)}
+                                  </td>
+                                </tr>
+                              )
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs text-slate-400">
+                        <span>
+                          {isEnglish
+                            ? `Page ${pagination.page} / ${pagination.total_pages} (${pagination.total} records)`
+                            : `Trang ${pagination.page} / ${pagination.total_pages} (${pagination.total} lượt quét)`}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            disabled={pagination.page <= 1}
+                            onClick={() =>
+                              setHistoryFilters((prev) => ({
+                                ...prev,
+                                page: Math.max(1, prev.page - 1),
+                              }))
+                            }
+                            className="admin-secondary px-3 py-1.5 text-xs disabled:opacity-40"
+                          >
+                            {isEnglish ? 'Previous' : 'Trước'}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={pagination.page >= pagination.total_pages}
+                            onClick={() =>
+                              setHistoryFilters((prev) => ({
+                                ...prev,
+                                page: Math.min(pagination.total_pages, prev.page + 1),
+                              }))
+                            }
+                            className="admin-secondary px-3 py-1.5 text-xs disabled:opacity-40"
+                          >
+                            {isEnglish ? 'Next' : 'Sau'}
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <p className="rounded-xl border border-white/10 p-4 text-center text-xs text-slate-400 [html.light_&]:border-slate-200">
+                      {isEnglish ? 'No scan history matching your filters.' : 'Chưa có lịch sử quét vé phù hợp.'}
+                    </p>
+                  )}
                 </div>
-              ) : (
-                <p className="rounded-xl border border-white/10 p-4 text-center text-xs text-slate-400 [html.light_&]:border-slate-200">
-                  {isEnglish ? 'No tickets checked in by this device yet.' : 'Thiết bị chưa check-in vé nào.'}
-                </p>
-              )}
-            </div>
+              )
+            })()}
           </div>
         ) : null}
       </Modal>

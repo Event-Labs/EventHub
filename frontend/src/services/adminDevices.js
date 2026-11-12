@@ -15,6 +15,11 @@ export async function fetchAdminDeviceDetail(deviceId) {
   return response.data.data
 }
 
+export async function fetchAdminDeviceHistory(deviceId, params = {}) {
+  const response = await http.get(`/admin/devices/${deviceId}/history`, { params })
+  return response.data.data
+}
+
 export async function approveAdminDevice(deviceId, payload) {
   const response = await http.post(`/admin/devices/${deviceId}/approve`, payload)
   return response.data.data

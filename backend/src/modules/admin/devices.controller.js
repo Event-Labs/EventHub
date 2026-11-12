@@ -3,6 +3,7 @@ const adminDevicesService = require('./devices.service');
 const {
   deviceIdParamSchema,
   listDevicesQuerySchema,
+  deviceHistoryQuerySchema,
   approveDeviceSchema,
   updateDeviceSchema,
 } = require('./devices.validation');
@@ -37,6 +38,17 @@ class AdminDevicesController {
       const { id } = deviceIdParamSchema.parse(req.params);
       const data = await adminDevicesService.getDeviceDetail(id);
       res.status(200).json(ApiResponse.success(data, 'Lấy chi tiết thiết bị thành công'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  history = async (req, res, next) => {
+    try {
+      const { id } = deviceIdParamSchema.parse(req.params);
+      const filters = deviceHistoryQuerySchema.parse(req.query);
+      const data = await adminDevicesService.getDeviceHistory(id, filters);
+      res.status(200).json(ApiResponse.success(data, 'Lấy lịch sử quét vé của thiết bị thành công'));
     } catch (err) {
       next(err);
     }

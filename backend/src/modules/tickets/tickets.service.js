@@ -543,13 +543,22 @@ class TicketsService {
   }
 
   async scanTicketForDevice(device, { qrCode, action = 'auto' } = {}) {
+    const withLogMeta = (payload, ticket = null) => ({
+      ...payload,
+      _logMeta: {
+        ticketId: ticket?.id || null,
+        eventId: ticket?.event_id || device?.assigned_event_id || null,
+        attendeeName: ticket?.attendee_name || ticket?.buyer_name || null,
+      },
+    });
+
     if (!device?.assigned_event_id) {
-      return {
+      return withLogMeta({
         httpStatus: 400,
         success: false,
         result: 'NO_EVENT_ASSIGNED',
         message: 'Chua gan su kien',
-      };
+      });
     }
 
     const qrPayload = extractQrTicketPayload({ qr_code: qrCode });
@@ -557,42 +566,42 @@ class TicketsService {
       !qrPayload.ticketRef
       || (qrPayload.type && !['EVENTHUB_TICKET', 'EH_TICKET', 'EHT', 'EH'].includes(qrPayload.type))
     ) {
-      return {
+      return withLogMeta({
         httpStatus: 400,
         success: false,
         result: 'INVALID_QR',
         message: 'Ma QR khong hop le',
-      };
+      });
     }
 
     const ticket = await ticketsRepository.findTicketByRef(qrPayload.ticketRef, device.assigned_event_id);
     if (!ticket) {
-      return mapDeviceCheckInState('NOT_FOUND');
+      return withLogMeta(mapDeviceCheckInState('NOT_FOUND'));
     }
 
     if (
       ticket.event_id !== device.assigned_event_id
       || (qrPayload.eventId && qrPayload.eventId !== device.assigned_event_id)
     ) {
-      return mapDeviceCheckInState('WRONG_EVENT', ticket);
+      return withLogMeta(mapDeviceCheckInState('WRONG_EVENT', ticket), ticket);
     }
 
     if (
       (qrPayload.eventId && ticket.event_id && qrPayload.eventId !== ticket.event_id)
       || (qrPayload.sessionId && ticket.event_session_id && qrPayload.sessionId !== ticket.event_session_id)
     ) {
-      return {
+      return withLogMeta({
         httpStatus: 400,
         success: false,
         result: 'INVALID_QR',
         ticket_code: ticket.ticket_code,
         message: 'QR khong khop thong tin ve',
-      };
+      }, ticket);
     }
 
     const invalidState = ticketsRepository.validateTicketCheckInState(ticket);
     if (invalidState) {
-      return mapDeviceCheckInState(invalidState, ticket);
+      return withLogMeta(mapDeviceCheckInState(invalidState, ticket), ticket);
     }
 
     const normalizedAction = action === 'auto'
@@ -600,14 +609,14 @@ class TicketsService {
       : action;
 
     if (normalizedAction === 'verify') {
-      return {
+      return withLogMeta({
         httpStatus: 200,
         success: true,
         result: 'VERIFIED',
         ticket_code: ticket.ticket_code,
         event_code: ticket.event_slug,
         message: 'Ve hop le',
-      };
+      }, ticket);
     }
 
     const checkInResult = await ticketsRepository.checkInTicketByDevice(
@@ -617,17 +626,21 @@ class TicketsService {
     );
 
     if (checkInResult.state !== 'CHECKED_IN') {
-      return mapDeviceCheckInState(checkInResult.state, checkInResult.ticket || ticket);
+      return withLogMeta(
+        mapDeviceCheckInState(checkInResult.state, checkInResult.ticket || ticket),
+        checkInResult.ticket || ticket,
+      );
     }
 
-    return {
+    const checkedInTicket = checkInResult.ticket || ticket;
+    return withLogMeta({
       httpStatus: 200,
       success: true,
       result: 'OK',
-      ticket_code: checkInResult.ticket.ticket_code,
-      event_code: checkInResult.ticket.event_slug,
+      ticket_code: checkedInTicket.ticket_code,
+      event_code: checkedInTicket.event_slug,
       message: 'Check-in thanh cong',
-    };
+    }, { ...ticket, ...checkedInTicket });
   }
 
   cancelFreeTicket = async (userId, ticketId, reason) => {

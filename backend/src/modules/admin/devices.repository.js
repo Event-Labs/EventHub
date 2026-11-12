@@ -1,5 +1,6 @@
 const db = require('../../infrastructure/database/db.client');
 const { DEVICE_ONLINE_THRESHOLD_SEC } = require('../iot/iot.utils');
+const iotRepository = require('../iot/iot.repository');
 
 const SAFE_DEVICE_SELECT = `
   SELECT
@@ -192,31 +193,16 @@ class AdminDevicesRepository {
   }
 
   async getRecentCheckIns(deviceId, limit = 20) {
-    const { rows } = await db.query(
-      `
-      SELECT
-        t.id,
-        t.ticket_code,
-        COALESCE(t.attendee_name, o.buyer_name, 'Không rõ') AS attendee_name,
-        COALESCE(t.attendee_email, o.buyer_email) AS attendee_email,
-        tt.name AS ticket_type_name,
-        e.id AS event_id,
-        e.title AS event_title,
-        e.slug AS event_slug,
-        t.checked_in_at,
-        t.checkin_method
-      FROM tickets t
-      JOIN order_items oi ON oi.id = t.order_item_id
-      JOIN orders o ON o.id = oi.order_id
-      JOIN ticket_types tt ON tt.id = t.ticket_type_id
-      JOIN events e ON e.id = t.event_id
-      WHERE t.checked_in_device_id = $1
-      ORDER BY t.checked_in_at DESC NULLS LAST
-      LIMIT $2
-      `,
-      [deviceId, limit],
-    );
-    return rows;
+    const history = await iotRepository.queryDeviceHistory(deviceId, { page: 1, limit });
+    return history.items;
+  }
+
+  async getDeviceHistory(deviceId, filters = {}) {
+    return iotRepository.queryDeviceHistory(deviceId, filters);
+  }
+
+  async getDeviceHistoryStats(deviceId) {
+    return iotRepository.getDeviceHistoryStats(deviceId);
   }
 
   async approveDevice(

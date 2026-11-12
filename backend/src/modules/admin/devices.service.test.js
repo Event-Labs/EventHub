@@ -6,6 +6,8 @@ const mockAdminDevicesRepository = {
   findById: jest.fn(),
   findRawById: jest.fn(),
   getRecentCheckIns: jest.fn(),
+  getDeviceHistory: jest.fn(),
+  getDeviceHistoryStats: jest.fn(),
   approveDevice: jest.fn(),
   updateDeviceConfig: jest.fn(),
   disableDevice: jest.fn(),
@@ -86,6 +88,41 @@ describe('AdminDevicesService', () => {
     mockAdminDevicesRepository.enableDevice.mockResolvedValue({ id: 'dev-1', status: 'ACTIVE' });
     const enabled = await adminDevicesService.enableDevice('dev-1');
     expect(enabled.status).toBe('ACTIVE');
+  });
+
+  it('returns paginated device scan history and stats for Admin', async () => {
+    const device = { id: 'dev-1', name: 'Cổng A1', status: 'ACTIVE' };
+    mockAdminDevicesRepository.findById.mockResolvedValue(device);
+    mockAdminDevicesRepository.getDeviceHistory.mockResolvedValue({
+      items: [{ id: 'log-1', ticket_code: 'TCK-001', result: 'OK', success: true }],
+      total: 1,
+      page: 1,
+      limit: 20,
+      total_pages: 1,
+    });
+    mockAdminDevicesRepository.getDeviceHistoryStats.mockResolvedValue({
+      total_scans: 1,
+      ok_count: 1,
+      verified_count: 0,
+      failed_count: 0,
+    });
+
+    const result = await adminDevicesService.getDeviceHistory('dev-1', {
+      page: 1,
+      limit: 20,
+      result: 'ALL',
+      search: '',
+    });
+
+    expect(result.device).toEqual(device);
+    expect(result.stats.ok_count).toBe(1);
+    expect(result.pagination).toEqual({
+      page: 1,
+      limit: 20,
+      total: 1,
+      total_pages: 1,
+    });
+    expect(result.items).toHaveLength(1);
   });
 });
 

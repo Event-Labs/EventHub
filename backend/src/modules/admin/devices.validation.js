@@ -11,6 +11,13 @@ const listDevicesQuerySchema = z.object({
   search: z.string().trim().max(100).optional().default(''),
 });
 
+const deviceHistoryQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  result: z.string().trim().max(40).optional().default('ALL'),
+  search: z.string().trim().max(100).optional().default(''),
+});
+
 const approveDeviceSchema = z.object({
   name: z.string().trim().min(1, 'Vui lòng nhập tên thiết bị').max(120),
   assigned_event_id: z.string().uuid('Sự kiện được chọn không hợp lệ').nullable().optional(),
@@ -32,6 +39,7 @@ const updateDeviceSchema = z.object({
 module.exports = {
   deviceIdParamSchema,
   listDevicesQuerySchema,
+  deviceHistoryQuerySchema,
   approveDeviceSchema,
   updateDeviceSchema,
 };

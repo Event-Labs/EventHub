@@ -28,10 +28,22 @@ const scanTicketSchema = z.object({
   action: z.enum(['auto', 'verify', 'checkin']).default('auto'),
 });
 
+const deviceHistoryQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(50).default(10),
+  result: z.string().trim().max(40).optional().default('ALL'),
+  event_only: z
+    .enum(['true', 'false'])
+    .optional()
+    .default('false')
+    .transform((v) => v === 'true'),
+});
+
 module.exports = {
   registerDeviceSchema,
   pairingStatusQuerySchema,
   heartbeatSchema,
   scanTicketSchema,
+  deviceHistoryQuerySchema,
 };
 

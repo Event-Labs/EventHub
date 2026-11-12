@@ -4,6 +4,7 @@ const {
   pairingStatusQuerySchema,
   heartbeatSchema,
   scanTicketSchema,
+  deviceHistoryQuerySchema,
 } = require('./iot.validation');
 const { extractClientIp } = require('./iot.utils');
 
@@ -65,6 +66,16 @@ class IotController {
     try {
       const payload = scanTicketSchema.parse(req.body || {});
       const { httpStatus, body } = await iotService.scanTicket(req.device, payload);
+      return res.status(httpStatus).json(body);
+    } catch (err) {
+      return handleIotError(err, res);
+    }
+  };
+
+  history = async (req, res) => {
+    try {
+      const query = deviceHistoryQuerySchema.parse(req.query || {});
+      const { httpStatus, body } = await iotService.getDeviceHistory(req.device, query);
       return res.status(httpStatus).json(body);
     } catch (err) {
       return handleIotError(err, res);
