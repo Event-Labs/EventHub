@@ -35,6 +35,7 @@ const startServer = async () => {
         // 3. Start Server immediately
         const server = app.listen(env.PORT, () => {
             logger.info(`Server running in ${env.NODE_ENV} mode on ${env.APP_URL}`);
+            logger.info(`IoT API ready at ${env.APP_URL}/api/iot/v1`);
             startNotificationScheduler();
             startAutoReviewScheduler();
             startEventLifecycleScheduler();

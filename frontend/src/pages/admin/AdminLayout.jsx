@@ -1,4 +1,4 @@
-import { BriefcaseBusiness, Building2, Calendar, ClipboardList, CreditCard, LayoutDashboard, ShieldAlert, ShieldCheck, Tags, Users } from 'lucide-react'
+import { BriefcaseBusiness, Building2, Calendar, ClipboardList, Cpu, CreditCard, LayoutDashboard, ShieldAlert, ShieldCheck, Tags, Users } from 'lucide-react'
 import { getStoredUser, isAdminUser } from '@/lib/auth.js'
 import { ProfileAvatar } from '@/pages/shared/ProfileAvatar.jsx'
 import { RolePortalLayout } from '@/pages/shared/RolePortalLayout.jsx'
@@ -21,6 +21,7 @@ const navSections = [
     items: [
       { label: 'Loại sự kiện', to: '/admin/events/categories', icon: Tags },
       { label: 'Duyệt sự kiện', to: '/admin/events/review', icon: Calendar },
+      { label: 'Thiết bị Check-in', to: '/admin/devices', icon: Cpu },
     ],
   },
   {

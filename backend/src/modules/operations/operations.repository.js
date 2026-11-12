@@ -1004,7 +1004,7 @@ class OperationsRepository {
           tt.name AS ticket_type_name,
           COALESCE(t.checkin_method, 'MANUAL') AS method,
           t.checked_in_at,
-          checker.full_name AS checked_in_by_name,
+          COALESCE(checker.full_name, dev.name, dev.mac_address) AS checked_in_by_name,
           e.id AS event_id,
           e.title AS event_title
         FROM tickets t
@@ -1012,6 +1012,7 @@ class OperationsRepository {
         JOIN orders o ON o.id = oi.order_id
         JOIN ticket_types tt ON tt.id = t.ticket_type_id
         LEFT JOIN users checker ON checker.id = t.checked_in_by
+        LEFT JOIN checkin_devices dev ON dev.id = t.checked_in_device_id
         ${scope}
           AND t.status = 'USED'
         ORDER BY t.checked_in_at DESC NULLS LAST
