@@ -23,6 +23,7 @@ import {
   fetchRefundPreview,
   fetchMyRefundRequests,
   submitPayoutInfo,
+  confirmPayoutBank,
   disputeRefund,
   confirmReceivedRefund,
 } from '@/services/refunds.js'
@@ -1121,6 +1122,37 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest, onPayoutSub
     setConfirmedReceived(isCustomerConfirmed)
   }, [isCustomerConfirmed])
 
+  const isBankConfirmed = Boolean(
+    currentRefundRequest?.customer_confirmed_bank_at ||
+    currentRefundRequest?.audit_trail?.some?.((a) => a.action === 'CONFIRM_PAYOUT_BANK' || a.action === 'SUBMIT_PAYOUT_INFO')
+  )
+  const [confirmingBank, setConfirmingBank] = useState(false)
+
+  const handleConfirmBank = async () => {
+    setConfirmingBank(true)
+    try {
+      await confirmPayoutBank(currentRefundRequest?.id || refundRequest?.id)
+      toast.success(
+        isEnglish
+          ? 'Payout bank account confirmed successfully! Organizer has been notified to execute transfer.'
+          : 'Đã xác nhận tài khoản nhận tiền hoàn chính xác! Ban tổ chức sẽ tiến hành chuyển khoản.'
+      )
+      setCurrentRefundRequest((prev) => ({
+        ...prev,
+        customer_confirmed_bank_at: new Date().toISOString(),
+        ready_at: new Date().toISOString(),
+      }))
+      onPayoutSubmitted?.()
+    } catch (err) {
+      toast.error(
+        err.response?.data?.message ||
+          (isEnglish ? 'Failed to confirm bank account.' : 'Không thể xác nhận tài khoản ngân hàng.')
+      )
+    } finally {
+      setConfirmingBank(false)
+    }
+  }
+
   useEffect(() => {
     if (currentRefundRequest) {
       setBankName(resolveBankName(currentRefundRequest.bank_name) || currentRefundRequest.bank_name || '')
@@ -1185,6 +1217,8 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest, onPayoutSub
         bank_name: bankName,
         bank_account_number: cleanAccountNumber,
         bank_account_name: cleanAccountName,
+        customer_confirmed_bank_at: new Date().toISOString(),
+        ready_at: new Date().toISOString(),
       }))
       const wasEditing = isEditingPayout
       setIsEditingPayout(false)
@@ -1318,6 +1352,13 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest, onPayoutSub
               <p className="mt-1 text-xl font-black text-amber-400 drop-shadow-[0_0_10px_rgba(245,158,11,0.3)]">
                 {formatCurrency(refundAmount, isEnglish)}
               </p>
+              {(Number(currentRefundRequest?.order_ticket_count) > 1 || !currentRefundRequest?.ticket_id) && (
+                <p className="text-[10px] text-amber-300/80 mt-0.5 font-medium">
+                  {isEnglish
+                    ? `(Refund for all ${currentRefundRequest?.order_ticket_count || ''} tickets in order)`
+                    : `(Hoàn cho toàn bộ ${currentRefundRequest?.order_ticket_count || ''} vé trong đơn)`}
+                </p>
+              )}
             </div>
           </div>
 
@@ -1468,12 +1509,23 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest, onPayoutSub
 
           {/* Display submitted bank account info if already provided */}
           {!needsPayoutInfo && !isEditingPayout && currentRefundRequest?.bank_name && (
-            <div className="rounded-[20px] border border-blue-500/30 bg-blue-500/10 p-4">
+            <div className={`rounded-[20px] border p-4 ${isBankConfirmed ? 'border-blue-500/30 bg-blue-500/10' : 'border-amber-500/40 bg-amber-500/10'}`}>
               <div className="flex items-center justify-between gap-3 mb-2.5">
-                <h4 className="text-xs font-bold text-blue-300 uppercase tracking-wider">
-                  {isEnglish ? 'Registered Payout Bank Account' : 'Tài khoản nhận tiền hoàn đã ghi nhận'}
-                </h4>
-                {canEditPayout && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h4 className={`text-xs font-bold uppercase tracking-wider ${isBankConfirmed ? 'text-blue-300' : 'text-amber-300'}`}>
+                    {isEnglish ? 'Payout Bank Account' : 'Tài khoản nhận tiền hoàn'}
+                  </h4>
+                  {isBankConfirmed ? (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/40 bg-emerald-500/20 px-2.5 py-0.5 text-[10px] font-bold text-emerald-300">
+                      <Check className="size-3" /> {isEnglish ? 'Confirmed' : 'Đã xác nhận'}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-500/20 px-2.5 py-0.5 text-[10px] font-bold text-amber-300 animate-pulse">
+                      <Clock3 className="size-3" /> {isEnglish ? 'Awaiting your confirmation' : 'Chờ bạn xác nhận'}
+                    </span>
+                  )}
+                </div>
+                {canEditPayout && isBankConfirmed && (
                   <button
                     type="button"
                     onClick={startEditingPayout}
@@ -1485,25 +1537,66 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest, onPayoutSub
                   </button>
                 )}
               </div>
-              <div className="space-y-1.5 text-xs text-blue-100">
+              <div className="space-y-1.5 text-xs text-slate-100">
                 <div className="flex items-start justify-between gap-3">
-                  <span className="text-blue-200/70 font-medium shrink-0">{isEnglish ? 'Bank:' : 'Ngân hàng:'}</span>
+                  <span className="text-slate-400 font-medium shrink-0">{isEnglish ? 'Bank:' : 'Ngân hàng:'}</span>
                   <span className="font-semibold text-right text-white">{resolveBankName(currentRefundRequest.bank_name)}</span>
                 </div>
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-blue-200/70 font-medium shrink-0">{isEnglish ? 'Account No:' : 'Số TK:'}</span>
+                  <span className="text-slate-400 font-medium shrink-0">{isEnglish ? 'Account No:' : 'Số TK:'}</span>
                   <span className="font-mono font-bold text-amber-300 tracking-wider">
                     {currentRefundRequest.bank_account_number?.startsWith?.('enc.') ? '••••••••' : currentRefundRequest.bank_account_number}
                   </span>
                 </div>
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-blue-200/70 font-medium shrink-0">{isEnglish ? 'Account Holder:' : 'Chủ TK:'}</span>
+                  <span className="text-slate-400 font-medium shrink-0">{isEnglish ? 'Account Holder:' : 'Chủ TK:'}</span>
                   <span className="font-bold text-white uppercase">{currentRefundRequest.bank_account_name || 'N/A'}</span>
                 </div>
               </div>
-              <p className="text-[11px] text-blue-200/80 mt-3 pt-2 border-t border-blue-500/20">
-                {isEnglish ? 'The organizer will review and execute 100% refund transfer per policy.' : 'Ban tổ chức sẽ đối soát và thực hiện chuyển tiền hoàn 100% cho bạn theo quy định.'}
-              </p>
+
+              {/* Action buttons if customer has not yet confirmed payout account */}
+              {!isBankConfirmed && status !== 'REFUNDED' && status !== 'REJECTED' && (
+                <div className="mt-3.5 pt-3 border-t border-amber-500/25 space-y-2.5">
+                  <div className="flex items-start gap-2 text-xs text-amber-200 bg-amber-500/10 border border-amber-500/25 rounded-xl p-2.5">
+                    <AlertCircle className="size-4 text-amber-400 shrink-0 mt-0.5" />
+                    <p className="leading-snug">
+                      {isEnglish
+                        ? 'Please verify if this payout bank info is correct so the organizer can proceed with the refund transfer.'
+                        : 'Vui lòng kiểm tra và xác nhận STK bên trên để Ban tổ chức có thể tiến hành chuyển khoản hoàn tiền.'}
+                    </p>
+                  </div>
+                  <div className="flex flex-col sm:flex-row items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleConfirmBank}
+                      disabled={confirmingBank}
+                      className="btn-gold-primary w-full sm:flex-1 py-2.5 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-md"
+                    >
+                      <Check className="size-3.5" />
+                      {confirmingBank
+                        ? (isEnglish ? 'Confirming...' : 'Đang xác nhận...')
+                        : (isEnglish ? 'Confirm this account is correct' : 'Xác nhận STK này chính xác')}
+                    </button>
+                    {canEditPayout && (
+                      <button
+                        type="button"
+                        onClick={startEditingPayout}
+                        className="w-full sm:w-auto rounded-full border border-white/20 bg-white/5 hover:bg-white/10 px-3.5 py-2.5 text-xs font-semibold text-slate-200 transition cursor-pointer"
+                      >
+                        {isEnglish ? 'Change Account' : 'Đổi số tài khoản khác'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {isBankConfirmed && (
+                <p className="text-[11px] text-blue-200/80 mt-3 pt-2 border-t border-blue-500/20">
+                  {isEnglish
+                    ? 'Account confirmed. The organizer will review and execute 100% refund transfer per policy.'
+                    : 'Đã xác nhận tài khoản. Ban tổ chức sẽ đối soát và thực hiện chuyển tiền hoàn 100% cho bạn theo quy định.'}
+                </p>
+              )}
             </div>
           )}
 
@@ -1529,8 +1622,13 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest, onPayoutSub
 
             <div className="flex justify-between items-center gap-4 border-b border-white/5 pb-2.5">
               <span className="text-slate-400 font-medium">{isEnglish ? 'Order ID:' : 'Mã đơn hàng:'}</span>
-              <span className="font-mono font-bold text-white">
+              <span className="font-mono font-bold text-white flex items-center gap-2">
                 #{ticket.order?.order_code || ticket.order?.id?.slice(0, 8)}
+                {Number(currentRefundRequest?.order_ticket_count) > 1 && (
+                  <span className="font-sans text-[11px] font-normal text-slate-400">
+                    ({currentRefundRequest.order_ticket_count} {isEnglish ? 'tickets' : 'vé'})
+                  </span>
+                )}
               </span>
             </div>
 
@@ -1643,7 +1741,16 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest, onPayoutSub
 
           {/* Confirm Receipt & Dispute buttons if REFUNDED */}
           {status === 'REFUNDED' && (
-            confirmedReceived ? (
+            currentRefundRequest?.auto_closed_at ? (
+              <div className="flex items-center gap-2.5 py-2 px-3 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-xs font-medium text-emerald-200 animate-in fade-in duration-200">
+                <CheckCircle2 className="size-4 text-emerald-400 shrink-0" />
+                <span>
+                  {isEnglish
+                    ? `Refund automatically finalized after 72 hours without dispute (${formatDateTime(currentRefundRequest.auto_closed_at, isEnglish)}).`
+                    : `Yêu cầu hoàn tiền đã tự động hoàn tất sau 72 giờ không có khiếu nại (${formatDateTime(currentRefundRequest.auto_closed_at, isEnglish)}).`}
+                </span>
+              </div>
+            ) : confirmedReceived ? (
               <div className="flex items-center gap-2.5 py-1 px-1 text-sm font-medium text-slate-200 animate-in fade-in duration-200">
                 <Check className="size-5 text-emerald-400 stroke-[2.5] shrink-0" />
                 <span>{isEnglish ? 'You confirmed receipt of the refund into your account.' : 'Bạn đã xác nhận nhận được tiền hoàn vào tài khoản.'}</span>
@@ -1675,6 +1782,11 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest, onPayoutSub
                     {isEnglish ? 'Not received yet' : 'Chưa nhận được'}
                   </button>
                 </div>
+                <p className="text-[11px] text-slate-400 mt-2.5 text-center">
+                  {isEnglish
+                    ? 'If you do not report within 72 hours, this refund request will automatically close.'
+                    : 'Nếu bạn không gửi khiếu nại, yêu cầu hoàn tiền sẽ tự động hoàn tất sau 72 giờ kể từ khi Ban tổ chức chuyển tiền.'}
+                </p>
 
                 {/* Inline Dispute Form */}
                 {showDisputeForm && (

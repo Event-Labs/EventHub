@@ -924,7 +924,6 @@ export function CancelOrRequestCancelModal({ event, onConfirm, onClose, loading,
   const hasPaidOrders = Number(event.paid_orders_count || 0) > 0
   const [reasonCode, setReasonCode] = useState('ORGANIZER_REASON')
   const [reasonNote, setReasonNote] = useState('')
-  const [refundMode, setRefundMode] = useState('MODE_B')
   const [commitmentAccepted, setCommitmentAccepted] = useState(false)
 
   const isFormValid = !hasPaidOrders || (reasonNote.trim().length >= 20 && commitmentAccepted)
@@ -938,7 +937,6 @@ export function CancelOrRequestCancelModal({ event, onConfirm, onClose, loading,
         is_request: true,
         reason_code: reasonCode,
         reason_note: reasonNote.trim(),
-        refund_mode: refundMode,
         commitment_accepted: commitmentAccepted,
       })
     } else {
@@ -1016,42 +1014,6 @@ export function CancelOrRequestCancelModal({ event, onConfirm, onClose, loading,
                   placeholder="Nêu rõ lý do hủy và phương án giải quyết để Admin xem xét phê duyệt (tối thiểu 20 ký tự)..."
                   className="w-full rounded-xl border border-white/15 bg-[#121c38] p-3 text-sm text-white placeholder:text-slate-500 outline-none focus:border-primary resize-none"
                 />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Phương thức hoàn tiền cho người mua vé <span className="text-rose-400">*</span>
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                  <label className={`flex items-start gap-2 p-3 rounded-xl border cursor-pointer transition ${refundMode === 'MODE_B' ? 'border-primary bg-primary/10 text-white' : 'border-white/10 bg-[#121c38] text-slate-300'}`}>
-                    <input
-                      type="radio"
-                      name="refundMode"
-                      value="MODE_B"
-                      checked={refundMode === 'MODE_B'}
-                      onChange={() => setRefundMode('MODE_B')}
-                      className="mt-0.5"
-                    />
-                    <div>
-                      <p className="font-bold">Chuyển khoản VietQR</p>
-                      <p className="text-[11px] text-slate-400 mt-0.5">BTC tự chuyển tiền theo danh sách đối soát hoàn tiền.</p>
-                    </div>
-                  </label>
-                  <label className={`flex items-start gap-2 p-3 rounded-xl border cursor-pointer transition ${refundMode === 'MODE_A' ? 'border-primary bg-primary/10 text-white' : 'border-white/10 bg-[#121c38] text-slate-300'}`}>
-                    <input
-                      type="radio"
-                      name="refundMode"
-                      value="MODE_A"
-                      checked={refundMode === 'MODE_A'}
-                      onChange={() => setRefundMode('MODE_A')}
-                      className="mt-0.5"
-                    />
-                    <div>
-                      <p className="font-bold">Tự động qua payOS</p>
-                      <p className="text-[11px] text-slate-400 mt-0.5">Yêu cầu đã kích hoạt Payout API trong cài đặt thanh toán.</p>
-                    </div>
-                  </label>
-                </div>
               </div>
 
               <div className="pt-1.5">

@@ -8,6 +8,8 @@ router.use(protect);
 
 router.post('/', refundsController.submitRefundRequest);
 router.post('/payout-info', refundsController.submitPayoutInfo);
+router.post('/:id/confirm-bank', refundsController.confirmPayoutBank);
+router.post('/confirm-bank', refundsController.confirmPayoutBank);
 router.post('/:id/dispute', refundsController.disputeRefund);
 router.post('/:id/confirm', refundsController.confirmReceivedRefund);
 router.get('/preview', refundsController.previewRefund);

@@ -8,36 +8,7 @@ const refundRuleEngine = require('./refundRuleEngine');
 const payosRefundService = require('./payosRefund.service');
 const notificationsService = require('../notifications/notifications.service');
 const { buildRefundConfirmationEmail } = require('./refundConfirmationEmail.service');
-
-const BIN_TO_BANK_NAME = {
-  '970436': 'Vietcombank',
-  '970415': 'VietinBank',
-  '970418': 'BIDV',
-  '970405': 'Agribank',
-  '970407': 'Techcombank',
-  '970422': 'MB Bank',
-  '970416': 'ACB',
-  '970432': 'VPBank',
-  '970423': 'TPBank',
-  '970441': 'VIB',
-  '970403': 'Sacombank',
-  '970437': 'HDBank',
-  '970443': 'SHB',
-  '970448': 'OCB',
-  '970426': 'MSB',
-  '970449': 'LPBank',
-  '970412': 'PVcomBank',
-  '970409': 'Bac A Bank',
-  '970428': 'Nam A Bank',
-  '970452': 'Kienlongbank',
-  '970454': 'BVBank',
-  '970438': 'BaoViet Bank',
-  '970400': 'Saigonbank',
-  '970433': 'VietBank',
-  '970419': 'NCB',
-  '970424': 'Shinhan Bank',
-  '970457': 'Woori Bank',
-};
+const { resolveBankName, resolveBankBin, BIN_TO_BANK_NAME } = require('../../common/utils/bankHelper');
 
 class RefundsService {
   /**
@@ -146,11 +117,14 @@ class RefundsService {
           }
 
           // 3. Bank Name
-          let resolvedBank = BIN_TO_BANK_NAME[po.payer_bank_id] || po.payer_bank_id || null;
+          let resolvedBank = resolveBankName(po.payer_bank_id);
           if (!resolvedBank && po.raw_payload) {
-            const rawData = typeof po.raw_payload === 'string' ? JSON.parse(po.raw_payload) : po.raw_payload;
-            const tx0 = rawData?.data?.transactions?.[0] || rawData?.transactions?.[0] || {};
-            resolvedBank = rawData?.data?.counterAccountBankName || rawData?.counterAccountBankName || tx0.counterAccountBankName || rawData?.data?.counterAccountBankId || null;
+            try {
+              const rawData = typeof po.raw_payload === 'string' ? JSON.parse(po.raw_payload) : po.raw_payload;
+              const tx0 = rawData?.data?.transactions?.[0] || rawData?.transactions?.[0] || {};
+              const candidate = rawData?.data?.counterAccountBankName || rawData?.counterAccountBankName || tx0.counterAccountBankName || rawData?.data?.counterAccountBankId || tx0.counterAccountBankId;
+              resolvedBank = resolveBankName(candidate) || candidate || null;
+            } catch (_) {}
           }
 
           bank_account_number = rawAccNum || null;
@@ -279,12 +253,40 @@ class RefundsService {
     }
   }
 
+  async autoCloseExpiredRefunds() {
+    try {
+      const { rows } = await db.query(`
+        UPDATE refund_requests
+        SET auto_closed_at = NOW(),
+            updated_at = NOW(),
+            audit_trail = COALESCE(audit_trail, '[]'::jsonb) || jsonb_build_array(jsonb_build_object(
+              'role', 'SYSTEM',
+              'action', 'AUTO_CLOSE_REFUND',
+              'timestamp', NOW()::text,
+              'note', 'Tự động hoàn tất sau 72 giờ không có khiếu nại.'
+            ))
+        WHERE status = 'REFUNDED'
+          AND refunded_at IS NOT NULL
+          AND refunded_at <= NOW() - INTERVAL '72 hours'
+          AND auto_closed_at IS NULL
+          AND COALESCE(disputed, false) = false
+        RETURNING id
+      `);
+      return rows;
+    } catch (err) {
+      logger.error('Failed to auto-close expired refunds:', err);
+      return [];
+    }
+  }
+
   async getCustomerRefunds(customerId, filters = {}) {
+    this.autoCloseExpiredRefunds().catch(() => {});
     const list = await refundsRepository.findByCustomer(customerId, filters);
     return list.map(this.mapRefund);
   }
 
   async getRefundDetail(refundId, userId, userRole) {
+    this.autoCloseExpiredRefunds().catch(() => {});
     const refund = await refundsRepository.findById(refundId);
     if (!refund) {
       throw new AppError('Không tìm thấy yêu cầu hoàn tiền.', 404, ErrorCodes.RESOURCE_NOT_FOUND);
@@ -311,6 +313,7 @@ class RefundsService {
   }
 
   async getOrganizerRefunds(organizerUserId, filters = {}, userRole = 'ORGANIZER') {
+    this.autoCloseExpiredRefunds().catch(() => {});
     const list = await refundsRepository.findByOrganizer(organizerUserId, filters, userRole);
     return list.map(this.mapRefund);
   }
@@ -645,7 +648,7 @@ class RefundsService {
       }
     }
 
-    const bankName = BIN_TO_BANK_NAME[row.bank_name] || row.bank_name;
+    const bankName = resolveBankName(row.bank_name) || row.bank_name;
 
     return {
       id: row.id,
@@ -668,6 +671,9 @@ class RefundsService {
       processed_by_id: row.processed_by_id,
       execution_mode: row.execution_mode,
       refund_destination_source: row.refund_destination_source,
+      customer_confirmed_bank_at: row.customer_confirmed_bank_at,
+      auto_closed_at: row.auto_closed_at,
+      order_ticket_count: row.order_ticket_count ? Number(row.order_ticket_count) : 1,
       ready_at: row.ready_at,
       due_at: row.due_at,
       disputed: Boolean(row.disputed),
@@ -818,11 +824,14 @@ class RefundsService {
           payerName = rawData?.data?.counterAccountName || rawData?.counterAccountName || tx0.counterAccountName || null;
         }
 
-        let resolvedBank = BIN_TO_BANK_NAME[po.payer_bank_id] || po.payer_bank_id || null;
+        let resolvedBank = resolveBankName(po.payer_bank_id);
         if (!resolvedBank && po.raw_payload) {
-          const rawData = typeof po.raw_payload === 'string' ? JSON.parse(po.raw_payload) : po.raw_payload;
-          const tx0 = rawData?.data?.transactions?.[0] || rawData?.transactions?.[0] || {};
-          resolvedBank = rawData?.data?.counterAccountBankName || rawData?.counterAccountBankName || tx0.counterAccountBankName || rawData?.data?.counterAccountBankId || null;
+          try {
+            const rawData = typeof po.raw_payload === 'string' ? JSON.parse(po.raw_payload) : po.raw_payload;
+            const tx0 = rawData?.data?.transactions?.[0] || rawData?.transactions?.[0] || {};
+            const candidate = rawData?.data?.counterAccountBankName || rawData?.counterAccountBankName || tx0.counterAccountBankName || rawData?.data?.counterAccountBankId || tx0.counterAccountBankId;
+            resolvedBank = resolveBankName(candidate) || candidate || null;
+          } catch (_) {}
         }
 
         if (rawAccNum || payerName || resolvedBank) {

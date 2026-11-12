@@ -1878,12 +1878,14 @@ export function AdminEventReviewDetailPage() {
                     {event.cancel_request.reason_code === 'FORCE_MAJEURE' ? 'Bất khả kháng (Thiên tai, dịch bệnh, pháp lý)' : 'Lý do từ Ban tổ chức (Kế hoạch, lịch trình, tài chính)'}
                   </strong>
                 </div>
-                <div>
-                  <span className="text-slate-400 [html.light_&]:text-slate-600 font-medium">Phương thức hoàn tiền:</span>{' '}
-                  <strong className="text-white [html.light_&]:text-[#0D1B2A]">
-                    {event.cancel_request.refund_mode === 'MODE_A' ? (isEnglish ? 'Automatic via payOS' : 'Tự động qua payOS') : (isEnglish ? 'Manual transfer VietQR' : 'Chuyển khoản thủ công VietQR')}
-                  </strong>
-                </div>
+                {event.cancel_request.refund_mode && (
+                  <div>
+                    <span className="text-slate-400 [html.light_&]:text-slate-600 font-medium">Phương thức hoàn tiền:</span>{' '}
+                    <strong className="text-white [html.light_&]:text-[#0D1B2A]">
+                      {event.cancel_request.refund_mode === 'MODE_A' ? (isEnglish ? 'Automatic via payOS' : 'Tự động qua payOS') : (isEnglish ? 'Manual transfer VietQR' : 'Chuyển khoản thủ công VietQR')}
+                    </strong>
+                  </div>
+                )}
                 <div className="md:col-span-2">
                   <span className="text-slate-400 [html.light_&]:text-slate-600 font-medium">{isEnglish ? 'Explanation:' : 'Giải trình:'}</span>
                   <p className="mt-1 text-slate-300 bg-white/[0.03] p-2 rounded border border-white/5 italic [html.light_&]:bg-rose-100/40 [html.light_&]:border-rose-200 [html.light_&]:text-[#0D1B2A]">

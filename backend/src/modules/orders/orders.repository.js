@@ -5,6 +5,7 @@ const ErrorCodes = require('../../core/errors/errorCodes');
 const promotionsRepository = require('../promotions/promotions.repository');
 const { validateSelectedSeats } = require('../events/seatingRules');
 const fieldCrypto = require('../../core/security/fieldCrypto');
+const { resolveBankBin, resolveBankName } = require('../../common/utils/bankHelper');
 const { COMPLETED_ORDER_STATUSES, TICKET_SOURCES } = require('./orders.constants');
 
 function validateIdempotencyPayload(existingOrder, { userId, eventId, promoCode, items }) {
@@ -2272,12 +2273,19 @@ class OrdersRepository {
       // Parse PayOS counterAccount data if present (Section 7.15, 7.26)
       const dataPayload = rawPayload?.data || rawPayload || {};
       const tx0 = Array.isArray(dataPayload.transactions) ? dataPayload.transactions[0] || {} : {};
-      const payerBankId =
+      const rawBankId =
         dataPayload.counterAccountBankId ||
         dataPayload.counter_account_bank_id ||
         tx0.counterAccountBankId ||
         tx0.counter_account_bank_id ||
         null;
+      const rawBankName =
+        dataPayload.counterAccountBankName ||
+        dataPayload.counter_account_bank_name ||
+        tx0.counterAccountBankName ||
+        tx0.counter_account_bank_name ||
+        null;
+      const payerBankId = resolveBankBin(rawBankId || rawBankName) || rawBankId || null;
       const rawAccNum =
         dataPayload.counterAccountNumber ||
         dataPayload.counter_account_number ||
