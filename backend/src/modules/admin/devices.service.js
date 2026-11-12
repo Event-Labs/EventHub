@@ -31,10 +31,39 @@ class AdminDevicesService {
       throw new AppError('Không tìm thấy thiết bị check-in.', 404, ErrorCodes.RESOURCE_NOT_FOUND);
     }
 
-    const recentCheckIns = await adminDevicesRepository.getRecentCheckIns(id, 20);
+    const [recentCheckIns, scanStats] = await Promise.all([
+      adminDevicesRepository.getRecentCheckIns(id, 20),
+      adminDevicesRepository.getDeviceHistoryStats(id),
+    ]);
+
     return {
       device,
       recent_checkins: recentCheckIns,
+      scan_stats: scanStats,
+    };
+  }
+
+  async getDeviceHistory(id, filters = {}) {
+    const device = await adminDevicesRepository.findById(id);
+    if (!device) {
+      throw new AppError('Không tìm thấy thiết bị check-in.', 404, ErrorCodes.RESOURCE_NOT_FOUND);
+    }
+
+    const [history, stats] = await Promise.all([
+      adminDevicesRepository.getDeviceHistory(id, filters),
+      adminDevicesRepository.getDeviceHistoryStats(id),
+    ]);
+
+    return {
+      device,
+      stats,
+      pagination: {
+        page: history.page,
+        limit: history.limit,
+        total: history.total,
+        total_pages: history.total_pages,
+      },
+      items: history.items,
     };
   }
 

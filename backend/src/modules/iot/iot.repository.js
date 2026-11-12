@@ -320,6 +320,165 @@ class IotRepository {
       client.release();
     }
   }
+
+  async recordScanLog({
+    deviceId,
+    eventId,
+    ticketId,
+    ticketCode,
+    qrCodeRaw,
+    action,
+    result,
+    success,
+    message,
+    attendeeName,
+  }) {
+    const { rows } = await db.query(
+      `
+      INSERT INTO checkin_device_logs (
+        device_id,
+        event_id,
+        ticket_id,
+        ticket_code,
+        qr_code_raw,
+        action,
+        result,
+        success,
+        message,
+        attendee_name
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      RETURNING id, scanned_at
+      `,
+      [
+        deviceId,
+        eventId || null,
+        ticketId || null,
+        ticketCode || null,
+        qrCodeRaw || null,
+        action || 'auto',
+        result,
+        Boolean(success),
+        message || null,
+        attendeeName || null,
+      ],
+    );
+    return rows[0];
+  }
+
+  async queryDeviceHistory(
+    deviceId,
+    { page = 1, limit = 20, result = 'ALL', search = '', eventId = '' } = {},
+  ) {
+    const conditions = ['l.device_id = $1'];
+    const params = [deviceId];
+
+    const normalizedResult = String(result || 'ALL').trim().toUpperCase();
+    if (normalizedResult === 'SUCCESS') {
+      conditions.push('l.success = true');
+    } else if (normalizedResult === 'FAILED') {
+      conditions.push('l.success = false');
+    } else if (normalizedResult && normalizedResult !== 'ALL') {
+      params.push(normalizedResult);
+      conditions.push(`l.result = $${params.length}`);
+    }
+
+    if (eventId) {
+      params.push(eventId);
+      conditions.push(`l.event_id = $${params.length}`);
+    }
+
+    const trimmedSearch = String(search || '').trim();
+    if (trimmedSearch) {
+      params.push(`%${trimmedSearch}%`);
+      const p = `$${params.length}`;
+      conditions.push(
+        `(COALESCE(l.ticket_code, t.ticket_code, '') ILIKE ${p} OR COALESCE(l.attendee_name, t.attendee_name, o.buyer_name, '') ILIKE ${p} OR COALESCE(l.qr_code_raw, '') ILIKE ${p} OR COALESCE(l.message, '') ILIKE ${p})`,
+      );
+    }
+
+    const whereClause = `WHERE ${conditions.join(' AND ')}`;
+    const safeLimit = Math.max(1, Math.min(100, Number(limit) || 20));
+    const safePage = Math.max(1, Number(page) || 1);
+    const offset = (safePage - 1) * safeLimit;
+
+    const countQuery = `
+      SELECT COUNT(*)::int AS total
+      FROM checkin_device_logs l
+      LEFT JOIN tickets t ON t.id = l.ticket_id
+      LEFT JOIN order_items oi ON oi.id = t.order_item_id
+      LEFT JOIN orders o ON o.id = oi.order_id
+      ${whereClause}
+    `;
+
+    const listParams = [...params, safeLimit, offset];
+    const limitIdx = params.length + 1;
+    const offsetIdx = params.length + 2;
+
+    const listQuery = `
+      SELECT
+        l.id,
+        l.device_id,
+        l.event_id,
+        l.ticket_id,
+        COALESCE(l.ticket_code, t.ticket_code) AS ticket_code,
+        l.qr_code_raw,
+        l.action,
+        l.result,
+        l.success,
+        l.message,
+        COALESCE(l.attendee_name, t.attendee_name, o.buyer_name) AS attendee_name,
+        COALESCE(t.attendee_email, o.buyer_email) AS attendee_email,
+        tt.name AS ticket_type_name,
+        e.title AS event_title,
+        e.slug AS event_code,
+        l.scanned_at
+      FROM checkin_device_logs l
+      LEFT JOIN events e ON e.id = l.event_id
+      LEFT JOIN tickets t ON t.id = l.ticket_id
+      LEFT JOIN ticket_types tt ON tt.id = t.ticket_type_id
+      LEFT JOIN order_items oi ON oi.id = t.order_item_id
+      LEFT JOIN orders o ON o.id = oi.order_id
+      ${whereClause}
+      ORDER BY l.scanned_at DESC
+      LIMIT $${limitIdx} OFFSET $${offsetIdx}
+    `;
+
+    const [countRes, listRes] = await Promise.all([
+      db.query(countQuery, params),
+      db.query(listQuery, listParams),
+    ]);
+
+    const total = countRes.rows[0]?.total || 0;
+    return {
+      items: listRes.rows,
+      total,
+      page: safePage,
+      limit: safeLimit,
+      total_pages: Math.max(1, Math.ceil(total / safeLimit)),
+    };
+  }
+
+  async getDeviceHistoryStats(deviceId) {
+    const { rows } = await db.query(
+      `
+      SELECT
+        COUNT(*)::int AS total_scans,
+        COUNT(*) FILTER (WHERE result = 'OK')::int AS ok_count,
+        COUNT(*) FILTER (WHERE result = 'VERIFIED')::int AS verified_count,
+        COUNT(*) FILTER (WHERE success = false)::int AS failed_count
+      FROM checkin_device_logs
+      WHERE device_id = $1
+      `,
+      [deviceId],
+    );
+    return rows[0] || {
+      total_scans: 0,
+      ok_count: 0,
+      verified_count: 0,
+      failed_count: 0,
+    };
+  }
 }
 
 module.exports = new IotRepository();

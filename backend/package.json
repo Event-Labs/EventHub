@@ -11,6 +11,7 @@
     "migrate:staff-direct-booking": "node scripts/run-staff-direct-booking-migration.js",
     "migrate:ticket-refund-status": "node scripts/run-ticket-refund-status-migration.js",
     "migrate:checkin-devices": "node scripts/run-create-checkin-devices-migration.js",
+    "migrate:checkin-device-logs": "node scripts/run-create-checkin-device-logs-migration.js",
     "test": "jest",
     "test:exploration": "jest --testPathPattern=bug-condition-exploration --verbose --no-coverage"
   },

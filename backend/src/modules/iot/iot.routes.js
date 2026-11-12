@@ -21,6 +21,7 @@ router.post('/devices/register', pairingLimiter, iotController.register);
 router.get('/devices/pairing-status', pairingLimiter, iotController.pairingStatus);
 
 router.post('/devices/heartbeat', deviceTrafficLimiter, requireDeviceAuth, iotController.heartbeat);
+router.get('/devices/history', deviceTrafficLimiter, requireDeviceAuth, iotController.history);
 router.post('/tickets/scan', deviceTrafficLimiter, requireDeviceAuth, iotController.scanTicket);
 
 module.exports = router;
