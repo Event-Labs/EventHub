@@ -325,6 +325,81 @@ function buildDownloadSvg(ticket) {
   return buildUniversalTicketSvg(ticket, qrUrl);
 }
 
+function mapDeviceCheckInState(state, ticket = null) {
+  const ticketCode = ticket?.ticket_code || null;
+
+  switch (state) {
+    case 'NOT_FOUND':
+      return { httpStatus: 404, success: false, result: 'NOT_FOUND', message: 'Khong tim thay ve' };
+    case 'WRONG_EVENT':
+      return {
+        httpStatus: 403,
+        success: false,
+        result: 'WRONG_EVENT',
+        ticket_code: ticketCode,
+        message: 'Ve khong thuoc su kien nay',
+      };
+    case 'ALREADY_CHECKED_IN':
+      return {
+        httpStatus: 409,
+        success: false,
+        result: 'USED',
+        ticket_code: ticketCode,
+        message: 'Ve da duoc su dung',
+      };
+    case 'SESSION_CANCELLED':
+      return {
+        httpStatus: 400,
+        success: false,
+        result: 'CANCELLED',
+        ticket_code: ticketCode,
+        message: 'Su kien hoac suat dien da bi huy',
+      };
+    case 'TICKET_REFUND_IN_PROGRESS':
+      return {
+        httpStatus: 400,
+        success: false,
+        result: 'REFUND_IN_PROGRESS',
+        ticket_code: ticketCode,
+        message: 'Ve dang xu ly hoan tien',
+      };
+    case 'INVALID_ORDER':
+      return {
+        httpStatus: 400,
+        success: false,
+        result: 'INVALID_ORDER',
+        ticket_code: ticketCode,
+        message: 'Ve chua thanh toan',
+      };
+    case 'CHECKIN_NOT_OPEN':
+      return {
+        httpStatus: 400,
+        success: false,
+        result: 'NOT_OPEN',
+        ticket_code: ticketCode,
+        message: 'Chua den gio check-in',
+      };
+    case 'EXPIRED':
+      return {
+        httpStatus: 400,
+        success: false,
+        result: 'EXPIRED',
+        ticket_code: ticketCode,
+        message: 'Ve da het han',
+      };
+    case 'TICKET_NOT_VALID':
+    case 'INVALID_STATUS':
+    default:
+      return {
+        httpStatus: 400,
+        success: false,
+        result: 'INVALID',
+        ticket_code: ticketCode,
+        message: 'Ve khong hop le',
+      };
+  }
+}
+
 class TicketsService {
   async getMyTickets(userId, filters = {}) {
     const allowedStatuses = ['VALID', 'USED', 'CANCELLED', 'EXPIRED', 'REFUNDED', 'REFUND_PENDING', 'REFUND_REQUESTED'];
@@ -465,6 +540,94 @@ class TicketsService {
     }
 
     return buildStaffTicketPayload(result.ticket);
+  }
+
+  async scanTicketForDevice(device, { qrCode, action = 'auto' } = {}) {
+    if (!device?.assigned_event_id) {
+      return {
+        httpStatus: 400,
+        success: false,
+        result: 'NO_EVENT_ASSIGNED',
+        message: 'Chua gan su kien',
+      };
+    }
+
+    const qrPayload = extractQrTicketPayload({ qr_code: qrCode });
+    if (
+      !qrPayload.ticketRef
+      || (qrPayload.type && !['EVENTHUB_TICKET', 'EH_TICKET', 'EHT', 'EH'].includes(qrPayload.type))
+    ) {
+      return {
+        httpStatus: 400,
+        success: false,
+        result: 'INVALID_QR',
+        message: 'Ma QR khong hop le',
+      };
+    }
+
+    const ticket = await ticketsRepository.findTicketByRef(qrPayload.ticketRef, device.assigned_event_id);
+    if (!ticket) {
+      return mapDeviceCheckInState('NOT_FOUND');
+    }
+
+    if (
+      ticket.event_id !== device.assigned_event_id
+      || (qrPayload.eventId && qrPayload.eventId !== device.assigned_event_id)
+    ) {
+      return mapDeviceCheckInState('WRONG_EVENT', ticket);
+    }
+
+    if (
+      (qrPayload.eventId && ticket.event_id && qrPayload.eventId !== ticket.event_id)
+      || (qrPayload.sessionId && ticket.event_session_id && qrPayload.sessionId !== ticket.event_session_id)
+    ) {
+      return {
+        httpStatus: 400,
+        success: false,
+        result: 'INVALID_QR',
+        ticket_code: ticket.ticket_code,
+        message: 'QR khong khop thong tin ve',
+      };
+    }
+
+    const invalidState = ticketsRepository.validateTicketCheckInState(ticket);
+    if (invalidState) {
+      return mapDeviceCheckInState(invalidState, ticket);
+    }
+
+    const normalizedAction = action === 'auto'
+      ? (device.auto_confirm ? 'checkin' : 'verify')
+      : action;
+
+    if (normalizedAction === 'verify') {
+      return {
+        httpStatus: 200,
+        success: true,
+        result: 'VERIFIED',
+        ticket_code: ticket.ticket_code,
+        event_code: ticket.event_slug,
+        message: 'Ve hop le',
+      };
+    }
+
+    const checkInResult = await ticketsRepository.checkInTicketByDevice(
+      ticket.id,
+      device.id,
+      device.assigned_event_id,
+    );
+
+    if (checkInResult.state !== 'CHECKED_IN') {
+      return mapDeviceCheckInState(checkInResult.state, checkInResult.ticket || ticket);
+    }
+
+    return {
+      httpStatus: 200,
+      success: true,
+      result: 'OK',
+      ticket_code: checkInResult.ticket.ticket_code,
+      event_code: checkInResult.ticket.event_slug,
+      message: 'Check-in thanh cong',
+    };
   }
 
   cancelFreeTicket = async (userId, ticketId, reason) => {

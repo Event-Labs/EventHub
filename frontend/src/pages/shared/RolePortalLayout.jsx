@@ -28,6 +28,7 @@ const NAV_LABEL_MAP = {
   'Sự kiện & Nội dung': { vi: 'Sự kiện & Nội dung', en: 'Events & Content' },
   'Loại sự kiện': { vi: 'Loại sự kiện', en: 'Categories' },
   'Duyệt sự kiện': { vi: 'Duyệt sự kiện', en: 'Event Approvals' },
+  'Thiết bị Check-in': { vi: 'Thiết bị Check-in', en: 'Check-in Devices' },
   'Tài chính & Gói dịch vụ': { vi: 'Tài chính & Gói dịch vụ', en: 'Finance & Plans' },
   'Tài chính': { vi: 'Tài chính', en: 'Finance' },
   'Quản lý khiếu nại': { vi: 'Quản lý khiếu nại', en: 'Complaints' },

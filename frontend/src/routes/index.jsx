@@ -36,6 +36,7 @@ import {
   AdminProfilePage,
   AdminEventReviewDetailPage,
   AdminEventCancellationDetailPage,
+  AdminDevicesPage,
 } from '@/pages/admin/AdminPages.jsx'
 import { AdminDisputesPage } from '@/pages/admin/AdminDisputesPage.jsx'
 import { OrganizerAnnouncementsPage } from '@/pages/organizer/OrganizerAnnouncementsPage.jsx'
@@ -130,6 +131,10 @@ export const router = createBrowserRouter([
       {
         path: 'events/cancellations/:eventId',
         element: <AdminEventCancellationDetailPage />,
+      },
+      {
+        path: 'devices',
+        element: <AdminDevicesPage />,
       },
       {
         path: 'platform-fee',

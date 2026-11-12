@@ -15,14 +15,17 @@ const STAFF_TICKET_SELECT = `
     t.created_at,
     t.checked_in_at,
     t.checked_in_by,
+    t.checked_in_device_id,
     t.checkin_method,
     e.id AS event_id,
     e.title AS event_title,
     e.slug AS event_slug,
+    e.status AS event_status,
     e.start_time AS event_start_time,
     e.end_time AS event_end_time,
     es.id AS event_session_id,
     es.session_name,
+    es.status AS session_status,
     es.start_time AS session_start_time,
     es.end_time AS session_end_time,
     es.checkin_start_time,
@@ -388,6 +391,75 @@ class TicketsRepository {
     };
   }
 
+  validateTicketCheckInState(lockedTicket) {
+    // Section 8.2: Event or Session CANCELLED -> SESSION_CANCELLED (AC-SC-02)
+    if (lockedTicket.event_status === 'CANCELLED' || lockedTicket.session_status === 'CANCELLED') {
+      return 'SESSION_CANCELLED';
+    }
+
+    // Section 8.2: Ticket REFUND_REQUESTED -> TICKET_REFUND_IN_PROGRESS (AC-SC-03)
+    if (lockedTicket.status === 'REFUND_REQUESTED') {
+      return 'TICKET_REFUND_IN_PROGRESS';
+    }
+
+    // Section 8.2: Ticket already USED -> ALREADY_CHECKED_IN
+    if (lockedTicket.status === 'USED') {
+      return 'ALREADY_CHECKED_IN';
+    }
+
+    // Section 8.2: Ticket REFUNDED, CANCELLED, EXPIRED -> TICKET_NOT_VALID
+    if (['REFUNDED', 'CANCELLED', 'EXPIRED'].includes(lockedTicket.status)) {
+      return 'TICKET_NOT_VALID';
+    }
+
+    if (lockedTicket.status !== 'VALID') {
+      return 'TICKET_NOT_VALID';
+    }
+
+    if (!COMPLETED_ORDER_STATUSES.includes(lockedTicket.order_status)) {
+      return 'INVALID_ORDER';
+    }
+
+    if (
+      lockedTicket.checkin_start_time
+      && new Date(lockedTicket.checkin_start_time).getTime() > Date.now()
+    ) {
+      return 'CHECKIN_NOT_OPEN';
+    }
+
+    if (lockedTicket.session_end_time && new Date(lockedTicket.session_end_time).getTime() < Date.now()) {
+      return 'EXPIRED';
+    }
+
+    return null;
+  }
+
+  async findTicketByRef(ticketRef, preferredEventId = null) {
+    const params = [ticketRef];
+    let orderClause = '';
+    if (preferredEventId) {
+      params.push(preferredEventId);
+      orderClause = `ORDER BY CASE WHEN t.event_id = $2 THEN 0 ELSE 1 END`;
+    }
+
+    const { rows } = await db.query(
+      `
+      ${STAFF_TICKET_SELECT}
+      WHERE e.deleted_at IS NULL
+        AND (
+          t.id::text = $1
+          OR UPPER(t.ticket_code) = UPPER($1)
+          OR t.qr_code = $1
+        )
+      ${orderClause}
+      LIMIT 1
+      `,
+      params,
+    );
+
+    return rows[0] || null;
+  }
+
   async checkInTicket(ticketId, staffId, method = 'MANUAL') {
     const client = await db.getClient();
 
@@ -451,51 +523,10 @@ class TicketsRepository {
         }
       }
 
-      // Section 8.2: Event or Session CANCELLED -> SESSION_CANCELLED (AC-SC-02)
-      if (lockedTicket.event_status === 'CANCELLED' || lockedTicket.session_status === 'CANCELLED') {
+      const invalidState = this.validateTicketCheckInState(lockedTicket);
+      if (invalidState) {
         await client.query('ROLLBACK');
-        return { state: 'SESSION_CANCELLED', ticket: lockedTicket };
-      }
-
-      // Section 8.2: Ticket REFUND_REQUESTED -> TICKET_REFUND_IN_PROGRESS (AC-SC-03)
-      if (lockedTicket.status === 'REFUND_REQUESTED') {
-        await client.query('ROLLBACK');
-        return { state: 'TICKET_REFUND_IN_PROGRESS', ticket: lockedTicket };
-      }
-
-      // Section 8.2: Ticket already USED -> ALREADY_CHECKED_IN
-      if (lockedTicket.status === 'USED') {
-        await client.query('ROLLBACK');
-        return { state: 'ALREADY_CHECKED_IN', ticket: lockedTicket };
-      }
-
-      // Section 8.2: Ticket REFUNDED, CANCELLED, EXPIRED -> TICKET_NOT_VALID
-      if (['REFUNDED', 'CANCELLED', 'EXPIRED'].includes(lockedTicket.status)) {
-        await client.query('ROLLBACK');
-        return { state: 'TICKET_NOT_VALID', ticket: lockedTicket };
-      }
-
-      if (lockedTicket.status !== 'VALID') {
-        await client.query('ROLLBACK');
-        return { state: 'TICKET_NOT_VALID', ticket: lockedTicket };
-      }
-
-      if (!COMPLETED_ORDER_STATUSES.includes(lockedTicket.order_status)) {
-        await client.query('ROLLBACK');
-        return { state: 'INVALID_ORDER', ticket: lockedTicket };
-      }
-
-      if (
-        lockedTicket.checkin_start_time
-        && new Date(lockedTicket.checkin_start_time).getTime() > Date.now()
-      ) {
-        await client.query('ROLLBACK');
-        return { state: 'CHECKIN_NOT_OPEN', ticket: lockedTicket };
-      }
-
-      if (lockedTicket.session_end_time && new Date(lockedTicket.session_end_time).getTime() < Date.now()) {
-        await client.query('ROLLBACK');
-        return { state: 'EXPIRED', ticket: lockedTicket };
+        return { state: invalidState, ticket: lockedTicket };
       }
 
       await client.query(
@@ -508,6 +539,86 @@ class TicketsRepository {
         WHERE id = $1
         `,
         [ticketId, staffId, method || 'QR'],
+      );
+
+      const ticketResult = await client.query(
+        `
+        ${STAFF_TICKET_SELECT}
+        WHERE t.id = $1
+        LIMIT 1
+        `,
+        [ticketId],
+      );
+
+      await client.query('COMMIT');
+      return { state: 'CHECKED_IN', ticket: ticketResult.rows[0] };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async checkInTicketByDevice(ticketId, deviceId, assignedEventId) {
+    const client = await db.getClient();
+
+    try {
+      await client.query('BEGIN');
+
+      const lockResult = await client.query(
+        `
+        SELECT
+          t.id,
+          t.ticket_code,
+          t.status,
+          t.event_id,
+          t.checked_in_at,
+          e.slug AS event_slug,
+          e.status AS event_status,
+          es.status AS session_status,
+          es.end_time AS session_end_time,
+          COALESCE(es.checkin_start_time, es.start_time) AS checkin_start_time,
+          o.status AS order_status
+        FROM tickets t
+        JOIN event_sessions es ON es.id = t.event_session_id
+        JOIN order_items oi ON oi.id = t.order_item_id
+        JOIN orders o ON o.id = oi.order_id
+        JOIN events e ON e.id = t.event_id
+        WHERE t.id = $1
+          AND e.deleted_at IS NULL
+        FOR UPDATE OF t
+        `,
+        [ticketId],
+      );
+
+      const lockedTicket = lockResult.rows[0];
+      if (!lockedTicket) {
+        await client.query('ROLLBACK');
+        return { state: 'NOT_FOUND' };
+      }
+
+      if (!assignedEventId || lockedTicket.event_id !== assignedEventId) {
+        await client.query('ROLLBACK');
+        return { state: 'WRONG_EVENT', ticket: lockedTicket };
+      }
+
+      const invalidState = this.validateTicketCheckInState(lockedTicket);
+      if (invalidState) {
+        await client.query('ROLLBACK');
+        return { state: invalidState, ticket: lockedTicket };
+      }
+
+      await client.query(
+        `
+        UPDATE tickets
+        SET status = 'USED',
+            checked_in_at = now(),
+            checked_in_device_id = $2,
+            checkin_method = 'ESP32_QR'
+        WHERE id = $1
+        `,
+        [ticketId, deviceId],
       );
 
       const ticketResult = await client.query(

@@ -21,6 +21,8 @@ const adminAnalyticsRoutes = require('./modules/admin/analytics.routes');
 const adminOrganizerRoutes = require('./modules/admin/organizers.routes');
 const adminProfileRoutes = require('./modules/admin/profile.routes');
 const adminComplaintRoutes = require('./modules/admin/complaints.routes');
+const adminDevicesRoutes = require('./modules/admin/devices.routes');
+const iotRoutes = require('./modules/iot/iot.routes');
 const complaintRoutes = require('./modules/complaints/complaints.routes');
 const organizerRequestRoutes = require('./modules/organizer-requests/organizerRequests.routes');
 const feedbackRoutes = require('./modules/feedbacks/feedbacks.routes');
@@ -74,6 +76,11 @@ app.use('/api/admin/analytics', adminAnalyticsRoutes);
 app.use('/api/admin/organizers', adminOrganizerRoutes);
 app.use('/api/admin/profile', adminProfileRoutes);
 app.use('/api/admin/complaints', adminComplaintRoutes);
+app.use('/api/admin/devices', adminDevicesRoutes);
+
+// IoT hardware routes (/api/iot/v1/... and /v1/... alias)
+app.use('/api/iot/v1', iotRoutes);
+app.use('/v1', iotRoutes);
 
 app.use('/api/complaints', complaintRoutes);
 app.use('/api/organizer-requests', organizerRequestRoutes);

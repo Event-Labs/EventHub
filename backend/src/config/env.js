@@ -49,6 +49,11 @@ const envSchema = z.object({
     BCRYPT_SALT_ROUNDS: z.string().transform(Number).default('10'),
     EMAIL_VERIFY_EXPIRES_IN: z.string().transform(Number).default('86400'),
     PASSWORD_RESET_EXPIRES_IN: z.string().transform(Number).default('3600'),
+
+    IOT_PAIRING_TTL_MINUTES: z.coerce.number().int().min(1).max(120).default(15),
+    IOT_PENDING_SECRET_TTL_MINUTES: z.coerce.number().int().min(1).max(60).default(10),
+    IOT_HEARTBEAT_ONLINE_THRESHOLD_SEC: z.coerce.number().int().min(15).max(3600).default(90),
+    IOT_POLL_INTERVAL_SEC: z.coerce.number().int().min(1).max(60).default(4),
 });
 
 const result = envSchema.safeParse(process.env);
