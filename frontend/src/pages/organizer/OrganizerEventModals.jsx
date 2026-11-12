@@ -154,13 +154,17 @@ export function ToggleHideConfirmModal({ event, onConfirm, onClose, loading }) {
         )}
 
         {/* Warning / Note */}
-        <div className={`mt-4 rounded-xl border p-3 text-xs ${isCurrentlyHidden ? 'border-primary/30 bg-primary/10 text-primary-200' : 'border-amber-500/30 bg-amber-500/10 text-amber-200'}`}>
+        <div className={`mt-4 rounded-xl border p-3 text-xs ${
+          isCurrentlyHidden
+            ? 'border-primary/30 bg-primary/10 text-primary-200 [html.light_&]:border-[#C99A47]/40 [html.light_&]:bg-[#C99A47]/15 [html.light_&]:text-[#5c3e0a] font-medium'
+            : 'border-amber-500/30 bg-amber-500/10 text-amber-200 [html.light_&]:border-amber-500/40 [html.light_&]:bg-amber-500/15 [html.light_&]:text-amber-950 font-medium'
+        }`}>
           {isCurrentlyHidden ? (
             <p>💡 Người dùng có thể tìm thấy sự kiện và tiếp tục xem thông tin bình thường sau khi mở lại.</p>
           ) : (
             <div className="space-y-1">
               <p>⚠️ <strong>Lưu ý:</strong> Khi tạm ẩn sự kiện, tính năng bán vé sẽ <strong>tự động tạm dừng</strong>.</p>
-              <p className="text-amber-300/80">Bạn cần hiện lại sự kiện trước nếu muốn tiếp tục mở bán vé cho khách hàng.</p>
+              <p className="text-amber-300/80 [html.light_&]:text-amber-900 font-medium">Bạn cần hiện lại sự kiện trước nếu muốn tiếp tục mở bán vé cho khách hàng.</p>
             </div>
           )}
         </div>
@@ -440,8 +444,8 @@ export function ToggleSalesConfirmModal({ event, onConfirm, onClose, loading }) 
 
         {/* If event is hidden, explain that sales cannot resume until unhidden */}
         {isCurrentlyPaused && isHidden ? (
-          <div className="mt-4 rounded-xl border border-rose-500/40 bg-rose-500/15 p-3.5 text-xs text-rose-200">
-            <p className="font-bold flex items-center gap-1.5 text-rose-300 mb-1">
+          <div className="mt-4 rounded-xl border border-rose-500/40 bg-rose-500/15 p-3.5 text-xs text-rose-200 [html.light_&]:border-rose-500/40 [html.light_&]:bg-rose-500/15 [html.light_&]:text-rose-950 font-medium">
+            <p className="font-bold flex items-center gap-1.5 text-rose-300 [html.light_&]:text-rose-900 mb-1">
               <AlertTriangle className="size-4 shrink-0" /> Sự kiện đang ở trạng thái TẠM ẨN
             </p>
             <p>
@@ -859,7 +863,11 @@ export function ToggleSalesConfirmModal({ event, onConfirm, onClose, loading }) 
         ) : null}
 
         {!isHidden && (
-          <div className={`mt-4 rounded-xl border p-3 text-xs ${isCurrentlyPaused ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200' : 'border-amber-500/30 bg-amber-500/10 text-amber-200'}`}>
+          <div className={`mt-4 rounded-xl border p-3 text-xs ${
+            isCurrentlyPaused
+              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200 [html.light_&]:border-emerald-600/40 [html.light_&]:bg-emerald-500/15 [html.light_&]:text-emerald-950 font-medium'
+              : 'border-amber-500/30 bg-amber-500/10 text-amber-200 [html.light_&]:border-amber-500/40 [html.light_&]:bg-amber-500/15 [html.light_&]:text-amber-950 font-medium'
+          }`}>
             {isCurrentlyPaused ? (
               <p>Các loại vé và ghế còn số lượng sẽ ngay lập tức mở cho khách hàng đặt mua.</p>
             ) : (
@@ -1072,7 +1080,7 @@ export function CancelOrRequestCancelModal({ event, onConfirm, onClose, loading,
                 placeholder="Nhập lý do hủy sự kiện..."
                 className="w-full rounded-xl border border-white/15 bg-[#121c38] p-3 text-sm text-white placeholder:text-slate-500 outline-none focus:border-primary resize-none"
               />
-              <div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">
+              <div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200 [html.light_&]:border-amber-500/40 [html.light_&]:bg-amber-500/15 [html.light_&]:text-amber-950 font-medium">
                 <p className="font-semibold">⚠️ Lưu ý:</p>
                 <p className="mt-0.5">Sự kiện sẽ bị hủy ngay lập tức và chuyển sang trạng thái đã hủy. Hành động này không thể hoàn tác.</p>
               </div>
@@ -1184,7 +1192,7 @@ export function DeleteDraftConfirmModal({ event, onConfirm, onClose, loading }) 
           </p>
         </div>
 
-        <div className="mt-4 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-300">
+        <div className="mt-4 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-300 [html.light_&]:border-rose-500/40 [html.light_&]:bg-rose-500/15 [html.light_&]:text-rose-950 font-medium">
           ⚠️ Hành động này sẽ xóa hoàn toàn thông tin sự kiện và các hạng vé dự thảo khỏi hệ thống.
         </div>
 

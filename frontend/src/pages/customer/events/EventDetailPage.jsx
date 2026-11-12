@@ -7,14 +7,12 @@ import {
   ChevronUp,
   Heart,
   MapPin,
-  ShieldAlert,
   UserCircle,
   XCircle,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { fetchEventDetail, toggleFavorite } from '@/services/events.js'
-import { CustomerComplaintModal } from '@/components/CustomerComplaintModal.jsx'
 import { cn } from '@/lib/utils.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { optimisticallySetFavorite, refreshFavoriteQueries, restoreFavoriteSnapshots } from '@/lib/favoriteCache.js'
@@ -147,7 +145,6 @@ export function EventDetailPage() {
   const [selectedSessionId, setSelectedSessionId] = useState(null)
   const [bookingError, setBookingError] = useState('')
   const [currentTime, setCurrentTime] = useState(() => Date.now())
-  const [complaintModalOpen, setComplaintModalOpen] = useState(false)
 
   const eventQuery = useQuery({
     queryKey: ['event-detail', eventId],
@@ -613,11 +610,6 @@ export function EventDetailPage() {
                             <p className="text-sm font-semibold text-white">
                               {formatTime(session.start_time, isEnglish)} - {formatTime(session.end_time, isEnglish)}
                             </p>
-                            {isPaused && (
-                              <span className="rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-400">
-                                {isEnglish ? 'Sales Paused' : 'Tạm dừng bán vé'}
-                              </span>
-                            )}
                           </div>
                           <p className="font-bold text-primary">
                             {formatShortDate(session.start_time, isEnglish)}
@@ -779,18 +771,6 @@ export function EventDetailPage() {
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => {
-                  if (requireLogin()) return
-                  setComplaintModalOpen(true)
-                }}
-                className="grid size-10 place-items-center rounded-full border border-white/15 bg-white/5 text-slate-400 hover:border-rose-500/40 hover:bg-rose-500/10 hover:text-rose-400 transition-all duration-200 outline-none cursor-pointer"
-                title={isEnglish ? 'File complaint / report about this event' : 'Báo cáo / Khiếu nại sự kiện này'}
-                aria-label={isEnglish ? 'Report event' : 'Khiếu nại sự kiện'}
-              >
-                <ShieldAlert className="size-5 text-rose-400" />
-              </button>
-              <button
-                type="button"
                 onClick={handleFavorite}
                 disabled={favoriteMutation.isPending}
                 className={cn(
@@ -840,14 +820,6 @@ export function EventDetailPage() {
 
           <div className="mt-8 border-t border-white/10 pt-8">
             {/* Warning note inside booking panel */}
-            {isPaused && (
-              <div className="mb-5 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-xs text-amber-200 flex items-start gap-2.5">
-                <AlertTriangle className="size-4 shrink-0 text-amber-400 mt-0.5" />
-                <span className="leading-relaxed">
-                  <strong>{isEnglish ? 'Sales Paused:' : 'Tạm dừng bán vé:'}</strong> {isEnglish ? 'The organizer is currently not accepting new bookings for this event.' : 'Ban tổ chức hiện đang tạm dừng nhận đơn đặt vé mới cho sự kiện này.'}
-                </span>
-              </div>
-            )}
             {isCancelled && (
               <div className="mb-5 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3.5 text-xs text-rose-200 flex items-start gap-2.5">
                 <XCircle className="size-4 shrink-0 text-rose-400 mt-0.5" />
@@ -856,7 +828,7 @@ export function EventDetailPage() {
                 </span>
               </div>
             )}
-            {isEnded && !isPaused && !isCancelled && (
+            {isEnded && !isCancelled && (
               <div className="mb-5 rounded-xl border border-slate-700 bg-slate-800/60 p-3.5 text-xs text-slate-300 flex items-start gap-2.5">
                 <AlertTriangle className="size-4 shrink-0 text-slate-400 mt-0.5" />
                 <span className="leading-relaxed">
@@ -873,25 +845,21 @@ export function EventDetailPage() {
             <button
               type="button"
               onClick={handleBook}
-              disabled={isPaused || isCancelled || isSuspended || isEnded || selectedSessionExpired || !selectedSession}
+              disabled={isCancelled || isSuspended || isEnded || selectedSessionExpired || !selectedSession}
               className={cn(
                 'w-full py-4 text-lg font-bold rounded-full transition-all select-none',
-                isPaused
-                  ? 'bg-amber-950/40 text-amber-300/80 border border-amber-500/30 cursor-not-allowed opacity-80'
-                  : (isCancelled || isSuspended || isEnded)
-                    ? 'bg-slate-800 text-slate-400 border border-white/10 cursor-not-allowed opacity-60'
-                    : 'hover:brightness-110 hover:shadow-[0_0_28px_rgba(201,154,71,0.7)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer'
+                (isCancelled || isSuspended || isEnded)
+                  ? 'bg-slate-800 text-slate-400 border border-white/10 cursor-not-allowed opacity-60'
+                  : 'hover:brightness-110 hover:shadow-[0_0_28px_rgba(201,154,71,0.7)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer'
               )}
               style={
-                (isPaused || isCancelled || isSuspended || isEnded)
+                (isCancelled || isSuspended || isEnded)
                   ? undefined
                   : { background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }
               }
             >
               {isHiddenByOrganizer
                 ? (isEnglish ? 'Event Hidden' : 'Sự kiện đang tạm ẩn')
-                : isPaused
-                  ? (isEnglish ? 'Sales Paused' : 'Tạm dừng bán vé')
                 : isCancelled
                   ? (isEnglish ? 'Event Cancelled' : 'Sự kiện đã bị hủy')
                   : isSuspended
@@ -934,36 +902,23 @@ export function EventDetailPage() {
               if (el) el.scrollIntoView({ behavior: 'smooth' })
             }
           }}
-          disabled={isPaused || isCancelled || isSuspended || isEnded || selectedSessionExpired}
+          disabled={isCancelled || isSuspended || isEnded || selectedSessionExpired}
           className="rounded-full px-5 py-2.5 text-sm font-extrabold shadow-md transition-all active:scale-95 disabled:opacity-50"
           style={
-            (isPaused || isCancelled || isSuspended || isEnded)
+            (isCancelled || isSuspended || isEnded)
               ? { background: '#1e293b', color: '#94a3b8' }
               : { background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }
           }
         >
-          {isPaused
-            ? (isEnglish ? 'Paused' : 'Tạm dừng')
-            : isCancelled
-              ? (isEnglish ? 'Cancelled' : 'Đã hủy')
-              : isEnded
-                ? (isEnglish ? 'Ended' : 'Đã kết thúc')
-                : selectedSession
-                  ? (isEnglish ? 'Book Now' : 'Đặt vé ngay')
-                  : (isEnglish ? 'Select showtime' : 'Chọn suất diễn')}
+          {isCancelled
+            ? (isEnglish ? 'Cancelled' : 'Đã hủy')
+            : isEnded
+              ? (isEnglish ? 'Ended' : 'Đã kết thúc')
+              : selectedSession
+                ? (isEnglish ? 'Book Now' : 'Đặt vé ngay')
+                : (isEnglish ? 'Select showtime' : 'Chọn suất diễn')}
         </button>
       </div>
-
-      <CustomerComplaintModal
-        isOpen={complaintModalOpen}
-        onClose={() => setComplaintModalOpen(false)}
-        initialData={{
-          eventId: event?.id,
-          eventTitle: event?.title,
-          organizerId: event?.organizer_id,
-          organizerName: event?.organizer?.business_name || event?.organizer?.organization_name || event?.organizer?.full_name,
-        }}
-      />
     </div>
   )
 }

@@ -715,3 +715,42 @@ export function formatNotificationDisplay(notification, isEnglish = false) {
 
   return { title, content, preview }
 }
+
+const ORGANIZER_OR_REJECTED_TITLE_PATTERNS = [
+  /^Yêu cầu hủy sự kiện/i,
+  /^Event Cancellation Request/i,
+  /^Sự kiện đã bị hủy cưỡng chế$/i,
+  /^Event Forcefully Cancelled$/i,
+  /^Yêu cầu hoàn tiền vé mới$/i,
+  /^New Ticket Refund Request$/i,
+  /^Khiếu nại hoàn tiền:/i,
+  /^Refund Dispute:/i,
+  /^Khách hàng đã nhận được tiền hoàn$/i,
+  /^Customer Confirmed Refund Receipt$/i,
+  /^Yêu cầu hoàn tiền vé đã bị từ chối$/i,
+  /^Ticket Refund Request Rejected$/i,
+]
+
+export function isCustomerCancellationOrRefundNotification(notification) {
+  if (!notification || notification.title === 'STAFF_INVITATION') return false
+  const title = typeof notification.title === 'string' ? notification.title.trim() : ''
+  const content = stripNotificationHtml(typeof notification.content === 'string' ? notification.content : '')
+
+  if (ORGANIZER_OR_REJECTED_TITLE_PATTERNS.some((pattern) => pattern.test(title))) {
+    return false
+  }
+
+  const isEventCancellationNotice =
+    /^Sự kiện\s*".*"\s*đã bị hủy$/i.test(title) ||
+    /^Event\s*".*"\s*has been cancelled$/i.test(title) ||
+    /đã chính thức bị hủy|has been officially cancelled|tạo yêu cầu hoàn tiền 100%|100% refund request/i.test(content)
+
+  const isRefundGrantedNotice =
+    /^Hoàn tiền vé thành công$/i.test(title) ||
+    /^Ticket Refund Successful$/i.test(title) ||
+    /hoàn tiền vé thành công|yêu cầu hoàn tiền (vé|đơn)\s+.*\s+đã hoàn tất|refund request for (ticket|order)\s+.*\s+has been completed/i.test(
+      `${title}\n${content}`,
+    )
+
+  return isEventCancellationNotice || isRefundGrantedNotice
+}

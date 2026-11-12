@@ -476,10 +476,43 @@ function parseAttributes(rawAttrs) {
   return attrs;
 }
 
+function parseRgbColor(raw) {
+  if (!raw || typeof raw !== 'string') return null;
+  const val = raw.trim().toLowerCase();
+  if (val === 'transparent') return { r: 0, g: 0, b: 0, a: 0 };
+  if (val === 'white') return { r: 255, g: 255, b: 255, a: 1 };
+  if (val === 'black') return { r: 0, g: 0, b: 0, a: 1 };
+
+  const hex3 = /^#([0-9a-f]{3})$/i.exec(val);
+  if (hex3) {
+    const [r, g, b] = hex3[1].split('').map((c) => Number.parseInt(c + c, 16));
+    return { r, g, b, a: 1 };
+  }
+  const hex6 = /^#([0-9a-f]{6})$/i.exec(val);
+  if (hex6) {
+    return {
+      r: Number.parseInt(hex6[1].slice(0, 2), 16),
+      g: Number.parseInt(hex6[1].slice(2, 4), 16),
+      b: Number.parseInt(hex6[1].slice(4, 6), 16),
+      a: 1,
+    };
+  }
+  const rgbMatch = /^rgba?\(\s*([0-9.]+)\s*,\s*([0-9.]+)\s*,\s*([0-9.]+)(?:\s*,\s*([0-9.]+))?\s*\)$/i.exec(val);
+  if (rgbMatch) {
+    return {
+      r: Number(rgbMatch[1]),
+      g: Number(rgbMatch[2]),
+      b: Number(rgbMatch[3]),
+      a: rgbMatch[4] === undefined ? 1 : Number(rgbMatch[4]),
+    };
+  }
+  return null;
+}
+
 function sanitizeInlineStyle(rawStyle) {
   if (!rawStyle || typeof rawStyle !== 'string') return '';
   const declarations = rawStyle.split(';');
-  const safeParts = [];
+  const parsed = [];
 
   for (const decl of declarations) {
     const colonIdx = decl.indexOf(':');
@@ -515,7 +548,38 @@ function sanitizeInlineStyle(rawStyle) {
       continue;
     }
 
-    safeParts.push(`${normalizedProp}: ${val}`);
+    parsed.push({ prop: normalizedProp, val });
+  }
+
+  // Filter out transparent/white pasted backgrounds so Dark Mode never renders white copy-paste boxes;
+  // and drop unbacked neutral white or copy-pasted black text colors so both Light & Dark modes stay readable.
+  let hasIntentionalBg = false;
+  const filteredBg = parsed.filter(({ prop, val }) => {
+    if (prop !== 'background-color') return true;
+    const rgb = parseRgbColor(val);
+    if (rgb && (rgb.a === 0 || (rgb.r >= 242 && rgb.g >= 242 && rgb.b >= 242))) {
+      return false;
+    }
+    hasIntentionalBg = true;
+    return true;
+  });
+
+  const safeParts = [];
+  for (const { prop, val } of filteredBg) {
+    if (prop === 'color' && !hasIntentionalBg) {
+      const rgb = parseRgbColor(val);
+      if (rgb) {
+        const max = Math.max(rgb.r, rgb.g, rgb.b);
+        const min = Math.min(rgb.r, rgb.g, rgb.b);
+        const chroma = max - min;
+        const isNearWhite = rgb.r >= 225 && rgb.g >= 225 && rgb.b >= 225;
+        const isNeutralNearBlack = chroma <= 24 && max <= 75;
+        if (isNearWhite || isNeutralNearBlack) {
+          continue;
+        }
+      }
+    }
+    safeParts.push(`${prop}: ${val}`);
   }
 
   return safeParts.join('; ');
@@ -890,11 +954,11 @@ function renderAttachmentsSection({ images, files }, copy) {
   const imageBlocks = images
     .map(
       (img) => `
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 12px; border: 1px solid #D8E6F5; border-radius: 12px; background-color: #FFFFFF; overflow: hidden;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#FFFFFF" class="eh-attach-card" style="margin-bottom: 12px; border: 1px solid #D8E6F5; border-radius: 12px; background-color: #FFFFFF; overflow: hidden;">
         <tr>
           <td style="padding: 10px 10px 0 10px; line-height: 0;">
             <a href="${escapeHtml(img.url)}" target="_blank" rel="noopener noreferrer" style="display: block; text-decoration: none;">
-              <img src="${escapeHtml(img.url)}" alt="${escapeHtml(img.filename)}" style="display: block; width: 100%; max-width: 100%; height: auto; max-height: 360px; object-fit: contain; border-radius: 8px; border: 0; background-color: #F8FAFC;" />
+              <img src="${escapeHtml(img.url)}" alt="${escapeHtml(img.filename)}" class="eh-attach-item" style="display: block; width: 100%; max-width: 100%; height: auto; max-height: 360px; object-fit: contain; border-radius: 8px; border: 0; background-color: #F8FAFC;" />
             </a>
           </td>
         </tr>
@@ -902,11 +966,11 @@ function renderAttachmentsSection({ images, files }, copy) {
           <td style="padding: 10px 14px;">
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
               <tr>
-                <td style="vertical-align: middle; font-size: 13px; font-weight: 600; color: #081126; word-break: break-word;">
-                  ${escapeHtml(img.filename)}${img.sizeLabel ? ` <span style="font-weight: 400; color: #64748B;">(${escapeHtml(img.sizeLabel)})</span>` : ''}
+                <td class="eh-heading" style="vertical-align: middle; font-size: 13px; font-weight: 600; color: #081126; word-break: break-word;">
+                  ${escapeHtml(img.filename)}${img.sizeLabel ? ` <span class="eh-text-muted" style="font-weight: 400; color: #475569;">(${escapeHtml(img.sizeLabel)})</span>` : ''}
                 </td>
                 <td align="right" style="vertical-align: middle; white-space: nowrap; padding-left: 10px;">
-                  <a href="${escapeHtml(img.url)}" target="_blank" rel="noopener noreferrer" style="font-size: 12.5px; font-weight: 700; color: #2B5C92; text-decoration: underline;">
+                  <a href="${escapeHtml(img.url)}" target="_blank" rel="noopener noreferrer" class="eh-accent-label" style="font-size: 12.5px; font-weight: 700; color: #2B5C92; text-decoration: underline;">
                     ${escapeHtml(copy.openImageLabel)} &rsaquo;
                   </a>
                 </td>
@@ -921,14 +985,15 @@ function renderAttachmentsSection({ images, files }, copy) {
   const fileRows = files
     .map((file, idx) => {
       const badge = getFileBadgePalette(file.extension);
-      const divider = idx < files.length - 1 ? 'border-bottom: 1px solid #E2E8F0;' : '';
+      const dividerStyle = idx < files.length - 1 ? 'border-bottom: 1px solid #E2E8F0;' : '';
+      const dividerClass = idx < files.length - 1 ? ' class="eh-divider"' : '';
       return `
       <tr>
-        <td style="padding: 10px 0; ${divider}">
+        <td${dividerClass} style="padding: 10px 0; ${dividerStyle}">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
             <tr>
               <td width="48" style="vertical-align: middle; padding-right: 12px;">
-                <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="width: 44px; height: 32px; background-color: ${badge.bg}; border: 1px solid ${badge.border}; border-radius: 8px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" bgcolor="${badge.bg}" style="width: 44px; height: 32px; background-color: ${badge.bg}; border: 1px solid ${badge.border}; border-radius: 8px;">
                   <tr>
                     <td align="center" valign="middle" style="font-size: 10px; font-weight: 800; color: ${badge.text}; letter-spacing: 0.4px;">
                       ${escapeHtml(file.extension)}
@@ -937,17 +1002,17 @@ function renderAttachmentsSection({ images, files }, copy) {
                 </table>
               </td>
               <td style="vertical-align: middle; word-break: break-word;">
-                <a href="${escapeHtml(file.url)}" target="_blank" rel="noopener noreferrer" style="font-size: 13.5px; font-weight: 700; color: #081126; text-decoration: none; word-break: break-word;">
+                <a href="${escapeHtml(file.url)}" target="_blank" rel="noopener noreferrer" class="eh-heading" style="font-size: 13.5px; font-weight: 700; color: #081126; text-decoration: none; word-break: break-word;">
                   ${escapeHtml(file.filename)}
                 </a>
                 ${
                   file.sizeLabel
-                    ? `<div style="font-size: 11.5px; color: #64748B; margin-top: 2px;">${escapeHtml(file.sizeLabel)}</div>`
+                    ? `<div class="eh-text-muted" style="font-size: 11.5px; color: #475569; margin-top: 2px;">${escapeHtml(file.sizeLabel)}</div>`
                     : ''
                 }
               </td>
               <td align="right" style="vertical-align: middle; white-space: nowrap; padding-left: 12px;">
-                <a href="${escapeHtml(file.url)}" target="_blank" rel="noopener noreferrer" style="display: inline-block; padding: 6px 12px; background-color: #EFF6FF; border: 1px solid #B3CDE0; border-radius: 8px; font-size: 12px; font-weight: 700; color: #122155; text-decoration: none;">
+                <a href="${escapeHtml(file.url)}" target="_blank" rel="noopener noreferrer" class="eh-download-btn" style="display: inline-block; padding: 6px 12px; background-color: #EFF6FF; border: 1px solid #B3CDE0; border-radius: 8px; font-size: 12px; font-weight: 700; color: #122155; text-decoration: none;">
                   ${escapeHtml(copy.downloadFileLabel)}
                 </a>
               </td>
@@ -962,7 +1027,7 @@ function renderAttachmentsSection({ images, files }, copy) {
     ${
       images.length > 0
         ? `<div style="margin-top: 18px;">
-             <div style="font-size: 11px; font-weight: 800; color: #2B5C92; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px;">
+             <div class="eh-accent-label" style="font-size: 11px; font-weight: 800; color: #2B5C92; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px;">
                &#128247; &nbsp;${escapeHtml(copy.attachedImagesLabel(images.length))}
              </div>
              ${imageBlocks}
@@ -971,8 +1036,8 @@ function renderAttachmentsSection({ images, files }, copy) {
     }
     ${
       files.length > 0
-        ? `<div style="margin-top: 18px; background-color: #F8FBFF; border: 1px solid #D8E6F5; border-radius: 12px; padding: 14px 16px;">
-             <div style="font-size: 11px; font-weight: 800; color: #2B5C92; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px;">
+        ? `<div class="eh-attach-card" style="margin-top: 18px; background-color: #F8FBFF; border: 1px solid #D8E6F5; border-radius: 12px; padding: 14px 16px;">
+             <div class="eh-accent-label" style="font-size: 11px; font-weight: 800; color: #2B5C92; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px;">
                &#128206; &nbsp;${escapeHtml(copy.attachedFilesLabel(files.length))}
              </div>
              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
@@ -1050,6 +1115,8 @@ function buildOrganizerAnnouncementHtml(data = {}) {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="supported-color-schemes" content="light dark" />
   <title>${escapeHtml(notificationTitle)} - ${escapeHtml(eventName)}</title>
   <!--[if mso]>
   <noscript>
@@ -1061,9 +1128,29 @@ function buildOrganizerAnnouncementHtml(data = {}) {
   </noscript>
   <![endif]-->
   <style type="text/css">
+    :root {
+      color-scheme: light dark;
+      supported-color-schemes: light dark;
+    }
     body, table, td, p, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
     table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
     img { -ms-interpolation-mode: bicubic; border: 0; outline: none; text-decoration: none; }
+    a[x-apple-data-detectors] {
+      color: inherit !important;
+      text-decoration: none !important;
+      font-size: inherit !important;
+      font-family: inherit !important;
+      font-weight: inherit !important;
+      line-height: inherit !important;
+    }
+    u + #eh-body a {
+      color: inherit;
+      text-decoration: none;
+      font-size: inherit;
+      font-family: inherit;
+      font-weight: inherit;
+      line-height: inherit;
+    }
     @media only screen and (max-width: 720px) {
       .eh-wrapper { padding: 10px 6px !important; }
       .eh-card-pad { padding: 20px 16px !important; }
@@ -1071,16 +1158,66 @@ function buildOrganizerAnnouncementHtml(data = {}) {
       .eh-footer-pad { padding: 22px 16px !important; }
       .eh-h1 { font-size: 21px !important; }
     }
+    @media (prefers-color-scheme: dark) {
+      .eh-canvas { background-color: #0B1120 !important; color: #E2E8F0 !important; }
+      .eh-main-card { background-color: #0F172A !important; border-color: #1E3A5F !important; }
+      .eh-body-bg { background-color: #0F172A !important; }
+      .eh-header-bg, .eh-footer-bg { background-color: #081126 !important; }
+      .eh-header-title { color: #FFFFFF !important; }
+      .eh-header-subtitle { color: #CBD5E1 !important; }
+      .eh-content-card { background-color: #162238 !important; border-color: #2B5C92 !important; }
+      .eh-event-card { background-color: #162238 !important; border-color: #2B5C92 !important; }
+      .eh-attach-card { background-color: #162238 !important; border-color: #334155 !important; }
+      .eh-attach-item { background-color: #0F172A !important; }
+      .eh-heading, .eh-heading strong, .eh-heading a { color: #F8FAFC !important; }
+      .eh-text-body { color: #E2E8F0 !important; }
+      .eh-text-body p:not([style*="background-color"]), .eh-text-body li:not([style*="background-color"]), .eh-text-body div:not([style*="background-color"]), .eh-text-body td:not([style*="background-color"]) { color: #E2E8F0 !important; }
+      .eh-text-body span:not([style*="color"]):not([style*="background-color"]) { color: #E2E8F0 !important; }
+      .eh-text-body h1, .eh-text-body h2, .eh-text-body h3, .eh-text-body h4, .eh-text-body strong, .eh-text-body b, .eh-text-body th { color: #F8FAFC !important; }
+      .eh-text-body blockquote { background-color: #1E293B !important; border-left-color: #38BDF8 !important; color: #E2E8F0 !important; }
+      .eh-text-body pre, .eh-text-body code { background-color: #0B1220 !important; border-color: #334155 !important; color: #E2E8F0 !important; }
+      .eh-text-body th { background-color: #1E293B !important; border-color: #334155 !important; }
+      .eh-text-body td { border-color: #334155 !important; }
+      .eh-text-body hr { border-top-color: #334155 !important; }
+      .eh-text-body a { color: #38BDF8 !important; }
+      .eh-text-muted { color: #CBD5E1 !important; }
+      .eh-accent-label { color: #7DD3FC !important; }
+      .eh-divider { background-color: #2B3B55 !important; border-color: #2B3B55 !important; }
+      .eh-icon-box { background-color: #1E3A5F !important; border-color: #38BDF8 !important; }
+      .eh-download-btn { background-color: #1E3A5F !important; border-color: #38BDF8 !important; color: #F8FAFC !important; }
+      .eh-footer-text { color: #CBD5E1 !important; }
+      .eh-footer-link { color: #38BDF8 !important; }
+    }
+    [data-ogsc] .eh-canvas { background-color: #0B1120 !important; color: #E2E8F0 !important; }
+    [data-ogsc] .eh-main-card { background-color: #0F172A !important; border-color: #1E3A5F !important; }
+    [data-ogsc] .eh-body-bg { background-color: #0F172A !important; }
+    [data-ogsc] .eh-header-bg, [data-ogsc] .eh-footer-bg { background-color: #081126 !important; }
+    [data-ogsc] .eh-header-title { color: #FFFFFF !important; }
+    [data-ogsc] .eh-header-subtitle { color: #CBD5E1 !important; }
+    [data-ogsc] .eh-content-card { background-color: #162238 !important; border-color: #2B5C92 !important; }
+    [data-ogsc] .eh-event-card { background-color: #162238 !important; border-color: #2B5C92 !important; }
+    [data-ogsc] .eh-attach-card { background-color: #162238 !important; border-color: #334155 !important; }
+    [data-ogsc] .eh-heading, [data-ogsc] .eh-heading strong, [data-ogsc] .eh-heading a { color: #F8FAFC !important; }
+    [data-ogsc] .eh-text-body, [data-ogsc] .eh-text-body p:not([style*="background-color"]), [data-ogsc] .eh-text-body li:not([style*="background-color"]), [data-ogsc] .eh-text-body td:not([style*="background-color"]) { color: #E2E8F0 !important; }
+    [data-ogsc] .eh-text-body span:not([style*="color"]):not([style*="background-color"]) { color: #E2E8F0 !important; }
+    [data-ogsc] .eh-text-body a { color: #38BDF8 !important; }
+    [data-ogsc] .eh-text-muted { color: #CBD5E1 !important; }
+    [data-ogsc] .eh-accent-label { color: #7DD3FC !important; }
+    [data-ogsc] .eh-divider { background-color: #2B3B55 !important; border-color: #2B3B55 !important; }
+    [data-ogsc] .eh-icon-box { background-color: #1E3A5F !important; border-color: #38BDF8 !important; }
+    [data-ogsc] .eh-download-btn { background-color: #1E3A5F !important; border-color: #38BDF8 !important; color: #F8FAFC !important; }
+    [data-ogsc] .eh-footer-text { color: #CBD5E1 !important; }
+    [data-ogsc] .eh-footer-link { color: #38BDF8 !important; }
   </style>
 </head>
-<body style="margin: 0; padding: 0; background-color: #EAF1F8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1E293B; -webkit-font-smoothing: antialiased;">
+<body id="eh-body" class="eh-canvas" bgcolor="#EAF1F8" style="margin: 0; padding: 0; background-color: #EAF1F8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1E293B; -webkit-font-smoothing: antialiased;">
   <!-- Preheader -->
   <div style="display: none; font-size: 1px; color: #EAF1F8; line-height: 1px; max-height: 0px; max-width: 0px; opacity: 0; overflow: hidden;">
     ${escapeHtml(preheaderText)}
   </div>
 
   <!-- Outer Canvas -->
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#EAF1F8" class="eh-wrapper" style="background-color: #EAF1F8; padding: 22px 10px;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#EAF1F8" class="eh-wrapper eh-canvas" style="background-color: #EAF1F8; padding: 22px 10px;">
     <tr>
       <td align="center" valign="top">
         <!--[if mso]>
@@ -1090,11 +1227,11 @@ function buildOrganizerAnnouncementHtml(data = {}) {
         <![endif]-->
 
         <!-- Main Card Container -->
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#FFFFFF" style="max-width: 720px; width: 100%; margin: 0 auto; background-color: #FFFFFF; border-radius: 18px; overflow: hidden; border: 1px solid #D4E3F3; box-shadow: 0 12px 32px rgba(8, 17, 38, 0.10); border-collapse: separate;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#FFFFFF" class="eh-main-card" style="max-width: 720px; width: 100%; margin: 0 auto; background-color: #FFFFFF; border-radius: 18px; overflow: hidden; border: 1px solid #D4E3F3; box-shadow: 0 12px 32px rgba(8, 17, 38, 0.10); border-collapse: separate;">
 
-          <!-- A & B. Header + Hero Section (Navy -> Dark Blue -> Secondary Blue) -->
+          <!-- A & B. Header + Hero Section (Solid Navy for safe Light & Dark mode contrast) -->
           <tr>
-            <td align="center" bgcolor="#081126" class="eh-hero-pad" style="background-color: #081126; background-image: linear-gradient(135deg, #081126 0%, #122155 58%, #2B5C92 100%); padding: 24px 30px 22px; color: #FFFFFF; border-bottom: 3px solid #38BDF8;">
+            <td align="center" bgcolor="#081126" class="eh-hero-pad eh-header-bg" style="background-color: #081126; padding: 24px 30px 22px; color: #FFFFFF; border-bottom: 3px solid #38BDF8;">
               <!-- Header Brand Logo -->
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 16px;">
                 <tr>
@@ -1105,10 +1242,10 @@ function buildOrganizerAnnouncementHtml(data = {}) {
               </table>
 
               <!-- Hero Generic Headline & Subtitle -->
-              <h1 class="eh-h1" style="margin: 0 0 8px 0; font-size: 24px; font-weight: 800; color: #FFFFFF; line-height: 1.28; letter-spacing: -0.3px;">
+              <h1 class="eh-h1 eh-header-title" style="margin: 0 0 8px 0; font-size: 24px; font-weight: 800; color: #FFFFFF; line-height: 1.28; letter-spacing: -0.3px;">
                 ${escapeHtml(copy.heroHeadline)}
               </h1>
-              <p style="margin: 0; font-size: 14px; line-height: 1.55; color: #B3CDE0;">
+              <p class="eh-header-subtitle" style="margin: 0; font-size: 14px; line-height: 1.55; color: #E2E8F0;">
                 ${escapeHtml(copy.heroSubtitle)}
               </p>
             </td>
@@ -1116,44 +1253,44 @@ function buildOrganizerAnnouncementHtml(data = {}) {
 
           <!-- Main Body -->
           <tr>
-            <td bgcolor="#FFFFFF" class="eh-card-pad" style="background-color: #FFFFFF; padding: 28px 30px 26px;">
+            <td bgcolor="#FFFFFF" class="eh-card-pad eh-body-bg" style="background-color: #FFFFFF; padding: 28px 30px 26px;">
 
               <!-- C. Greeting Section -->
               <div style="margin-bottom: 22px;">
-                <p style="margin: 0 0 8px 0; font-size: 17px; font-weight: 800; color: #081126; line-height: 1.4;">
+                <p class="eh-heading" style="margin: 0 0 8px 0; font-size: 17px; font-weight: 800; color: #081126; line-height: 1.4;">
                   ${escapeHtml(copy.greetingPrefix)} ${escapeHtml(customerName)},
                 </p>
-                <p style="margin: 0; font-size: 14.5px; line-height: 1.65; color: #334155;">
+                <p class="eh-text-body" style="margin: 0; font-size: 14.5px; line-height: 1.65; color: #334155;">
                   ${introHtml}
                 </p>
               </div>
 
               <!-- D. Notification Content Section (Primary Focus) -->
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#FFFFFF" style="margin-bottom: 24px; background-color: #FFFFFF; border: 1px solid #C8DCF0; border-left: 4px solid #2B5C92; border-radius: 12px; box-shadow: 0 4px 16px rgba(18, 33, 85, 0.05);">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#FFFFFF" class="eh-content-card" style="margin-bottom: 24px; background-color: #FFFFFF; border: 1px solid #C8DCF0; border-left: 4px solid #2B5C92; border-radius: 12px; box-shadow: 0 4px 16px rgba(18, 33, 85, 0.05);">
                 <tr>
                   <td style="padding: 20px 22px;">
                     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 8px;">
                       <tr>
-                        <td style="font-size: 11px; font-weight: 800; letter-spacing: 0.9px; color: #2B5C92; text-transform: uppercase;">
+                        <td class="eh-accent-label" style="font-size: 11px; font-weight: 800; letter-spacing: 0.9px; color: #2B5C92; text-transform: uppercase;">
                           ${escapeHtml(copy.messageEyebrow)}
                         </td>
                         ${
                           organizerName
-                            ? `<td align="right" style="font-size: 12px; color: #64748B;">
-                                 ${escapeHtml(copy.fromLabel)}: <strong style="color: #122155;">${escapeHtml(organizerName)}</strong>
+                            ? `<td align="right" class="eh-text-muted" style="font-size: 12px; color: #475569;">
+                                 ${escapeHtml(copy.fromLabel)}: <strong class="eh-heading" style="color: #122155;">${escapeHtml(organizerName)}</strong>
                                </td>`
                             : ''
                         }
                       </tr>
                     </table>
 
-                    <h3 style="margin: 0 0 12px 0; font-size: 19px; font-weight: 800; color: #081126; line-height: 1.38; overflow-wrap: anywhere; word-break: break-word;">
+                    <h3 class="eh-heading" style="margin: 0 0 12px 0; font-size: 19px; font-weight: 800; color: #081126; line-height: 1.38; overflow-wrap: anywhere; word-break: break-word;">
                       ${escapeHtml(notificationTitle)}
                     </h3>
 
-                    <div style="height: 1px; background-color: #E2E8F0; margin-bottom: 14px; line-height: 1px; font-size: 1px;">&nbsp;</div>
+                    <div class="eh-divider" style="height: 1px; background-color: #E2E8F0; margin-bottom: 14px; line-height: 1px; font-size: 1px;">&nbsp;</div>
 
-                    <div style="font-size: 15px; line-height: 1.7; color: #1E293B; overflow-wrap: anywhere; word-break: break-word;">
+                    <div class="eh-text-body" style="font-size: 15px; line-height: 1.7; color: #1E293B; overflow-wrap: anywhere; word-break: break-word;">
                       ${formattedMessageHtml}
                     </div>
 
@@ -1163,7 +1300,7 @@ function buildOrganizerAnnouncementHtml(data = {}) {
               </table>
 
               <!-- E. Event Information Card -->
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#F5F9FF" style="margin-bottom: 4px; background-color: #F5F9FF; background-image: linear-gradient(180deg, #EFF6FF 0%, #FFFFFF 100%); border: 1px solid #C8DCF0; border-radius: 14px; overflow: hidden;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#F5F9FF" class="eh-event-card" style="margin-bottom: 4px; background-color: #F5F9FF; border: 1px solid #C8DCF0; border-radius: 14px; overflow: hidden;">
                 ${
                   safeBannerUrl
                     ? `<tr>
@@ -1175,29 +1312,29 @@ function buildOrganizerAnnouncementHtml(data = {}) {
                 }
                 <tr>
                   <td style="padding: 18px 20px;">
-                    <div style="font-size: 10.5px; font-weight: 800; letter-spacing: 1px; color: #2B5C92; text-transform: uppercase; margin-bottom: 6px;">
+                    <div class="eh-accent-label" style="font-size: 10.5px; font-weight: 800; letter-spacing: 1px; color: #2B5C92; text-transform: uppercase; margin-bottom: 6px;">
                       ${escapeHtml(copy.eventCardEyebrow)}
                     </div>
-                    <h2 style="margin: 0 0 6px 0; font-size: 18px; font-weight: 800; color: #081126; line-height: 1.35; word-break: break-word;">
+                    <h2 class="eh-heading" style="margin: 0 0 6px 0; font-size: 18px; font-weight: 800; color: #081126; line-height: 1.35; word-break: break-word;">
                       ${escapeHtml(eventName)}
                     </h2>
                     ${
                       organizerName
-                        ? `<div style="margin-bottom: 14px; font-size: 13px; color: #475569;">
-                             ${escapeHtml(copy.organizedByLabel)}: <strong style="color: #122155;">${escapeHtml(organizerName)}</strong>
+                        ? `<div class="eh-text-muted" style="margin-bottom: 14px; font-size: 13px; color: #334155;">
+                             ${escapeHtml(copy.organizedByLabel)}: <strong class="eh-heading" style="color: #122155;">${escapeHtml(organizerName)}</strong>
                            </div>`
                         : '<div style="margin-bottom: 12px;"></div>'
                     }
 
                     <!-- Event Details Table -->
-                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top: 1px solid #DCEAF7;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="eh-divider" style="border-top: 1px solid #DCEAF7;">
                       <!-- Event Date -->
                       <tr>
-                        <td style="padding: 10px 0; border-bottom: 1px solid #E8F0F8;">
+                        <td class="eh-divider" style="padding: 10px 0; border-bottom: 1px solid #E8F0F8;">
                           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                             <tr>
                               <td width="38" style="vertical-align: top; padding-right: 12px;">
-                                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="34" height="34" bgcolor="#E0F2FE" style="width: 34px; height: 34px; border-radius: 9px; background-color: #E0F2FE; border: 1px solid #B3CDE0;">
+                                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="34" height="34" bgcolor="#E0F2FE" class="eh-icon-box" style="width: 34px; height: 34px; border-radius: 9px; background-color: #E0F2FE; border: 1px solid #B3CDE0;">
                                   <tr>
                                     <td align="center" valign="middle">
                                       <img src="${EMAIL_ICONS.calendar}" width="18" height="18" alt="" style="display: block; width: 18px; height: 18px; border: 0;" />
@@ -1206,10 +1343,10 @@ function buildOrganizerAnnouncementHtml(data = {}) {
                                 </table>
                               </td>
                               <td style="vertical-align: middle;">
-                                <div style="font-size: 10.5px; font-weight: 800; color: #2B5C92; letter-spacing: 0.6px; text-transform: uppercase;">
+                                <div class="eh-accent-label" style="font-size: 10.5px; font-weight: 800; color: #2B5C92; letter-spacing: 0.6px; text-transform: uppercase;">
                                   ${escapeHtml(copy.dateLabel)}
                                 </div>
-                                <div style="font-size: 14px; font-weight: 700; color: #081126; margin-top: 2px;">
+                                <div class="eh-heading" style="font-size: 14px; font-weight: 700; color: #081126; margin-top: 2px;">
                                   ${escapeHtml(formattedDate)}
                                 </div>
                               </td>
@@ -1220,11 +1357,11 @@ function buildOrganizerAnnouncementHtml(data = {}) {
 
                       <!-- Event Time -->
                       <tr>
-                        <td style="padding: 10px 0; border-bottom: 1px solid #E8F0F8;">
+                        <td class="eh-divider" style="padding: 10px 0; border-bottom: 1px solid #E8F0F8;">
                           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                             <tr>
                               <td width="38" style="vertical-align: top; padding-right: 12px;">
-                                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="34" height="34" bgcolor="#E0F2FE" style="width: 34px; height: 34px; border-radius: 9px; background-color: #E0F2FE; border: 1px solid #B3CDE0;">
+                                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="34" height="34" bgcolor="#E0F2FE" class="eh-icon-box" style="width: 34px; height: 34px; border-radius: 9px; background-color: #E0F2FE; border: 1px solid #B3CDE0;">
                                   <tr>
                                     <td align="center" valign="middle">
                                       <img src="${EMAIL_ICONS.clock}" width="18" height="18" alt="" style="display: block; width: 18px; height: 18px; border: 0;" />
@@ -1233,10 +1370,10 @@ function buildOrganizerAnnouncementHtml(data = {}) {
                                 </table>
                               </td>
                               <td style="vertical-align: middle;">
-                                <div style="font-size: 10.5px; font-weight: 800; color: #2B5C92; letter-spacing: 0.6px; text-transform: uppercase;">
+                                <div class="eh-accent-label" style="font-size: 10.5px; font-weight: 800; color: #2B5C92; letter-spacing: 0.6px; text-transform: uppercase;">
                                   ${escapeHtml(copy.timeLabel)}
                                 </div>
-                                <div style="font-size: 14px; font-weight: 700; color: #081126; margin-top: 2px;">
+                                <div class="eh-heading" style="font-size: 14px; font-weight: 700; color: #081126; margin-top: 2px;">
                                   ${escapeHtml(formattedTime)}
                                 </div>
                               </td>
@@ -1251,7 +1388,7 @@ function buildOrganizerAnnouncementHtml(data = {}) {
                           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                             <tr>
                               <td width="38" style="vertical-align: top; padding-right: 12px;">
-                                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="34" height="34" bgcolor="#E0F2FE" style="width: 34px; height: 34px; border-radius: 9px; background-color: #E0F2FE; border: 1px solid #B3CDE0;">
+                                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="34" height="34" bgcolor="#E0F2FE" class="eh-icon-box" style="width: 34px; height: 34px; border-radius: 9px; background-color: #E0F2FE; border: 1px solid #B3CDE0;">
                                   <tr>
                                     <td align="center" valign="middle">
                                       <img src="${EMAIL_ICONS.mapPin}" width="18" height="18" alt="" style="display: block; width: 18px; height: 18px; border: 0;" />
@@ -1260,15 +1397,15 @@ function buildOrganizerAnnouncementHtml(data = {}) {
                                 </table>
                               </td>
                               <td style="vertical-align: middle;">
-                                <div style="font-size: 10.5px; font-weight: 800; color: #2B5C92; letter-spacing: 0.6px; text-transform: uppercase;">
+                                <div class="eh-accent-label" style="font-size: 10.5px; font-weight: 800; color: #2B5C92; letter-spacing: 0.6px; text-transform: uppercase;">
                                   ${escapeHtml(copy.locationLabel)}
                                 </div>
-                                <div style="font-size: 14px; font-weight: 700; color: #081126; margin-top: 2px; word-break: break-word;">
+                                <div class="eh-heading" style="font-size: 14px; font-weight: 700; color: #081126; margin-top: 2px; word-break: break-word;">
                                   ${escapeHtml(locationData.title)}
                                 </div>
                                 ${
                                   locationData.detail
-                                    ? `<div style="font-size: 13px; color: #475569; margin-top: 2px; line-height: 1.45; word-break: break-word;">
+                                    ? `<div class="eh-text-muted" style="font-size: 13px; color: #334155; margin-top: 2px; line-height: 1.45; word-break: break-word;">
                                          ${escapeHtml(locationData.detail)}
                                        </div>`
                                     : ''
@@ -1288,17 +1425,17 @@ function buildOrganizerAnnouncementHtml(data = {}) {
 
           <!-- Footer -->
           <tr>
-            <td align="center" bgcolor="#081126" class="eh-footer-pad" style="background-color: #081126; background-image: linear-gradient(180deg, #081126 0%, #122155 100%); padding: 26px 30px; color: #B3CDE0; text-align: center; border-top: 2px solid #2B5C92;">
+            <td align="center" bgcolor="#081126" class="eh-footer-pad eh-footer-bg" style="background-color: #081126; padding: 26px 30px; color: #E2E8F0; text-align: center; border-top: 2px solid #2B5C92;">
               <img src="${escapeHtml(logoSrc)}" width="112" alt="EventHub" style="display: block; width: 112px; max-width: 100%; height: auto; margin: 0 auto 12px; border: 0;" />
-              <p style="margin: 0 0 8px 0; font-size: 12.5px; color: #B3CDE0; line-height: 1.55;">
+              <p class="eh-footer-text" style="margin: 0 0 8px 0; font-size: 12.5px; color: #E2E8F0; line-height: 1.55;">
                 ${escapeHtml(copy.supportPrompt)}
-                <a href="${supportHref}" style="color: #38BDF8; text-decoration: underline; font-weight: 600;">${SUPPORT_EMAIL}</a>
+                <a href="${supportHref}" class="eh-footer-link" style="color: #7DD3FC; text-decoration: underline; font-weight: 600;">${SUPPORT_EMAIL}</a>
               </p>
-              <p style="margin: 0 0 10px 0; font-size: 11.5px; color: #94A3B8; line-height: 1.5;">
+              <p class="eh-footer-text" style="margin: 0 0 10px 0; font-size: 11.5px; color: #CBD5E1; line-height: 1.5;">
                 ${escapeHtml(copy.disclaimer)}
               </p>
-              <div style="font-size: 11.5px; color: #B3CDE0;">
-                <a href="${escapeHtml(clientBaseUrl)}" target="_blank" rel="noopener noreferrer" style="color: #B3CDE0; text-decoration: none;">www.eventhub.id.vn</a>
+              <div class="eh-footer-text" style="font-size: 11.5px; color: #CBD5E1;">
+                <a href="${escapeHtml(clientBaseUrl)}" target="_blank" rel="noopener noreferrer" class="eh-footer-link" style="color: #E2E8F0; text-decoration: none;">www.eventhub.id.vn</a>
                 &nbsp;&bull;&nbsp;
                 &copy; ${currentYear} EventHub. All rights reserved.
               </div>

@@ -96,7 +96,11 @@ class EventsAdminController {
         const data = await eventBusinessRulesService.rejectCancellationRequest(req.user.sub, eventId, { note });
         return res.status(200).json(ApiResponse.success(data, 'Đã từ chối yêu cầu hủy sự kiện'));
       }
-      const data = await eventBusinessRulesService.approveCancellationRequest(req.user.sub, eventId, req.body || {});
+      const locale = req.body?.locale || req.headers['accept-language'];
+      const data = await eventBusinessRulesService.approveCancellationRequest(req.user.sub, eventId, {
+        ...(req.body || {}),
+        locale,
+      });
       res.status(200).json(ApiResponse.success(data, 'Đã phê duyệt yêu cầu hủy sự kiện và khởi tạo tiến trình hoàn tiền'));
     } catch (err) {
       next(err);

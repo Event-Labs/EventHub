@@ -88,6 +88,77 @@ class RefundsService {
       order_id = data.order_id;
       ticket_id = data.ticket_id || ticket_id || null;
 
+      // Resolve bank account: TH1 (fallback to original payment) vs TH2 (customer-supplied)
+      const hasCustomBank = Boolean(
+        (bank_account_number && String(bank_account_number).trim()) ||
+        (bank_name && String(bank_name).trim())
+      );
+
+      let destinationSource = 'PAYER_ACCOUNT';
+
+      if (hasCustomBank) {
+        // TH2: Customer entered custom bank information
+        destinationSource = 'CUSTOMER_INPUT';
+        bank_name = bank_name ? String(bank_name).trim() : null;
+        bank_account_number = bank_account_number ? String(bank_account_number).trim() : null;
+        bank_account_name = bank_account_name ? String(bank_account_name).trim().toUpperCase() : null;
+      } else {
+        // TH1: Customer left bank info blank -> Fallback to original payment bank details
+        destinationSource = 'PAYER_ACCOUNT';
+        const { rows: poRows } = await client.query(
+          `
+          SELECT po.*
+          FROM payment_orders po
+          WHERE po.order_id = $1 AND po.status = 'PAID'
+          ORDER BY po.paid_at DESC NULLS LAST, po.created_at DESC
+          LIMIT 1
+          `,
+          [order_id],
+        );
+
+        if (poRows[0]) {
+          const po = poRows[0];
+
+          // 1. Account Number
+          let rawAccNum = po.payer_account_number;
+          if (rawAccNum && fieldCrypto.isEncrypted(rawAccNum)) {
+            const keysToTry = [po.organizer_id, data.organizer_id, 'platform'].filter(Boolean);
+            for (const k of keysToTry) {
+              try {
+                rawAccNum = fieldCrypto.decrypt(rawAccNum, k, 'payer_account_number', { allowLegacy: true });
+                break;
+              } catch (_) {}
+            }
+          }
+
+          if (!rawAccNum && po.raw_payload) {
+            const rawData = typeof po.raw_payload === 'string' ? JSON.parse(po.raw_payload) : po.raw_payload;
+            const tx0 = rawData?.data?.transactions?.[0] || rawData?.transactions?.[0] || {};
+            rawAccNum = rawData?.data?.counterAccountNumber || rawData?.counterAccountNumber || tx0.counterAccountNumber || null;
+          }
+
+          // 2. Account Name
+          let payerName = po.payer_account_name;
+          if (!payerName && po.raw_payload) {
+            const rawData = typeof po.raw_payload === 'string' ? JSON.parse(po.raw_payload) : po.raw_payload;
+            const tx0 = rawData?.data?.transactions?.[0] || rawData?.transactions?.[0] || {};
+            payerName = rawData?.data?.counterAccountName || rawData?.counterAccountName || tx0.counterAccountName || null;
+          }
+
+          // 3. Bank Name
+          let resolvedBank = BIN_TO_BANK_NAME[po.payer_bank_id] || po.payer_bank_id || null;
+          if (!resolvedBank && po.raw_payload) {
+            const rawData = typeof po.raw_payload === 'string' ? JSON.parse(po.raw_payload) : po.raw_payload;
+            const tx0 = rawData?.data?.transactions?.[0] || rawData?.transactions?.[0] || {};
+            resolvedBank = rawData?.data?.counterAccountBankName || rawData?.counterAccountBankName || tx0.counterAccountBankName || rawData?.data?.counterAccountBankId || null;
+          }
+
+          bank_account_number = rawAccNum || null;
+          bank_name = resolvedBank || null;
+          bank_account_name = payerName ? String(payerName).toUpperCase() : null;
+        }
+      }
+
       // 2. Check existing active refund
       const existing = await refundsRepository.findExistingActiveRefund(order_id, ticket_id, client);
 
@@ -173,6 +244,7 @@ class RefundsService {
           bank_name,
           bank_account_number,
           bank_account_name,
+          refund_destination_source: destinationSource,
         },
         client,
       );
@@ -708,6 +780,61 @@ class RefundsService {
       validateReason: false,
     });
 
+    // Resolve original payment bank info if available for preview display
+    let originalBankInfo = null;
+    try {
+      const { rows: poRows } = await db.query(
+        `
+        SELECT po.*
+        FROM payment_orders po
+        WHERE po.order_id = $1 AND po.status = 'PAID'
+        ORDER BY po.paid_at DESC NULLS LAST, po.created_at DESC
+        LIMIT 1
+        `,
+        [data.order_id],
+      );
+      if (poRows[0]) {
+        const po = poRows[0];
+        let rawAccNum = po.payer_account_number;
+        if (rawAccNum && fieldCrypto.isEncrypted(rawAccNum)) {
+          const keysToTry = [po.organizer_id, data.organizer_id, 'platform'].filter(Boolean);
+          for (const k of keysToTry) {
+            try {
+              rawAccNum = fieldCrypto.decrypt(rawAccNum, k, 'payer_account_number', { allowLegacy: true });
+              break;
+            } catch (_) {}
+          }
+        }
+        if (!rawAccNum && po.raw_payload) {
+          const rawData = typeof po.raw_payload === 'string' ? JSON.parse(po.raw_payload) : po.raw_payload;
+          const tx0 = rawData?.data?.transactions?.[0] || rawData?.transactions?.[0] || {};
+          rawAccNum = rawData?.data?.counterAccountNumber || rawData?.counterAccountNumber || tx0.counterAccountNumber || null;
+        }
+
+        let payerName = po.payer_account_name;
+        if (!payerName && po.raw_payload) {
+          const rawData = typeof po.raw_payload === 'string' ? JSON.parse(po.raw_payload) : po.raw_payload;
+          const tx0 = rawData?.data?.transactions?.[0] || rawData?.transactions?.[0] || {};
+          payerName = rawData?.data?.counterAccountName || rawData?.counterAccountName || tx0.counterAccountName || null;
+        }
+
+        let resolvedBank = BIN_TO_BANK_NAME[po.payer_bank_id] || po.payer_bank_id || null;
+        if (!resolvedBank && po.raw_payload) {
+          const rawData = typeof po.raw_payload === 'string' ? JSON.parse(po.raw_payload) : po.raw_payload;
+          const tx0 = rawData?.data?.transactions?.[0] || rawData?.transactions?.[0] || {};
+          resolvedBank = rawData?.data?.counterAccountBankName || rawData?.counterAccountBankName || tx0.counterAccountBankName || rawData?.data?.counterAccountBankId || null;
+        }
+
+        if (rawAccNum || payerName || resolvedBank) {
+          originalBankInfo = {
+            bank_name: resolvedBank || null,
+            account_number: rawAccNum ? `${rawAccNum.slice(0, 3)}***${rawAccNum.slice(-3)}` : null,
+            account_holder: payerName ? String(payerName).toUpperCase() : null,
+          };
+        }
+      }
+    } catch (_) {}
+
     return {
       eligible: validation.eligible,
       days_before_event: validation.daysBeforeEvent ?? null,
@@ -721,6 +848,7 @@ class RefundsService {
       rule_matched: validation.ruleMatched || null,
       ticket_code: data.ticket_code || null,
       event_title: data.event_title || null,
+      original_bank_info: originalBankInfo,
     };
   }
 }

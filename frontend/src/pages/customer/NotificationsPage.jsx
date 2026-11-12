@@ -31,7 +31,7 @@ import {
 import { cn } from '@/lib/utils.js'
 import { getRememberLoginPreference, setAuthSession } from '@/lib/auth.js'
 import { getApiMessage } from '@/lib/messages.js'
-import { formatNotificationDisplay } from '@/lib/notifications.js'
+import { formatNotificationDisplay, isCustomerCancellationOrRefundNotification } from '@/lib/notifications.js'
 import { translateEventTitle } from '@/i18n/eventTranslations.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
@@ -342,6 +342,12 @@ export function NotificationsPage() {
               || (acceptedInvitationId === notification.id && acceptInvitationMutation.isSuccess))
           const isOrganizerRejected = isOrganizerRejectedNotification(notification)
           const isOrganizerApproved = isOrganizerApprovedNotification(notification)
+          const isCustomerCancelOrRefund = !isInvitation && isCustomerCancellationOrRefundNotification(notification)
+          const primaryAction = isCustomerCancelOrRefund
+            ? { to: '/my-tickets', label: isEnglish ? 'My Tickets' : 'Vé của tôi' }
+            : eventPath
+              ? { to: eventPath, label: isEnglish ? 'View Event' : 'Xem sự kiện' }
+              : null
 
           return (
             <article
@@ -404,9 +410,9 @@ export function NotificationsPage() {
                     </p>
                   )}
                   <div className="mt-4 flex flex-wrap items-center gap-2">
-                    {eventPath && (
-                      <Link className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border-soft/40 bg-panel-soft px-4 text-sm font-bold text-content transition hover:border-primary/50 hover:text-primary" to={eventPath}>
-                        {isEnglish ? 'View Event' : 'Xem sự kiện'} <ChevronRight className="size-4" />
+                    {primaryAction && (
+                      <Link className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border-soft/40 bg-panel-soft px-4 text-sm font-bold text-content transition hover:border-primary/50 hover:text-primary" to={primaryAction.to}>
+                        {primaryAction.label} <ChevronRight className="size-4" />
                       </Link>
                     )}
                     {isOrganizerRejected && (

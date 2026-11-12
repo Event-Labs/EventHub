@@ -23,6 +23,9 @@ const {
   buildOrganizerAnnouncementHtml,
   buildOrganizerAnnouncementText,
 } = require('./organizerAnnouncementEmail.template');
+const {
+  buildEventCancellationEmail,
+} = require('./eventCancellationEmail.template');
 
 function mapNotification(row) {
   if (!row) return null;
@@ -420,18 +423,116 @@ class NotificationsService {
     }
   }
 
-  async notifyEventCancellation(eventId, { reason, title } = {}) {
+  async notifyEventCancellation(eventId, { reason, title, locale } = {}) {
     try {
-      const { rows } = await db.query(`SELECT id, title, slug, organizer_id FROM events WHERE id = $1`, [eventId]);
+      const { rows } = await db.query(
+        `SELECT 
+          e.id, 
+          e.title, 
+          e.slug, 
+          e.organizer_id,
+          COALESCE(e.start_time, (SELECT MIN(start_time) FROM event_sessions WHERE event_id = e.id)) AS start_time,
+          e.cancel_reason_note,
+          e.cancel_reason_code
+         FROM events e 
+         WHERE e.id = $1`,
+        [eventId],
+      );
       const event = rows[0];
       if (!event) return;
 
-      const attendees = await notificationsRepository.findEventAttendeeContacts(eventId);
-      const notifTitle = `Sự kiện "${event.title}" đã bị hủy`;
-      const reasonText = reason ? ` (Lý do: ${reason})` : '';
-      const notifContent = `Sự kiện "${event.title}" đã chính thức bị hủy${reasonText}. Hệ thống đã tự động tạo yêu cầu hoàn tiền 100%. Vui lòng vào mục "Vé của tôi" để kiểm tra và cung cấp thông tin tài khoản ngân hàng nhận tiền hoàn.`;
+      const cancellationReason = reason || event.cancel_reason_note || 'Theo yêu cầu từ Ban tổ chức';
 
-      for (const att of attendees) {
+      // 1. Fetch attendee orders & refund data for this event
+      const { rows: orderRows } = await db.query(
+        `SELECT
+          o.id AS order_id,
+          o.order_code,
+          o.user_id,
+          COALESCE(u.email, o.buyer_email) AS email,
+          COALESCE(u.full_name, o.buyer_name) AS full_name,
+          u.locale AS user_locale,
+          o.total_amount,
+          COALESCE(rf.refund_amount, o.total_amount) AS refund_amount,
+          rf.status AS refund_status
+        FROM orders o
+        LEFT JOIN users u ON u.id = o.user_id
+        LEFT JOIN refund_requests rf ON rf.order_id = o.id
+        WHERE o.id IN (
+          SELECT DISTINCT oi.order_id
+          FROM order_items oi
+          JOIN ticket_types tt ON tt.id = oi.ticket_type_id
+          JOIN event_sessions es ON es.id = tt.event_session_id
+          WHERE es.event_id = $1
+        )
+        AND o.status IN ('PAID', 'REFUND_REQUESTED', 'REFUNDED', 'CANCELLED')
+        AND COALESCE(u.email, o.buyer_email) IS NOT NULL`,
+        [eventId],
+      );
+
+      // Group orders by user/email to handle single and multiple orders gracefully
+      const attendeeMap = new Map();
+
+      for (const row of orderRows) {
+        const key = row.user_id || row.email;
+        if (!attendeeMap.has(key)) {
+          attendeeMap.set(key, {
+            user_id: row.user_id,
+            email: row.email,
+            full_name: row.full_name,
+            user_locale: row.user_locale,
+            orders: [],
+            totalRefundAmount: 0,
+          });
+        }
+        const record = attendeeMap.get(key);
+        record.orders.push(row);
+        record.totalRefundAmount += Number(row.refund_amount || row.total_amount || 0);
+      }
+
+      // Also ensure any attendee contact from tickets without standard orders is included
+      const fallbackAttendees = await notificationsRepository.findEventAttendeeContacts(eventId);
+      for (const att of fallbackAttendees) {
+        const key = att.user_id || att.email;
+        if (!attendeeMap.has(key)) {
+          attendeeMap.set(key, {
+            user_id: att.user_id,
+            email: att.email,
+            full_name: att.full_name,
+            user_locale: null,
+            orders: [],
+            totalRefundAmount: 0,
+          });
+        }
+      }
+
+      // Dispatch to all attendees
+      for (const [, att] of attendeeMap.entries()) {
+        const targetLocale = att.user_locale || locale || 'vi';
+        const isEn = targetLocale === 'en';
+
+        const orderCodesText = att.orders.length > 0
+          ? att.orders.map((o) => o.order_code).filter(Boolean).join(', ')
+          : '—';
+
+        const emailData = buildEventCancellationEmail({
+          customerName: att.full_name,
+          eventName: event.title,
+          eventDate: event.start_time,
+          orderCode: orderCodesText,
+          cancellationReason,
+          refundAmount: att.totalRefundAmount,
+          locale: targetLocale,
+        });
+
+        const notifTitle = isEn
+          ? `Event "${event.title}" has been cancelled`
+          : `Sự kiện "${event.title}" đã bị hủy`;
+        const reasonText = cancellationReason ? (isEn ? ` (Reason: ${cancellationReason})` : ` (Lý do: ${cancellationReason})`) : '';
+        const notifContent = isEn
+          ? `Event "${event.title}" has been officially cancelled${reasonText}. Our system has automatically created a 100% refund request. Please visit "My Tickets" to verify your receiving bank account details.`
+          : `Sự kiện "${event.title}" đã chính thức bị hủy${reasonText}. Hệ thống đã tự động tạo yêu cầu hoàn tiền 100%. Vui lòng vào mục "Vé của tôi" để kiểm tra và cung cấp thông tin tài khoản ngân hàng nhận tiền hoàn.`;
+
         if (att.user_id) {
           await this.createAndDispatch(
             {
@@ -444,25 +545,19 @@ class NotificationsService {
             att.email
               ? {
                   email: att.email,
-                  subject: `[EventHub] ${notifTitle}`,
-                  html: `
-                    <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-                      <h2 style="color: #dc2626;">Thông báo hủy sự kiện</h2>
-                      <p>Kính gửi quý khách <strong>${att.full_name || 'Khách hàng'}</strong>,</p>
-                      <p>Sự kiện <strong>"${event.title}"</strong> đã chính thức bị hủy${reasonText}.</p>
-                      <p>Hệ thống đã tự động tạo yêu cầu hoàn trả 100% số tiền vé đã thanh toán cho bạn.</p>
-                      <p><strong>Hướng dẫn nhận tiền hoàn:</strong></p>
-                      <ol>
-                        <li>Đăng nhập vào EventHub và truy cập mục <strong>Vé của tôi</strong>.</li>
-                        <li>Chọn vé sự kiện và bấm <strong>Cung cấp thông tin nhận tiền</strong> (Số tài khoản & Tên ngân hàng).</li>
-                        <li>Ban tổ chức sẽ tiến hành chuyển khoản hoàn tiền cho bạn theo quy định.</li>
-                      </ol>
-                      <p style="margin-top: 20px; font-size: 13px; color: #666;">Trân trọng,<br>Đội ngũ EventHub</p>
-                    </div>
-                  `,
+                  subject: emailData.subject,
+                  text: emailData.text,
+                  html: emailData.html,
                 }
               : {},
           ).catch((e) => logger.warn(`[NOTIFY_CANCEL_ERR] ${e.message}`));
+        } else if (att.email) {
+          await sendEmail({
+            to: att.email,
+            subject: emailData.subject,
+            text: emailData.text,
+            html: emailData.html,
+          }).catch((e) => logger.warn(`[SEND_GUEST_CANCEL_EMAIL_ERR] ${e.message}`));
         }
       }
     } catch (err) {
