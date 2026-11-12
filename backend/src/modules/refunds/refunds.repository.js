@@ -161,9 +161,10 @@ class RefundsRepository {
         bank_name,
         bank_account_number,
         bank_account_name,
+        refund_destination_source,
         requested_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, 'PENDING', $10, $11, $12, $13, now())
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, 'PENDING', $10, $11, $12, $13, $14, now())
       RETURNING id
       `,
       [
@@ -180,6 +181,7 @@ class RefundsRepository {
         data.bank_name || null,
         data.bank_account_number || null,
         data.bank_account_name || null,
+        data.refund_destination_source || 'PAYER_ACCOUNT',
       ],
     );
 

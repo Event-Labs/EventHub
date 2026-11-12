@@ -77,10 +77,18 @@ export function MyTicketsPage() {
   const filters = useMemo(() => getTicketFilters(isEnglish), [isEnglish])
   const navigate = useNavigate()
   const location = useLocation()
-  const [status, setStatus] = useState('ALL')
+  const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search])
+  const [status, setStatus] = useState(() => searchParams.get('status') || 'ALL')
   const [page, setPage] = useState(1)
   const isAuthenticated = hasAuthSession()
   const currentUserKey = getStoredUserKey()
+
+  useEffect(() => {
+    const paramStatus = searchParams.get('status')
+    if (paramStatus && paramStatus !== status) {
+      setStatus(paramStatus)
+    }
+  }, [searchParams])
 
   useEffect(() => {
     if (!isAuthenticated) {

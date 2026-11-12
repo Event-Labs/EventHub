@@ -1063,7 +1063,7 @@ class EventBusinessRulesService {
   /**
    * Admin Approves Cancellation Request (Luồng B - Section 6.5)
    */
-  async approveCancellationRequest(adminId, eventId, { note }) {
+  async approveCancellationRequest(adminId, eventId, { note, locale } = {}) {
     const client = await db.getClient();
     try {
       await client.query('BEGIN');
@@ -1230,6 +1230,7 @@ class EventBusinessRulesService {
       // Notify attendees & organizer
       notificationsService.notifyEventCancellation(eventId, {
         reason: cancelReq.note || cancelReq.reason_note || 'Theo yêu cầu từ Ban tổ chức',
+        locale,
       }).catch((e) => logger.warn(`[NOTIFY_ATTENDEES_CANCEL_ERR] ${e.message}`));
 
       if (event.organizer_user_id) {

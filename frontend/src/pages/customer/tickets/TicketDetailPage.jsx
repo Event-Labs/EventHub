@@ -13,7 +13,6 @@ import {
   ExternalLink,
   HelpCircle,
   Star,
-  ShieldAlert,
   Edit2,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
@@ -36,7 +35,6 @@ import { buildUniversalTicketSvg } from '@/utils/ticketSvgGenerator.js'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
 import { cleanAndFormatVenue, translateTicketName } from '@/i18n/eventTranslations.js'
 import { translatePhrase } from '@/i18n/phraseDictionary.js'
-import { CustomerComplaintModal } from '@/components/CustomerComplaintModal.jsx'
 import { formatRefundReason } from '@/utils/refundPolicy.js'
 
 const getAutoIsEnglish = () => (typeof document !== 'undefined' && document.documentElement.lang === 'en') || (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en')
@@ -192,7 +190,6 @@ export function TicketDetailPage() {
   const [downloadError, setDownloadError] = useState('')
   const [downloading, setDownloading] = useState(false)
   const [refundDetailOpen, setRefundDetailOpen] = useState(false)
-  const [complaintModalOpen, setComplaintModalOpen] = useState(false)
   const currentUserKey = getStoredUserKey()
 
   useEffect(() => {
@@ -279,6 +276,7 @@ export function TicketDetailPage() {
   const activeRefundPolicy = ticket.refund_policy_snapshot || ticket.event?.refund_policy || {}
   const isRefundAllowedByPolicy = Boolean(activeRefundPolicy.allow_refund ?? activeRefundPolicy.allow_refunds)
   const canRequestRefund = !isZeroAmountOrFree && isOrderPaid && isEntryEligible && !ticket.checked_in_at && isRefundAllowedByPolicy
+  const hasSecondaryTicketAction = canCancelFreeTicket || canRequestRefund
   const isCheckedIn = Boolean(ticket.checked_in_at) || ticket.status === 'USED' || ticket.check_in_status === 'CHECKED_IN'
   const sessionEndTime = ticket.session?.end_time
     ? new Date(ticket.session.end_time).getTime()
@@ -310,7 +308,7 @@ export function TicketDetailPage() {
   )
 
   return (
-    <div className="mx-auto max-w-5xl px-3.5 sm:px-6 lg:px-8 pt-3 sm:pt-8 pb-10">
+    <div className="mx-auto max-w-6xl px-3.5 sm:px-6 lg:px-8 pt-3 sm:pt-8 pb-10">
       <Link
         to="/my-tickets"
         className="inline-flex items-center gap-2 px-4 py-2 text-sm font-bold text-white backdrop-blur-md transition-colors hover:text-white/80"
@@ -319,7 +317,7 @@ export function TicketDetailPage() {
         {isEnglish ? 'My Tickets' : 'Vé của tôi'}
       </Link>
 
-      <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,620px)_360px] lg:items-start relative">
+      <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,740px)_360px] lg:items-start relative">
         <aside className="order-2 space-y-6 lg:order-2 lg:sticky lg:top-32">
           <Panel title={isEnglish ? 'Payment' : 'Thanh toán'} icon={ReceiptText}>
             <Info label={isEnglish ? 'Transaction Code' : 'Mã giao dịch'} value={ticket.payment?.transaction_code || (ticket.order?.status === 'CONFIRMED' ? (isEnglish ? 'Free' : 'Miễn phí') : 'N/A')} />
@@ -341,16 +339,16 @@ export function TicketDetailPage() {
         </aside>
 
         <div className="order-1 lg:justify-self-start w-full">
-          <section className="glass-panel mx-auto max-w-[620px] overflow-hidden rounded-[32px] border-primary/20 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)] lg:mx-0 relative">
+          <section className="glass-panel mx-auto max-w-[740px] overflow-hidden rounded-[32px] border-primary/20 shadow-[0_8px_32px_0_rgba(6,182,212,0.15)] lg:mx-0 relative">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,_var(--color-primary)_0%,_transparent_60%)] opacity-10 pointer-events-none" />
-            <div className="relative min-h-64 overflow-hidden">
+            <div className="relative min-h-72 sm:min-h-80 overflow-hidden">
               {ticket.event?.banner_url ? (
-                <img src={ticket.event.banner_url} alt="" className="absolute inset-0 h-full w-full object-cover opacity-85" />
+                <img src={ticket.event.banner_url} alt="" className="absolute inset-0 h-full w-full object-cover object-center opacity-90" />
               ) : (
                 <div className="absolute inset-0 bg-white/5" />
               )}
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/50 to-transparent" />
-              <div className="relative flex min-h-64 flex-col justify-end p-8">
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 via-45% to-transparent" />
+              <div className="relative flex min-h-72 sm:min-h-80 flex-col justify-end p-8">
                 <div className="flex flex-wrap items-center gap-3">
                   <span className={`rounded-full px-4 py-1.5 text-[10px] font-black tracking-widest uppercase backdrop-blur-md ${isTicketRefunded
                     ? 'bg-purple-500/20 text-purple-300 shadow-[0_0_10px_rgba(168,85,247,0.25)] border border-purple-500/40'
@@ -442,7 +440,7 @@ export function TicketDetailPage() {
             </div>
           </section>
 
-          <div className="mx-auto mt-8 max-w-[620px] space-y-4 lg:mx-0">
+          <div className="mx-auto mt-8 max-w-[740px] space-y-4 lg:mx-0">
             {canReviewEvent && (
               <button
                 type="button"
@@ -465,15 +463,40 @@ export function TicketDetailPage() {
               </button>
             )}
 
-            <button
-              type="button"
-              onClick={handleDownload}
-              disabled={downloading}
-              className="cosmic-btn-primary w-full py-4 text-[15px] flex items-center justify-center gap-3 cursor-pointer"
-            >
-              <Download className="size-5" />
-              {downloading ? (isEnglish ? 'Generating file...' : 'Đang tạo file...') : (isEnglish ? 'Download Ticket' : 'Tải vé xuống thiết bị')}
-            </button>
+            <div className={hasSecondaryTicketAction ? 'grid grid-cols-1 gap-4 sm:grid-cols-2 items-stretch' : 'grid grid-cols-1 gap-4'}>
+              {canCancelFreeTicket ? (
+                <div className="min-w-0">
+                  <CancelFreeTicketButton
+                    ticket={ticket}
+                    isEnglish={isEnglish}
+                    onCancelled={() => {
+                      ticketQuery.refetch()
+                    }}
+                  />
+                </div>
+              ) : canRequestRefund ? (
+                <div className="min-w-0">
+                  <RefundButton
+                    ticket={ticket}
+                    isEnglish={isEnglish}
+                    onRefundSubmitted={() => {
+                      ticketQuery.refetch()
+                      refundsQuery.refetch()
+                    }}
+                  />
+                </div>
+              ) : null}
+
+              <button
+                type="button"
+                onClick={handleDownload}
+                disabled={downloading}
+                className="btn-gold-primary w-full min-h-[52px] px-5 py-3.5 text-sm sm:text-[15px] flex items-center justify-center gap-2.5 cursor-pointer"
+              >
+                <Download className="size-5 shrink-0" />
+                <span>{downloading ? (isEnglish ? 'Generating file...' : 'Đang tạo file...') : (isEnglish ? 'Download Ticket' : 'Tải vé xuống thiết bị')}</span>
+              </button>
+            </div>
             {downloadError && <p className="text-sm text-error">{downloadError}</p>}
             {!isEntryEligible && (
               <p className="text-sm font-medium text-warning text-center">
@@ -481,41 +504,15 @@ export function TicketDetailPage() {
               </p>
             )}
 
-            {canCancelFreeTicket ? (
-              <CancelFreeTicketButton
-                ticket={ticket}
-                isEnglish={isEnglish}
-                onCancelled={() => {
-                  ticketQuery.refetch()
-                }}
-              />
-            ) : canRequestRefund ? (
-              <RefundButton
-                ticket={ticket}
-                isEnglish={isEnglish}
-                onRefundSubmitted={() => {
-                  ticketQuery.refetch()
-                  refundsQuery.refetch()
-                }}
-              />
-            ) : isFreeOrDiscounted && isEntryEligible && !ticket.checked_in_at && !isMoreThan2HoursBeforeSession ? (
+            {!hasSecondaryTicketAction && isFreeOrDiscounted && isEntryEligible && !ticket.checked_in_at && !isMoreThan2HoursBeforeSession ? (
               <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-center text-xs text-slate-400">
                 {isEnglish ? 'Free tickets can only be cancelled at least 2 hours prior to start time.' : 'Vé miễn phí chỉ có thể hủy trước giờ bắt đầu sự kiện ít nhất 2 giờ.'}
               </div>
-            ) : isOrderPaid && isEntryEligible && !ticket.checked_in_at && !isRefundAllowedByPolicy && !isZeroAmountOrFree ? (
+            ) : !hasSecondaryTicketAction && isOrderPaid && isEntryEligible && !ticket.checked_in_at && !isRefundAllowedByPolicy && !isZeroAmountOrFree ? (
               <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 text-center text-xs text-slate-400">
                 {isEnglish ? 'Tickets are non-refundable according to event policy.' : 'Vé không hỗ trợ hoàn hủy theo chính sách của sự kiện.'}
               </div>
             ) : null}
-            {/* Nút Khiếu nại lên Quản trị viên */}
-            <button
-              type="button"
-              onClick={() => setComplaintModalOpen(true)}
-              className="w-full py-3 text-xs font-bold rounded-2xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 hover:text-rose-200 flex items-center justify-center gap-2 transition-all cursor-pointer"
-            >
-              <ShieldAlert className="size-4 text-rose-400" />
-              {isEnglish ? 'File Complaint to Admin' : 'Khiếu nại / Phản ánh lên Quản trị viên'}
-            </button>
           </div>
         </div>
       </div>
@@ -531,23 +528,6 @@ export function TicketDetailPage() {
           refundsQuery.refetch()
           queryClient.invalidateQueries({ queryKey: ['my-refunds'] })
           queryClient.invalidateQueries({ queryKey: ['ticket-detail'] })
-        }}
-      />
-
-      <CustomerComplaintModal
-        isOpen={complaintModalOpen}
-        onClose={() => setComplaintModalOpen(false)}
-        initialData={{
-          eventId: ticket?.event?.id,
-          eventTitle: ticket?.event?.title,
-          organizerId: ticket?.event?.organizer_id,
-          organizerName: ticket?.event?.organizer?.business_name || ticket?.event?.organizer?.organization_name,
-          ticketId: ticket?.id,
-          ticketCode: ticket?.ticket_code,
-          orderId: ticket?.order?.id,
-          orderCode: ticket?.order?.order_code,
-          contactEmail: ticket?.customer?.email,
-          contactPhone: ticket?.customer?.phone,
         }}
       />
     </div>
@@ -577,9 +557,9 @@ function CancelFreeTicketButton({ ticket, onCancelled, isEnglish = false }) {
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="w-full rounded-2xl border border-rose-500/30 bg-rose-500/10 py-3.5 text-sm font-bold text-rose-400 transition hover:bg-rose-500/20 hover:border-rose-500/50 flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+        className="w-full min-h-[52px] rounded-full border border-rose-500/30 bg-rose-500/10 px-5 py-3.5 text-sm sm:text-[15px] font-bold text-rose-400 transition hover:bg-rose-500/20 hover:border-rose-500/50 flex items-center justify-center gap-2.5 cursor-pointer shadow-sm"
       >
-        <X className="size-4" />
+        <X className="size-4 shrink-0" />
         {isEnglish ? 'Cancel Free Ticket' : 'Hủy vé miễn phí'}
       </button>
 
@@ -736,8 +716,15 @@ function RefundButton({ ticket, onRefundSubmitted, isEnglish = false }) {
       return
     }
 
-    if (!bankName.trim() || !accountNumber.trim() || !accountHolder.trim()) {
-      toast.error(isEnglish ? 'Please select bank and enter full account number and holder name!' : 'Vui lòng chọn ngân hàng và nhập đầy đủ số tài khoản, tên chủ tài khoản nhận tiền hoàn!')
+    const hasAnyBankField = Boolean(bankName.trim() || accountNumber.trim() || accountHolder.trim())
+    const hasFullBankInfo = Boolean(bankName.trim() && accountNumber.trim() && accountHolder.trim())
+
+    if (hasAnyBankField && !hasFullBankInfo) {
+      toast.error(
+        isEnglish
+          ? 'If you want to receive refund to a specific account, please fill in all 3 fields (Bank, Account Number, Account Holder)!'
+          : 'Nếu muốn nhận tiền qua tài khoản khác, vui lòng điền đầy đủ cả 3 thông tin: Ngân hàng, Số tài khoản và Tên chủ tài khoản!'
+      )
       return
     }
 
@@ -746,11 +733,13 @@ function RefundButton({ ticket, onRefundSubmitted, isEnglish = false }) {
       order_id: ticket.order?.id,
       reason,
       customer_note: customerNote,
-      bank_info: {
-        bank_name: bankName.trim(),
-        account_number: accountNumber.trim(),
-        account_holder: accountHolder.trim().toUpperCase(),
-      },
+      bank_info: hasFullBankInfo
+        ? {
+            bank_name: bankName.trim(),
+            account_number: accountNumber.trim(),
+            account_holder: accountHolder.trim().toUpperCase(),
+          }
+        : null,
     })
   }
 
@@ -759,9 +748,9 @@ function RefundButton({ ticket, onRefundSubmitted, isEnglish = false }) {
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-[#C99A47]/40 bg-transparent px-4 py-3.5 text-sm font-bold text-[#E6C17A] transition-all hover:bg-[#C99A47]/10 hover:border-[#E6C17A]/60 hover:shadow-[0_0_15px_rgba(201,154,71,0.2)]"
+        className="inline-flex w-full min-h-[52px] items-center justify-center gap-2.5 rounded-full border border-[#C99A47]/40 bg-transparent px-5 py-3.5 text-sm sm:text-[15px] font-bold text-[#E6C17A] transition-all hover:bg-[#C99A47]/10 hover:border-[#E6C17A]/60 hover:shadow-[0_0_15px_rgba(201,154,71,0.2)] cursor-pointer"
       >
-        <RotateCcw className="size-4" />
+        <RotateCcw className="size-4 shrink-0" />
         {isEnglish ? 'Request Ticket Refund' : 'Yêu cầu hoàn tiền vé'}
       </button>
 
@@ -959,20 +948,20 @@ function RefundButton({ ticket, onRefundSubmitted, isEnglish = false }) {
                   </div>
                 </div>
 
-                {/* Mandatory Bank Account Info */}
+                {/* Optional Bank Account Info */}
                 <div className="space-y-4 rounded-[24px] border border-white/5 bg-white/[0.02] p-5 shadow-inner">
                   <p className="text-[13px] font-bold text-slate-300">
-                    {isEnglish ? 'Bank account receiving refund' : 'Tài khoản ngân hàng nhận tiền hoàn'} <span className="text-error">*</span>
+                    {isEnglish ? 'Bank account receiving refund (Optional)' : 'Tài khoản ngân hàng nhận tiền hoàn (Tùy chọn)'}
                   </p>
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <select
-                      required
                       value={bankName}
                       onChange={(e) => setBankName(e.target.value)}
                       className="w-full rounded-[16px] border border-white/10 bg-black/40 px-4 py-3 text-[13px] font-medium text-[#F5EBDD] transition-all shadow-inner cursor-pointer hover:border-[#E6C17A] hover:shadow-[0_0_12px_rgba(201,154,71,0.25)] focus:border-[#E6C17A] focus:bg-[#0f172a] focus:ring-1 focus:ring-[#E6C17A] focus:shadow-[0_0_16px_rgba(201,154,71,0.35)] focus:outline-none"
                     >
-                      <option value="" disabled className="bg-[#0f172a] text-slate-400">
-                        {isEnglish ? '-- Select Bank * --' : '-- Chọn ngân hàng * --'}
+                      <option value="" className="bg-[#0f172a] text-slate-400">
+                        {isEnglish ? '-- Select Bank --' : '-- Chọn ngân hàng --'}
                       </option>
                       {VIETNAMESE_BANKS.map((b) => {
                         const display = getBankDisplayName(b)
@@ -985,8 +974,7 @@ function RefundButton({ ticket, onRefundSubmitted, isEnglish = false }) {
                     </select>
                     <input
                       type="text"
-                      required
-                      placeholder={isEnglish ? 'Account Number *' : 'Số tài khoản *'}
+                      placeholder={isEnglish ? 'Account Number (Optional)' : 'Số tài khoản (Tùy chọn)'}
                       value={accountNumber}
                       onChange={(e) => setAccountNumber(e.target.value)}
                       className="w-full rounded-[16px] border border-white/10 bg-black/40 px-4 py-3 text-[13px] font-medium text-[#F5EBDD] placeholder-slate-500 transition-all shadow-inner hover:border-[#E6C17A] hover:shadow-[0_0_12px_rgba(201,154,71,0.25)] focus:border-[#E6C17A] focus:bg-black/60 focus:ring-1 focus:ring-[#E6C17A] focus:shadow-[0_0_16px_rgba(201,154,71,0.35)] focus:outline-none"
@@ -994,8 +982,7 @@ function RefundButton({ ticket, onRefundSubmitted, isEnglish = false }) {
                   </div>
                   <input
                     type="text"
-                    required
-                    placeholder={isEnglish ? 'Account Holder Name (CAPITALS) *' : 'Tên chủ tài khoản *'}
+                    placeholder={isEnglish ? 'Account Holder Name (Optional)' : 'Tên chủ tài khoản (Tùy chọn)'}
                     value={accountHolder}
                     onChange={(e) => setAccountHolder(e.target.value.toUpperCase())}
                     className="w-full rounded-[16px] border border-white/10 bg-black/40 px-4 py-3 text-[13px] font-medium text-[#F5EBDD] placeholder-slate-500 transition-all shadow-inner hover:border-[#E6C17A] hover:shadow-[0_0_12px_rgba(201,154,71,0.25)] focus:border-[#E6C17A] focus:bg-black/60 focus:ring-1 focus:ring-[#E6C17A] focus:shadow-[0_0_16px_rgba(201,154,71,0.35)] focus:outline-none"
@@ -1033,7 +1020,9 @@ function CompactDetail({ label, value, wide }) {
   return (
     <div className={wide ? 'sm:col-span-2' : ''}>
       <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">{label}</p>
-      <p className="mt-1 break-words text-sm font-bold leading-relaxed text-white">{value || 'N/A'}</p>
+      <p className="mt-1 break-words sm:break-normal text-sm font-bold leading-relaxed text-white" title={typeof value === 'string' ? value : undefined}>
+        {value || 'N/A'}
+      </p>
     </div>
   )
 }
@@ -1265,7 +1254,7 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest, onPayoutSub
         )
       case 'APPROVED':
         return (
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-500/40 bg-blue-500/15 px-3.5 py-1 text-xs font-bold text-blue-300 shadow-[0_0_10px_rgba(59,130,246,0.3)]">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/50 bg-emerald-500/20 px-3.5 py-1 text-xs font-bold text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.28)]">
             <CheckCircle2 className="size-3.5" /> {isEnglish ? 'Approved (Awaiting Payout)' : 'Đã duyệt (Chờ BTC chuyển tiền)'}
           </span>
         )
@@ -1392,8 +1381,7 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest, onPayoutSub
           {isEditingPayout && (
             <div className="rounded-[20px] border border-amber-500/40 bg-amber-500/10 p-5 shadow-lg shadow-amber-500/5 animate-in fade-in duration-200">
               <div className="flex items-center justify-between mb-2">
-                <h4 className="text-xs font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
-                  <Edit2 className="size-3.5" />
+                <h4 className="text-xs font-bold text-amber-300 uppercase tracking-wider">
                   {isEnglish ? 'Edit Payout Bank Account' : 'Chỉnh sửa tài khoản nhận tiền hoàn'}
                 </h4>
                 <button
@@ -1413,7 +1401,7 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest, onPayoutSub
               <form onSubmit={handlePayoutSubmit} className="space-y-3">
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-300 mb-1">
-                    {isEnglish ? 'Beneficiary Bank' : 'Ngân hàng thụ hưởng'} <span className="text-amber-400">*</span>
+                    {isEnglish ? 'Beneficiary Bank' : 'Ngân hàng thụ hưởng'} <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={bankName}
@@ -1431,7 +1419,7 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest, onPayoutSub
                 </div>
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-300 mb-1">
-                    {isEnglish ? 'Account Number' : 'Số tài khoản ngân hàng'} <span className="text-amber-400">*</span>
+                    {isEnglish ? 'Account Number' : 'Số tài khoản ngân hàng'} <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -1444,7 +1432,7 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest, onPayoutSub
                 </div>
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-300 mb-1">
-                    {isEnglish ? 'Account Holder Name' : 'Tên chủ tài khoản'} <span className="text-amber-400">*</span>
+                    {isEnglish ? 'Account Holder Name' : 'Tên chủ tài khoản'} <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -1460,18 +1448,18 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest, onPayoutSub
                     type="button"
                     onClick={() => setIsEditingPayout(false)}
                     disabled={submittingPayout}
-                    className="flex-1 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 py-2.5 text-xs font-semibold text-slate-300 transition cursor-pointer"
+                    className="flex-1 rounded-full border border-white/15 bg-white/5 hover:bg-white/10 py-2.5 text-xs font-semibold text-slate-300 transition cursor-pointer"
                   >
                     {isEnglish ? 'Cancel' : 'Hủy'}
                   </button>
                   <button
                     type="submit"
                     disabled={submittingPayout}
-                    className="flex-1 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:brightness-110 py-2.5 text-xs font-bold text-slate-950 transition disabled:opacity-50 cursor-pointer shadow-[0_0_15px_rgba(245,158,11,0.3)]"
+                    className="btn-gold-primary flex-1 py-2.5 text-xs font-bold cursor-pointer"
                   >
                     {submittingPayout
-                      ? (isEnglish ? 'Saving...' : 'Đang lưu...')
-                      : (isEnglish ? 'Save Changes' : 'Lưu thay đổi')}
+                      ? (isEnglish ? 'Updating...' : 'Đang cập nhật...')
+                      : (isEnglish ? 'Update' : 'Cập nhật')}
                   </button>
                 </div>
               </form>
@@ -1481,7 +1469,7 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest, onPayoutSub
           {/* Display submitted bank account info if already provided */}
           {!needsPayoutInfo && !isEditingPayout && currentRefundRequest?.bank_name && (
             <div className="rounded-[20px] border border-blue-500/30 bg-blue-500/10 p-4">
-              <div className="flex items-center justify-between mb-2.5">
+              <div className="flex items-center justify-between gap-3 mb-2.5">
                 <h4 className="text-xs font-bold text-blue-300 uppercase tracking-wider">
                   {isEnglish ? 'Registered Payout Bank Account' : 'Tài khoản nhận tiền hoàn đã ghi nhận'}
                 </h4>
@@ -1489,10 +1477,11 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest, onPayoutSub
                   <button
                     type="button"
                     onClick={startEditingPayout}
-                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg border border-blue-400/40 bg-blue-500/20 hover:bg-blue-500/35 text-xs font-semibold text-blue-200 transition cursor-pointer"
+                    title={isEnglish ? 'Edit' : 'Chỉnh sửa'}
+                    aria-label={isEnglish ? 'Edit' : 'Chỉnh sửa'}
+                    className="ml-auto inline-flex items-center justify-center border-0 bg-transparent p-1 text-blue-300 hover:text-white transition cursor-pointer shrink-0"
                   >
-                    <Edit2 className="size-3.5" />
-                    <span>{isEnglish ? 'Edit' : 'Chỉnh sửa'}</span>
+                    <Edit2 className="size-4" />
                   </button>
                 )}
               </div>
@@ -1592,16 +1581,6 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest, onPayoutSub
               <div className="flex justify-between items-start gap-4 border-b border-white/5 pb-2.5">
                 <div className="flex items-center gap-2">
                   <span className="text-slate-400 font-medium shrink-0">{isEnglish ? 'Receiving Account:' : 'Tài khoản nhận:'}</span>
-                  {canEditPayout && !isEditingPayout && (
-                    <button
-                      type="button"
-                      onClick={startEditingPayout}
-                      className="text-blue-400 hover:text-blue-300 text-[11px] underline flex items-center gap-1 cursor-pointer font-medium"
-                    >
-                      <Edit2 className="size-2.5" />
-                      {isEnglish ? 'Edit' : 'Chỉnh sửa'}
-                    </button>
-                  )}
                 </div>
                 <div className="text-right text-slate-200 space-y-0.5">
                   <p className="font-semibold text-white">{resolveBankName(currentRefundRequest?.bank_name || refundRequest?.bank_name)}</p>
@@ -1611,8 +1590,8 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest, onPayoutSub
                       : (currentRefundRequest?.bank_account_number || refundRequest?.bank_account_number)}
                   </p>
                   {(currentRefundRequest?.bank_account_name || refundRequest?.bank_account_name) && (
-                    <p className="font-medium text-slate-400 uppercase text-[11px]">
-                      ({currentRefundRequest?.bank_account_name || refundRequest?.bank_account_name})
+                    <p className="font-medium text-white uppercase text-[11px]">
+                      {currentRefundRequest?.bank_account_name || refundRequest?.bank_account_name}
                     </p>
                   )}
                 </div>

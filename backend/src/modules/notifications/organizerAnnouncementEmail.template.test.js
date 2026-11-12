@@ -115,6 +115,42 @@ describe('organizerAnnouncementEmail.template', () => {
       expect(html).not.toContain('evt-uuid-1234');
       expect(html).toContain(SUPPORT_EMAIL);
     });
+
+    it('ensures light mode and dark mode compatibility across Gmail, Apple Mail, and Outlook', () => {
+      const html = buildOrganizerAnnouncementHtml({
+        customerName: 'Nguyễn Thị Anh Thư',
+        organizerName: 'Garden Art',
+        notificationTitle: 'Cập nhật lịch tham gia',
+        notificationMessage:
+          '<p><span style="color: #ffffff; background-color: #ffffff;">Văn bản copy nền trắng</span></p>' +
+          '<p><span style="color: #000000;">Văn bản đen mặc định</span></p>' +
+          '<p><span style="background-color: #fef08a; color: #000000;">Highlight quan trọng</span></p>',
+        eventName: '[GARDEN ART] - ART WORKSHOP',
+        startTime: '2026-11-29T07:00:00.000Z',
+        venueName: 'Garden Art',
+        addressLine: 'Lầu 1, 386/17C Lê Văn Sỹ',
+        district: 'Quận 3',
+        city: 'TP. Hồ Chí Minh',
+      });
+
+      // Crucial Gmail iOS/Android Dark Mode rule: never use non-invertible CSS linear-gradient on text surfaces
+      expect(html).not.toContain('linear-gradient');
+
+      // Dark mode opt-in meta & CSS rules for Apple Mail / iOS Mail / Outlook
+      expect(html).toContain('<meta name="color-scheme" content="light dark" />');
+      expect(html).toContain('<meta name="supported-color-schemes" content="light dark" />');
+      expect(html).toContain('@media (prefers-color-scheme: dark)');
+      expect(html).toContain('[data-ogsc] .eh-event-card');
+      expect(html).toContain('eh-event-card');
+      expect(html).toContain('eh-footer-bg');
+
+      // Copied neutral white/black text without intentional highlight background gets normalized; intentional highlights stay intact
+      expect(html).not.toContain('background-color: #ffffff;');
+      expect(html).not.toContain('color: #ffffff');
+      expect(html).toContain('Văn bản copy nền trắng');
+      expect(html).toContain('Văn bản đen mặc định');
+      expect(html).toContain('background-color: #fef08a; color: #000000');
+    });
   });
 
   describe('language scenarios (Vietnamese & English)', () => {

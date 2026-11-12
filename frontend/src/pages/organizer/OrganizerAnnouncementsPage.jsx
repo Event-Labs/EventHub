@@ -236,7 +236,9 @@ export function OrganizerAnnouncementsPage() {
           <OrganizerPanel>
             <form className="grid gap-4" onSubmit={handleSubmit}>
               <label className="block">
-                <span className="block text-base font-bold text-white mb-1.5 [html.light_&]:text-[#0D1B2A]">{isEnglish ? 'Event' : 'Sự kiện'}</span>
+                <span className="block text-base font-bold text-white mb-1.5 [html.light_&]:text-[#0D1B2A]">
+                  {isEnglish ? 'Event' : 'Sự kiện'} <span className="text-red-500 font-bold ml-0.5">*</span>
+                </span>
                 <select
                   required
                   value={form.event_id}
@@ -254,13 +256,16 @@ export function OrganizerAnnouncementsPage() {
 
               <Field
                 label={isEnglish ? 'Title' : 'Tiêu đề'}
+                required
                 value={form.title}
                 onChange={update('title')}
                 placeholder={isEnglish ? 'For example: Change check-in time' : 'Ví dụ: Thay đổi thời gian check-in'}
               />
 
               <div>
-                <span className="block text-base font-bold text-white mb-1.5 [html.light_&]:text-[#0D1B2A]">{isEnglish ? 'Sending channel' : 'Kênh gửi'}</span>
+                <span className="block text-base font-bold text-white mb-1.5 [html.light_&]:text-[#0D1B2A]">
+                  {isEnglish ? 'Sending channel' : 'Kênh gửi'} <span className="text-red-500 font-bold ml-0.5">*</span>
+                </span>
                 <div className="mt-2 flex flex-wrap gap-5 text-sm font-semibold text-content [html.light_&]:text-[#1B365D]">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input type="checkbox" checked={form.web} onChange={update('web')} className="accent-primary" />
@@ -275,7 +280,9 @@ export function OrganizerAnnouncementsPage() {
 
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="block text-base font-bold text-white [html.light_&]:text-[#0D1B2A]">{isEnglish ? 'Content' : 'Nội dung'}</span>
+                  <span className="block text-base font-bold text-white [html.light_&]:text-[#0D1B2A]">
+                    {isEnglish ? 'Content' : 'Nội dung'} <span className="text-red-500 font-bold ml-0.5">*</span>
+                  </span>
 
                   {/* Hidden file input */}
                   <input
@@ -431,12 +438,15 @@ export function OrganizerAnnouncementsPage() {
   )
 }
 
-function Field({ label, value, onChange, placeholder }) {
+function Field({ label, required = false, value, onChange, placeholder }) {
   return (
     <label className="block">
-      <span className="block text-base font-bold text-white mb-1.5 [html.light_&]:text-[#0D1B2A]">{label}</span>
+      <span className="block text-base font-bold text-white mb-1.5 [html.light_&]:text-[#0D1B2A]">
+        {label}
+        {required && <span className="text-red-500 font-bold ml-0.5">*</span>}
+      </span>
       <input
-        required
+        required={required}
         value={value}
         onChange={onChange}
         placeholder={placeholder}
