@@ -484,7 +484,9 @@ class OrganizerEventsService {
     }
 
     // 2. Lifecycle & Suspended checks (BR-UE-02, AC-HE-05)
-    if (['CANCELLED', 'ENDED'].includes(currentEvent.status)) {
+    const isEnded = ['CANCELLED', 'ENDED', 'COMPLETED'].includes(currentEvent.status) ||
+      (currentEvent.end_time && new Date(currentEvent.end_time) < new Date());
+    if (isEnded) {
       throw new AppError('Sự kiện đã kết thúc hoặc đã hủy, không thể cập nhật.', 400, ErrorCodes.EVENT_INVALID_TRANSITION);
     }
     if (currentEvent.display_state === 'SUSPENDED_BY_ADMIN') {

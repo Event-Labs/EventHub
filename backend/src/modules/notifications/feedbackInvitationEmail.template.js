@@ -13,15 +13,21 @@ const escapeHtml = (value) =>
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 
+const EVENTHUB_LOGO_URL = 'https://res.cloudinary.com/dookztwec/image/upload/v1793597424/eventhub/brand/eventhub_logo.png';
+
 function getLogoUrl() {
-  const clientUrl = String(env.CLIENT_URL || 'https://eventhub.com').replace(/\/$/, '');
-  return `${clientUrl}/images/LogoEH.png`;
+  if (process.env.EVENTHUB_LOGO_URL) return process.env.EVENTHUB_LOGO_URL;
+  if (env.CLIENT_URL && !env.CLIENT_URL.includes('localhost') && !env.CLIENT_URL.includes('127.0.0.1')) {
+    return `${String(env.CLIENT_URL).replace(/\/$/, '')}/images/LogoEH.png`;
+  }
+  return EVENTHUB_LOGO_URL;
 }
 
 function buildFeedbackInvitationHtml(data) {
   const {
     attendeeName = 'bạn',
     eventTitle = 'Sự kiện EventHub',
+    sessionName,
     bannerUrl,
     startTime,
     endTime,
@@ -77,7 +83,11 @@ function buildFeedbackInvitationHtml(data) {
           Bạn cảm thấy sự kiện thế nào?
         </h1>
         <p style="margin: 0; font-size: 13px; line-height: 1.55; color: #cbd5e1;">
-          Sự kiện &ldquo;${escapeHtml(eventTitle)}&rdquo; đã đi qua 2/3 thời gian. Ban tổ chức rất mong nhận được những chia sẻ, đánh giá thực tế của bạn để hoàn thiện hơn nữa!
+          ${
+            sessionName
+              ? `Phiên &ldquo;${escapeHtml(sessionName)}&rdquo; của sự kiện &ldquo;${escapeHtml(eventTitle)}&rdquo; đã đi qua 2/3 thời gian. Ban tổ chức rất mong nhận được những chia sẻ, đánh giá thực tế của bạn để hoàn thiện hơn nữa!`
+              : `Sự kiện &ldquo;${escapeHtml(eventTitle)}&rdquo; đã đi qua 2/3 thời gian. Ban tổ chức rất mong nhận được những chia sẻ, đánh giá thực tế của bạn để hoàn thiện hơn nữa!`
+          }
         </p>
       </div>
     </div>
@@ -120,7 +130,30 @@ function buildFeedbackInvitationHtml(data) {
       <!-- Event Details Card -->
       <div style="border: 1px solid #e2e8f0; border-radius: 14px; background-color: #ffffff; padding: 4px 18px; margin-bottom: 22px;">
         
-        <!-- Row 1: NGÀY & THỜI GIAN -->
+        <!-- Row: PHIÊN THAM GIA (nếu có) -->
+        ${
+          sessionName
+            ? `<table width="100%" cellpadding="12" cellspacing="0" border="0" style="border-bottom: 1px solid #f1f5f9;">
+                 <tr>
+                   <td width="36" style="vertical-align: top; padding-left: 0;">
+                     <div style="width: 36px; height: 36px; border-radius: 9px; background-color: #fef3c7; text-align: center; line-height: 36px; font-size: 18px;">
+                       🎟️
+                     </div>
+                   </td>
+                   <td style="vertical-align: middle; padding-right: 0;">
+                     <div style="font-size: 11px; font-weight: 800; color: #64748b; letter-spacing: 0.5px; text-transform: uppercase;">
+                       PHIÊN THAM GIA
+                     </div>
+                     <div style="font-size: 14px; font-weight: 700; color: #0f172a; margin-top: 2px;">
+                       ${escapeHtml(sessionName)}
+                     </div>
+                   </td>
+                 </tr>
+               </table>`
+            : ''
+        }
+
+        <!-- Row: NGÀY & THỜI GIAN -->
         <table width="100%" cellpadding="12" cellspacing="0" border="0" style="border-bottom: 1px solid #f1f5f9;">
           <tr>
             <td width="36" style="vertical-align: top; padding-left: 0;">
@@ -204,6 +237,7 @@ function buildFeedbackInvitationText(data) {
   const {
     attendeeName = 'bạn',
     eventTitle = 'Sự kiện EventHub',
+    sessionName,
     feedbackLink,
   } = data;
 
@@ -213,7 +247,7 @@ function buildFeedbackInvitationText(data) {
   return `
 Xin chào ${attendeeName},
 
-Sự kiện "${eventTitle}" đã trôi qua 2/3 thời gian diễn ra.
+${sessionName ? `Phiên "${sessionName}" của sự kiện "${eventTitle}"` : `Sự kiện "${eventTitle}"`} đã trôi qua 2/3 thời gian diễn ra.
 Ban tổ chức rất mong nhận được những chia sẻ, đánh giá thực tế của bạn để nâng cao chất lượng trải nghiệm!
 
 Bạn có thể gửi đánh giá và nhận xét của mình ngay tại:

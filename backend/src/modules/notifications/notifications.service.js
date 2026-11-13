@@ -626,16 +626,22 @@ class NotificationsService {
   async dispatchFeedbackInvitation(row) {
     try {
       const clientUrl = String(env.CLIENT_URL || '').replace(/\/$/, '');
-      const feedbackLink = `${clientUrl}/feedback?event_id=${encodeURIComponent(row.event_id)}`;
+      const feedbackLink = `${clientUrl}/feedback?event_id=${encodeURIComponent(row.event_id)}${row.session_id ? `&session_id=${encodeURIComponent(row.session_id)}` : ''}`;
       const isOnline = row.event_format === 'ONLINE' || (!row.venue_name && !row.address_line);
 
-      const emailSubject = `[EventHub] Bạn cảm thấy thế nào về sự kiện "${row.event_title}"? Chia sẻ cảm nhận nhé!`;
-      const notifTitle = `Đánh giá sự kiện: "${row.event_title}"`;
-      const notifContent = `Sự kiện "${row.event_title}" đã đi qua 2/3 thời gian. Hãy chia sẻ cảm nhận và phản hồi của bạn để ban tổ chức ngày càng hoàn thiện hơn nhé!`;
+      const sessionSuffix = row.session_name ? ` (${row.session_name})` : '';
+      const emailSubject = `[EventHub] Bạn cảm thấy thế nào về sự kiện "${row.event_title}"${sessionSuffix}? Chia sẻ cảm nhận nhé!`;
+      const notifTitle = row.session_name
+        ? `Đánh giá sự kiện: "${row.event_title}" - ${row.session_name}`
+        : `Đánh giá sự kiện: "${row.event_title}"`;
+      const notifContent = row.session_name
+        ? `Phiên "${row.session_name}" của sự kiện "${row.event_title}" đã đi qua 2/3 thời gian. Hãy chia sẻ cảm nhận và phản hồi của bạn để ban tổ chức ngày càng hoàn thiện hơn nhé!`
+        : `Sự kiện "${row.event_title}" đã đi qua 2/3 thời gian. Hãy chia sẻ cảm nhận và phản hồi của bạn để ban tổ chức ngày càng hoàn thiện hơn nhé!`;
 
       const html = buildFeedbackInvitationHtml({
         attendeeName: row.full_name || 'bạn',
         eventTitle: row.event_title,
+        sessionName: row.session_name,
         bannerUrl: row.banner_url || row.thumbnail_url,
         startTime: row.start_time,
         endTime: row.end_time,
@@ -651,6 +657,7 @@ class NotificationsService {
       const message = buildFeedbackInvitationText({
         attendeeName: row.full_name || 'bạn',
         eventTitle: row.event_title,
+        sessionName: row.session_name,
         feedbackLink,
       });
 

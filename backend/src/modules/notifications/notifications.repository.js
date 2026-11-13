@@ -313,7 +313,7 @@ class NotificationsRepository {
   async findTwoThirdsFeedbackRecipients() {
     const { rows } = await db.query(
       `
-      SELECT DISTINCT ON (o.user_id, e.id)
+      SELECT DISTINCT ON (o.user_id, COALESCE(es.id, e.id))
         o.user_id,
         COALESCE(t.attendee_email, u.email, o.buyer_email) AS email,
         COALESCE(t.attendee_name, u.full_name, o.buyer_name, 'Quý khách') AS full_name,
@@ -351,23 +351,24 @@ class NotificationsRepository {
         AND o.status IN ('PAID', 'CONFIRMED')
         AND o.status NOT IN ('CANCELLED', 'REFUNDED')
         AND COALESCE(o.refunded_amount, 0) < o.total_amount
-        AND t.status IN ('VALID', 'USED')
+        -- Người dùng thực tế tham gia phiên sự kiện (đã check-in hoặc sự kiện online)
+        AND (t.checked_in_at IS NOT NULL OR t.status = 'USED' OR e.format = 'ONLINE')
         AND t.status NOT IN ('CANCELLED', 'REFUNDED')
         AND COALESCE(t.attendee_email, u.email, o.buyer_email) IS NOT NULL
-        -- Timing: 2/3 of event duration has passed
+        -- Timing: Đã đi qua 2/3 thời lượng của phiên sự kiện
         AND NOW() >= (
           COALESCE(es.start_time, e.start_time) + 
           (COALESCE(es.end_time, e.end_time, es.start_time + INTERVAL '4 hours', e.start_time + INTERVAL '4 hours') - COALESCE(es.start_time, e.start_time)) * (2.0 / 3.0)
         )
-        -- Process events from within the last 7 days
+        -- Phiên sự kiện diễn ra trong vòng 7 ngày gần nhất
         AND COALESCE(es.start_time, e.start_time) >= NOW() - INTERVAL '7 days'
-        -- Anti-duplication: User has not already submitted feedback
+        -- Anti-duplication: Người dùng chưa gửi feedback cho sự kiện này
         AND NOT EXISTS (
           SELECT 1
           FROM event_feedbacks ef
           WHERE ef.event_id = e.id AND ef.user_id = o.user_id
         )
-        -- Anti-duplication: Invitation not sent yet
+        -- Anti-duplication: Chưa gửi thông báo mời feedback cho phiên sự kiện này tới người dùng
         AND NOT EXISTS (
           SELECT 1
           FROM notifications n
@@ -379,8 +380,13 @@ class NotificationsRepository {
               OR n.title ILIKE '%feedback%'
               OR n.title ILIKE '%cảm nhận%'
             )
+            AND (
+              es.session_name IS NULL
+              OR n.content ILIKE '%' || es.session_name || '%'
+              OR n.title ILIKE '%' || es.session_name || '%'
+            )
         )
-      ORDER BY o.user_id, e.id, es.start_time ASC
+      ORDER BY o.user_id, COALESCE(es.id, e.id), es.start_time ASC
       LIMIT 100
       `
     );
