@@ -60,6 +60,7 @@ export function EventActionsDropdown({
   const isLive = !ended && !isCancelled && !isSuspended && !isCancelPending && (
     event?.status === 'PUBLISHED' || isHidden || isPaused
   )
+  const canEdit = includeEdit && !ended
 
   const eventPublicUrl = `/events/${event.slug || event.id}`
 
@@ -76,8 +77,8 @@ export function EventActionsDropdown({
       onClick: () => onWithdrawCancel && onWithdrawCancel(event),
     })
   } else if (isDraft) {
-    // 2. Bản nháp: Chỉnh sửa và Xóa bản nháp
-    if (includeEdit) {
+    // 2. Bản nháp: Chỉnh sửa và Xóa bản nháp (Nếu đã kết thúc thì không cho chỉnh sửa)
+    if (canEdit) {
       items.push({
         key: 'edit',
         label: isEnglish ? 'Edit Event' : 'Chỉnh sửa sự kiện',
@@ -98,7 +99,7 @@ export function EventActionsDropdown({
     })
   } else if (isPendingReview) {
     // 3. Chờ duyệt: Chỉnh sửa sự kiện và Xem trước trang công khai
-    if (includeEdit) {
+    if (canEdit) {
       items.push({
         key: 'edit',
         label: isEnglish ? 'Edit Event' : 'Chỉnh sửa sự kiện',
@@ -126,7 +127,7 @@ export function EventActionsDropdown({
       className: 'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 [html.light_&]:text-emerald-600 [html.light_&]:hover:bg-emerald-50',
       onClick: () => onPublish && onPublish(event),
     })
-    if (includeEdit) {
+    if (canEdit) {
       items.push({
         key: 'edit',
         label: isEnglish ? 'Edit Event' : 'Chỉnh sửa sự kiện',
@@ -193,7 +194,7 @@ export function EventActionsDropdown({
     })
   } else if (isSuspended) {
     // 7. Bị đình chỉ bởi Admin: Chỉnh sửa để điều chỉnh theo yêu cầu, Xem trang sự kiện
-    if (includeEdit) {
+    if (canEdit) {
       items.push({
         key: 'edit',
         label: isEnglish ? 'Edit Event' : 'Chỉnh sửa sự kiện',
@@ -214,7 +215,7 @@ export function EventActionsDropdown({
     })
   } else if (isLive) {
     // 8. Đang hoạt động: Chỉnh sửa -> Ẩn/Hiện -> Dừng/Mở bán -> Báo cáo -> Danh sách -> Xem trang -> Hủy
-    if (includeEdit) {
+    if (canEdit) {
       items.push({
         key: 'edit',
         label: isEnglish ? 'Edit Event' : 'Chỉnh sửa sự kiện',

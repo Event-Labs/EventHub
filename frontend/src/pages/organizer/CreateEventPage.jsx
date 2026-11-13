@@ -25,6 +25,7 @@ import { AiDocumentExtractorModal } from './AiDocumentExtractorModal.jsx'
 import { validateRefundRules, generateRefundPolicyLines, generateRefundPolicyText } from '@/utils/refundPolicy.js'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
 import { getCategoryName } from '@/i18n/categoryNames.js'
+import { isEventEnded } from './eventStatusUtil.js'
 
 const getAutoLocale = () =>
   ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
@@ -4379,6 +4380,12 @@ export function CreateEventPage() {
     setInitialLoading(true)
     fetchOrganizerEvent(routeEventId)
       .then((event) => {
+        const ended = isEventEnded(event) || (event.status === 'COMPLETED' && event.approval_status !== 'APPROVED')
+        if (ended) {
+          toast.error(isEnglish ? 'This event has ended and cannot be edited.' : 'Sự kiện đã kết thúc, không thể chỉnh sửa.')
+          navigate(`/organizer/events/${event.id}`)
+          return
+        }
         setEventId(event.id)
         setEventStatus(event.status || 'DRAFT')
         setEditPermissions(event.edit_permissions || null)
@@ -4391,7 +4398,7 @@ export function CreateEventPage() {
         toast.error('Không thể tải sự kiện.')
       })
       .finally(() => setInitialLoading(false))
-  }, [routeEventId, populateFromEvent])
+  }, [routeEventId, populateFromEvent, navigate, toast, isEnglish])
 
   const handleApplyAiDraft = (aiData) => {
     if (!aiData) return
