@@ -6,6 +6,7 @@ const eventsRepository = require('../events/events.repository');
 const ordersService = require('../orders/orders.service');
 const ticketsService = require('../tickets/tickets.service');
 const refundsService = require('../refunds/refunds.service');
+const { generateRefundPolicyLines, generateRefundPolicyText } = require('../refunds/refundPolicyHelper');
 const userService = require('../user/user.service');
 const authRepository = require('../auth/auth.repository');
 const seatAllocationService = require('../events/seatAllocation.service');
@@ -423,6 +424,7 @@ Eve luôn sẵn sàng đồng hành cùng bạn để tìm kiếm sự kiện ho
     (/(dieu khoan|chinh sach|quy dinh|luat)\b.*?\b(he thong|eventhub|chung|chu y|can biet|noi bat|quan trong|nhung gi|co gi)/i.test(norm) ||
      /(he thong|eventhub)\b.*?\b(dieu khoan|chinh sach|quy dinh)/i.test(norm) ||
      /^(dieu khoan|chinh sach|quy dinh cua eventhub|chinh sach cua he thong)\b/i.test(norm)) &&
+    !/(hoan|tra|huy|refund)\s*(ve|tien)/i.test(norm) &&
     !/(dat|mua|book|so do|lay)\s*(ve|ghe|\d+)/i.test(norm)
   ) {
     return `Chào bạn! Khi tham gia trải nghiệm và đặt vé trên EventHub, bạn vui lòng lưu ý một số điều khoản và chính sách quan trọng sau nhé:
@@ -431,8 +433,9 @@ Eve luôn sẵn sàng đồng hành cùng bạn để tìm kiếm sự kiện ho
 - Mọi dữ liệu cá nhân và mật khẩu đều được mã hóa bảo mật nghiêm ngặt. Hệ thống không bao giờ chia sẻ thông tin thanh toán của bạn cho bên thứ ba.
 
 🎫 **2. Chính sách hoàn tiền vé (Refund):**
-- Khách hàng có thể gửi yêu cầu hoàn vé trực tiếp tại mục **"Vé của tôi"** trước ít nhất **72 giờ** so với thời điểm sự kiện bắt đầu.
-- Phí xử lý hoàn vé tiêu chuẩn là 10% giá trị vé, tiền sẽ được hoàn về phương thức thanh toán ban đầu trong 5 - 7 ngày làm việc.
+- Mỗi sự kiện sẽ áp dụng quy định hoàn vé riêng do Ban tổ chức thiết lập (hoàn theo các mốc thời gian trước sự kiện hoặc không hoàn hủy).
+- Trường hợp sự kiện bị hủy bỏ do sự cố bất khả kháng, hệ thống tự động hoàn 100% tiền vé lại cho khán giả.
+- Khách hàng có thể gửi yêu cầu hoàn vé trực tiếp tại mục **"Vé của tôi"** đối với các sự kiện có hỗ trợ hoàn vé.
 
 🪑 **3. Quy tắc xếp chỗ ngồi thông minh:**
 - **Ghế ngồi liền kề:** Đặt từ 2 vé trở lên luôn được hệ thống tự động chọn các vị trí sát cạnh nhau để bạn và người thân ngồi cùng.
@@ -447,20 +450,18 @@ Eve luôn sẵn lòng giải đáp thêm nếu bạn cần hỗ trợ về bất
   }
 
   // Refund policy
-  if (/(chinh sach hoan tien|chinh sach tra ve|chinh sach huy ve|hoan ve nhu the nao|co duoc tra ve khong|quy dinh hoan tien|phi hoan ve)/i.test(norm)) {
-    return `EventHub hỗ trợ hoàn tiền vé theo chính sách minh bạch nhằm bảo vệ quyền lợi của cả Khán giả và Ban tổ chức:
+  if (/(chinh sach hoan tien|chinh sach tra ve|chinh sach huy ve|hoan ve nhu the nao|co duoc tra ve khong|co duoc hoan ve khong|hoan ve duoc khong|hoan tien duoc khong|co duoc hoan tien khong|co cho hoan ve khong|co cho tra ve khong|quy dinh hoan tien|phi hoan ve)/i.test(norm)) {
+    return `EventHub hỗ trợ chính sách hoàn tiền vé minh bạch và linh hoạt nhằm đảm bảo quyền lợi của cả Khán giả và Ban tổ chức:
 
-⏱️ **Thời hạn gửi yêu cầu hoàn vé:**
-- Yêu cầu hoàn tiền phải được gửi **trước ít nhất 72 giờ** so với thời điểm sự kiện bắt đầu diễn ra.
+🎫 **Chính sách hoàn vé theo từng sự kiện:**
+- Mỗi Ban tổ chức sẽ quy định chính sách hoàn tiền riêng cho sự kiện của mình (ví dụ: hoàn 100% trước 7 ngày, hoàn 50% trước 3 ngày, hoặc vé không hỗ trợ hoàn tiền).
+- Thông tin này luôn được hiển thị công khai tại trang chi tiết của sự kiện. Bạn cũng có thể nhắn tên sự kiện để Eve tra cứu trực tiếp chính sách hoàn vé cho bạn nhé!
 
-💸 **Phí xử lý hoàn vé:**
-- Phí hoàn vé tiêu chuẩn là **10%** trên tổng giá trị vé hoàn lại.
+🚨 **Trường hợp sự kiện bị Hủy bỏ:**
+- Nếu sự kiện bị hủy bởi Ban tổ chức hoặc Ban quản trị vì lý do bất khả kháng, toàn bộ 100% tiền vé sẽ được tự động hoàn lại cho khán giả đã thanh toán.
 
-💳 **Thời gian nhận tiền:**
-- Tiền hoàn sẽ được chuyển về tài khoản/thẻ thanh toán ban đầu của bạn trong vòng **5 – 7 ngày làm việc**.
-
-📲 **Cách thực hiện:**
-- Bạn vào mục **"Vé của tôi"** > Chọn vé cần hoàn > Nhấn **"Yêu cầu hoàn vé"** và điền lý do nhé!`;
+📲 **Cách thức gửi yêu cầu hoàn vé:**
+- Với sự kiện có hỗ trợ hoàn vé, sau khi mua bạn chỉ cần vào mục **"Vé của tôi"** > Chọn vé sự kiện > Nhấn nút **"Yêu cầu hoàn vé"** trước hạn quy định để hệ thống xử lý hoàn tiền về tài khoản ban đầu nhé!`;
   }
 
   // Payment methods & bank errors
@@ -686,6 +687,12 @@ function isOutOfScopeQuery(message) {
 function isSystemFaqQuery(message) {
   if (!message) return false;
   const norm = normalizeText(message);
+
+  // If referring to a specific or current event, this is an event inquiry, NOT general system FAQ
+  if (/(?:su\s*kien|show|vo\s*kich|concert|workshop|dem\s*nhac|chuong\s*trinh)\s+(?:nay|do|do\s*a|nay\s*a)\b/i.test(norm) ||
+      /\b(?:cua\s+su\s*kien|cua\s+show|ve\s*nay|cho\s+su\s*kien|o\s*day|tai\s*day)\b/i.test(norm)) {
+    return false;
+  }
 
   // Platform identity / what is EventHub
   if (/(eventhub|nen tang eventhub|ung dung eventhub|he thong eventhub)/i.test(norm) &&
@@ -3027,12 +3034,27 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
       }
 
       // 0.3. Direct FAQ Fast-path (Standard verified policies & platform guides):
-      const directFaq = getDirectFaqAnswer(message);
-      if (directFaq) {
-        return {
-          role: 'assistant',
-          content: stripIcons(directFaq)
-        };
+      const publishedEvents = await getPublishedEventsCache();
+      const directMatchedEvent = findMatchingPublishedEvent(
+        message,
+        publishedEvents,
+        { allowSemanticTopic: true }
+      );
+      const isTargetingEvent = Boolean(
+        directMatchedEvent ||
+        clientContext?.eventSlug ||
+        clientContext?.eventId ||
+        /(?:su\s*kien|show|vo\s*kich|concert|workshop|dem\s*nhac|chuong\s*trinh)\b/i.test(normalizeText(message))
+      );
+
+      if (!isTargetingEvent) {
+        const directFaq = getDirectFaqAnswer(message);
+        if (directFaq) {
+          return {
+            role: 'assistant',
+            content: stripIcons(directFaq)
+          };
+        }
       }
 
       // Extract any phone number provided by the user in the current message or chat history
@@ -3120,7 +3142,6 @@ CORE RULES - NATURAL COMMUNICATION & SECURITY (ENGLISH):`
 
     // Pre-flight Grounding Optimization:
     // Check if the user is asking about or wanting to book a specific named event in EventHub:
-    const publishedEvents = await getPublishedEventsCache();
     const eventChangeInfo = detectEventChangeIntent(message);
 
     // Look back in cleanHistory to find the previous active event:
@@ -3282,6 +3303,8 @@ CORE RULES - NATURAL COMMUNICATION & SECURITY (ENGLISH):`
       if (previousActiveEvent && previousActiveEvent.slug !== currentMatchedEvent.slug) {
         isEventSwitched = true;
       }
+    } else if (previousActiveEvent && /(?:hoan\s*ve|tra\s*ve|huy\s*ve|hoan\s*tien|refund|gia\s*ve|lich\s*dien|dia\s*diem|o\s*dau|may\s*gio)/i.test(normalizeText(message)) && !/(?:nen\s*tang|eventhub|organizer|ban\s*to\s*chuc)\b/i.test(normalizeText(message))) {
+      activeEvent = previousActiveEvent;
     } else if (isGeneralDiscoveryQuery(message) || isSystemFaqQuery(message)) {
       activeEvent = null;
     } else {
@@ -3379,6 +3402,62 @@ CORE RULES - NATURAL COMMUNICATION & SECURITY (ENGLISH):`
 
       // Direct Event Information Inquiry Fast-Path:
       // If user asks for information / details about this matched event without requesting to book:
+      const normMsg = normalizeText(message);
+      const isRefundInquiry = /(?:hoan\s*ve|tra\s*ve|huy\s*ve|hoan\s*tien|refund|chinh\s*sach\s*hoan|co\s*duoc\s*hoan|co\s*duoc\s*tra|chinh\s*sach\s*tra|co\s*cho\s*hoan|co\s*cho\s*tra)/i.test(normMsg) &&
+        !/(?:dat|mua|book|lay)\s*(?:ve|ghe|\d+)/i.test(normMsg);
+
+      if (isRefundInquiry) {
+        const isEn = clientContext?.locale === 'en';
+        const evTitle = (isEn && (eventDetail?.title_en || activeEvent.title_en)) || activeEvent.title;
+        const refundPolicy = eventDetail?.refund_policy || activeEvent.refund_policy || null;
+        const allowRefund = Boolean(refundPolicy?.allow_refund ?? refundPolicy?.allow_refunds);
+        const rules = Array.isArray(refundPolicy?.refund_rules) ? refundPolicy.refund_rules : [];
+
+        if (allowRefund && rules.length > 0) {
+          const sortedRules = [...rules].sort((a, b) => Number(b.days_before) - Number(a.days_before));
+          const ruleLines = sortedRules.map((r, i) => {
+            if (i === 0) {
+              return isEn
+                ? `• **${r.refund_rate}% refund** if requested at least **${r.days_before} days** prior to the event.`
+                : `• Hoàn **${r.refund_rate}%** giá trị vé nếu gửi yêu cầu trước ngày diễn ra ít nhất **${r.days_before} ngày**.`;
+            }
+            const prev = sortedRules[i - 1];
+            return isEn
+              ? `• **${r.refund_rate}% refund** if requested between **${r.days_before}** and under **${prev.days_before} days** prior to the event.`
+              : `• Hoàn **${r.refund_rate}%** giá trị vé nếu gửi yêu cầu trước ngày diễn ra từ **${r.days_before}** đến dưới **${prev.days_before} ngày**.`;
+          });
+          const minDays = sortedRules[sortedRules.length - 1].days_before;
+          if (minDays > 0) {
+            ruleLines.push(
+              isEn
+                ? `• **No refund** if requested within **${minDays} days** prior to the event.`
+                : `• **Không hỗ trợ hoàn tiền** nếu yêu cầu trong vòng **${minDays} ngày** trước giờ diễn.`
+            );
+          }
+          if (refundPolicy.refund_notes?.trim()) {
+            ruleLines.push(
+              isEn
+                ? `* Note from Organizer: ${refundPolicy.refund_notes.trim()}`
+                : `* Ghi chú từ Ban tổ chức: ${refundPolicy.refund_notes.trim()}`
+            );
+          }
+
+          return {
+            role: 'assistant',
+            content: isEn
+              ? `Regarding **${evTitle}**, the Organizer **DOES SUPPORT REFUNDS** according to the following policy:\n\n${ruleLines.join('\n')}\n\n💡 **How to submit a refund request:**\nAfter purchasing your tickets, if you are unable to attend, you can go to **"My Tickets"** > Select your ticket for this event > Click **"Request Refund"** to proceed!\n\nWould you like Eve to assist you with anything else regarding this event? 🥰`
+              : `Dạ đối với sự kiện **${evTitle}**, Ban tổ chức **CÓ HỖ TRỢ HOÀN VÉ** theo chính sách chi tiết như sau nè:\n\n${ruleLines.join('\n')}\n\n💡 **Cách thức gửi yêu cầu hoàn tiền:**\nSau khi đặt vé thành công, nếu có việc bận không thể tham dự, bạn chỉ cần vào mục **"Vé của tôi"** > Chọn vé sự kiện này > Nhấn **"Yêu cầu hoàn vé"** để hệ thống tiếp nhận và xử lý nhé!\n\nBạn có muốn Eve hỗ trợ thêm thông tin gì về sự kiện này không ạ? 🥰`
+          };
+        } else {
+          return {
+            role: 'assistant',
+            content: isEn
+              ? `Regarding **${evTitle}**, according to the Organizer's policy, this event **DOES NOT SUPPORT REFUNDS** once tickets have been successfully purchased.\n\nPlease carefully check your schedule and details before booking! Would you like Eve to help you check session schedules or ticket tiers for this event? 🥰`
+              : `Dạ đối với sự kiện **${evTitle}**, theo quy định chính thức của Ban tổ chức thì sự kiện này **KHÔNG ÁP DỤNG HOÀN VÉ** sau khi đã thanh toán thành công ạ.\n\nBạn vui lòng kiểm tra kỹ lịch trình trước khi đặt vé nhé! Bạn có muốn Eve hỗ trợ xem lịch diễn hoặc các hạng vé hiện có của sự kiện này không ạ? 🥰`
+          };
+        }
+      }
+
       const isDirectInfoInquiry = !isSystemFaqQuery(message) &&
         (Boolean(currentMatchedEvent) || (Boolean(activeEvent) && /(?:su\s*kien|show|no|nay|lich\s*dien|dia\s*diem)\b/i.test(normalizeText(message)))) &&
         isEventInfoInquiry(message);
@@ -3414,6 +3493,8 @@ CORE RULES - NATURAL COMMUNICATION & SECURITY (ENGLISH):`
   ${ticketText || 'Xem chi tiết'}
 - QUY TẮC ĐẶT CHỖ RIÊNG CỦA SỰ KIỆN NÀY (DO BAN TỔ CHỨC THIẾT LẬP):
   ${rulesSummary}
+- CHÍNH SÁCH HOÀN TIỀN / TRẢ VÉ CỦA SỰ KIỆN NÀY:
+  ${generateRefundPolicyText(eventDetail?.refund_policy || activeEvent.refund_policy)}
 
 QUY TẮC HỖ TRỢ ĐẶT VÉ LINH HOẠT (HYBRID AGENT):
 1. NẾU KHÁCH CHỈ HỎI THÔNG TIN / CHI TIẾT SỰ KIỆN (chưa nói muốn đặt vé):
@@ -3443,6 +3524,8 @@ QUY TẮC HỖ TRỢ ĐẶT VÉ LINH HOẠT (HYBRID AGENT):
   ${sessionText || 'Xem chi tiết'}
 - Danh sách loại vé:
   ${ticketText || 'Xem chi tiết'}
+- CHÍNH SÁCH HOÀN TIỀN / TRẢ VÉ CỦA SỰ KIỆN NÀY:
+  ${generateRefundPolicyText(eventDetail?.refund_policy || activeEvent.refund_policy)}
 
 QUY TẮC PHẢN HỒI CHO SỰ KIỆN KHÔNG CÓ CHỖ NGỒI:
 1. NẾU KHÁCH HỎI THÔNG TIN / CHI TIẾT SỰ KIỆN (chưa nói muốn đặt vé):
