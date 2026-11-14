@@ -26,9 +26,15 @@ import {
   Info,
   Calendar,
   Users,
+  Image as ImageIcon,
 } from 'lucide-react'
 import { extractEventFromDocument } from '@/services/organizerEvents.js'
-import { uploadOrganizerDocument, uploadPolicyDocument } from '@/services/uploads.js'
+import {
+  uploadOrganizerDocument,
+  uploadPolicyDocument,
+  uploadEventThumbnail,
+  uploadEventBanner,
+} from '@/services/uploads.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { VenueFormModal } from './OrganizerVenuesPage.jsx'
 import { SeatMapEditor } from './SeatMapEditor.jsx'
@@ -41,11 +47,21 @@ function formatFileSize(bytes) {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i] || 'B'}`
 }
 
-export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = [], onVenuesUpdated }) {
+export function AiDocumentExtractorModal({
+  isOpen,
+  onClose,
+  onApply,
+  venues = [],
+  onVenuesUpdated,
+  initialThumbnail = '',
+  initialBanner = '',
+}) {
   const toast = useToast()
   const fileInputRef = useRef(null)
   const aiPermitInputRef = useRef(null)
   const aiPolicyInputRef = useRef(null)
+  const aiThumbnailInputRef = useRef(null)
+  const aiBannerInputRef = useRef(null)
 
   // Input states
   const [activeTab, setActiveTab] = useState('file') // 'file' | 'text'
@@ -59,6 +75,30 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
   const [processStep, setProcessStep] = useState(1) // 1: reading, 2: ai extracting, 3: validating
   const [loadingProgress, setLoadingProgress] = useState(12)
   const [extractedResult, setExtractedResult] = useState(null)
+
+  // Quick Step 1 Media attachments states (Thumbnail & Banner)
+  const [aiThumbnailUrl, setAiThumbnailUrl] = useState(initialThumbnail || '')
+  const [isUploadingThumbnail, setIsUploadingThumbnail] = useState(false)
+  const [aiBannerUrl, setAiBannerUrl] = useState(initialBanner || '')
+  const [isUploadingBanner, setIsUploadingBanner] = useState(false)
+
+  // Sync initial images when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      if (initialThumbnail && !aiThumbnailUrl) setAiThumbnailUrl(initialThumbnail)
+      if (initialBanner && !aiBannerUrl) setAiBannerUrl(initialBanner)
+    }
+  }, [isOpen, initialThumbnail, initialBanner])
+
+  // Sync images if AI extracted them from document
+  useEffect(() => {
+    if (extractedResult?.data?.thumbnail_url) {
+      setAiThumbnailUrl(extractedResult.data.thumbnail_url)
+    }
+    if (extractedResult?.data?.banner_url) {
+      setAiBannerUrl(extractedResult.data.banner_url)
+    }
+  }, [extractedResult])
 
   // Smooth loading progress animation
   useEffect(() => {
@@ -292,12 +332,71 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
     toast.info('Đã xóa file chính sách.')
   }
 
+  // --- Step 1 Thumbnail & Banner Upload Handlers ---
+  const handleThumbnailUpload = async (file) => {
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      toast.error('Vui lòng chọn file hình ảnh (PNG, JPG, WEBP)')
+      if (aiThumbnailInputRef.current) aiThumbnailInputRef.current.value = ''
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Kích thước ảnh đại diện không được vượt quá 5MB')
+      if (aiThumbnailInputRef.current) aiThumbnailInputRef.current.value = ''
+      return
+    }
+    try {
+      setIsUploadingThumbnail(true)
+      const res = await uploadEventThumbnail(file)
+      setAiThumbnailUrl(res.url)
+      toast.success('Đã tải lên ảnh đại diện thành công!')
+    } catch (err) {
+      console.error(err)
+      toast.error(err?.message || 'Không thể tải lên ảnh đại diện.')
+    } finally {
+      setIsUploadingThumbnail(false)
+      if (aiThumbnailInputRef.current) aiThumbnailInputRef.current.value = ''
+    }
+  }
+
+  const handleBannerUpload = async (file) => {
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      toast.error('Vui lòng chọn file hình ảnh (PNG, JPG, WEBP)')
+      if (aiBannerInputRef.current) aiBannerInputRef.current.value = ''
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Kích thước ảnh bìa không được vượt quá 5MB')
+      if (aiBannerInputRef.current) aiBannerInputRef.current.value = ''
+      return
+    }
+    try {
+      setIsUploadingBanner(true)
+      const res = await uploadEventBanner(file)
+      setAiBannerUrl(res.url)
+      toast.success('Đã tải lên ảnh bìa (banner) thành công!')
+    } catch (err) {
+      console.error(err)
+      toast.error(err?.message || 'Không thể tải lên ảnh bìa.')
+    } finally {
+      setIsUploadingBanner(false)
+      if (aiBannerInputRef.current) aiBannerInputRef.current.value = ''
+    }
+  }
+
   const handleApplyToDraft = () => {
     if (!extractedResult || !extractedResult.data) return
     const appliedData = { ...extractedResult.data }
     if (matchedVenue) {
       appliedData.venue_id = matchedVenue.id
       appliedData.venue_name = matchedVenue.name
+    }
+    if (aiThumbnailUrl) {
+      appliedData.thumbnail_url = aiThumbnailUrl
+    }
+    if (aiBannerUrl) {
+      appliedData.banner_url = aiBannerUrl
     }
     if (!appliedData.refund_policy) {
       appliedData.refund_policy = {}
@@ -331,6 +430,10 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
     setIsSeatMapEditorOpen(false)
     setAiPermitFiles([])
     setAiPolicyDoc(null)
+    setAiThumbnailUrl('')
+    setAiBannerUrl('')
+    setIsUploadingThumbnail(false)
+    setIsUploadingBanner(false)
   }
 
   // --- Quick Venue & Seat Map Handlers ---
@@ -409,7 +512,7 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
   return (
     <>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
-        <div className={`relative w-full ${extractedResult ? 'max-w-[560px] sm:max-w-[600px]' : 'max-w-[520px] sm:max-w-[540px]'} bg-[#0b1329] border border-white/15 rounded-2xl shadow-2xl shadow-black/90 overflow-hidden flex flex-col max-h-[88vh] transition-all duration-300 [html.light_&]:bg-white [html.light_&]:border-slate-200 [html.light_&]:text-[#0D1B2A]`}>
+        <div className={`relative w-full ${extractedResult ? 'max-w-[860px]' : 'max-w-[560px]'} bg-[#0b1329] border border-white/15 rounded-2xl shadow-2xl shadow-black/90 overflow-hidden flex flex-col max-h-[90vh] transition-all duration-300 [html.light_&]:bg-white [html.light_&]:border-slate-200 [html.light_&]:text-[#0D1B2A]`}>
           {/* Header */}
           <div className="px-5 sm:px-6 py-4 border-b border-white/10 flex items-center justify-between bg-[#111c3a] [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
             <div className="flex items-center gap-2.5 min-w-0">
@@ -522,8 +625,8 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
                   </div>
                 </div>
 
-                {/* AI disclaimer during loading - No enclosing frame */}
-                <div className="mt-3 flex items-center justify-center gap-1.5 text-[11px] text-amber-300/90">
+                {/* AI disclaimer during loading - No enclosing frame, left-aligned */}
+                <div className="mt-3 flex items-center justify-start gap-1.5 text-[11px] text-amber-300/90 text-left px-1">
                   <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                   <span><strong>Lưu ý:</strong> Đây là AI nên có thể có sai sót, vui lòng kiểm tra lại thông tin.</span>
                 </div>
@@ -651,7 +754,7 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
                       >
                         <div className="space-y-1 min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-xs sm:text-sm font-bold text-indigo-300 [html.light_&]:text-indigo-950">
+                            <span className="text-xs sm:text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">
                               {s.session_name || (extractedResult.data.sessions?.length > 1 ? `Phiên ${idx + 1}` : 'Toàn sự kiện')}
                             </span>
                             {s.description && (
@@ -684,36 +787,37 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
                 </div>
 
                 {/* 5. Địa điểm tổ chức (Dedicated Venue Card) */}
-                <div className="p-3.5 sm:p-4 rounded-xl bg-[#121c38] border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
-                  <div className="flex items-start gap-2.5 min-w-0">
-                    <MapPin className="w-4 h-4 text-[#E6C17A] shrink-0 mt-0.5" />
-                    <div className="min-w-0">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider [html.light_&]:text-slate-500">
-                        Địa điểm tổ chức
-                      </span>
-                      <p className="text-xs sm:text-sm font-bold text-white mt-0.5 truncate [html.light_&]:text-[#0D1B2A]">
-                        {matchedVenue ? matchedVenue.name : (currentVenueName || (extractedResult.data.province ? `Khu vực ${extractedResult.data.province}` : 'Chưa xác định'))}
-                      </p>
-                      <p className="text-[11px] text-slate-400 mt-0.5 truncate [html.light_&]:text-slate-600">
-                        {matchedVenue
-                          ? [matchedVenue.address_line, matchedVenue.ward, matchedVenue.district, matchedVenue.city].filter(Boolean).join(', ')
-                          : (extractedResult.data.address_line || 'Địa chỉ chi tiết sẽ được tự động cập nhật khi tạo/chọn địa điểm')}
-                      </p>
+                <div className="bg-[#121c38] rounded-xl p-3.5 sm:p-4 border border-white/10 space-y-2.5 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs sm:text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">
+                      <MapPin className="w-4 h-4 text-[#E6C17A]" />
+                      <span>Địa điểm tổ chức</span>
+                    </div>
+
+                    <div className="shrink-0">
+                      {matchedVenue ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-xs font-semibold text-emerald-300 [html.light_&]:bg-emerald-50 [html.light_&]:border-emerald-200 [html.light_&]:text-emerald-800">
+                          <Check className="w-3.5 h-3.5" />
+                          Đã liên kết hệ thống
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/15 border border-amber-500/30 text-xs font-semibold text-amber-300 [html.light_&]:bg-amber-50 [html.light_&]:border-amber-200 [html.light_&]:text-amber-800">
+                          <AlertCircle className="w-3.5 h-3.5" />
+                          Chưa lưu trong danh sách
+                        </span>
+                      )}
                     </div>
                   </div>
 
-                  <div className="shrink-0">
-                    {matchedVenue ? (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-xs font-semibold text-emerald-300 [html.light_&]:bg-emerald-50 [html.light_&]:border-emerald-200 [html.light_&]:text-emerald-800">
-                        <Check className="w-3.5 h-3.5" />
-                        Đã liên kết hệ thống
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/15 border border-amber-500/30 text-xs font-semibold text-amber-300 [html.light_&]:bg-amber-50 [html.light_&]:border-amber-200 [html.light_&]:text-amber-800">
-                        <AlertCircle className="w-3.5 h-3.5" />
-                        Chưa lưu trong danh sách
-                      </span>
-                    )}
+                  <div className="p-3 rounded-xl bg-[#0d172e] border border-white/10 [html.light_&]:bg-white [html.light_&]:border-slate-200">
+                    <p className="text-xs sm:text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">
+                      {matchedVenue ? matchedVenue.name : (currentVenueName || (extractedResult.data.province ? `Khu vực ${extractedResult.data.province}` : 'Chưa xác định'))}
+                    </p>
+                    <p className="text-[11px] text-slate-400 mt-1 [html.light_&]:text-slate-600">
+                      {matchedVenue
+                        ? [matchedVenue.address_line, matchedVenue.ward, matchedVenue.district, matchedVenue.city].filter(Boolean).join(', ')
+                        : (extractedResult.data.address_line || 'Địa chỉ chi tiết sẽ được tự động cập nhật khi tạo/chọn địa điểm')}
+                    </p>
                   </div>
                 </div>
 
@@ -778,10 +882,10 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
 
                 {/* 7. Tags sự kiện - Dedicated Full Width, No Cutoffs */}
                 {extractedResult.data.tags && extractedResult.data.tags.length > 0 && (
-                  <div className="p-3.5 sm:p-4 rounded-xl bg-[#121c38] border border-white/10 space-y-2 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
-                    <div className="flex items-center gap-2 text-xs font-bold text-slate-300 [html.light_&]:text-slate-700">
-                      <Tag className="w-3.5 h-3.5 text-[#E6C17A]" />
-                      <span>Tags sự kiện ({extractedResult.data.tags.length})</span>
+                  <div className="p-3.5 sm:p-4 rounded-xl bg-[#121c38] border border-white/10 space-y-2.5 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                    <div className="flex items-center gap-2 text-xs sm:text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">
+                      <Tag className="w-4 h-4 text-[#E6C17A]" />
+                      <span>Tags sự kiện ({extractedResult.data.tags.length} thẻ)</span>
                     </div>
                     <div className="flex flex-wrap gap-1.5">
                       {extractedResult.data.tags.map((tag, idx) => (
@@ -796,20 +900,170 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
                   </div>
                 )}
 
-                {/* 8. Đính kèm hồ sơ & chính sách (Bước 4) */}
+                {/* 8. Ảnh sự kiện (Thumbnail & Banner) */}
                 <div className="p-3.5 sm:p-4 rounded-xl bg-[#121c38] border border-white/10 space-y-2.5 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-xs sm:text-sm font-bold text-slate-200 [html.light_&]:text-[#0D1B2A]">
-                      <Paperclip className="w-4 h-4 text-[#E6C17A]" />
-                      <span>Đính kèm hồ sơ & chính sách (Bước 4)</span>
+                    <div className="flex items-center gap-2 text-xs sm:text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">
+                      <ImageIcon className="w-4 h-4 text-[#E6C17A]" />
+                      <span>Ảnh sự kiện</span>
                     </div>
-                    <span className="text-[10px] text-slate-400 [html.light_&]:text-slate-500">
-                      Định dạng <strong className="text-amber-400 font-mono">.pdf</strong> (Tối đa 10MB)
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-[#0d172e] text-slate-300 border border-white/10 font-medium shrink-0 [html.light_&]:bg-white [html.light_&]:text-slate-700 [html.light_&]:border-slate-200">
+                      Tùy chọn tải trước
                     </span>
                   </div>
 
                   <p className="text-[11px] text-slate-400 leading-relaxed [html.light_&]:text-slate-600">
-                    Bạn có thể tải sẵn 2 tài liệu này tại đây, khi bấm &quot;Áp dụng&quot; hệ thống sẽ tự động chuyển vào Bước 4 mà không cần tải lại.
+                    Bạn có thể tải sẵn ảnh Thumbnail và Banner tại đây, khi bấm &quot;Áp dụng&quot; hệ thống sẽ tự động cập nhật vào bản nháp.
+                  </p>
+
+                  <div className="flex flex-col sm:flex-row gap-3 pt-1">
+                    {/* Thumbnail Image (1:1) */}
+                    <div className="w-full sm:w-1/3 flex flex-col">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-xs font-semibold text-slate-200 [html.light_&]:text-[#0D1B2A]">
+                          Ảnh đại diện (1:1) <span className="text-rose-500 font-bold ml-0.5">*</span>
+                        </label>
+                        {aiThumbnailUrl && (
+                          <button
+                            type="button"
+                            onClick={() => setAiThumbnailUrl('')}
+                            className="text-[11px] text-rose-400 hover:text-rose-300 font-medium flex items-center gap-0.5 cursor-pointer"
+                            title="Xóa ảnh đại diện"
+                          >
+                            <CloseIcon className="w-3 h-3" />
+                            <span>Xóa</span>
+                          </button>
+                        )}
+                      </div>
+
+                      <label
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={(e) => {
+                          e.preventDefault()
+                          const f = e.dataTransfer.files?.[0]
+                          if (f) handleThumbnailUpload(f)
+                        }}
+                        className="relative aspect-square w-full rounded-xl flex flex-col items-center justify-center p-3 text-center border-2 border-dashed border-white/15 hover:border-[#C99A47] cursor-pointer overflow-hidden transition-all bg-[#0d172e] [html.light_&]:bg-white [html.light_&]:border-slate-300 [html.light_&]:hover:border-[#C99A47] group"
+                      >
+                        {aiThumbnailUrl ? (
+                          <>
+                            <img src={aiThumbnailUrl} alt="Thumbnail preview" className="w-full h-full object-cover rounded-lg" />
+                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white p-2">
+                              <Upload className="w-5 h-5 text-amber-400 mb-1" />
+                              <span className="text-[11px] font-semibold">Thay đổi ảnh</span>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex flex-col items-center justify-center p-2">
+                            {isUploadingThumbnail ? (
+                              <>
+                                <Loader2 className="w-6 h-6 text-amber-400 animate-spin mb-1.5" />
+                                <span className="text-xs font-semibold text-slate-300 [html.light_&]:text-slate-700">Đang tải lên...</span>
+                              </>
+                            ) : (
+                              <>
+                                <div className="w-9 h-9 rounded-xl bg-[#C99A47]/10 border border-[#C99A47]/20 flex items-center justify-center text-[#E6C17A] mb-1.5 group-hover:scale-105 transition-transform">
+                                  <Upload className="w-4 h-4" />
+                                </div>
+                                <p className="text-xs font-semibold text-slate-200 mb-0.5 group-hover:text-amber-300 transition-colors [html.light_&]:text-slate-800">
+                                  Nhấn để tải lên
+                                </p>
+                                <p className="text-[10px] text-slate-400 [html.light_&]:text-slate-500">Khuyên dùng: 1080x1080px</p>
+                              </>
+                            )}
+                          </div>
+                        )}
+                        <input
+                          ref={aiThumbnailInputRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          disabled={isUploadingThumbnail}
+                          onChange={(e) => handleThumbnailUpload(e.target.files?.[0])}
+                        />
+                      </label>
+                    </div>
+
+                    {/* Cover Banner (16:9) */}
+                    <div className="w-full sm:w-2/3 flex flex-col">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-xs font-semibold text-slate-200 [html.light_&]:text-[#0D1B2A]">
+                          Ảnh bìa (16:9) <span className="text-rose-500 font-bold ml-0.5">*</span>
+                        </label>
+                        {aiBannerUrl && (
+                          <button
+                            type="button"
+                            onClick={() => setAiBannerUrl('')}
+                            className="text-[11px] text-rose-400 hover:text-rose-300 font-medium flex items-center gap-0.5 cursor-pointer"
+                            title="Xóa ảnh bìa"
+                          >
+                            <CloseIcon className="w-3 h-3" />
+                            <span>Xóa</span>
+                          </button>
+                        )}
+                      </div>
+
+                      <label
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={(e) => {
+                          e.preventDefault()
+                          const f = e.dataTransfer.files?.[0]
+                          if (f) handleBannerUpload(f)
+                        }}
+                        className="relative aspect-video sm:aspect-auto sm:flex-1 w-full rounded-xl flex flex-col items-center justify-center p-3 text-center border-2 border-dashed border-white/15 hover:border-[#C99A47] cursor-pointer overflow-hidden transition-all bg-[#0d172e] [html.light_&]:bg-white [html.light_&]:border-slate-300 [html.light_&]:hover:border-[#C99A47] group min-h-[140px]"
+                      >
+                        {aiBannerUrl ? (
+                          <>
+                            <img src={aiBannerUrl} alt="Banner preview" className="w-full h-full object-cover rounded-lg" />
+                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white p-2">
+                              <Upload className="w-6 h-6 text-amber-400 mb-1" />
+                              <span className="text-[11px] font-semibold">Thay đổi ảnh</span>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex flex-col items-center justify-center p-2">
+                            {isUploadingBanner ? (
+                              <>
+                                <Loader2 className="w-6 h-6 text-amber-400 animate-spin mb-1.5" />
+                                <span className="text-xs font-semibold text-slate-300 [html.light_&]:text-slate-700">Đang tải lên...</span>
+                              </>
+                            ) : (
+                              <>
+                                <div className="w-9 h-9 rounded-xl bg-[#C99A47]/10 border border-[#C99A47]/20 flex items-center justify-center text-[#E6C17A] mb-1.5 group-hover:scale-105 transition-transform">
+                                  <ImageIcon className="w-4 h-4" />
+                                </div>
+                                <p className="text-xs font-semibold text-slate-200 mb-0.5 group-hover:text-amber-300 transition-colors [html.light_&]:text-slate-800">
+                                  Kéo thả hoặc nhấn để chọn file
+                                </p>
+                                <p className="text-[10px] text-slate-400 [html.light_&]:text-slate-500">Khuyên dùng: 1920x1080px. JPG, PNG (Tối đa 5MB)</p>
+                              </>
+                            )}
+                          </div>
+                        )}
+                        <input
+                          ref={aiBannerInputRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          disabled={isUploadingBanner}
+                          onChange={(e) => handleBannerUpload(e.target.files?.[0])}
+                        />
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 9. Đính kèm hồ sơ & chính sách */}
+                <div className="p-3.5 sm:p-4 rounded-xl bg-[#121c38] border border-white/10 space-y-2.5 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs sm:text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">
+                      <Paperclip className="w-4 h-4 text-[#E6C17A]" />
+                      <span>Đính kèm hồ sơ & chính sách</span>
+                    </div>
+                  </div>
+
+                  <p className="text-[11px] text-slate-400 leading-relaxed [html.light_&]:text-slate-600">
+                    Bạn có thể tải sẵn 2 tài liệu này tại đây, khi bấm &quot;Áp dụng&quot; hệ thống sẽ tự động lưu vào bản nháp mà không cần tải lại.
                   </p>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
@@ -938,8 +1192,8 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
                   </div>
                 </div>
 
-                {/* 9. AI Disclaimer - Frameless */}
-                <div className="flex items-center justify-center gap-2 text-xs text-amber-300/90 py-1 text-center">
+                {/* AI Disclaimer - Frameless, left-aligned */}
+                <div className="flex items-center justify-start gap-2 text-xs text-amber-300/90 py-1 text-left px-1">
                   <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                   <span>
                     <strong className="text-amber-300 font-semibold">Lưu ý:</strong> Đây là AI nên có thể có sai sót, vui lòng kiểm tra lại thông tin trước khi áp dụng vào bản nháp.
@@ -1120,14 +1374,14 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
                 </button>
                 <button
                   type="button"
-                  disabled={isUploadingPermit || isUploadingPolicy}
+                  disabled={isUploadingPermit || isUploadingPolicy || isUploadingThumbnail || isUploadingBanner}
                   onClick={handleApplyToDraft}
                   className="px-5 py-2.5 rounded-full bg-gradient-to-r from-[#C99A47] to-[#E6C17A] hover:brightness-110 active:scale-95 disabled:from-white/10 disabled:to-white/10 disabled:text-slate-500 text-[#0D1B2A] text-xs font-bold shadow-lg shadow-[#C99A47]/20 flex items-center gap-2 transition-all cursor-pointer disabled:cursor-not-allowed"
                 >
-                  {isUploadingPermit || isUploadingPolicy ? (
+                  {isUploadingPermit || isUploadingPolicy || isUploadingThumbnail || isUploadingBanner ? (
                     <>
                       <div className="w-3.5 h-3.5 border-2 border-[#0D1B2A] border-t-transparent rounded-full animate-spin" />
-                      <span>Đang tải tệp lên...</span>
+                      <span>{isUploadingThumbnail || isUploadingBanner ? 'Đang tải ảnh lên...' : 'Đang tải tệp lên...'}</span>
                     </>
                   ) : (
                     <>

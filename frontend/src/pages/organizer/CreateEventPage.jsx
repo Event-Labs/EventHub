@@ -4484,6 +4484,8 @@ export function CreateEventPage() {
       short_description: (aiData.short_description || prev.short_description || '').slice(0, 500),
       description: aiData.description || prev.description,
       additional_terms: aiData.additional_terms || prev.additional_terms,
+      thumbnail_url: aiData.thumbnail_url || prev.thumbnail_url,
+      banner_url: aiData.banner_url || prev.banner_url,
       tags: Array.isArray(aiData.tags) && aiData.tags.length > 0 ? aiData.tags : prev.tags,
       sessions: mappedSessions.length > 0 ? mappedSessions : prev.sessions,
       ticketTypes: mappedTicketTypes.length > 0 ? mappedTicketTypes : prev.ticketTypes,
@@ -5520,6 +5522,8 @@ export function CreateEventPage() {
         onClose={() => setIsAiDocModalOpen(false)}
         onApply={handleApplyAiDraft}
         venues={venues}
+        initialThumbnail={formData.thumbnail_url}
+        initialBanner={formData.banner_url}
         onVenuesUpdated={async () => {
           try {
             const vns = await fetchOrganizerVenues()
