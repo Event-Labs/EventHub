@@ -1,0 +1,185 @@
+TÀI LIỆU 5 — BẢN GHI DỮ LIỆU SỰ KIỆN NHẬP TỪ NHIỀU NGUỒN
+
+INTERNATIONAL ROBOTICS CHALLENGE 2028
+
+Mã hồ sơ: IRC-IMPORT-2028
+Nguồn dữ liệu: Form đăng ký nội bộ, bảng tính vận hành và ghi chú của ban tổ chức
+Mục tiêu: Kiểm tra khả năng tổng hợp dữ liệu không đồng nhất
+Trạng thái: Cần đối chiếu các trường mâu thuẫn trước khi xuất bản
+
+Tài liệu này cố ý giữ lại các bản ghi mâu thuẫn. Không được tự chọn một giá trị chỉ vì nó xuất hiện nhiều lần. Những trường không thể xác minh phải được đánh dấu để kiểm tra hoặc giữ trống theo schema.
+
+RECORD 001 — EVENT REGISTRATION FORM
+
+event_name: International Robotics Challenge 2028
+event_date: 2028-10-14
+event_end_date: 2028-10-15
+venue_name: Da Nang Innovation Center
+address: 02 Quang Trung, Da Nang
+status: approved
+
+RECORD 002 — OPERATIONS SPREADSHEET
+
+event_title: International Robotics Challenge
+start_date: 2028-10-14
+end_date: 2028-10-16
+venue: Da Nang Innovation Center
+venue_address: 02 Quang Trung, Hai Chau, Da Nang
+status: draft
+last_updated: 2028-07-20
+
+RECORD 003 — APPROVED EVENT NOTICE
+
+Thông báo của ban tổ chức ghi rõ International Robotics Challenge 2028 sẽ diễn ra trong hai ngày 14 và 15/10/2028.
+
+Địa điểm là Da Nang Innovation Center. Địa chỉ được xác nhận trong thông báo là 02 Quang Trung, Đà Nẵng.
+
+Ngày 16/10 xuất hiện trong một bảng vận hành cũ nhưng không thuộc thời gian tổ chức đã được phê duyệt.
+
+RECORD 004 — SESSION NOTES
+
+Hoạt động “Robotics Opening Ceremony” diễn ra ngày 14/10/2028, từ 08:30 đến 09:00 tại Main Arena.
+
+Hoạt động “Autonomous Robot Challenge” diễn ra cùng ngày từ 09:30 đến 12:00 tại Main Arena.
+
+Hoạt động “Robotics Engineering Workshop” diễn ra ngày 14/10/2028, từ 13:30 đến 15:00 tại Lab A.
+
+Ngày 15/10/2028, “Industrial Robotics Demonstration” diễn ra từ 09:00 đến 10:30 tại Main Arena.
+
+“Student Robotics Final” diễn ra từ 11:00 đến 12:30 ngày 15/10/2028 tại Main Arena.
+
+“Closing and Awards Ceremony” diễn ra từ 15:00 đến 16:00 ngày 15/10/2028 tại Main Arena.
+
+Cả sáu hoạt động trên đều được đánh dấu là đã xác nhận.
+
+RECORD 005 — UNAPPROVED ADDITION
+
+Một email đề xuất mở cửa khu trải nghiệm robot vào ngày 16/10/2028.
+
+Email không ghi thời gian mở cửa, địa điểm cụ thể hoặc quyết định phê duyệt.
+
+Không đưa khu trải nghiệm này vào lịch trình chính thức.
+
+RECORD 006 — TICKET EXPORT
+
+ticket_name,price,quantity,status
+General Robotics Pass,200000,500,approved
+Engineering Workshop Pass,450000,120,approved
+VIP Robotics Pass,800000,50,approved
+Student Robotics Pass,100000,200,draft
+
+RECORD 007 — TICKET POLICY
+
+Ba loại vé đã được xác nhận:
+
+General Robotics Pass: 200.000 VND, tối đa 500 vé. Cho phép tham dự các hoạt động mở cửa dành cho khách thông thường.
+
+Engineering Workshop Pass: 450.000 VND, tối đa 120 vé. Bao gồm quyền đăng ký một workshop, tùy thuộc số chỗ.
+
+VIP Robotics Pass: 800.000 VND, tối đa 50 vé. Bao gồm quyền sử dụng khu vực xem biểu diễn ưu tiên và nhận bộ quà tặng sự kiện.
+
+Student Robotics Pass xuất hiện trong bản xuất dữ liệu nháp, nhưng chưa được phê duyệt. Không được coi đây là loại vé chính thức.
+
+RECORD 008 — REGISTRATION REQUIREMENTS
+
+Tất cả người đăng ký phải cung cấp họ tên và email.
+
+Engineering Workshop Pass yêu cầu số điện thoại.
+
+VIP Robotics Pass yêu cầu tên tổ chức hoặc trường học.
+
+Chưa có quy định bắt buộc cung cấp thông tin trường học cho General Robotics Pass.
+
+RECORD 009 — CHECK-IN NOTES
+
+Một ghi chú vận hành viết: “Check-in begins at 07:45 on the first day.”
+
+Ghi chú không xác nhận giờ check-in cho ngày thứ hai.
+
+Không được suy ra rằng giờ check-in ngày thứ hai cũng là 07:45.
+
+RECORD 010 — REFUND POLICY
+
+Bảng tính nội bộ có dòng “Refund period: 5 business days”.
+
+Tuy nhiên, ghi chú của quản lý tài chính ghi rõ: “Chính sách hoàn tiền chưa được phê duyệt; không sử dụng thời hạn trong bảng tính để công bố cho khách hàng.”
+
+Do đó, chính sách hoàn tiền chính thức vẫn chưa được xác nhận.
+
+RECORD 011 — KEYWORDS
+
+Robotics, Automation, Artificial Intelligence, Autonomous Systems, Engineering, Student Innovation.
+
+RECORD 012 — YÊU CẦU TỔNG HỢP
+
+Khi tổng hợp dữ liệu cho hệ thống tạo sự kiện, cần tuân thủ các nguyên tắc:
+
+Dùng thông báo đã được phê duyệt làm căn cứ cho ngày tổ chức.
+
+Không dùng ngày kết thúc 16/10 trong bảng tính nháp để ghi đè thông tin đã xác nhận.
+
+Chỉ đưa sáu phiên được xác nhận vào lịch chính thức.
+
+Chỉ đưa ba loại vé có trạng thái đã phê duyệt vào dữ liệu chính thức.
+
+Không sử dụng thời hạn hoàn tiền 5 ngày làm việc.
+
+Giờ check-in chỉ được xác nhận cho ngày đầu tiên.
+
+Nếu một trường vẫn mâu thuẫn và không có nguồn có thẩm quyền giải quyết, đánh dấu cần xác minh thay vì tự suy đoán.
+
+BẢNG ĐÁP ÁN KIỂM THỬ CHO TÀI LIỆU 5
+
+Trường
+
+Kết quả mong đợi
+
+Tên sự kiện
+
+International Robotics Challenge 2028
+
+Ngày bắt đầu
+
+2028-10-14
+
+Ngày kết thúc
+
+2028-10-15
+
+Địa điểm
+
+Da Nang Innovation Center
+
+Địa chỉ
+
+02 Quang Trung, Đà Nẵng
+
+Số phiên chính thức
+
+6
+
+Số loại vé chính thức
+
+3
+
+Student Robotics Pass
+
+Chưa được phê duyệt
+
+Giờ check-in ngày đầu
+
+07:45
+
+Giờ check-in ngày thứ hai
+
+Chưa xác định
+
+Chính sách hoàn tiền
+
+Chưa xác định
+
+Hoạt động ngày 16/10
+
+Chưa được phê duyệt
+
+Điểm cần kiểm thử: AI phải biết ưu tiên nguồn đã được phê duyệt hơn dữ liệu nháp, nhưng không được tự ý giải quyết những mâu thuẫn mà tài liệu không cung cấp đủ căn cứ.

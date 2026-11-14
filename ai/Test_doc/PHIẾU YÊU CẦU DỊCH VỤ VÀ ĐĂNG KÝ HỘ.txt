@@ -1,0 +1,194 @@
+PHIẾU YÊU CẦU DỊCH VỤ VÀ ĐĂNG KÝ HỘI THẢO
+
+HEALTHCARE DIGITAL TRANSFORMATION CONFERENCE 2028
+
+Mã yêu cầu: HDTC-SRV-0828
+Đơn vị đặt dịch vụ: Healthcare Technology Network
+Đơn vị vận hành: HTN Conference Operations
+Trạng thái: Đã xác nhận nội dung hội thảo
+
+FORM A — THÔNG TIN SỰ KIỆN
+
+Tên: Healthcare Digital Transformation Conference 2028
+
+Ngày tổ chức: 05/09/2028
+
+Địa điểm: International Convention Center, 11 Lê Hồng Phong, Hà Nội.
+
+Mục đích: Thảo luận về hồ sơ y tế điện tử, ứng dụng AI trong vận hành bệnh viện và bảo mật dữ liệu y tế.
+
+FORM B — YÊU CẦU BỐ TRÍ PHÒNG
+
+Mã phòng
+
+Tên phòng
+
+Công năng
+
+Sức chứa được xác nhận
+
+H01
+
+Main Auditorium
+
+Hội thảo chính
+
+300
+
+H02
+
+Clinical Innovation Room
+
+Phiên chuyên đề
+
+80
+
+H03
+
+Technology Demonstration Lab
+
+Trình diễn công nghệ
+
+Chưa xác nhận
+
+Sức chứa được cung cấp ở trên là giới hạn của từng phòng, không phải số lượng vé phát hành.
+
+FORM C — PHIẾU XÁC NHẬN CHƯƠNG TRÌNH
+
+SESSION 01
+
+Tên: Digital Health Systems in Modern Hospitals
+
+Ngày: 05/09/2028
+
+Bắt đầu: 08:30
+
+Kết thúc: 09:45
+
+Phòng: H01
+
+Check-in: 08:00
+
+Trạng thái: Confirmed.
+
+SESSION 02
+
+Tên: Artificial Intelligence in Clinical Operations
+
+Ngày: 05/09/2028
+
+Bắt đầu: 10:00
+
+Kết thúc: 11:15
+
+Phòng: H01
+
+Trạng thái: Confirmed.
+
+SESSION 03
+
+Tên: Electronic Medical Record Integration Workshop
+
+Ngày: 05/09/2028
+
+Bắt đầu: 13:00
+
+Kết thúc: 14:30
+
+Phòng: H02
+
+Trạng thái: Confirmed.
+
+SESSION 04
+
+Tên: Protecting Patient Data in Digital Healthcare
+
+Ngày: 05/09/2028
+
+Bắt đầu: 15:00
+
+Kết thúc: 16:00
+
+Phòng: H01
+
+Trạng thái: Confirmed.
+
+Một yêu cầu dịch vụ bổ sung đề nghị bố trí buổi tham quan phòng trình diễn công nghệ vào 16:30. Bộ phận vận hành chưa xác nhận thời gian và phòng H03 chưa có sức chứa được duyệt. Hoạt động này không nằm trong chương trình chính thức.
+
+FORM D — DANH MỤC VÉ
+
+Mã
+
+Tên vé
+
+Giá
+
+Hạn mức
+
+HD-01
+
+Healthcare Professional
+
+400.000 VND
+
+250
+
+HD-02
+
+Hospital Management Pass
+
+750.000 VND
+
+80
+
+HD-03
+
+Digital Health Workshop Pass
+
+600.000 VND
+
+60
+
+Healthcare Professional: Quyền tham dự các phiên hội thảo thông thường.
+
+Hospital Management Pass: Quyền tham dự hội thảo và sử dụng khu vực networking dành cho quản lý cơ sở y tế.
+
+Digital Health Workshop Pass: Quyền tham dự hội thảo và đăng ký một workshop còn chỗ.
+
+FORM E — THÔNG TIN ĐĂNG KÝ
+
+Các trường bắt buộc cho tất cả loại vé:
+
+Họ tên.
+
+Email.
+
+Đơn vị công tác.
+
+Riêng Digital Health Workshop Pass yêu cầu thêm số điện thoại.
+
+Người mua Hospital Management Pass phải khai báo chức danh công việc.
+
+FORM F — ĐIỀU KIỆN DỊCH VỤ
+
+Ban tổ chức yêu cầu hệ thống đăng ký gửi email xác nhận sau khi hoàn thành thanh toán.
+
+Tài liệu này không quy định thời hạn hoàn tiền. Không có dữ liệu được phê duyệt về chính sách hủy đăng ký.
+
+Danh sách diễn giả đang được hoàn thiện và không thuộc phạm vi dữ liệu đã xác nhận.
+
+Từ khóa
+
+Digital Healthcare, Electronic Medical Records, Clinical AI, Patient Data Security, Hospital Technology.
+
+Kết quả cần trích xuất
+
+1 sự kiện diễn ra trong 1 ngày.
+
+4 phiên chính thức.
+
+3 loại vé.
+
+3 phòng, trong đó 1 phòng chưa có sức chứa xác nhận.
+
+1 hoạt động phụ trợ chưa được phê duyệt.
