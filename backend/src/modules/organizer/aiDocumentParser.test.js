@@ -243,7 +243,11 @@ Terms and Conditions:
     expect(result.data.refund_policy.allow_refunds).toBe(false);
   }, 60000);
 
-  const sampleDir = path.join(__dirname, '../../../../EventHub_AI_Create_Event_Test_Documents');
+  const sampleDirCandidates = [
+    path.join(__dirname, '../../../../EventHub_AI_Create_Event_Test_Documents'),
+    path.join(__dirname, '../../../../../EventHub_AI_Create_Event_Test_Documents'),
+  ];
+  const sampleDir = sampleDirCandidates.find((dir) => fs.existsSync(dir)) || sampleDirCandidates[0];
   const readSample = (name) => fs.readFileSync(path.join(sampleDir, name), 'utf8');
   const ticketByHint = (tickets, hint) =>
     tickets.find((t) => t.name.toLowerCase().includes(hint.toLowerCase()));
@@ -3159,6 +3163,169 @@ Giáo trình môn học: Kỹ thuật phần mềm cơ sở
       await expect(aiDocumentParserService.extractEventFromText(syllabusDoc)).rejects.toThrow(
         /Tài liệu được cung cấp là giáo trình \/ đề cương môn học/i
       );
+    });
+  });
+
+  describe('Continued Test_doc generalization & anti-hallucination regression suite', () => {
+    test('should resolve "Official program: Use the latest approved revision" directive, preserve 18 official sessions, and deduplicate substring tickets', async () => {
+      const dossierDoc = `ASIA STARTUP INVESTMENT FORUM 2029
+MASTER EVENT FILE
+SOURCE A — OFFICIAL EVENT PROFILE
+Event:
+Asia Startup Investment Forum 2029
+Date:
+22/04/2030 – 24/04/2030
+Venue:
+JW Marriott Hotel Hanoi
+Address:
+8 Đỗ Đức Dục, Mễ Trì, Nam Từ Liêm, Hà Nội.
+SOURCE B — OFFICIAL PROGRAM
+22/04
+08:00–09:00 Registration
+09:00–09:30 Opening Ceremony
+13:30–15:00 Founder Growth Workshop
+23/04
+09:00–10:30 AI Startup Panel
+17:00–18:00 Startup Showcase
+24/04
+16:00–17:00 Award Ceremony
+SOURCE C — TICKETING
+Startup Founder Pass:
+500.000 VNĐ
+Investor Pass:
+1.500.000 VNĐ
+Note: Founder Pass 500.000 VNĐ grants same entry.
+SOURCE D — REFUND POLICY
+Refund requests are accepted until 10/04/2030.
+No refund after 10/04/2030.
+SOURCE G — REVISION NOTICE
+Revision 01:
+Founder Growth Workshop changed from 14:00–15:30 to 13:30–15:00.
+SOURCE J — FINAL VALIDATION
+Event name:
+Asia Startup Investment Forum 2029
+Date:
+22/04/2030–24/04/2030
+Venue:
+JW Marriott Hotel Hanoi
+Official program:
+Use the latest approved revision.
+Ticket categories:
+Use Source C.
+Refund:
+Use Source D.`;
+
+      const res = await aiDocumentParserService.extractEventFromText(dossierDoc);
+      expect(res.data.title).toBe('Asia Startup Investment Forum 2029');
+      expect(res.data.venue_name).toBe('JW Marriott Hotel Hanoi');
+      expect(res.data.sessions).toHaveLength(6);
+      expect(res.data.sessions.some((s) => s.session_name === 'Founder Growth Workshop' && s.start_time === '13:30' && s.end_time === '15:00')).toBe(true);
+      expect(res.data.sessions.some((s) => /Changed|Moved|Phiên \d+/i.test(s.session_name))).toBe(false);
+      expect(res.data.ticket_types).toHaveLength(2);
+      expect(res.data.ticket_types.map((t) => t.name)).toEqual(['Startup Founder Pass', 'Investor Pass']);
+      expect(res.data.refund_policy).toEqual({ allow_refunds: true, deadline_days: 12 });
+    });
+
+    test('should extract Vietnamese running-prose sessions with question-mark titles, durations, and multi-clause prose ticket prices without unconfirmed items', async () => {
+      const proseDoc = `MEKONG & CREATOR FORUM 2033
+Chương trình dự kiến diễn ra từ 8 đến 10 tháng 7 năm 2033 tại Can Tho Convention Center, số 108A Lê Lợi, phường Cái Khế, quận Ninh Kiều, Cần Thơ.
+Ngày đầu tiên bắt đầu bằng Creator Economy: Where Are We Going? từ 08:30 đến 09:30. Sau đó, lễ khai mạc diễn ra từ 09:30 đến 10:00.
+Phiên keynote "Future of Sustainable Tourism" kéo dài một giờ, bắt đầu lúc 10:00.
+Sang ngày 9 tháng 7, chương trình bắt đầu lúc 09:00 với Mekong Tourism Investment Forum. Phiên này kéo dài 90 phút. Từ 10:45 đến 12:00 là panel về green hotels.
+Khách tham dự có thể mua General Pass với giá 200.000 VNĐ, Professional Pass với giá 500.000 VNĐ hoặc Full Forum Pass với giá 700.000 VNĐ. Sinh viên được áp dụng mức 100.000 VNĐ.
+Ban tổ chức cho biết chuyến tham quan chợ nổi ngày 11 tháng 7 đang được một đơn vị địa phương đề xuất và chưa có xác nhận chính thức.
+Các vé có trả phí có thể được hoàn tiền trước ngày 25/06/2033.`;
+
+      const res = await aiDocumentParserService.extractEventFromText(proseDoc);
+      expect(res.data.venue_name).toBe('Can Tho Convention Center');
+      expect(res.data.sessions.length).toBeGreaterThanOrEqual(5);
+      expect(res.data.sessions.some((s) => s.session_name.includes('Where Are We Going?') && s.start_time === '08:30')).toBe(true);
+      expect(res.data.sessions.some((s) => s.session_name.includes('Future of Sustainable Tourism') && s.start_time === '10:00' && s.end_time === '11:00')).toBe(true);
+      expect(res.data.sessions.some((s) => s.session_name.includes('Mekong Tourism Investment Forum') && s.start_time === '09:00' && s.end_time === '10:30')).toBe(true);
+      expect(res.data.sessions.some((s) => s.start_date === '2033-07-11')).toBe(false);
+      expect(res.data.ticket_types).toHaveLength(4);
+      expect(res.data.ticket_types.map((t) => `${t.name}:${t.price}`)).toEqual([
+        'General Pass:200000',
+        'Professional Pass:500000',
+        'Full Forum Pass:700000',
+        'Sinh viên:100000',
+      ]);
+      expect(res.data.refund_policy).toEqual({ allow_refunds: true, deadline_days: 13 });
+    });
+
+    test('should upgrade uppercase section-header stubs to full named sessions and keep missing venue empty (zero hallucination)', async () => {
+      const noVenueDoc = `INTERNATIONAL DIGITAL ARCHIVE SUMMIT 2032
+Dates: 15/10/2032 – 16/10/2032
+1. EVENT PROGRAM
+15 October
+08:30–09:00 Registration
+09:00–10:00 Keynote Speech
+10:15–11:30 Panel Discussion
+13:30–15:00 Metadata Workshop
+16 October
+09:00–10:30 Collaboration Forum
+14:00–15:30 Closing Session
+Ticket:
+Standard Pass: 300.000 VND`;
+
+      const res = await aiDocumentParserService.extractEventFromText(noVenueDoc);
+      expect(res.data.venue_name).toBe('');
+      expect(res.data.sessions).toHaveLength(6);
+      expect(res.data.sessions[0].session_name).toBe('Registration');
+      expect(res.data.sessions[4].start_date).toBe('2032-10-16');
+    });
+
+    test('should reconstruct chronological log timeline updates and exclude unapproved proposals', async () => {
+      const logDoc = `NHẬT KÝ ĐIỀU PHỐI VÀ BẢN GHI CẬP NHẬT
+CHILDREN BOOK FAIR 2028
+Địa điểm: Hanoi Creative City, 1 Lương Yên, Hà Nội
+Ngày diễn ra: 03–04/12/2028
+Nhật ký 01 — 01/08/2028, 09:00
+Lịch chương trình ban đầu gồm:
+Opening Reading: ngày 03/12, 09:00–09:30, Main Hall.
+Illustration Workshop: ngày 03/12, 13:30–15:00, Art Room.
+Closing Donate: ngày 04/12, 15:30–16:00, Main Hall.
+Nhật ký 03 — 20/10/2028, 11:15
+Đơn vị vận hành yêu cầu thay đổi Illustration Workshop từ 13:30–15:00 thành 14:00–15:30 ngày 03/12/2028. Thay đổi đã được phê duyệt.
+Nhật ký 04 — 25/10/2028, 16:00
+Ban tổ chức xác nhận bổ sung hoạt động Costume Parade.
+Ngày: 04/12/2028.
+Thời gian: 11:30–12:15.
+Nhật ký 05 — 27/10/2028, 10:00
+Một thành viên đề xuất tổ chức hoạt động Children Screening vào 16:30 ngày 04/12. Chưa có quyết định phê duyệt. Đề xuất này không thuộc lịch chính thức.`;
+
+      const res = await aiDocumentParserService.extractEventFromText(logDoc);
+      expect(res.data.sessions).toHaveLength(4);
+      expect(res.data.sessions.some((s) => s.session_name === 'Illustration Workshop' && s.start_time === '14:00' && s.end_time === '15:30')).toBe(true);
+      expect(res.data.sessions.some((s) => s.session_name === 'Costume Parade' && s.start_date === '2028-12-04' && s.start_time === '11:30')).toBe(true);
+      expect(res.data.sessions.some((s) => s.session_name.includes('Screening'))).toBe(false);
+    });
+
+    test('should strip hallucinated generic venue "indoor event space" and fabricated qty 100 when absent from text', () => {
+      const messyText = `Night of New Voices
+Venue: Indoor event space is preferred, District 10 if available.
+Date: 19/06/2027, 19:00-21:30
+Tickets:
+Student: 75,000 VND
+General: 100,000 VND
+Note: ticket quantity not fixed yet.`;
+
+      const fakeLlmRaw = {
+        title: 'Night of New Voices',
+        category_id: 'cat-music',
+        venue_name: 'indoor event space',
+        sessions: [{ session_name: 'Main', start_date: '2027-06-19', start_time: '19:00', end_time: '21:30' }],
+        ticket_types: [
+          { name: 'Student', price: 75000, quantity_total: 100, description: '' },
+          { name: 'General', price: 100000, quantity_total: 1000, description: '' },
+        ],
+      };
+
+      const sanitized = aiDocumentParserService._sanitizeAndValidate(fakeLlmRaw, [{ id: 'cat-music', name: 'Âm nhạc & Biểu diễn' }], [], messyText);
+      expect(sanitized.venue_name).toBe('');
+      expect(sanitized.ticket_types).toHaveLength(2);
+      expect(sanitized.ticket_types[0].quantity_total).toBeNull();
+      expect(sanitized.ticket_types[1].quantity_total).toBeNull();
     });
   });
 });

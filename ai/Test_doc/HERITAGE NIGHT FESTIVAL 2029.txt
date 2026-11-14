@@ -1,0 +1,106 @@
+HERITAGE NIGHT FESTIVAL 2029
+
+INTERNAL EVENT FILE
+
+Version: FINAL_03
+
+Tên sự kiện:
+Heritage Night Festival 2029
+
+Một số tài liệu cũ vẫn sử dụng tên “Vietnam Heritage Night 2029”. Tên chính thức hiện tại là Heritage Night Festival 2029.
+
+Ngày:
+02/02/2030
+
+Địa điểm:
+Hoàng Thành Thăng Long
+
+Địa chỉ:
+19C Hoàng Diệu, Ba Đình, Hà Nội.
+
+Opening:
+16:00
+
+Closing:
+22:30
+
+OFFICIAL PROGRAM
+
+16:00–17:00
+Visitor Entry
+
+17:00–17:30
+Opening Ceremony
+
+17:45–18:30
+Traditional Music Performance
+
+18:45–19:30
+Heritage Storytelling
+
+19:45–20:30
+Traditional Costume Showcase
+
+20:45–21:30
+Night Cultural Performance
+
+21:30–22:00
+Closing Performance
+
+TICKETS
+
+General:
+120.000 VNĐ
+
+Student:
+60.000 VNĐ
+
+Family Pass:
+250.000 VNĐ
+
+VIP Heritage Pass:
+500.000 VNĐ
+
+CHANGES FROM PREVIOUS VERSION
+
+Old:
+Opening Ceremony 17:30
+
+Current:
+Opening Ceremony 17:00
+
+Old:
+Traditional Music Performance 18:00–18:45
+
+Current:
+17:45–18:30
+
+Old:
+Closing 21:30
+
+Current:
+22:00
+
+IMPORTANT
+
+A lantern release activity appeared in an early draft.
+
+The activity was cancelled because of venue regulations.
+
+Do not extract it as an official activity.
+
+A food market may operate outside the main heritage area. It is managed by independent vendors and is not included in the official event program.
+
+Refund requests:
+Accepted until 25/01/2030.
+
+After this date:
+No refund.
+
+LANGUAGE NOTE
+
+Some internal documents use “02 February 2030”.
+
+Others use “02/02/2030”.
+
+Both refer to the same event date.

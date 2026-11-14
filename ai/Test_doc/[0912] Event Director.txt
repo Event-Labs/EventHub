@@ -1,0 +1,55 @@
+[09:12] Event Director:
+Confirm the latest information for Vietnam Blockchain & Web3 Forum 2032.
+
+[09:14] Operations:
+Date is 14/03/2032.
+
+[09:14] Operations:
+Venue is Thiskyhall Sala, 10 Mai Chí Thọ, Thủ Đức, HCMC.
+
+[09:16] Marketing:
+Opening 08:30, closing 18:00.
+
+[09:18] Event Director:
+Program?
+
+[09:19] Operations:
+08:30 Registration.
+
+09:30 Opening.
+
+10:00 Blockchain Infrastructure Keynote.
+
+11:15 Web3 Investment Panel.
+
+13:30 DeFi Workshop.
+
+15:00 NFT & Digital Art Session.
+
+16:15 Startup Pitch.
+
+17:15 Closing Panel.
+
+[09:25] Marketing:
+Ticket categories are:
+General 250k
+Professional 600k
+VIP 1.5m.
+
+[09:27] Operations:
+Refund until 01/03/2032.
+
+[09:31] Event Director:
+Any unofficial activities?
+
+[09:32] Operations:
+There was an idea for a private token launch party.
+
+[09:33] Event Director:
+Not approved. Remove it from public event information.
+
+[09:35] Marketing:
+Understood.
+
+[09:36] Event Director:
+Use this conversation as the latest confirmation.
