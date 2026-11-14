@@ -311,7 +311,7 @@ www.eventhub.id.vn • © 2026 EventHub. All rights reserved.`;
     body {
       margin: 0;
       padding: 0;
-      background-color: #081126;
+      background-color: #FFFFFF;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
@@ -362,17 +362,17 @@ www.eventhub.id.vn • © 2026 EventHub. All rights reserved.`;
     }
   </style>
 </head>
-<body style="margin: 0; padding: 0; background-color: #081126;">
+<body style="margin: 0; padding: 0; background-color: #FFFFFF;">
   <!-- Preheader text (hidden preview) -->
-  <div style="display: none; font-size: 1px; color: #081126; line-height: 1px; max-height: 0px; max-width: 0px; opacity: 0; overflow: hidden; mso-hide: all;">
+  <div style="display: none; font-size: 1px; color: #FFFFFF; line-height: 1px; max-height: 0px; max-width: 0px; opacity: 0; overflow: hidden; mso-hide: all;">
     ${escapeHtml(eventName)}: ${locale === 'en' ? 'Event has been cancelled. 100% refund request created.' : 'Sự kiện đã bị hủy. Yêu cầu hoàn tiền 100% đã được tự động tạo.'}
   </div>
 
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #081126; width: 100%; min-height: 100%;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #FFFFFF; width: 100%; min-height: 100%;">
     <tr>
-      <td align="center" style="padding: 24px 12px 40px 12px;">
-        <!-- Centered Container Max Width 640px -->
-        <table role="presentation" class="email-container" width="640" cellpadding="0" cellspacing="0" border="0" style="max-width: 640px; width: 100%; margin: 0 auto; background-color: #FFFFFF; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);">
+      <td align="center" style="padding: 28px 12px 40px 12px; background-color: #FFFFFF;">
+        <!-- Centered Container Max Width 600px -->
+        <table role="presentation" class="email-container" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; width: 100%; margin: 0 auto; background-color: #FFFFFF; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08); border: 1px solid #E2E8F0; border-collapse: collapse;">
 
           <!-- SECTION A: DARK NAVY BRAND HEADER -->
           <tr>
@@ -399,26 +399,15 @@ www.eventhub.id.vn • © 2026 EventHub. All rights reserved.`;
           <!-- SECTION B: HERO NOTIFICATION BANNER -->
           <tr>
             <td style="background-color: #FEF2F2; border-bottom: 1px solid #FCA5A5; padding: 24px 36px;">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-                <tr>
-                  <td style="vertical-align: middle;">
-                    <div style="display: inline-block; background-color: #EF4444; color: #FFFFFF; font-size: 11px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; padding: 4px 10px; border-radius: 6px; margin-bottom: 10px;">
-                      &#x25CF; ${copy.statusCancelledBadge}
-                    </div>
-                    <h1 class="hero-title" style="margin: 0 0 6px 0; font-size: 25px; font-weight: 800; color: #991B1B; line-height: 1.35; letter-spacing: -0.3px;">
-                      ${copy.heroTitle}
-                    </h1>
-                    <p style="margin: 0; font-size: 14px; font-weight: 500; color: #7F1D1D; line-height: 1.5;">
-                      ${copy.heroSubtitle}
-                    </p>
-                  </td>
-                  <td width="56" align="right" style="vertical-align: middle;">
-                    <div style="width: 48px; height: 48px; border-radius: 12px; background-color: #FEE2E2; border: 1px solid #FCA5A5; text-align: center; line-height: 48px; font-size: 24px; color: #DC2626;">
-                      &#x2715;
-                    </div>
-                  </td>
-                </tr>
-              </table>
+              <div style="display: inline-block; background-color: #EF4444; color: #FFFFFF; font-size: 11px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; padding: 4px 10px; border-radius: 6px; margin-bottom: 10px;">
+                &#x25CF; ${copy.statusCancelledBadge}
+              </div>
+              <h1 class="hero-title" style="margin: 0 0 6px 0; font-size: 25px; font-weight: 800; color: #991B1B; line-height: 1.35; letter-spacing: -0.3px;">
+                ${copy.heroTitle}
+              </h1>
+              <p style="margin: 0; font-size: 14px; font-weight: 500; color: #7F1D1D; line-height: 1.5;">
+                ${copy.heroSubtitle}
+              </p>
             </td>
           </tr>
 

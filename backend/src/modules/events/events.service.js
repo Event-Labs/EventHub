@@ -139,6 +139,9 @@ class EventsService {
 
     const page = Math.max(1, Number(query.page) || 1);
     const limit = Math.max(1, Number(query.limit) || 10);
+    const hasKeyword = Boolean(query.keyword && String(query.keyword).trim());
+    const shouldFilterUpcoming = Boolean(query.upcoming_only) && !hasKeyword;
+
     const { rows, total } = await eventsRepository.findPublicEvents({
       userId,
       keyword: query.keyword,
@@ -147,7 +150,7 @@ class EventsService {
       location: query.location,
       startDate: query.start_date,
       endDate: query.end_date,
-      activeAt: query.upcoming_only ? new Date() : undefined,
+      activeAt: shouldFilterUpcoming ? new Date() : undefined,
       minPrice: query.min_price,
       maxPrice: query.max_price,
       sortBy: query.sort_by,

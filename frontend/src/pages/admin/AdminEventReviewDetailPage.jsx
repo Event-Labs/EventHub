@@ -2851,7 +2851,7 @@ export function AdminEventReviewDetailPage() {
 
                 {/* Empty State: AI Review Not Run Yet */}
                 {!aiData && !isScanningThisEvent && (
-                  <div className="my-6 rounded-2xl border border-[#263751] bg-[#101D32] p-8 text-center backdrop-blur-sm [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                  <div className="my-6 py-6 px-4 text-center">
                     <div className="mx-auto mb-3 grid size-12 place-items-center rounded-2xl bg-[#A78BFA]/15 text-[#A78BFA] border border-[#A78BFA]/30">
                       <Bot className="size-6" />
                     </div>
@@ -3290,11 +3290,11 @@ function DocumentPreviewModal({ doc, onClose }) {
         {/* Modal Header */}
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-3.5 bg-slate-900/95 backdrop-blur-md">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-indigo-500/20 text-indigo-400 ring-1 ring-indigo-500/30">
+            <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#C99A47]/20 text-[#E6C17A] ring-1 ring-[#C99A47]/40">
               {isPdf ? (
                 <FileText className="size-5" />
               ) : isDocx ? (
-                <FileCheck className="size-5 text-blue-400" />
+                <FileCheck className="size-5" />
               ) : isImage ? (
                 <ImageIcon className="size-5" />
               ) : (
@@ -3306,7 +3306,7 @@ function DocumentPreviewModal({ doc, onClose }) {
                 {doc.name}
               </h3>
               <div className="flex items-center gap-2 text-xs text-slate-400">
-                <span className="uppercase font-semibold text-indigo-300">
+                <span className="uppercase font-semibold text-[#E6C17A]">
                   {isPdf ? 'Tài liệu PDF' : isDocx ? 'Tài liệu Word (DOCX)' : isImage ? 'Hình ảnh / Scan' : 'Tài liệu đính kèm'}
                 </span>
                 {doc.size && (
@@ -3315,46 +3315,45 @@ function DocumentPreviewModal({ doc, onClose }) {
                     <span>{formatFileSize(doc.size)}</span>
                   </>
                 )}
-                {(isPdf || isDocx) && (
-                  <>
-                    <span>•</span>
-                    <span className="text-emerald-400 flex items-center gap-1 font-medium">
-                      <Sparkles className="size-3" />
-                      AI Đọc & Kiểm duyệt được
-                    </span>
-                  </>
-                )}
               </div>
             </div>
           </div>
 
           {/* Modal Header Tabs & Actions */}
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1 shrink-0">
             {(isPdf || isDocx) && (
-              <div className="flex rounded-xl bg-slate-800/80 p-0.5 border border-white/5 mr-1">
+              <div className="flex items-center gap-1 mr-1">
                 <button
                   type="button"
                   onClick={() => setActiveTab('preview')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${activeTab === 'preview'
-                    ? 'bg-indigo-600 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-slate-200'
-                    }`}
+                  className={`grid size-9 place-items-center rounded-xl transition cursor-pointer ${
+                    activeTab === 'preview'
+                      ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] font-black shadow-md shadow-[#C99A47]/30'
+                      : 'text-slate-400 hover:text-white hover:bg-white/5'
+                  }`}
+                  title="Xem trực tiếp"
+                  aria-label="Xem trực tiếp"
                 >
-                  <Eye className="size-3.5" />
-                  <span>Xem trực tiếp</span>
+                  <Eye className="size-4" />
                 </button>
                 <button
                   type="button"
                   onClick={() => setActiveTab('ai_text')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${activeTab === 'ai_text'
-                    ? 'bg-indigo-600 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-slate-200'
-                    }`}
+                  className={`relative grid size-9 place-items-center rounded-xl transition cursor-pointer ${
+                    activeTab === 'ai_text'
+                      ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] font-black shadow-md shadow-[#C99A47]/30'
+                      : 'text-slate-400 hover:text-white hover:bg-white/5'
+                  }`}
+                  title="Văn bản AI trích xuất"
+                  aria-label="Văn bản AI trích xuất"
                 >
-                  <Sparkles className="size-3.5" />
-                  <span>Văn bản AI trích xuất</span>
+                  <Sparkles className="size-4" />
                   {extractedText && (
-                    <span className="ml-0.5 size-1.5 rounded-full bg-emerald-400" />
+                    <span
+                      className={`absolute top-1.5 right-1.5 size-1.5 rounded-full ${
+                        activeTab === 'ai_text' ? 'bg-[#0D1B2A]' : 'bg-emerald-400'
+                      }`}
+                    />
                   )}
                 </button>
               </div>
@@ -3365,11 +3364,11 @@ function DocumentPreviewModal({ doc, onClose }) {
                 href={doc.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hidden sm:flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold text-slate-200 hover:bg-white/10 hover:text-white transition"
+                className="grid size-9 place-items-center rounded-xl text-slate-400 hover:text-[#E6C17A] hover:bg-white/5 transition"
                 title="Mở trong tab mới"
+                aria-label="Mở trong tab mới"
               >
-                <span>Mở tab mới</span>
-                <ExternalLink className="size-3.5" />
+                <ExternalLink className="size-4" />
               </a>
             )}
             {doc.url && (
@@ -3378,18 +3377,19 @@ function DocumentPreviewModal({ doc, onClose }) {
                 download={doc.name}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hidden sm:flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold text-slate-200 hover:bg-white/10 hover:text-white transition"
+                className="grid size-9 place-items-center rounded-xl text-slate-400 hover:text-[#E6C17A] hover:bg-white/5 transition"
                 title="Tải về máy"
+                aria-label="Tải về máy"
               >
-                <Download className="size-3.5" />
-                <span>Tải về</span>
+                <Download className="size-4" />
               </a>
             )}
             <button
               type="button"
               onClick={onClose}
-              className="grid size-9 place-items-center rounded-xl bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white transition"
+              className="grid size-9 place-items-center rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition cursor-pointer"
               title="Đóng (Esc)"
+              aria-label="Đóng"
             >
               <X className="size-5" />
             </button>
@@ -3432,15 +3432,8 @@ function DocumentPreviewModal({ doc, onClose }) {
                         className="w-full flex-1 border-0 bg-slate-950"
                         title={doc.name}
                       />
-                      <div className="flex items-center justify-between px-4 py-2 bg-slate-900 border-t border-white/10 text-xs text-slate-400">
+                      <div className="flex items-center px-4 py-2 bg-slate-900 border-t border-white/10 text-xs text-slate-400">
                         <span>Đang hiển thị qua Google Docs Viewer.</span>
-                        <button
-                          type="button"
-                          onClick={() => setActiveTab('ai_text')}
-                          className="text-indigo-400 hover:text-indigo-300 font-bold underline"
-                        >
-                          Bấm đây để xem toàn bộ văn bản AI trích xuất
-                        </button>
                       </div>
                     </div>
                   ) : (

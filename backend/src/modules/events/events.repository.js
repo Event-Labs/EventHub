@@ -145,6 +145,8 @@ function buildListQuery(filters) {
   if (filters.startDate) where.push(`COALESCE(time_summary.start_time, e.start_time) >= ${addParam(filters.startDate)}`);
   if (filters.endDate) where.push(`COALESCE(time_summary.start_time, e.start_time) <= ${addParam(filters.endDate)}`);
   if (filters.activeAt) {
+    where.push(`e.status != 'COMPLETED'`);
+    where.push(`COALESCE(e.sales_status, 'ON_SALE') != 'ENDED'`);
     where.push(`COALESCE(time_summary.end_time, e.end_time, time_summary.start_time, e.start_time) >= ${addParam(filters.activeAt)}`);
   }
 
@@ -165,7 +167,7 @@ function buildListQuery(filters) {
   }
 
   const sortMap = {
-    start_time: 'COALESCE(time_summary.start_time, e.start_time)',
+    start_time: `CASE WHEN e.status = 'COMPLETED' OR COALESCE(time_summary.end_time, e.end_time, time_summary.start_time, e.start_time) < NOW() THEN 1 ELSE 0 END ASC, COALESCE(time_summary.start_time, e.start_time)`,
     created_at: 'e.created_at',
     updated_at: 'e.updated_at',
     price: 'price_summary.min_price',

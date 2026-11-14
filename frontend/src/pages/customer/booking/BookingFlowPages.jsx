@@ -1771,14 +1771,12 @@ export function BookingReviewPage() {
               <div className="mt-5 space-y-4">
                 {/* 1. File chính sách đính kèm từ Organizer nếu có */}
                 {policyFileUrl && (
-                  <div className="rounded-xl border border-primary/25 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-4">
+                  <div className="rounded-xl border border-border-soft bg-surface/60 p-4">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-primary/40 bg-primary/15 text-primary shadow-sm">
-                          <FileText className="size-5" />
-                        </div>
+                        <FileText className="size-5 shrink-0 text-cyan-400" />
                         <div className="min-w-0">
-                          <p className="text-xs font-bold uppercase tracking-wider text-primary">
+                          <p className="text-xs font-bold uppercase tracking-wider text-cyan-400">
                             Tài liệu chính sách sự kiện
                           </p>
                           <p className="text-sm font-semibold text-white truncate max-w-[260px] sm:max-w-md" title={policyFileName}>
@@ -1795,10 +1793,11 @@ export function BookingReviewPage() {
                         href={policyFileUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-primary/50 bg-primary/15 px-3.5 py-2 text-xs font-bold text-primary hover:bg-primary/25 transition shadow-sm"
+                        className="grid size-9 place-items-center rounded-xl text-slate-400 hover:text-cyan-400 hover:bg-white/5 transition"
+                        title="Xem tài liệu"
+                        aria-label="Xem tài liệu"
                       >
-                        <span>Xem tài liệu</span>
-                        <ExternalLink className="size-3.5" />
+                        <ExternalLink className="size-4.5" />
                       </a>
                     </div>
                   </div>
@@ -1872,10 +1871,10 @@ export function BookingReviewPage() {
                     />
                     <span
                       className={`mt-0.5 grid size-5 shrink-0 place-items-center rounded border-2 transition ${termsAccepted
-                        ? 'border-primary bg-primary text-slate-950'
+                        ? 'border-[#E6C17A] bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-sm shadow-[#C99A47]/30'
                         : termsError
                           ? 'border-error bg-error/20 ring-2 ring-error/40'
-                          : 'border-slate-400 hover:border-white'
+                          : 'border-slate-400 hover:border-[#E6C17A]'
                         }`}
                     >
                       <Check

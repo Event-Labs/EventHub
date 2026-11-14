@@ -29,12 +29,13 @@ function readFilters(searchParams) {
 }
 
 function buildQuery(filters) {
+  const hasKeyword = Boolean(filters.keyword && String(filters.keyword).trim())
   return Object.fromEntries(
     Object.entries({
       ...filters,
-      upcoming_only: true,
+      upcoming_only: !hasKeyword ? true : undefined,
       limit: 9,
-    }).filter(([, value]) => value),
+    }).filter(([, value]) => value !== '' && value !== null && value !== undefined && value !== false),
   )
 }
 
