@@ -408,15 +408,15 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
 
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
-        <div className={`relative w-full ${extractedResult ? 'max-w-[560px] sm:max-w-[600px]' : 'max-w-[520px] sm:max-w-[540px]'} bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[88vh] transition-all duration-300`}>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
+        <div className={`relative w-full ${extractedResult ? 'max-w-[560px] sm:max-w-[600px]' : 'max-w-[520px] sm:max-w-[540px]'} bg-[#0b1329] border border-white/15 rounded-2xl shadow-2xl shadow-black/90 overflow-hidden flex flex-col max-h-[88vh] transition-all duration-300 [html.light_&]:bg-white [html.light_&]:border-slate-200 [html.light_&]:text-[#0D1B2A]`}>
           {/* Header */}
-          <div className="px-5 py-3.5 border-b border-neutral-800 flex items-center justify-between bg-neutral-900">
+          <div className="px-5 sm:px-6 py-4 border-b border-white/10 flex items-center justify-between bg-[#111c3a] [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
             <div className="flex items-center gap-2.5 min-w-0">
               <Sparkles className="w-5 h-5 text-[#E6C17A] shrink-0" />
               <div className="min-w-0">
-                <h3 className="text-sm sm:text-base font-bold text-white tracking-tight">Tạo sự kiện bằng AI</h3>
-                <p className="text-xs text-neutral-400 mt-0.5 truncate">
+                <h3 className="text-sm sm:text-base font-bold text-white tracking-tight [html.light_&]:text-[#0D1B2A]">Tạo sự kiện bằng AI</h3>
+                <p className="text-xs text-slate-400 mt-0.5 truncate [html.light_&]:text-slate-600">
                   Tự động đọc kịch bản, lịch trình, địa điểm & hạng vé
                 </p>
               </div>
@@ -424,25 +424,22 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
             <button
               onClick={onClose}
               disabled={isProcessing}
-              className="p-1.5 text-neutral-400 hover:text-white rounded-xl hover:bg-neutral-800/80 transition-colors disabled:opacity-40 cursor-pointer shrink-0 ml-2"
+              className="grid size-8 shrink-0 place-items-center rounded-full text-slate-400 transition hover:bg-white/10 hover:text-white [html.light_&]:text-slate-500 [html.light_&]:hover:bg-slate-200/60 [html.light_&]:hover:text-slate-800 disabled:opacity-40 cursor-pointer ml-2"
               title="Đóng"
             >
-              <CloseIcon className="w-5 h-5" />
+              <CloseIcon className="w-4 h-4" />
             </button>
           </div>
 
           {/* Content Body - strictly overflow-hidden when processing to eliminate scrollbars */}
-          <div className={`p-4 sm:p-5 flex-1 custom-scrollbar ${isProcessing ? 'overflow-hidden flex flex-col justify-center min-h-[340px]' : 'overflow-y-auto'}`}>
+          <div className={`p-4 sm:p-5 flex-1 custom-scrollbar bg-[#0b1329] [html.light_&]:bg-white ${isProcessing ? 'overflow-hidden flex flex-col justify-center min-h-[340px]' : 'overflow-y-auto'}`}>
             {/* STATE 1: LOADING & PROGRESS (Compact, No scrollbar) */}
             {isProcessing && (
               <div className="py-2 flex flex-col items-center justify-center text-center animate-in fade-in duration-200 w-full max-w-md mx-auto">
-                {/* Glowing AI Orb */}
-                <div className="relative flex items-center justify-center my-1.5">
-                  <div className="absolute w-16 h-16 rounded-full bg-indigo-500/15 animate-ping" />
-                  <div className="absolute w-20 h-20 rounded-full bg-gradient-to-tr from-indigo-500/20 via-violet-500/20 to-purple-500/20 blur-lg" />
-                  <div className="relative w-14 h-14 rounded-full border-2 border-dashed border-indigo-500/40 animate-spin [animation-duration:8s] flex items-center justify-center" />
-                  <div className="absolute w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-600 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30">
-                    <Sparkles className="w-5 h-5 text-white animate-pulse" />
+                {/* AI Icon - Circular border only, no background box */}
+                <div className="flex items-center justify-center my-2">
+                  <div className="w-14 h-14 rounded-full border-2 border-indigo-400/60 flex items-center justify-center text-indigo-400">
+                    <Sparkles className="w-6 h-6 animate-pulse" />
                   </div>
                 </div>
 
@@ -452,21 +449,21 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
                     {processStep === 2 && 'AI đang bóc tách cấu trúc dữ liệu sự kiện...'}
                     {processStep === 3 && 'Đang kiểm chứng logic và hoàn tất...'}
                   </h4>
-                  <p className="text-xs text-neutral-400 max-w-sm mx-auto leading-relaxed">
+                  <p className="text-xs text-slate-400 [html.light_&]:text-slate-600 max-w-sm mx-auto leading-relaxed">
                     Tự động nhận diện thông tin sự kiện, lịch trình, địa điểm và bảng giá vé.
                   </p>
                 </div>
 
                 {/* Progress bar */}
                 <div className="w-full mb-3">
-                  <div className="flex items-center justify-between text-xs font-medium text-neutral-400 mb-1 px-0.5">
+                  <div className="flex items-center justify-between text-xs font-medium text-slate-400 mb-1 px-0.5">
                     <span className="flex items-center gap-1.5 text-indigo-300 text-[11px]">
                       <Loader2 className="w-3 h-3 animate-spin text-indigo-400" />
                       <span>Tiến trình xử lý</span>
                     </span>
-                    <span className="text-neutral-300 font-semibold font-mono text-xs">{loadingProgress}%</span>
+                    <span className="text-slate-300 font-semibold font-mono text-xs [html.light_&]:text-slate-700">{loadingProgress}%</span>
                   </div>
-                  <div className="h-1.5 w-full bg-neutral-950 rounded-full overflow-hidden border border-neutral-800 p-0.5">
+                  <div className="h-1.5 w-full bg-[#0d172e] rounded-full overflow-hidden border border-white/10 p-0.5 [html.light_&]:bg-slate-200 [html.light_&]:border-slate-300">
                     <div
                       className="h-full bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-400 rounded-full transition-all duration-300 ease-out shadow-sm shadow-indigo-500/50"
                       style={{ width: `${loadingProgress}%` }}
@@ -475,13 +472,13 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
                 </div>
 
                 {/* Step indicator - compact list */}
-                <div className="w-full space-y-1.5 bg-neutral-950/70 p-2.5 rounded-xl border border-neutral-800/80 text-left">
+                <div className="w-full space-y-1.5 bg-[#121c38] p-2.5 rounded-xl border border-white/10 text-left [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
                   <div className={`flex items-center justify-between py-1 px-2.5 rounded-lg text-xs transition-colors ${
-                    processStep === 1 ? 'bg-indigo-500/10 text-white' : processStep > 1 ? 'text-neutral-300' : 'text-neutral-500'
+                    processStep === 1 ? 'bg-indigo-500/10 text-white [html.light_&]:text-indigo-950' : processStep > 1 ? 'text-slate-300 [html.light_&]:text-slate-700' : 'text-slate-500 [html.light_&]:text-slate-400'
                   }`}>
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold ${
-                        processStep > 1 ? 'bg-emerald-500 text-black' : processStep === 1 ? 'bg-indigo-600 text-white animate-pulse' : 'bg-neutral-800 text-neutral-500'
+                        processStep > 1 ? 'bg-emerald-500 text-black' : processStep === 1 ? 'bg-indigo-600 text-white animate-pulse' : 'bg-[#0d172e] text-slate-500 [html.light_&]:bg-slate-200'
                       }`}>
                         {processStep > 1 ? <Check className="w-2.5 h-2.5 stroke-[3]" /> : '1'}
                       </div>
@@ -493,11 +490,11 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
                   </div>
 
                   <div className={`flex items-center justify-between py-1 px-2.5 rounded-lg text-xs transition-colors ${
-                    processStep === 2 ? 'bg-indigo-500/10 text-white' : processStep > 2 ? 'text-neutral-300' : 'text-neutral-500'
+                    processStep === 2 ? 'bg-indigo-500/10 text-white [html.light_&]:text-indigo-950' : processStep > 2 ? 'text-slate-300 [html.light_&]:text-slate-700' : 'text-slate-500 [html.light_&]:text-slate-400'
                   }`}>
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold ${
-                        processStep > 2 ? 'bg-emerald-500 text-black' : processStep === 2 ? 'bg-indigo-600 text-white animate-pulse' : 'bg-neutral-800 text-neutral-500'
+                        processStep > 2 ? 'bg-emerald-500 text-black' : processStep === 2 ? 'bg-indigo-600 text-white animate-pulse' : 'bg-[#0d172e] text-slate-500 [html.light_&]:bg-slate-200'
                       }`}>
                         {processStep > 2 ? <Check className="w-2.5 h-2.5 stroke-[3]" /> : '2'}
                       </div>
@@ -509,11 +506,11 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
                   </div>
 
                   <div className={`flex items-center justify-between py-1 px-2.5 rounded-lg text-xs transition-colors ${
-                    processStep === 3 ? 'bg-indigo-500/10 text-white' : 'text-neutral-500'
+                    processStep === 3 ? 'bg-indigo-500/10 text-white [html.light_&]:text-indigo-950' : 'text-slate-500 [html.light_&]:text-slate-400'
                   }`}>
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold ${
-                        processStep === 3 ? 'bg-indigo-600 text-white animate-pulse' : 'bg-neutral-800 text-neutral-500'
+                        processStep === 3 ? 'bg-indigo-600 text-white animate-pulse' : 'bg-[#0d172e] text-slate-500 [html.light_&]:bg-slate-200'
                       }`}>
                         3
                       </div>
@@ -525,8 +522,8 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
                   </div>
                 </div>
 
-                {/* AI disclaimer during loading */}
-                <div className="mt-3 flex items-center justify-center gap-2 text-[11px] text-amber-300/90 bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-lg w-full">
+                {/* AI disclaimer during loading - No enclosing frame */}
+                <div className="mt-3 flex items-center justify-center gap-1.5 text-[11px] text-amber-300/90">
                   <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                   <span><strong>Lưu ý:</strong> Đây là AI nên có thể có sai sót, vui lòng kiểm tra lại thông tin.</span>
                 </div>
@@ -563,7 +560,7 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
                       <h4 className="text-sm sm:text-base font-bold text-white">
                         Trích xuất thông tin thành công!
                       </h4>
-                      <p className="text-xs text-neutral-300 mt-0.5">
+                      <p className="text-xs text-slate-300 mt-0.5 [html.light_&]:text-slate-600">
                         Dưới đây là thông tin sự kiện AI đã bóc tách từ tài liệu. Bạn có thể xem lại và áp dụng vào bản nháp.
                       </p>
                     </div>
@@ -603,7 +600,7 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
                     <button
                       type="button"
                       onClick={handleOpenQuickCreateVenue}
-                      className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black text-xs font-bold shrink-0 transition-all flex items-center gap-2 shadow-lg shadow-amber-500/20 cursor-pointer"
+                      className="px-4 py-2.5 rounded-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black text-xs font-bold shrink-0 transition-all flex items-center gap-2 shadow-lg shadow-amber-500/20 cursor-pointer"
                     >
                       <Plus className="w-4 h-4 stroke-[2.5]" />
                       <span>Tạo địa điểm mới nhanh</span>
@@ -612,22 +609,22 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
                 )}
 
                 {/* 3. Event Title & Short Description */}
-                <div className="bg-neutral-950/80 rounded-xl p-3.5 sm:p-4 border border-neutral-800 space-y-2.5">
+                <div className="bg-[#121c38] rounded-xl p-3.5 sm:p-4 border border-white/10 space-y-2.5 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
                   <div>
-                    <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
+                    <span className="text-xs font-bold text-white uppercase tracking-wider [html.light_&]:text-[#0D1B2A]">
                       Tên sự kiện
                     </span>
-                    <h3 className="text-sm sm:text-base font-bold text-white mt-0.5 leading-snug">
+                    <h3 className="text-sm sm:text-base font-bold text-white mt-0.5 leading-snug [html.light_&]:text-[#0D1B2A]">
                       {extractedResult.data.title || 'Sự kiện chưa đặt tên'}
                     </h3>
                   </div>
 
                   {extractedResult.data.short_description && (
-                    <div className="pt-2.5 border-t border-neutral-800/80">
-                      <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
+                    <div className="pt-2.5 border-t border-white/10 [html.light_&]:border-slate-200">
+                      <span className="text-xs font-bold text-white uppercase tracking-wider [html.light_&]:text-[#0D1B2A]">
                         Mô tả sự kiện
                       </span>
-                      <p className="text-xs text-neutral-300 mt-0.5 leading-relaxed whitespace-pre-line">
+                      <p className="text-xs text-slate-300 mt-0.5 leading-relaxed whitespace-pre-line [html.light_&]:text-slate-600">
                         {extractedResult.data.short_description}
                       </p>
                     </div>
@@ -635,10 +632,10 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
                 </div>
 
                 {/* 4. Lịch trình sự kiện (Sessions) - Full width, Spacious & No wrap on dates */}
-                <div className="bg-neutral-950/80 rounded-xl p-3.5 sm:p-4 border border-neutral-800 space-y-2.5">
+                <div className="bg-[#121c38] rounded-xl p-3.5 sm:p-4 border border-white/10 space-y-2.5 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-xs sm:text-sm font-bold text-white">
-                      <Clock className="w-4 h-4 text-indigo-400" />
+                    <div className="flex items-center gap-2 text-xs sm:text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">
+                      <Clock className="w-4 h-4 text-[#E6C17A]" />
                       <span>Thời gian & Lịch trình ({extractedResult.data.sessions?.length || 1} phiên)</span>
                     </div>
                   </div>
@@ -650,33 +647,33 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
                     ).map((s, idx) => (
                       <div
                         key={idx}
-                        className="p-3 rounded-xl bg-neutral-900/90 border border-neutral-800 hover:border-neutral-700/80 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
+                        className="p-3 rounded-xl bg-[#0d172e] border border-white/10 hover:border-white/20 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 [html.light_&]:bg-white [html.light_&]:border-slate-200"
                       >
                         <div className="space-y-1 min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-xs sm:text-sm font-bold text-indigo-300">
+                            <span className="text-xs sm:text-sm font-bold text-indigo-300 [html.light_&]:text-indigo-950">
                               {s.session_name || (extractedResult.data.sessions?.length > 1 ? `Phiên ${idx + 1}` : 'Toàn sự kiện')}
                             </span>
                             {s.description && (
-                              <span className="text-[11px] text-neutral-400 italic">
+                              <span className="text-[11px] text-slate-400 italic [html.light_&]:text-slate-500">
                                 · {s.description}
                               </span>
                             )}
                           </div>
-                          <div className="flex items-center gap-3 text-xs text-neutral-300 flex-wrap">
+                          <div className="flex items-center gap-3 text-xs text-slate-300 flex-wrap [html.light_&]:text-slate-700">
                             <div className="flex items-center gap-1.5">
                               <Clock className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                              <span>Giờ: <strong className="text-white font-semibold">{s.start_time || 'Chưa rõ'}{s.end_time ? ` - ${s.end_time}` : ''}</strong></span>
+                              <span>Giờ: <strong className="text-white font-semibold [html.light_&]:text-[#0D1B2A]">{s.start_time || 'Chưa rõ'}{s.end_time ? ` - ${s.end_time}` : ''}</strong></span>
                             </div>
                             <div className="flex items-center gap-1.5">
                               <CheckCircle2 className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-                              <span>Check-in: <strong className="text-sky-300 font-semibold">{s.checkin_start_time || 'Chưa có'}</strong></span>
+                              <span>Check-in: <strong className="text-sky-300 font-semibold [html.light_&]:text-sky-700">{s.checkin_start_time || 'Chưa có'}</strong></span>
                             </div>
                           </div>
                         </div>
 
                         <div className="shrink-0 flex items-center">
-                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-500/10 border border-indigo-500/25 text-xs font-mono font-semibold text-indigo-200 whitespace-nowrap shadow-sm">
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-500/10 border border-indigo-500/25 text-xs font-mono font-semibold text-indigo-200 whitespace-nowrap shadow-sm [html.light_&]:bg-indigo-50 [html.light_&]:border-indigo-200 [html.light_&]:text-indigo-900">
                             <Calendar className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
                             <span>{s.start_date || 'Chưa rõ ngày'}</span>
                           </div>
@@ -687,21 +684,17 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
                 </div>
 
                 {/* 5. Địa điểm tổ chức (Dedicated Venue Card) */}
-                <div className="p-3.5 sm:p-4 rounded-xl bg-neutral-950/80 border border-neutral-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex items-start gap-3 min-w-0">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                      matchedVenue ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25' : 'bg-amber-500/15 text-amber-400 border border-amber-500/25'
-                    }`}>
-                      <MapPin className="w-4 h-4" />
-                    </div>
+                <div className="p-3.5 sm:p-4 rounded-xl bg-[#121c38] border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                  <div className="flex items-start gap-2.5 min-w-0">
+                    <MapPin className="w-4 h-4 text-[#E6C17A] shrink-0 mt-0.5" />
                     <div className="min-w-0">
-                      <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider [html.light_&]:text-slate-500">
                         Địa điểm tổ chức
                       </span>
-                      <p className="text-xs sm:text-sm font-bold text-white mt-0.5 truncate">
+                      <p className="text-xs sm:text-sm font-bold text-white mt-0.5 truncate [html.light_&]:text-[#0D1B2A]">
                         {matchedVenue ? matchedVenue.name : (currentVenueName || (extractedResult.data.province ? `Khu vực ${extractedResult.data.province}` : 'Chưa xác định'))}
                       </p>
-                      <p className="text-[11px] text-neutral-400 mt-0.5 truncate">
+                      <p className="text-[11px] text-slate-400 mt-0.5 truncate [html.light_&]:text-slate-600">
                         {matchedVenue
                           ? [matchedVenue.address_line, matchedVenue.ward, matchedVenue.district, matchedVenue.city].filter(Boolean).join(', ')
                           : (extractedResult.data.address_line || 'Địa chỉ chi tiết sẽ được tự động cập nhật khi tạo/chọn địa điểm')}
@@ -711,12 +704,12 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
 
                   <div className="shrink-0">
                     {matchedVenue ? (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-xs font-semibold text-emerald-300">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-xs font-semibold text-emerald-300 [html.light_&]:bg-emerald-50 [html.light_&]:border-emerald-200 [html.light_&]:text-emerald-800">
                         <Check className="w-3.5 h-3.5" />
                         Đã liên kết hệ thống
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/15 border border-amber-500/30 text-xs font-semibold text-amber-300">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/15 border border-amber-500/30 text-xs font-semibold text-amber-300 [html.light_&]:bg-amber-50 [html.light_&]:border-amber-200 [html.light_&]:text-amber-800">
                         <AlertCircle className="w-3.5 h-3.5" />
                         Chưa lưu trong danh sách
                       </span>
@@ -725,14 +718,14 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
                 </div>
 
                 {/* 6. Hạng vé & Bảng giá - Spacious Grid, No Internal Scrollbar */}
-                <div className="bg-neutral-950/80 rounded-xl p-3.5 sm:p-4 border border-neutral-800 space-y-2.5">
+                <div className="bg-[#121c38] rounded-xl p-3.5 sm:p-4 border border-white/10 space-y-2.5 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-xs sm:text-sm font-bold text-white">
-                      <Ticket className="w-4 h-4 text-amber-400" />
+                    <div className="flex items-center gap-2 text-xs sm:text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">
+                      <Ticket className="w-4 h-4 text-[#E6C17A]" />
                       <span>Bảng giá & Hạng vé ({extractedResult.data.ticket_types?.length || 0} hạng vé)</span>
                     </div>
                     {extractedResult.data.seat_map_id && (
-                      <span className="inline-flex items-center gap-1.5 text-xs text-indigo-300 bg-indigo-500/10 px-2 py-0.5 rounded-lg border border-indigo-500/20 font-medium">
+                      <span className="inline-flex items-center gap-1.5 text-xs text-indigo-300 bg-indigo-500/10 px-2 py-0.5 rounded-lg border border-indigo-500/20 font-medium [html.light_&]:bg-indigo-50 [html.light_&]:border-indigo-200 [html.light_&]:text-indigo-900">
                         <Armchair className="w-3.5 h-3.5" />
                         Đã gắn sơ đồ ghế
                       </span>
@@ -744,11 +737,11 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
                       extractedResult.data.ticket_types.map((t, idx) => (
                         <div
                           key={idx}
-                          className="p-3.5 rounded-xl bg-neutral-900/90 border border-neutral-800 hover:border-neutral-700/80 transition-all flex flex-col justify-between space-y-2"
+                          className="p-3.5 rounded-xl bg-[#0d172e] border border-white/10 hover:border-white/20 transition-all flex flex-col justify-between space-y-2 [html.light_&]:bg-white [html.light_&]:border-slate-200"
                         >
                           <div>
                             <div className="flex items-start justify-between gap-2">
-                              <h5 className="text-xs sm:text-sm font-bold text-white leading-snug">
+                              <h5 className="text-xs sm:text-sm font-bold text-white leading-snug [html.light_&]:text-[#0D1B2A]">
                                 {t.name || `Hạng vé ${idx + 1}`}
                               </h5>
                               <span className="text-xs sm:text-sm font-bold font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20 whitespace-nowrap shrink-0">
@@ -756,11 +749,11 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
                               </span>
                             </div>
 
-                            <div className="flex items-center gap-2 text-xs text-neutral-400 mt-1.5">
-                              <Users className="w-3.5 h-3.5 text-neutral-500 shrink-0" />
+                            <div className="flex items-center gap-2 text-xs text-slate-400 mt-1.5 [html.light_&]:text-slate-600">
+                              <Users className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                               <span>
                                 Số lượng: {t.quantity_total ? (
-                                  <strong className="text-neutral-200 font-semibold">{Number(t.quantity_total).toLocaleString('vi-VN')} vé</strong>
+                                  <strong className="text-slate-200 font-semibold [html.light_&]:text-[#0D1B2A]">{Number(t.quantity_total).toLocaleString('vi-VN')} vé</strong>
                                 ) : (
                                   <span className="text-amber-400 font-medium italic">Chưa có số lượng</span>
                                 )}
@@ -769,14 +762,14 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
                           </div>
 
                           {t.description && (
-                            <div className="pt-2 border-t border-neutral-800/80 text-[11px] text-neutral-400 leading-relaxed">
+                            <div className="pt-2 border-t border-white/10 text-[11px] text-slate-400 leading-relaxed [html.light_&]:border-slate-200 [html.light_&]:text-slate-600">
                               {t.description}
                             </div>
                           )}
                         </div>
                       ))
                     ) : (
-                      <div className="col-span-full p-4 rounded-xl bg-neutral-900/50 border border-neutral-800 text-center text-xs text-neutral-400 italic">
+                      <div className="col-span-full p-4 rounded-xl bg-[#0d172e]/50 border border-white/10 text-center text-xs text-slate-400 italic [html.light_&]:bg-slate-100 [html.light_&]:border-slate-200">
                         Không tìm thấy thông tin vé trong tài liệu.
                       </div>
                     )}
@@ -785,16 +778,16 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
 
                 {/* 7. Tags sự kiện - Dedicated Full Width, No Cutoffs */}
                 {extractedResult.data.tags && extractedResult.data.tags.length > 0 && (
-                  <div className="p-3.5 sm:p-4 rounded-xl bg-neutral-950/80 border border-neutral-800 space-y-2">
-                    <div className="flex items-center gap-2 text-xs font-bold text-neutral-300">
-                      <Tag className="w-3.5 h-3.5 text-violet-400" />
+                  <div className="p-3.5 sm:p-4 rounded-xl bg-[#121c38] border border-white/10 space-y-2 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-300 [html.light_&]:text-slate-700">
+                      <Tag className="w-3.5 h-3.5 text-[#E6C17A]" />
                       <span>Tags sự kiện ({extractedResult.data.tags.length})</span>
                     </div>
                     <div className="flex flex-wrap gap-1.5">
                       {extractedResult.data.tags.map((tag, idx) => (
                         <span
                           key={idx}
-                          className="px-2.5 py-0.5 rounded-lg bg-neutral-900 border border-neutral-700/80 text-xs font-semibold text-neutral-200 hover:border-violet-500/50 hover:text-white transition-all shadow-sm"
+                          className="px-2.5 py-0.5 rounded-lg bg-[#0d172e] border border-white/15 text-xs font-semibold text-slate-200 hover:border-violet-500/50 hover:text-white transition-all shadow-sm [html.light_&]:bg-white [html.light_&]:border-slate-300 [html.light_&]:text-slate-800"
                         >
                           #{tag}
                         </span>
@@ -804,35 +797,34 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
                 )}
 
                 {/* 8. Đính kèm hồ sơ & chính sách (Bước 4) */}
-                <div className="p-3.5 sm:p-4 rounded-xl bg-neutral-950/80 border border-neutral-800 space-y-2.5">
+                <div className="p-3.5 sm:p-4 rounded-xl bg-[#121c38] border border-white/10 space-y-2.5 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-xs sm:text-sm font-bold text-neutral-200">
-                      <Paperclip className="w-4 h-4 text-amber-400" />
+                    <div className="flex items-center gap-2 text-xs sm:text-sm font-bold text-slate-200 [html.light_&]:text-[#0D1B2A]">
+                      <Paperclip className="w-4 h-4 text-[#E6C17A]" />
                       <span>Đính kèm hồ sơ & chính sách (Bước 4)</span>
                     </div>
-                    <span className="text-[10px] text-neutral-400">
+                    <span className="text-[10px] text-slate-400 [html.light_&]:text-slate-500">
                       Định dạng <strong className="text-amber-400 font-mono">.pdf</strong> (Tối đa 10MB)
                     </span>
                   </div>
 
-                  <p className="text-[11px] text-neutral-400 leading-relaxed">
+                  <p className="text-[11px] text-slate-400 leading-relaxed [html.light_&]:text-slate-600">
                     Bạn có thể tải sẵn 2 tài liệu này tại đây, khi bấm &quot;Áp dụng&quot; hệ thống sẽ tự động chuyển vào Bước 4 mà không cần tải lại.
                   </p>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                     {/* Document 1: Giấy phép */}
-                    <div className="p-3.5 rounded-xl bg-neutral-900/90 border border-neutral-800 flex flex-col justify-between space-y-3">
+                    <div className="p-3.5 rounded-xl bg-[#0d172e] border border-white/10 flex flex-col justify-between space-y-3 [html.light_&]:bg-white [html.light_&]:border-slate-200">
                       <div>
                         <div className="flex items-center justify-between gap-1 mb-1.5">
-                          <span className="text-xs font-bold text-neutral-200 flex items-center gap-1.5">
-                            <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                          <span className="text-xs font-bold text-slate-200 [html.light_&]:text-[#0D1B2A]">
                             Giấy phép tổ chức sự kiện
                           </span>
-                          <span className="text-[10px] px-2 py-0.5 rounded bg-neutral-800 text-neutral-300 border border-neutral-700/60 font-medium shrink-0">
+                          <span className="text-[10px] px-2 py-0.5 rounded bg-[#121c38] text-slate-300 border border-white/10 font-medium shrink-0 [html.light_&]:bg-slate-100 [html.light_&]:text-slate-700 [html.light_&]:border-slate-200">
                             Tùy chọn tải trước
                           </span>
                         </div>
-                        <p className="text-[11px] text-neutral-400 leading-relaxed">
+                        <p className="text-[11px] text-slate-400 leading-relaxed [html.light_&]:text-slate-600">
                           Văn bản cấp phép, công văn chấp thuận của cơ quan thẩm quyền.
                         </p>
 
@@ -841,21 +833,21 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
                             {aiPermitFiles.map((f) => (
                               <div
                                 key={f.id}
-                                className="flex items-center justify-between gap-2 p-2 rounded-lg bg-neutral-950 border border-neutral-800 text-xs"
+                                className="flex items-center justify-between gap-2 p-2 rounded-lg bg-[#081126] border border-white/10 text-xs [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200"
                               >
                                 <div className="flex items-center gap-2 min-w-0">
                                   <FileText className="w-3.5 h-3.5 text-rose-400 shrink-0" />
-                                  <span className="truncate text-neutral-300 font-medium" title={f.name}>
+                                  <span className="truncate text-slate-300 font-medium [html.light_&]:text-slate-700" title={f.name}>
                                     {f.name}
                                   </span>
-                                  <span className="text-[10px] text-neutral-500 shrink-0 font-mono">
+                                  <span className="text-[10px] text-slate-500 shrink-0 font-mono">
                                     ({formatFileSize(f.size)})
                                   </span>
                                 </div>
                                 <button
                                   type="button"
                                   onClick={() => handleRemoveAiPermit(f.id)}
-                                  className="text-neutral-400 hover:text-rose-400 p-1 shrink-0 transition-colors cursor-pointer"
+                                  className="text-slate-400 hover:text-rose-400 p-1 shrink-0 transition-colors cursor-pointer"
                                   title="Xóa file"
                                 >
                                   <CloseIcon className="w-3.5 h-3.5" />
@@ -870,7 +862,7 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
                         type="button"
                         disabled={isUploadingPermit}
                         onClick={() => aiPermitInputRef.current?.click()}
-                        className="w-full py-2 px-3 rounded-xl border border-dashed border-neutral-700 hover:border-amber-400 hover:bg-neutral-800/60 text-xs text-neutral-300 hover:text-white flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                        className="w-full py-2 px-3 rounded-xl border border-dashed border-white/20 hover:border-amber-400 hover:bg-white/5 text-xs text-slate-300 hover:text-white flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50 [html.light_&]:border-slate-300 [html.light_&]:text-slate-700 [html.light_&]:hover:bg-slate-100"
                       >
                         {isUploadingPermit ? (
                           <>
@@ -887,36 +879,35 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
                     </div>
 
                     {/* Document 2: Chính sách */}
-                    <div className="p-3.5 rounded-xl bg-neutral-900/90 border border-neutral-800 flex flex-col justify-between space-y-3">
+                    <div className="p-3.5 rounded-xl bg-[#0d172e] border border-white/10 flex flex-col justify-between space-y-3 [html.light_&]:bg-white [html.light_&]:border-slate-200">
                       <div>
                         <div className="flex items-center justify-between gap-1 mb-1.5">
-                          <span className="text-xs font-bold text-neutral-200 flex items-center gap-1.5">
-                            <FileCheck className="w-4 h-4 text-blue-400 shrink-0" />
+                          <span className="text-xs font-bold text-slate-200 [html.light_&]:text-[#0D1B2A]">
                             Tài liệu chính sách sự kiện
                           </span>
-                          <span className="text-[10px] px-2 py-0.5 rounded bg-neutral-800 text-neutral-400 border border-neutral-700/60 font-medium shrink-0">
+                          <span className="text-[10px] px-2 py-0.5 rounded bg-[#121c38] text-slate-400 border border-white/10 font-medium shrink-0 [html.light_&]:bg-slate-100 [html.light_&]:text-slate-600 [html.light_&]:border-slate-200">
                             Không bắt buộc
                           </span>
                         </div>
-                        <p className="text-[11px] text-neutral-400 leading-relaxed">
+                        <p className="text-[11px] text-slate-400 leading-relaxed [html.light_&]:text-slate-600">
                           Quy định tham gia, chính sách hoàn vé bổ sung...
                         </p>
 
                         {aiPolicyDoc && (
-                          <div className="mt-2.5 p-2 rounded-lg bg-neutral-950 border border-neutral-800 flex items-center justify-between gap-2 text-xs">
+                          <div className="mt-2.5 p-2 rounded-lg bg-[#081126] border border-white/10 flex items-center justify-between gap-2 text-xs [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
                             <div className="flex items-center gap-2 min-w-0">
                               <FileCheck className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                              <span className="truncate text-neutral-300 font-medium" title={aiPolicyDoc.file_name}>
+                              <span className="truncate text-slate-300 font-medium [html.light_&]:text-slate-700" title={aiPolicyDoc.file_name}>
                                 {aiPolicyDoc.file_name}
                               </span>
-                              <span className="text-[10px] text-neutral-500 shrink-0 font-mono">
+                              <span className="text-[10px] text-slate-500 shrink-0 font-mono">
                                 ({formatFileSize(aiPolicyDoc.file_size)})
                               </span>
                             </div>
                             <button
                               type="button"
                               onClick={handleRemoveAiPolicy}
-                              className="text-neutral-400 hover:text-rose-400 p-1 shrink-0 transition-colors cursor-pointer"
+                              className="text-slate-400 hover:text-rose-400 p-1 shrink-0 transition-colors cursor-pointer"
                               title="Xóa file chính sách"
                             >
                               <CloseIcon className="w-3.5 h-3.5" />
@@ -929,7 +920,7 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
                         type="button"
                         disabled={isUploadingPolicy}
                         onClick={() => aiPolicyInputRef.current?.click()}
-                        className="w-full py-2 px-3 rounded-xl border border-dashed border-neutral-700 hover:border-blue-400 hover:bg-neutral-800/60 text-xs text-neutral-300 hover:text-white flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                        className="w-full py-2 px-3 rounded-xl border border-dashed border-white/20 hover:border-blue-400 hover:bg-white/5 text-xs text-slate-300 hover:text-white flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50 [html.light_&]:border-slate-300 [html.light_&]:text-slate-700 [html.light_&]:hover:bg-slate-100"
                       >
                         {isUploadingPolicy ? (
                           <>
@@ -947,10 +938,10 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
                   </div>
                 </div>
 
-                {/* 9. AI Disclaimer Banner */}
-                <div className="p-3.5 bg-amber-500/10 rounded-xl border border-amber-500/25 flex items-center gap-3 text-xs text-amber-200/90 shadow-sm">
-                  <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
-                  <span className="leading-relaxed">
+                {/* 9. AI Disclaimer - Frameless */}
+                <div className="flex items-center justify-center gap-2 text-xs text-amber-300/90 py-1 text-center">
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <span>
                     <strong className="text-amber-300 font-semibold">Lưu ý:</strong> Đây là AI nên có thể có sai sót, vui lòng kiểm tra lại thông tin trước khi áp dụng vào bản nháp.
                   </span>
                 </div>
@@ -961,17 +952,17 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
             {!isProcessing && !extractedResult && (
               <div className="space-y-3.5 animate-in fade-in duration-200">
                 {/* Tab selector */}
-                <div className="flex items-center gap-1.5 p-1 bg-neutral-950/90 rounded-xl border border-neutral-800/80">
+                <div className="flex items-center gap-1.5 p-1 bg-[#121c38] rounded-xl border border-white/10 [html.light_&]:bg-slate-100 [html.light_&]:border-slate-200">
                   <button
                     type="button"
                     onClick={() => setActiveTab('file')}
                     className={`flex-1 flex items-center justify-center gap-2 py-2 px-2.5 sm:px-3 rounded-lg text-xs transition-all cursor-pointer whitespace-nowrap ${
                       activeTab === 'file'
-                        ? 'border border-[#C99A47] bg-[#C99A47]/15 text-[#E6C17A] shadow-[0_0_12px_rgba(201,154,71,0.2)] font-bold'
-                        : 'border border-transparent text-neutral-400 hover:text-[#E6C17A] hover:bg-[#C99A47]/5 hover:border-[#C99A47]/30 font-medium'
+                        ? 'border border-[#C99A47] bg-[#C99A47]/15 text-[#E6C17A] shadow-[0_0_12px_rgba(201,154,71,0.2)] font-bold [html.light_&]:bg-[#C99A47]/20 [html.light_&]:text-[#B37E2A]'
+                        : 'border border-transparent text-slate-400 hover:text-[#E6C17A] hover:bg-[#C99A47]/10 hover:border-[#C99A47]/30 font-medium [html.light_&]:text-slate-600'
                     }`}
                   >
-                    <FileUp className={`w-4 h-4 shrink-0 ${activeTab === 'file' ? 'text-[#E6C17A]' : 'text-neutral-400'}`} />
+                    <FileUp className={`w-4 h-4 shrink-0 ${activeTab === 'file' ? 'text-[#E6C17A]' : 'text-slate-400'}`} />
                     <span className="whitespace-nowrap">Tải file tài liệu</span>
                   </button>
                   <button
@@ -979,11 +970,11 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
                     onClick={() => setActiveTab('text')}
                     className={`flex-1 flex items-center justify-center gap-2 py-2 px-2.5 sm:px-3 rounded-lg text-xs transition-all cursor-pointer whitespace-nowrap ${
                       activeTab === 'text'
-                        ? 'border border-[#C99A47] bg-[#C99A47]/15 text-[#E6C17A] shadow-[0_0_12px_rgba(201,154,71,0.2)] font-bold'
-                        : 'border border-transparent text-neutral-400 hover:text-[#E6C17A] hover:bg-[#C99A47]/5 hover:border-[#C99A47]/30 font-medium'
+                        ? 'border border-[#C99A47] bg-[#C99A47]/15 text-[#E6C17A] shadow-[0_0_12px_rgba(201,154,71,0.2)] font-bold [html.light_&]:bg-[#C99A47]/20 [html.light_&]:text-[#B37E2A]'
+                        : 'border border-transparent text-slate-400 hover:text-[#E6C17A] hover:bg-[#C99A47]/10 hover:border-[#C99A47]/30 font-medium [html.light_&]:text-slate-600'
                     }`}
                   >
-                    <FileText className={`w-4 h-4 shrink-0 ${activeTab === 'text' ? 'text-[#E6C17A]' : 'text-neutral-400'}`} />
+                    <FileText className={`w-4 h-4 shrink-0 ${activeTab === 'text' ? 'text-[#E6C17A]' : 'text-slate-400'}`} />
                     <span className="whitespace-nowrap">Dán nội dung kịch bản</span>
                   </button>
                 </div>
@@ -1020,34 +1011,34 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
                         onClick={() => fileInputRef.current?.click()}
                         className={`border-2 border-dashed rounded-2xl py-7 px-4 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-200 group ${
                           isDragging
-                            ? 'border-[#C99A47] bg-[#C99A47]/10 scale-[1.01]'
-                            : 'border-neutral-700/80 hover:border-[#C99A47]/60 bg-gradient-to-b from-neutral-950/60 to-neutral-900/30 hover:bg-neutral-900/50'
+                            ? 'border-[#C99A47] bg-[#C99A47]/15 scale-[1.01]'
+                            : 'border-white/20 hover:border-[#C99A47]/60 bg-[#121c38]/60 hover:bg-[#121c38]/90 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-300 [html.light_&]:hover:bg-amber-50/40'
                         }`}
                       >
                         <div className="w-12 h-12 rounded-2xl bg-[#C99A47]/10 border border-[#C99A47]/20 text-[#E6C17A] flex items-center justify-center mb-2.5 transition-all shadow-inner group-hover:scale-105 group-hover:bg-[#C99A47]/20">
                           <Upload className="w-5 h-5 transition-transform group-hover:-translate-y-0.5" />
                         </div>
-                        <p className="text-xs sm:text-sm font-semibold text-white mb-1.5">
-                          Kéo thả file vào đây hoặc <span className="text-[#E6C17A] hover:text-[#FFF6DC] underline underline-offset-4 decoration-[#C99A47]/40 font-bold">duyệt từ máy</span>
+                        <p className="text-xs sm:text-sm font-semibold text-white mb-1.5 [html.light_&]:text-[#0D1B2A]">
+                          Kéo thả file vào đây hoặc <span className="text-[#E6C17A] hover:text-[#FFF6DC] underline underline-offset-4 decoration-[#C99A47]/40 font-bold [html.light_&]:text-amber-700">duyệt từ máy</span>
                         </p>
-                        <div className="flex items-center gap-1.5 text-[11px] text-neutral-400 flex-wrap justify-center mt-0.5">
+                        <div className="flex items-center gap-1.5 text-[11px] text-slate-400 flex-wrap justify-center mt-0.5 [html.light_&]:text-slate-600">
                           <span>Hỗ trợ:</span>
-                          <span className="px-1.5 py-0.5 rounded bg-neutral-800/80 border border-neutral-700/60 text-[10px] font-mono font-medium text-neutral-300">PDF</span>
-                          <span className="px-1.5 py-0.5 rounded bg-neutral-800/80 border border-neutral-700/60 text-[10px] font-mono font-medium text-neutral-300">Word (.docx)</span>
-                          <span className="px-1.5 py-0.5 rounded bg-neutral-800/80 border border-neutral-700/60 text-[10px] font-mono font-medium text-neutral-300">TXT</span>
-                          <span className="text-neutral-500">· Tối đa 10MB</span>
+                          <span className="px-1.5 py-0.5 rounded bg-[#0d172e] border border-white/10 text-[10px] font-mono font-medium text-slate-300 [html.light_&]:bg-white [html.light_&]:border-slate-300 [html.light_&]:text-slate-700">PDF</span>
+                          <span className="px-1.5 py-0.5 rounded bg-[#0d172e] border border-white/10 text-[10px] font-mono font-medium text-slate-300 [html.light_&]:bg-white [html.light_&]:border-slate-300 [html.light_&]:text-slate-700">Word (.docx)</span>
+                          <span className="px-1.5 py-0.5 rounded bg-[#0d172e] border border-white/10 text-[10px] font-mono font-medium text-slate-300 [html.light_&]:bg-white [html.light_&]:border-slate-300 [html.light_&]:text-slate-700">TXT</span>
+                          <span className="text-slate-500">· Tối đa 10MB</span>
                         </div>
                       </div>
                     ) : (
-                      <div className="p-3.5 rounded-xl bg-neutral-950 border border-neutral-800 flex items-center justify-between shadow-sm">
+                      <div className="p-3.5 rounded-xl bg-[#121c38] border border-white/10 flex items-center justify-between shadow-sm [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
                         <div className="flex items-center gap-3 overflow-hidden">
                           <div className="w-10 h-10 rounded-xl bg-[#C99A47]/10 border border-[#C99A47]/25 text-[#E6C17A] flex items-center justify-center flex-shrink-0">
                             <FileText className="w-5 h-5" />
                           </div>
                           <div className="overflow-hidden">
-                            <p className="text-xs sm:text-sm font-semibold text-white truncate">{selectedFile.name}</p>
+                            <p className="text-xs sm:text-sm font-semibold text-white truncate [html.light_&]:text-[#0D1B2A]">{selectedFile.name}</p>
                             <div className="flex items-center gap-2 mt-0.5">
-                              <span className="text-[11px] text-neutral-400">
+                              <span className="text-[11px] text-slate-400 [html.light_&]:text-slate-600">
                                 {formatFileSize(selectedFile.size)}
                               </span>
                               <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-500/20">
@@ -1059,7 +1050,7 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
                         <button
                           type="button"
                           onClick={() => setSelectedFile(null)}
-                          className="p-1.5 text-neutral-400 hover:text-rose-400 hover:bg-neutral-800/80 rounded-lg transition-colors cursor-pointer"
+                          className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
                           title="Xóa file đã chọn"
                         >
                           <CloseIcon className="w-4 h-4" />
@@ -1077,33 +1068,33 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
                       value={rawText}
                       onChange={(e) => setRawText(e.target.value)}
                       placeholder="Dán nội dung kế hoạch sự kiện, kịch bản chương trình, thông cáo báo chí hoặc ghi chú chi tiết vào đây..."
-                      className="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-3 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-[#C99A47] focus:ring-1 focus:ring-[#C99A47]/30 transition-all resize-none custom-scrollbar leading-relaxed"
+                      className="w-full bg-[#0d172e] border border-white/15 rounded-xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#C99A47] focus:ring-1 focus:ring-[#C99A47]/30 transition-all resize-none custom-scrollbar leading-relaxed [html.light_&]:bg-slate-50 [html.light_&]:border-slate-300 [html.light_&]:text-[#0D1B2A] [html.light_&]:placeholder-slate-400"
                     />
-                    <div className="flex items-center justify-between text-[11px] text-neutral-400 mt-1 px-1">
+                    <div className="flex items-center justify-between text-[11px] text-slate-400 mt-1 px-1 [html.light_&]:text-slate-600">
                       <span>Tối thiểu 20 ký tự để AI có đủ dữ kiện phân tích</span>
-                      <span className="font-mono text-neutral-400">{rawText.length} ký tự</span>
+                      <span className="font-mono text-slate-400">{rawText.length} ký tự</span>
                     </div>
                   </div>
                 )}
 
                 {/* Optional user note */}
                 <div>
-                  <label className="block text-xs font-semibold text-neutral-200 mb-1.5">
-                    Ghi chú thêm cho AI <span className="text-neutral-400 font-normal">(Tùy chọn)</span>
+                  <label className="block text-xs font-semibold text-slate-200 mb-1.5 [html.light_&]:text-[#0D1B2A]">
+                    Ghi chú thêm cho AI <span className="text-slate-400 font-normal [html.light_&]:text-slate-500">(Tùy chọn)</span>
                   </label>
                   <input
                     type="text"
                     value={userNote}
                     onChange={(e) => setUserNote(e.target.value)}
                     placeholder="Ví dụ: Ưu tiên sự kiện bắt đầu lúc 19:00, địa điểm tại TP.HCM..."
-                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-[#C99A47] focus:ring-1 focus:ring-[#C99A47]/30 transition-all"
+                    className="w-full bg-[#0d172e] border border-white/15 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#C99A47] focus:ring-1 focus:ring-[#C99A47]/30 transition-all [html.light_&]:bg-slate-50 [html.light_&]:border-slate-300 [html.light_&]:text-[#0D1B2A] [html.light_&]:placeholder-slate-400"
                   />
                 </div>
 
                 {/* 1. Thông tin bảo mật an toàn (tách riêng khung) */}
-                <div className="flex items-center gap-2.5 p-2.5 bg-neutral-950/80 rounded-xl border border-neutral-800/80 text-[11px] text-neutral-400">
+                <div className="flex items-center gap-2.5 p-2.5 bg-[#121c38] rounded-xl border border-white/10 text-[11px] text-slate-300 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200 [html.light_&]:text-slate-700">
                   <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-                  <span>Dữ liệu xử lý an toàn nội bộ trên máy chủ và <strong className="text-neutral-300">không tự động gửi duyệt sự kiện</strong>.</span>
+                  <span>Dữ liệu xử lý an toàn nội bộ trên máy chủ và <strong className="text-white [html.light_&]:text-[#0D1B2A]">không tự động gửi duyệt sự kiện</strong>.</span>
                 </div>
 
                 {/* 2. Câu lưu ý đưa xuống dưới cùng */}
@@ -1116,13 +1107,13 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
           </div>
 
           {/* Modal Footer Actions */}
-          <div className="px-5 sm:px-6 py-3.5 border-t border-neutral-800 bg-neutral-950/70 flex items-center justify-between">
+          <div className="px-5 sm:px-6 py-4 border-t border-white/10 bg-[#111c3a] flex items-center justify-between [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
             {!isProcessing && extractedResult ? (
               <>
                 <button
                   type="button"
                   onClick={handleReset}
-                  className="px-3.5 py-2 text-xs font-bold text-neutral-300 hover:text-white transition-all flex items-center gap-1.5 cursor-pointer rounded-xl border border-neutral-700/80 bg-neutral-800/40 hover:bg-neutral-800 hover:border-neutral-600 active:scale-95"
+                  className="px-4 py-2 text-xs font-bold text-slate-300 hover:text-white transition-all flex items-center gap-1.5 cursor-pointer rounded-full border border-white/15 bg-white/5 hover:bg-white/10 active:scale-95 [html.light_&]:bg-slate-100 [html.light_&]:border-slate-300 [html.light_&]:text-[#0D1B2A] [html.light_&]:hover:bg-slate-200"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
                   <span>Chọn tài liệu khác</span>
@@ -1131,7 +1122,7 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
                   type="button"
                   disabled={isUploadingPermit || isUploadingPolicy}
                   onClick={handleApplyToDraft}
-                  className="px-4 sm:px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] hover:brightness-110 active:scale-95 disabled:from-neutral-800 disabled:to-neutral-800 disabled:text-neutral-500 text-[#0D1B2A] text-xs font-bold shadow-lg shadow-[#C99A47]/20 flex items-center gap-2 transition-all cursor-pointer disabled:cursor-not-allowed"
+                  className="px-5 py-2.5 rounded-full bg-gradient-to-r from-[#C99A47] to-[#E6C17A] hover:brightness-110 active:scale-95 disabled:from-white/10 disabled:to-white/10 disabled:text-slate-500 text-[#0D1B2A] text-xs font-bold shadow-lg shadow-[#C99A47]/20 flex items-center gap-2 transition-all cursor-pointer disabled:cursor-not-allowed"
                 >
                   {isUploadingPermit || isUploadingPolicy ? (
                     <>
@@ -1152,7 +1143,7 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
                   type="button"
                   onClick={onClose}
                   disabled={isProcessing}
-                  className="px-4 py-2.5 text-xs font-bold text-neutral-300 hover:text-white rounded-xl border border-neutral-700/80 bg-neutral-800/40 hover:bg-neutral-800 hover:border-neutral-600 transition-all disabled:opacity-40 cursor-pointer active:scale-95"
+                  className="px-4 py-2 text-xs font-bold text-slate-300 hover:text-white rounded-full border border-white/15 bg-white/5 hover:bg-white/10 transition-all disabled:opacity-40 cursor-pointer active:scale-95 [html.light_&]:bg-slate-100 [html.light_&]:border-slate-300 [html.light_&]:text-[#0D1B2A] [html.light_&]:hover:bg-slate-200"
                 >
                   Hủy bỏ
                 </button>
@@ -1160,9 +1151,9 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
                   type="button"
                   onClick={handleStartExtraction}
                   disabled={isProcessing || (activeTab === 'file' && !selectedFile) || (activeTab === 'text' && !rawText.trim())}
-                  className={`px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
+                  className={`px-5 py-2.5 rounded-full text-xs font-bold flex items-center gap-2 transition-all ${
                     isProcessing || (activeTab === 'file' && !selectedFile) || (activeTab === 'text' && !rawText.trim())
-                      ? 'bg-neutral-800 border border-neutral-700/50 text-neutral-500 cursor-not-allowed shadow-none'
+                      ? 'bg-white/10 border border-white/10 text-slate-500 cursor-not-allowed shadow-none'
                       : 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] border border-[#E6C17A]/40 shadow-lg shadow-[#C99A47]/25 hover:brightness-110 active:scale-95 cursor-pointer'
                   }`}
                 >
@@ -1172,10 +1163,7 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
                       <span>Đang bóc tách dữ liệu...</span>
                     </>
                   ) : (
-                    <>
-                      <Sparkles className="w-4 h-4 text-inherit" />
-                      <span>Bắt đầu trích xuất bằng AI</span>
-                    </>
+                    <span>Bắt đầu trích xuất bằng AI</span>
                   )}
                 </button>
               </div>
@@ -1204,27 +1192,27 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
       {/* SEAT MAP CREATION PROMPT MODAL */}
       {isSeatMapPromptOpen && newlyCreatedVenue && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="relative w-full max-w-md bg-neutral-900 border border-neutral-700/80 rounded-2xl shadow-2xl p-6 space-y-4">
+          <div className="relative w-full max-w-md bg-[#0b1329] border border-white/15 rounded-2xl shadow-2xl p-6 space-y-4 [html.light_&]:bg-white [html.light_&]:border-slate-200 [html.light_&]:text-[#0D1B2A]">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 [html.light_&]:bg-indigo-50 [html.light_&]:border-indigo-200">
                 <Armchair className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="text-base font-bold text-white">Tạo sơ đồ ghế cho sự kiện?</h4>
-                <p className="text-xs text-neutral-400">
-                  Địa điểm: <span className="text-amber-300 font-semibold">{newlyCreatedVenue.name}</span>
+                <h4 className="text-base font-bold text-white [html.light_&]:text-[#0D1B2A]">Tạo sơ đồ ghế cho sự kiện?</h4>
+                <p className="text-xs text-slate-400 [html.light_&]:text-slate-600">
+                  Địa điểm: <span className="text-amber-300 font-semibold [html.light_&]:text-amber-700">{newlyCreatedVenue.name}</span>
                 </p>
               </div>
             </div>
 
-            <p className="text-xs text-neutral-300 leading-relaxed">
+            <p className="text-xs text-slate-300 leading-relaxed [html.light_&]:text-slate-600">
               Bạn có muốn tạo sơ đồ ghế cho sự kiện tại địa điểm mới <strong>&quot;{newlyCreatedVenue.name}&quot;</strong> này không?
             </p>
 
-            <div className="p-3 rounded-xl bg-neutral-950 border border-neutral-800 text-xs text-neutral-400 flex items-start gap-2.5">
+            <div className="p-3 rounded-xl bg-[#121c38] border border-white/10 text-xs text-slate-300 flex items-start gap-2.5 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200 [html.light_&]:text-slate-700">
               <HelpCircle className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
               <p className="leading-relaxed">
-                <strong className="text-neutral-300">Lưu ý:</strong> Nếu cần thiết cho khách hàng chọn vị trí ghế ngồi trực quan khi mua vé, bạn có thể tạo sơ đồ ghế ngay bây giờ.
+                <strong className="text-white [html.light_&]:text-[#0D1B2A]">Lưu ý:</strong> Nếu cần thiết cho khách hàng chọn vị trí ghế ngồi trực quan khi mua vé, bạn có thể tạo sơ đồ ghế ngay bây giờ.
               </p>
             </div>
 
@@ -1232,14 +1220,14 @@ export function AiDocumentExtractorModal({ isOpen, onClose, onApply, venues = []
               <button
                 type="button"
                 onClick={handleSkipSeatMap}
-                className="px-4 py-2 rounded-xl text-xs font-medium text-neutral-300 hover:text-white hover:bg-neutral-800 transition-colors cursor-pointer"
+                className="px-4 py-2 rounded-full text-xs font-medium text-slate-300 hover:text-white border border-white/15 bg-white/5 hover:bg-white/10 transition-colors cursor-pointer [html.light_&]:bg-slate-100 [html.light_&]:border-slate-300 [html.light_&]:text-[#0D1B2A] [html.light_&]:hover:bg-slate-200"
               >
                 Không, quay lại xem thông tin
               </button>
               <button
                 type="button"
                 onClick={handleOpenSeatMapEditor}
-                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-semibold shadow-lg shadow-indigo-500/20 flex items-center gap-2 transition-all cursor-pointer"
+                className="px-5 py-2.5 rounded-full bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] font-bold text-xs shadow-lg shadow-[#C99A47]/20 flex items-center gap-2 transition-all cursor-pointer hover:brightness-110 active:scale-95"
               >
                 <Armchair className="w-4 h-4" />
                 <span>Có, tạo sơ đồ ghế ngay</span>
