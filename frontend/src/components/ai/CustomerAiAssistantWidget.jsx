@@ -1407,7 +1407,7 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
 
       <div
         className={`fixed inset-0 sm:inset-auto sm:bottom-6 sm:right-6 z-50 flex h-[100dvh] sm:h-[620px] w-full sm:w-[420px] max-w-none sm:max-w-[calc(100vw-48px)] flex-col overflow-hidden rounded-none sm:rounded-2xl border-0 sm:border border-slate-700 bg-[#090f1f] shadow-[0_20px_50px_rgba(0,0,0,0.85)] transition-all duration-300 ${
-          isOpen ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-10 opacity-0'
+          isOpen ? 'translate-y-0 opacity-100 pointer-events-auto' : 'pointer-events-none translate-y-10 opacity-0 invisible'
         }`}
       >
         {/* Header */}
@@ -1416,7 +1416,7 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
             {/* 3-bar hamburger icon for chat history */}
             <button
               onClick={() => setShowHistoryDrawer(prev => !prev)}
-              className={`grid size-8 place-items-center rounded-lg transition-colors ${
+              className={`grid size-9 min-h-[40px] min-w-[40px] sm:min-h-[44px] sm:min-w-[44px] place-items-center rounded-lg transition-colors cursor-pointer ${
                 showHistoryDrawer ? 'bg-primary/20 text-primary' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
               }`}
               title={isEnglish ? "Chat history" : "Lịch sử đoạn chat"}
@@ -1427,7 +1427,7 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
             {/* Plus icon to create new chat */}
             <button
               onClick={handleCreateNewChat}
-              className="grid size-8 place-items-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+              className="grid size-9 min-h-[40px] min-w-[40px] sm:min-h-[44px] sm:min-w-[44px] place-items-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-colors cursor-pointer"
               title={isEnglish ? "New chat" : "Tạo đoạn chat mới"}
             >
               <Plus className="size-5" />
@@ -1450,7 +1450,7 @@ export function CustomerAiAssistantWidget({ enabled = true }) {
 
           <button
             onClick={() => setIsOpen(false)}
-            className="grid size-8 place-items-center rounded-full text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+            className="grid size-9 min-h-[40px] min-w-[40px] sm:min-h-[44px] sm:min-w-[44px] place-items-center rounded-full text-slate-400 hover:bg-slate-800 hover:text-white transition-colors cursor-pointer"
             title={isEnglish ? "Close" : "Đóng"}
           >
             <X className="size-5" />

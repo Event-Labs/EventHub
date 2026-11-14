@@ -34,6 +34,7 @@ const EVENT_CARD_SELECT = `
   COALESCE(time_summary.start_time, e.start_time) AS start_time,
   COALESCE(time_summary.end_time, e.end_time) AS end_time,
   e.created_at,
+  COALESCE(e.tags, ARRAY[]::text[]) AS tags,
   c.id AS category_id,
   c.name AS category_name,
   c.slug AS category_slug,
@@ -101,7 +102,10 @@ function buildListQuery(filters) {
   };
 
   if (filters.keyword) {
-    const keywordParam = addParam(`%${filters.keyword}%`);
+    const rawKeyword = String(filters.keyword).trim();
+    const cleanKeyword = rawKeyword.replace(/^#+/, '');
+    const keywordParam = addParam(`%${rawKeyword}%`);
+    const cleanKeywordParam = addParam(`%${cleanKeyword}%`);
     where.push(`(
       e.title ILIKE ${keywordParam}
       OR e.short_description ILIKE ${keywordParam}
@@ -109,6 +113,8 @@ function buildListQuery(filters) {
       OR c.name ILIKE ${keywordParam}
       OR organizer.organization_name ILIKE ${keywordParam}
       OR organizer_user.full_name ILIKE ${keywordParam}
+      OR array_to_string(e.tags, ' ') ILIKE ${keywordParam}
+      OR array_to_string(e.tags, ' ') ILIKE ${cleanKeywordParam}
       OR EXISTS (
         SELECT 1 FROM event_sessions es_kw
         JOIN venues v_kw ON v_kw.id = es_kw.venue_id

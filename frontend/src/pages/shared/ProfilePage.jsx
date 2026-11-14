@@ -1278,9 +1278,9 @@ function ProfileView({ user, tickets = [], ticketsLoading = false, favorites = [
       </section>
 
       {/* Main Grid: Compact Account Aside & Information / Edit Area */}
-      <div className="grid gap-4 sm:gap-6 lg:grid-cols-[300px_1fr]">
+      <div className="grid gap-4 sm:gap-6 lg:grid-cols-[300px_1fr] min-w-0 w-full">
         {/* Compact "Tài khoản của tôi" card with navigatable links */}
-        <aside className="customer-profile-panel h-fit rounded-2xl border border-white/10 bg-slate-900/60 p-5 text-content backdrop-blur-md shadow-xl space-y-4">
+        <aside className="customer-profile-panel h-fit rounded-2xl border border-white/10 bg-slate-900/60 p-5 text-content backdrop-blur-md shadow-xl space-y-4 min-w-0 w-full">
           <div className="flex items-center gap-2.5 pb-1 border-b border-white/5">
             <span className="grid size-8 place-items-center rounded-xl bg-[#C99A47]/15 border border-[#E6C17A]/30 text-[#E6C17A]">
               <UserCircle className="size-4" />
@@ -1420,7 +1420,7 @@ function ProfileView({ user, tickets = [], ticketsLoading = false, favorites = [
         </aside>
 
         {/* Right Section: View Mode or Direct In-Place Edit Mode */}
-        <div className="space-y-4">
+        <div className="space-y-4 min-w-0 w-full">
           {!isEditing ? (
             <>
               <CustomerInfoSection title={t('profile.basicInfo')} icon={UserCircle}>
@@ -1545,14 +1545,14 @@ function ProfileView({ user, tickets = [], ticketsLoading = false, favorites = [
 
 function CustomerInfoSection({ title, icon: Icon, children }) {
   return (
-    <section className="customer-profile-panel rounded-2xl border border-white/10 bg-slate-900/60 p-3.5 sm:p-6 text-content backdrop-blur-md shadow-xl">
+    <section className="customer-profile-panel rounded-2xl border border-white/10 bg-slate-900/60 p-3.5 sm:p-6 text-content backdrop-blur-md shadow-xl min-w-0 w-full">
       <div className="mb-3.5 sm:mb-5 flex items-center gap-3">
         <span className="grid size-9 place-items-center rounded-xl bg-[#C99A47]/15 border border-[#E6C17A]/30 text-[#E6C17A]">
           <Icon className="size-5" />
         </span>
         <h2 className="font-display text-lg font-black text-white">{title}</h2>
       </div>
-      <div className="grid gap-3 md:grid-cols-2">{children}</div>
+      <div className="grid gap-3 md:grid-cols-2 min-w-0 w-full">{children}</div>
     </section>
   )
 }
@@ -1563,18 +1563,18 @@ function CustomerInfoCard({ icon: Icon, label, value, className = '', linkType }
   const href = !isEmpty && linkType === 'email' ? `mailto:${displayValue}` : null
 
   return (
-    <div className={`flex min-h-16 items-center gap-3.5 rounded-xl border border-white/10 bg-white/[0.02] p-3.5 transition hover:border-[#E6C17A]/30 ${className}`}>
+    <div className={`flex min-h-16 items-center gap-3.5 rounded-xl border border-white/10 bg-white/[0.02] p-3.5 transition hover:border-[#E6C17A]/30 min-w-0 w-full ${className}`}>
       <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-white/5 text-slate-300">
         <Icon className="size-5" />
       </span>
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1 overflow-hidden">
         <p className="text-xs font-medium text-slate-400">{label}</p>
         {href ? (
-          <a href={href} className="mt-0.5 block break-words text-sm font-bold text-white hover:text-[#E6C17A] transition">
+          <a href={href} className="mt-0.5 block break-all text-sm font-bold text-white hover:text-[#E6C17A] transition">
             {displayValue}
           </a>
         ) : (
-          <p className={`mt-0.5 break-words text-sm font-bold ${isEmpty ? 'text-slate-500' : 'text-white'}`}>
+          <p className={`mt-0.5 break-all text-sm font-bold ${isEmpty ? 'text-slate-500' : 'text-white'}`}>
             {displayValue}
           </p>
         )}
@@ -2387,7 +2387,7 @@ function CompactLine({ icon: Icon, label, value }) {
       <Icon className="mt-0.5 size-4 shrink-0 text-primary" />
       <div className="min-w-0">
         <p className="organizer-info-empty text-xs font-semibold uppercase tracking-wide">{label}</p>
-        <p className="organizer-info-value break-words text-sm font-bold">{valueOrEmpty(value)}</p>
+        <p className="organizer-info-value break-all text-sm font-bold">{valueOrEmpty(value)}</p>
       </div>
     </div>
   )
@@ -2419,7 +2419,7 @@ function Input({ label, error, className = '', type, ...props }) {
           } disabled:opacity-50`}
         />
         {isPassword && (
-          <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-white cursor-pointer">
+          <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-1 top-1/2 -translate-y-1/2 p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 transition hover:text-white cursor-pointer">
             {showPassword ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
           </button>
         )}
