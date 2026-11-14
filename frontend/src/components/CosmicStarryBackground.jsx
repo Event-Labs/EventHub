@@ -125,7 +125,10 @@ export function CosmicStarryBackground() {
   }, [])
 
   return (
-    <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden select-none">
+    <div
+      className="fixed inset-0 pointer-events-none z-0 overflow-hidden select-none w-full max-w-full h-full max-h-full"
+      style={{ contain: 'paint' }}
+    >
       {/* Base deep cosmic gradient matching hero tone */}
       <div className="absolute inset-0 bg-[#020409]" />
 
@@ -167,10 +170,10 @@ export function CosmicStarryBackground() {
       <div className="absolute top-[8%] left-[48%] -translate-x-1/2 animate-star-pulse" style={{ animationDelay: '0s' }}>
         <StarBurst8 size={64} />
       </div>
-      <div className="absolute top-[6%] left-[84%] animate-star-twinkle-bright" style={{ animationDelay: '1.2s' }}>
-        <StarBurst8 size={70} />
+      <div className="absolute top-[6%] right-[4%] sm:right-[10%] animate-star-twinkle-bright" style={{ animationDelay: '1.2s' }}>
+        <StarBurst8 size={54} className="sm:w-[70px] sm:h-[70px]" />
       </div>
-      <div className="absolute top-[14%] left-[76%] animate-star-twinkle-soft" style={{ animationDelay: '2.5s' }}>
+      <div className="absolute top-[14%] right-[16%] sm:right-[20%] animate-star-twinkle-soft" style={{ animationDelay: '2.5s' }}>
         <StarBurst8 size={48} />
       </div>
       <div className="absolute top-[8%] left-[16%] animate-star-pulse" style={{ animationDelay: '1.8s' }}>
@@ -187,13 +190,13 @@ export function CosmicStarryBackground() {
       </div>
 
       {/* Side perimeter framing stars */}
-      <div className="absolute top-[34%] left-[91%] animate-star-twinkle-soft" style={{ animationDelay: '1.5s' }}>
+      <div className="absolute top-[34%] right-[3%] sm:right-[7%] animate-star-twinkle-soft" style={{ animationDelay: '1.5s' }}>
         <StarCross4 size={34} />
       </div>
       <div className="absolute top-[28%] left-[4%] animate-star-twinkle-bright" style={{ animationDelay: '2.8s' }}>
         <StarCross4 size={32} />
       </div>
-      <div className="absolute top-[62%] left-[92%] animate-star-twinkle-bright" style={{ animationDelay: '0.4s' }}>
+      <div className="absolute top-[62%] right-[3%] sm:right-[6%] animate-star-twinkle-bright" style={{ animationDelay: '0.4s' }}>
         <StarBurst8 size={46} />
       </div>
       <div className="absolute top-[60%] left-[6%] animate-star-twinkle-soft" style={{ animationDelay: '3.6s' }}>
@@ -201,10 +204,10 @@ export function CosmicStarryBackground() {
       </div>
 
       {/* Bottom framing stars */}
-      <div className="absolute bottom-[10%] left-[86%] animate-star-pulse" style={{ animationDelay: '2.4s' }}>
-        <StarSupernova size={72} />
+      <div className="absolute bottom-[10%] right-[6%] sm:right-[10%] animate-star-pulse" style={{ animationDelay: '2.4s' }}>
+        <StarSupernova size={56} className="sm:w-[72px] sm:h-[72px]" />
       </div>
-      <div className="absolute bottom-[5%] left-[92%] animate-star-twinkle-soft" style={{ animationDelay: '0.9s' }}>
+      <div className="absolute bottom-[5%] right-[2%] sm:right-[5%] animate-star-twinkle-soft" style={{ animationDelay: '0.9s' }}>
         <StarBurst8 size={44} />
       </div>
       <div className="absolute bottom-[8%] left-[38%] animate-star-twinkle-bright" style={{ animationDelay: '1.7s' }}>

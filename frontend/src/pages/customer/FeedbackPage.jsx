@@ -124,22 +124,22 @@ export function FeedbackPage() {
         </p>
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-[1fr_320px] items-start">
+      <div className="grid gap-8 lg:grid-cols-[1fr_320px] items-start min-w-0 w-full">
         {events.length > 0 ? (
-          <form className="space-y-6" onSubmit={handleSubmit}>
-            <section className="glass-panel relative overflow-hidden rounded-[24px] border-white/10 p-6 sm:p-8 shadow-[0_8px_32px_0_rgba(0,0,0,0.37)]">
+          <form className="space-y-6 min-w-0 w-full" onSubmit={handleSubmit}>
+            <section className="glass-panel relative overflow-hidden rounded-[24px] border-white/10 p-6 sm:p-8 shadow-[0_8px_32px_0_rgba(0,0,0,0.37)] min-w-0">
               <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_var(--color-primary)_0%,_transparent_70%)] opacity-10" />
 
-              <div className="space-y-6">
-                <div className="relative block" ref={dropdownRef}>
+              <div className="space-y-6 min-w-0">
+                <div className="relative block min-w-0 w-full" ref={dropdownRef}>
                   <span className="mb-2 inline-block text-sm font-bold text-white">
                     {isEnglish ? 'Attended Event' : 'Sự kiện tham dự'}
                   </span>
                   <div 
-                    className={`relative flex h-12 w-full cursor-pointer items-center justify-between rounded-xl border bg-panel/50 px-4 text-white backdrop-blur-md transition-all hover:border-[#C99A47]/50 ${isDropdownOpen ? 'border-[#C99A47] ring-2 ring-[#C99A47]/20' : 'border-white/15'}`}
+                    className={`relative flex h-12 w-full min-w-0 cursor-pointer items-center justify-between rounded-xl border bg-panel/50 px-4 text-white backdrop-blur-md transition-all hover:border-[#C99A47]/50 ${isDropdownOpen ? 'border-[#C99A47] ring-2 ring-[#C99A47]/20' : 'border-white/15'}`}
                     onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                   >
-                    <span className="truncate pr-4">
+                    <span className="truncate pr-4 min-w-0 flex-1">
                       {events.find(e => e.id === eventId) 
                         ? `${events.find(e => e.id === eventId).title} — ${formatEventDate(events.find(e => e.id === eventId), isEnglish)}`
                         : (isEnglish ? 'Select an event...' : 'Chọn sự kiện...')}
@@ -267,7 +267,7 @@ export function FeedbackPage() {
           </section>
         )}
 
-        <aside className="glass-panel h-fit rounded-[24px] border-white/10 bg-white/[0.02] p-6 shadow-[0_8px_32px_0_rgba(0,0,0,0.37)]">
+        <aside className="glass-panel h-fit rounded-[24px] border-white/10 bg-white/[0.02] p-6 shadow-[0_8px_32px_0_rgba(0,0,0,0.37)] min-w-0 w-full">
           <h3 className="font-display text-xl font-bold text-white">
             {isEnglish ? 'Important Notes' : 'Lưu ý quan trọng'}
           </h3>

@@ -393,7 +393,7 @@ export function HomePage() {
                 <input
                   value={keyword}
                   onChange={(event) => setKeyword(event.target.value)}
-                  placeholder={isEnglish ? 'Search events, categories, venues...' : 'Tìm kiếm sự kiện, danh mục, địa điểm...'}
+                  placeholder={isEnglish ? 'Search events, categories, venues, tags...' : 'Tìm kiếm sự kiện, danh mục, địa điểm, tags...'}
                   className="w-full rounded-full border border-cyan-500/25 bg-slate-900/60 py-3.5 sm:py-4 pl-12 pr-4 text-sm sm:text-base font-normal text-white placeholder:text-white/50 outline-none backdrop-blur-xl transition duration-300 focus:border-cyan-400 focus:bg-slate-900/90 shadow-[0_0_20px_rgba(6,182,212,0.12)] focus:shadow-[0_0_30px_rgba(6,182,212,0.3)]"
                 />
               </div>
@@ -934,7 +934,7 @@ function TimelineEventSection({
           ))}
         </div>
       ) : (
-        <div className="mt-6 rounded-[24px] border border-primary/15 bg-white/5 p-6 text-sm font-semibold text-muted">
+        <div className="mt-6 rounded-[24px] border border-primary/15 bg-white/5 p-6 text-sm font-semibold text-muted italic">
           {emptyMessage}
         </div>
       )}
