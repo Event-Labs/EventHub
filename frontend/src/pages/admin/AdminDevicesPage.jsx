@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   CheckCircle2,
@@ -6,6 +7,7 @@ import {
   Edit3,
   Eye,
   Lock,
+  MoreVertical,
   RefreshCw,
   RotateCcw,
   Search,
@@ -136,6 +138,185 @@ const emptyConfigForm = {
   name: '',
   assigned_event_id: '',
   auto_confirm: false,
+}
+
+function DeviceActionsDropdown({
+  device,
+  onApprove,
+  onEdit,
+  onAction,
+  isEnglish,
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const triggerRef = useRef(null)
+  const [coords, setCoords] = useState({ top: 0, left: 0 })
+
+  const items = useMemo(() => {
+    const list = []
+
+    if (device.status === 'PENDING') {
+      list.push({
+        key: 'approve',
+        label: isEnglish ? 'Approve & Issue Secret' : 'Duyệt thiết bị',
+        icon: CheckCircle2,
+        className: 'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/15 [html.light_&]:text-emerald-700 [html.light_&]:hover:bg-emerald-50',
+        onClick: () => onApprove(device),
+      })
+    }
+
+    if (['ACTIVE', 'DISABLED'].includes(device.status)) {
+      list.push({
+        key: 'edit',
+        label: isEnglish ? 'Configure Device' : 'Cấu hình thiết bị',
+        icon: Edit3,
+        className: 'text-slate-200 hover:text-white hover:bg-white/10 [html.light_&]:text-[#1B365D] [html.light_&]:hover:bg-[#F8F3EA]',
+        onClick: () => onEdit(device),
+      })
+    }
+
+    if (device.status === 'ACTIVE') {
+      list.push({
+        key: 'disable',
+        label: isEnglish ? 'Disable Device' : 'Khóa thiết bị',
+        icon: Lock,
+        className: 'text-amber-400 hover:text-amber-300 hover:bg-amber-500/15 [html.light_&]:text-amber-700 [html.light_&]:hover:bg-amber-50',
+        onClick: () => onAction('disable', device),
+      })
+    }
+
+    if (device.status === 'DISABLED') {
+      list.push({
+        key: 'enable',
+        label: isEnglish ? 'Enable Device' : 'Mở khóa thiết bị',
+        icon: Unlock,
+        className: 'text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/15 [html.light_&]:text-emerald-700 [html.light_&]:hover:bg-emerald-50',
+        onClick: () => onAction('enable', device),
+      })
+    }
+
+    if (['ACTIVE', 'DISABLED'].includes(device.status)) {
+      list.push({
+        key: 'reset-pairing',
+        label: isEnglish ? 'Reset Device Pairing' : 'Đặt lại ghép nối',
+        icon: RotateCcw,
+        className: 'text-amber-400 hover:text-amber-300 hover:bg-amber-500/15 [html.light_&]:text-amber-700 [html.light_&]:hover:bg-amber-50',
+        onClick: () => onAction('reset-pairing', device),
+      })
+      list.push({
+        key: 'revoke',
+        label: isEnglish ? 'Revoke Device Access' : 'Thu hồi quyền thiết bị',
+        icon: ShieldOff,
+        className: 'text-rose-400 hover:text-rose-300 hover:bg-rose-500/15 [html.light_&]:text-rose-700 [html.light_&]:hover:bg-rose-50',
+        onClick: () => onAction('revoke', device),
+      })
+    }
+
+    if (['PENDING', 'REVOKED'].includes(device.status)) {
+      list.push({
+        key: 'delete',
+        label: isEnglish ? 'Delete Device' : 'Xóa thiết bị',
+        icon: Trash2,
+        className: 'text-rose-400 hover:text-rose-300 hover:bg-rose-500/15 [html.light_&]:text-rose-700 [html.light_&]:hover:bg-rose-50',
+        onClick: () => onAction('delete', device),
+      })
+    }
+
+    return list
+  }, [device, onApprove, onEdit, onAction, isEnglish])
+
+  useEffect(() => {
+    if (!isOpen) return
+    const handleClose = () => setIsOpen(false)
+    window.addEventListener('resize', handleClose)
+    window.addEventListener('scroll', handleClose, true)
+    return () => {
+      window.removeEventListener('resize', handleClose)
+      window.removeEventListener('scroll', handleClose, true)
+    }
+  }, [isOpen])
+
+  if (items.length === 0) return null
+
+  const toggleDropdown = (e) => {
+    e.stopPropagation()
+    if (!isOpen && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect()
+      const menuWidth = 200
+      let left = rect.right - menuWidth
+      if (left < 10) left = 10
+      if (left + menuWidth > window.innerWidth - 10) {
+        left = window.innerWidth - menuWidth - 10
+      }
+
+      const menuHeight = items.length * 38 + 16
+      let top = rect.bottom + 6
+      if (top + menuHeight > window.innerHeight - 10) {
+        top = Math.max(10, rect.top - menuHeight - 6)
+      }
+
+      setCoords({ top, left })
+    }
+    setIsOpen((prev) => !prev)
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        ref={triggerRef}
+        onClick={toggleDropdown}
+        title={isEnglish ? 'More options' : 'Thao tác khác'}
+        aria-label={isEnglish ? 'More options' : 'Thao tác khác'}
+        className={`inline-flex size-8 items-center justify-center rounded-lg border transition-all duration-200 shrink-0 select-none cursor-pointer ${
+          isOpen
+            ? 'border-primary/60 bg-[#25335c] text-primary shadow-[0_0_10px_rgba(6,182,212,0.2)] [html.light_&]:bg-[#F5EBDD] [html.light_&]:border-[#C99A47] [html.light_&]:text-[#0D1B2A]'
+            : 'border-white/10 bg-[#1c2747] text-slate-300 hover:border-primary/50 hover:bg-[#25335c] hover:text-primary hover:shadow-[0_0_10px_rgba(6,182,212,0.2)] [html.light_&]:border-[#C99A47]/35 [html.light_&]:bg-white [html.light_&]:text-[#1B365D] [html.light_&]:hover:bg-[#F5EBDD] [html.light_&]:hover:text-[#0D1B2A] [html.light_&]:hover:border-[#C99A47] [html.light_&]:shadow-sm hover:-translate-y-0.5'
+        }`}
+      >
+        <MoreVertical className="size-4 shrink-0" />
+      </button>
+
+      {isOpen &&
+        createPortal(
+          <>
+            <div
+              className="fixed inset-0 z-[999] bg-transparent"
+              onClick={(e) => {
+                e.stopPropagation()
+                setIsOpen(false)
+              }}
+            />
+            <div
+              style={{
+                position: 'fixed',
+                top: `${coords.top}px`,
+                left: `${coords.left}px`,
+              }}
+              className="z-[1000] min-w-[200px] overflow-hidden rounded-xl border border-white/20 bg-[#0d172e] p-1.5 shadow-2xl shadow-black/90 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-100 [html.light_&]:bg-white [html.light_&]:border-[#C99A47]/30 [html.light_&]:shadow-xl"
+            >
+              <div className="py-0.5 space-y-0.5">
+                {items.map((item) => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setIsOpen(false)
+                      item.onClick()
+                    }}
+                    className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-xs font-semibold transition cursor-pointer ${item.className}`}
+                  >
+                    <item.icon className="size-4 shrink-0" />
+                    <span>{item.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>,
+          document.body,
+        )}
+    </>
+  )
 }
 
 export function AdminDevicesPage() {
@@ -286,7 +467,7 @@ export function AdminDevicesPage() {
         'reset-pairing': isEnglish ? 'Device pairing reset.' : 'Đã đặt lại trạng thái ghép nối.',
         delete: isEnglish ? 'Device deleted.' : 'Đã xóa thiết bị.',
       }
-      toast.success(messages[variables.action] || 'Thành công')
+      toast.success(messages[variables.action] || (isEnglish ? 'Success' : 'Thành công'))
       setConfirmModal({ open: false, action: null, device: null })
       invalidateDevices()
     },
@@ -402,7 +583,7 @@ export function AdminDevicesPage() {
     {
       label: isEnglish ? 'Total Devices' : 'Tổng thiết bị',
       value: stats.total,
-      sub: isEnglish ? 'ESP32-S3 terminals' : 'Thiết bị phần cứng ESP32-S3',
+      sub: isEnglish ? 'Check-in terminals' : 'Thiết bị phần cứng',
     },
     {
       label: isEnglish ? 'Online Now' : 'Đang trực tuyến',
@@ -426,9 +607,9 @@ export function AdminDevicesPage() {
   const headers = [
     isEnglish ? 'Device' : 'Thiết bị',
     isEnglish ? 'Status & Pairing' : 'Trạng thái & Mã ghép nối',
-    isEnglish ? 'Connection' : 'Kết nối & Tín hiệu',
+    isEnglish ? 'Connection & Signal' : 'Kết nối & Tín hiệu',
     isEnglish ? 'Assigned Event' : 'Sự kiện được gán',
-    isEnglish ? 'Check-in Mode' : 'Chế độ & Thống kê',
+    isEnglish ? 'Mode & Statistics' : 'Chế độ & Thống kê',
     { label: isEnglish ? 'Actions' : 'Thao tác', align: 'center' },
   ]
 
@@ -439,18 +620,13 @@ export function AdminDevicesPage() {
     return [
       // 1. Device info
       <div key="device" className="min-w-[190px]">
-        <div className="flex items-center gap-2.5">
-          <div className="grid size-9 shrink-0 place-items-center rounded-xl border border-primary/25 bg-primary/10 text-primary">
-            <Cpu className="size-4" />
-          </div>
-          <div className="min-w-0">
-            <p className="truncate font-bold text-white [html.light_&]:text-[#0D1B2A]">
-              {device.name || (isEnglish ? 'Unnamed ESP32' : 'Thiết bị chưa đặt tên')}
-            </p>
-            <p className="font-mono text-xs text-slate-400 [html.light_&]:text-slate-600">
-              {device.mac_address}
-            </p>
-          </div>
+        <div className="min-w-0">
+          <p className="truncate font-bold text-white [html.light_&]:text-[#0D1B2A]">
+            {device.name || (isEnglish ? 'Unnamed device' : 'Thiết bị chưa đặt tên')}
+          </p>
+          <p className="font-mono text-xs text-slate-400 [html.light_&]:text-slate-600">
+            {device.mac_address}
+          </p>
         </div>
         {(device.hardware || device.firmware_version) && (
           <p className="mt-1.5 text-[11px] text-slate-400">
@@ -473,7 +649,7 @@ export function AdminDevicesPage() {
         )}
         {device.status === 'ACTIVE' && device.has_pending_claim && (
           <p className="text-[11px] font-semibold text-amber-300 [html.light_&]:text-amber-700">
-            {isEnglish ? 'Waiting ESP32 to claim secret...' : 'Đang chờ ESP32 nhận secret...'}
+            {isEnglish ? 'Waiting for device to claim secret...' : 'Đang chờ thiết bị nhận secret...'}
           </p>
         )}
       </div>,
@@ -533,90 +709,27 @@ export function AdminDevicesPage() {
         </p>
       </div>,
 
-      // 6. Actions
+      // 6. Actions (chừa mỗi icon Eye và 1 icon 3 chấm ...)
       <div key="actions" className="flex items-center justify-center gap-1.5">
-        {device.status === 'PENDING' && (
-          <TableActionButton
-            icon={CheckCircle2}
-            label={isEnglish ? 'Approve' : 'Duyệt'}
-            tone="success"
-            onClick={() => openApproveModal(device)}
-          />
-        )}
-
-        {['ACTIVE', 'DISABLED'].includes(device.status) && (
-          <TableActionButton
-            icon={Edit3}
-            label={isEnglish ? 'Configure' : 'Cấu hình'}
-            onClick={() => openEditModal(device)}
-          />
-        )}
-
         <TableActionButton
           icon={Eye}
-          label={isEnglish ? 'History & Details' : 'Chi tiết & Lịch sử'}
+          title={isEnglish ? 'History & Details' : 'Chi tiết & Lịch sử'}
           onClick={() => openDetailModal(device.id)}
         />
-
-        {device.status === 'ACTIVE' && (
-          <TableActionButton
-            icon={Lock}
-            label={isEnglish ? 'Disable' : 'Khóa'}
-            tone="warning"
-            onClick={() => openConfirmModal('disable', device)}
-          />
-        )}
-
-        {device.status === 'DISABLED' && (
-          <TableActionButton
-            icon={Unlock}
-            label={isEnglish ? 'Enable' : 'Mở khóa'}
-            tone="success"
-            onClick={() => openConfirmModal('enable', device)}
-          />
-        )}
-
-        {['ACTIVE', 'DISABLED'].includes(device.status) && (
-          <>
-            <TableActionButton
-              icon={RotateCcw}
-              label={isEnglish ? 'Reset Pairing' : 'Ghép lại'}
-              onClick={() => openConfirmModal('reset-pairing', device)}
-            />
-            <TableActionButton
-              icon={ShieldOff}
-              label={isEnglish ? 'Revoke' : 'Thu hồi'}
-              tone="danger"
-              onClick={() => openConfirmModal('revoke', device)}
-            />
-          </>
-        )}
-
-        {['PENDING', 'REVOKED'].includes(device.status) && (
-          <TableActionButton
-            icon={Trash2}
-            label={isEnglish ? 'Delete' : 'Xóa'}
-            tone="danger"
-            onClick={() => openConfirmModal('delete', device)}
-          />
-        )}
+        <DeviceActionsDropdown
+          device={device}
+          onApprove={openApproveModal}
+          onEdit={openEditModal}
+          onAction={openConfirmModal}
+          isEnglish={isEnglish}
+        />
       </div>,
     ]
   })
 
   return (
     <Page
-      title={isEnglish ? 'ESP32-S3 Check-in Devices' : 'Thiết bị Check-in ESP32-S3'}
-      actions={
-        <button
-          type="button"
-          onClick={() => devicesQuery.refetch()}
-          className="admin-secondary flex items-center gap-2 px-4 py-2 text-sm"
-        >
-          <RefreshCw className={`size-4 ${devicesQuery.isFetching ? 'animate-spin' : ''}`} />
-          <span>{isEnglish ? 'Refresh' : 'Làm mới'}</span>
-        </button>
-      }
+      title={isEnglish ? 'Check-in Devices' : 'Thiết bị Check-in'}
     >
       <KpiGrid items={kpiItems} />
 
@@ -630,8 +743,8 @@ export function AdminDevicesPage() {
               </p>
               <p className="mt-1 text-sm text-slate-300 [html.light_&]:text-slate-700">
                 {isEnglish
-                  ? 'Verify the pairing code displayed on the ESP32-S3 OLED/Serial and approve to issue its one-time device secret.'
-                  : 'Đối chiếu mã ghép nối hiển thị trên thiết bị ESP32-S3 và bấm Duyệt để cấp khóa xác thực 1 lần.'}
+                  ? 'Verify the pairing code displayed on the device screen and approve to issue its one-time device secret.'
+                  : 'Đối chiếu mã ghép nối hiển thị trên thiết bị và bấm Duyệt để cấp khóa xác thực 1 lần.'}
               </p>
             </div>
           </div>
@@ -646,7 +759,7 @@ export function AdminDevicesPage() {
                     <span className="rounded-lg bg-amber-500/20 px-2.5 py-1 font-mono text-sm font-black tracking-widest text-amber-300 [html.light_&]:text-amber-800">
                       {dev.pairing_code || '------'}
                     </span>
-                    <span className="text-xs text-slate-400">{dev.hardware || 'ESP32-S3'}</span>
+                    <span className="text-xs text-slate-400">{dev.hardware || (isEnglish ? 'Device' : 'Thiết bị')}</span>
                   </div>
                   <p className="mt-1.5 font-mono text-xs text-slate-300 [html.light_&]:text-slate-700">
                     MAC: {dev.mac_address}
@@ -669,59 +782,60 @@ export function AdminDevicesPage() {
       )}
 
       {/* Filters */}
-      <Panel className="mt-6">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="relative min-w-[240px] flex-1">
-            <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              value={filters.search}
-              onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
-              placeholder={isEnglish ? 'Search by name, MAC, pairing code, IP...' : 'Tìm theo tên cổng, MAC, mã ghép nối, IP...'}
-              className="cosmic-input h-10 w-full pl-10 pr-4 text-sm"
-            />
-          </div>
-
-          <CosmicSelect
-            value={filters.status}
-            onChange={(val) => setFilters((prev) => ({ ...prev, status: val }))}
-            options={[
-              { value: 'ALL', label: isEnglish ? 'All Statuses' : 'Tất cả trạng thái' },
-              { value: 'PENDING', label: isEnglish ? 'Pending Approval' : 'Chờ duyệt' },
-              { value: 'ACTIVE', label: isEnglish ? 'Active' : 'Hoạt động' },
-              { value: 'DISABLED', label: isEnglish ? 'Disabled' : 'Đã khóa' },
-              { value: 'REVOKED', label: isEnglish ? 'Revoked' : 'Đã thu hồi' },
-            ]}
+      <div className="my-6 flex w-full flex-wrap items-center gap-3">
+        <div className="relative min-w-[260px] flex-1">
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            value={filters.search}
+            onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
+            placeholder={isEnglish ? 'Search by name, MAC, pairing code, IP...' : 'Tìm theo tên cổng, MAC, mã ghép nối, IP...'}
+            className="h-10 w-full rounded-xl border border-white/15 bg-[#0d172e] !pl-11 pr-4 text-sm font-normal text-white outline-none transition placeholder:text-white/50 focus:border-primary focus:ring-2 focus:ring-primary/10 [html.light_&]:border-slate-300 [html.light_&]:bg-white [html.light_&]:text-[#0D1B2A] [html.light_&]:placeholder:text-slate-400"
           />
-
-          <CosmicSelect
-            value={filters.online}
-            onChange={(val) => setFilters((prev) => ({ ...prev, online: val }))}
-            options={[
-              { value: 'ALL', label: isEnglish ? 'All Connections' : 'Mọi kết nối' },
-              { value: 'ONLINE', label: isEnglish ? 'Online Only' : 'Đang Online' },
-              { value: 'OFFLINE', label: isEnglish ? 'Offline Only' : 'Đang Offline' },
-            ]}
-          />
-
-          <CosmicSelect
-            value={filters.event_id}
-            onChange={(val) => setFilters((prev) => ({ ...prev, event_id: val }))}
-            options={filterEventOptions}
-            minWidth="min-w-[200px]"
-          />
-
-          {(filters.search || filters.status !== 'ALL' || filters.online !== 'ALL' || filters.event_id) && (
-            <button
-              type="button"
-              onClick={() => setFilters({ status: 'ALL', online: 'ALL', event_id: '', search: '' })}
-              className="text-xs font-bold text-primary hover:underline"
-            >
-              {isEnglish ? 'Reset' : 'Xóa lọc'}
-            </button>
-          )}
         </div>
-      </Panel>
+
+        <CosmicSelect
+          value={filters.status}
+          onChange={(val) => setFilters((prev) => ({ ...prev, status: val }))}
+          className="shrink-0"
+          options={[
+            { value: 'ALL', label: isEnglish ? 'All Statuses' : 'Tất cả trạng thái' },
+            { value: 'PENDING', label: isEnglish ? 'Pending Approval' : 'Chờ duyệt' },
+            { value: 'ACTIVE', label: isEnglish ? 'Active' : 'Hoạt động' },
+            { value: 'DISABLED', label: isEnglish ? 'Disabled' : 'Đã khóa' },
+            { value: 'REVOKED', label: isEnglish ? 'Revoked' : 'Đã thu hồi' },
+          ]}
+        />
+
+        <CosmicSelect
+          value={filters.online}
+          onChange={(val) => setFilters((prev) => ({ ...prev, online: val }))}
+          className="shrink-0"
+          options={[
+            { value: 'ALL', label: isEnglish ? 'All Connections' : 'Mọi kết nối' },
+            { value: 'ONLINE', label: isEnglish ? 'Online Only' : 'Đang Online' },
+            { value: 'OFFLINE', label: isEnglish ? 'Offline Only' : 'Đang Offline' },
+          ]}
+        />
+
+        <CosmicSelect
+          value={filters.event_id}
+          onChange={(val) => setFilters((prev) => ({ ...prev, event_id: val }))}
+          className="shrink-0"
+          options={filterEventOptions}
+          minWidth="min-w-[200px]"
+        />
+
+        {(filters.search || filters.status !== 'ALL' || filters.online !== 'ALL' || filters.event_id) && (
+          <button
+            type="button"
+            onClick={() => setFilters({ status: 'ALL', online: 'ALL', event_id: '', search: '' })}
+            className="shrink-0 text-xs font-bold text-primary hover:underline px-1"
+          >
+            {isEnglish ? 'Reset' : 'Xóa lọc'}
+          </button>
+        )}
+      </div>
 
       {/* Devices Table */}
       <div className="mt-6">
@@ -741,12 +855,12 @@ export function AdminDevicesPage() {
           <Panel className="py-12 text-center">
             <Cpu className="mx-auto size-10 text-slate-500" />
             <p className="mt-3 text-base font-bold text-white [html.light_&]:text-[#0D1B2A]">
-              {isEnglish ? 'No ESP32-S3 devices found' : 'Chưa có thiết bị ESP32-S3 nào'}
+              {isEnglish ? 'No check-in devices found' : 'Chưa có thiết bị nào'}
             </p>
             <p className="mt-1 text-sm text-slate-400">
               {isEnglish
-                ? 'When an ESP32-S3 device calls POST /api/iot/v1/devices/register, it will appear here for approval.'
-                : 'Khi ESP32-S3 gọi POST /api/iot/v1/devices/register, thiết bị sẽ xuất hiện tại đây để Admin duyệt.'}
+                ? 'When a device calls POST /api/iot/v1/devices/register, it will appear here for approval.'
+                : 'Khi thiết bị gọi POST /api/iot/v1/devices/register, thiết bị sẽ xuất hiện tại đây để Admin duyệt.'}
             </p>
           </Panel>
         ) : (
@@ -788,14 +902,16 @@ export function AdminDevicesPage() {
             <div className="rounded-xl border border-white/10 bg-[#121c38] p-3.5 [html.light_&]:border-slate-200 [html.light_&]:bg-slate-50">
               <div className="flex items-center justify-between gap-2">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">MAC Address</p>
+                  <p className="text-xs font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">
+                    MAC Address
+                  </p>
                   <p className="font-mono text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">
                     {configModal.device.mac_address}
                   </p>
                 </div>
                 {configModal.device.pairing_code && (
                   <div className="text-right">
-                    <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    <p className="text-xs font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">
                       {isEnglish ? 'Pairing Code' : 'Mã đối chiếu'}
                     </p>
                     <p className="font-mono text-base font-black tracking-widest text-amber-300 [html.light_&]:text-amber-700">
@@ -807,8 +923,9 @@ export function AdminDevicesPage() {
             </div>
 
             <label className="block">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-300 [html.light_&]:text-slate-700">
-                {isEnglish ? 'Device Display Name *' : 'Tên hiển thị thiết bị *'}
+              <span className="text-xs font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">
+                {isEnglish ? 'Device Display Name' : 'Tên hiển thị thiết bị'}{' '}
+                <span className="text-rose-500 font-black">*</span>
               </span>
               <input
                 type="text"
@@ -821,7 +938,7 @@ export function AdminDevicesPage() {
             </label>
 
             <div>
-              <span className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-300 [html.light_&]:text-slate-700">
+              <span className="mb-2 block text-xs font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">
                 {isEnglish ? 'Assigned Event' : 'Sự kiện được phép check-in'}
               </span>
               <CosmicSelect
@@ -833,17 +950,17 @@ export function AdminDevicesPage() {
               />
               <p className="mt-1.5 text-xs text-slate-400">
                 {isEnglish
-                  ? 'ESP32 will reject tickets belonging to any other event (WRONG_EVENT).'
+                  ? 'The device will reject tickets belonging to any other event (WRONG_EVENT).'
                   : 'Thiết bị sẽ từ chối ngay lập tức nếu vé không thuộc sự kiện đang gán.'}
               </p>
             </div>
 
-            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-3.5 [html.light_&]:border-slate-200 [html.light_&]:bg-slate-50">
+            <label className="flex cursor-pointer items-start gap-3 pt-1">
               <input
                 type="checkbox"
                 checked={configForm.auto_confirm}
                 onChange={(e) => setConfigForm((prev) => ({ ...prev, auto_confirm: e.target.checked }))}
-                className="mt-0.5 size-4 accent-primary"
+                className="mt-0.5 size-4 accent-primary cursor-pointer"
               />
               <div>
                 <p className="text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">
@@ -866,11 +983,6 @@ export function AdminDevicesPage() {
         onClose={() => setDetailDeviceId(null)}
         maxWidth="max-w-4xl"
         title={isEnglish ? 'Device Telemetry & Check-in History' : 'Chi tiết thiết bị & Lịch sử quét vé'}
-        footer={
-          <button type="button" className="admin-secondary" onClick={() => setDetailDeviceId(null)}>
-            {isEnglish ? 'Close' : 'Đóng'}
-          </button>
-        }
       >
         {detailQuery.isLoading ? (
           <p className="text-sm text-slate-400">{isEnglish ? 'Loading details...' : 'Đang tải chi tiết...'}</p>
@@ -882,7 +994,9 @@ export function AdminDevicesPage() {
           <div className="space-y-5">
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="rounded-xl border border-white/10 bg-[#121c38] p-3.5 [html.light_&]:border-slate-200 [html.light_&]:bg-slate-50">
-                <p className="text-xs font-bold uppercase text-slate-400">{isEnglish ? 'Identity' : 'Định danh'}</p>
+                <p className="text-sm font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">
+                  {isEnglish ? 'Identity' : 'Định danh'}
+                </p>
                 <p className="mt-1 font-bold text-white [html.light_&]:text-[#0D1B2A]">
                   {detailQuery.data.device.name || '—'}
                 </p>
@@ -895,7 +1009,9 @@ export function AdminDevicesPage() {
               </div>
 
               <div className="rounded-xl border border-white/10 bg-[#121c38] p-3.5 [html.light_&]:border-slate-200 [html.light_&]:bg-slate-50">
-                <p className="text-xs font-bold uppercase text-slate-400">{isEnglish ? 'Telemetry' : 'Thông số phần cứng'}</p>
+                <p className="text-sm font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">
+                  {isEnglish ? 'Telemetry' : 'Thông số phần cứng'}
+                </p>
                 <p className="mt-1 text-xs text-slate-300 [html.light_&]:text-slate-700">
                   IP: <span className="font-mono">{detailQuery.data.device.last_ip || '—'}</span> • RSSI:{' '}
                   <span>{detailQuery.data.device.last_rssi ?? '—'} dBm</span>
@@ -905,7 +1021,7 @@ export function AdminDevicesPage() {
                   {formatUptime(detailQuery.data.device.last_uptime_sec, isEnglish)}
                 </p>
                 <p className="mt-0.5 text-xs text-slate-400">
-                  Config v{detailQuery.data.device.config_version} • Last seen:{' '}
+                  Config v{detailQuery.data.device.config_version} • {isEnglish ? 'Last seen:' : 'Lần cuối:'}{' '}
                   {formatDateTime(detailQuery.data.device.last_seen_at, isEnglish)}
                 </p>
               </div>
@@ -977,7 +1093,7 @@ export function AdminDevicesPage() {
                             ? 'Search ticket code, attendee, QR...'
                             : 'Tìm mã vé, người tham dự, chuỗi QR...'
                         }
-                        className="w-full rounded-xl border border-white/15 bg-[#121c38] py-2 pl-9 pr-3 text-xs text-white placeholder:text-slate-500 focus:border-primary/60 focus:outline-none [html.light_&]:border-slate-300 [html.light_&]:bg-white [html.light_&]:text-[#0D1B2A]"
+                        className="w-full rounded-xl border border-white/15 bg-[#121c38] py-2 !pl-9 pr-3 text-xs text-white placeholder:text-slate-500 focus:border-primary/60 focus:outline-none [html.light_&]:border-slate-300 [html.light_&]:bg-white [html.light_&]:text-[#0D1B2A]"
                       />
                     </div>
                     <div className="w-full sm:w-52">
@@ -1017,14 +1133,24 @@ export function AdminDevicesPage() {
                   ) : historyItems.length > 0 ? (
                     <>
                       <div className="max-h-72 overflow-y-auto rounded-xl border border-white/10 [html.light_&]:border-slate-200">
-                        <table className="w-full text-left text-xs">
-                          <thead className="sticky top-0 border-b border-white/10 bg-[#172242] text-slate-200 [html.light_&]:bg-slate-100 [html.light_&]:text-slate-700">
+                        <table className="w-full text-xs">
+                          <thead className="sticky top-0 z-20 border-b border-white/10 bg-[#172242] shadow-sm [html.light_&]:border-slate-200 [html.light_&]:bg-slate-100">
                             <tr>
-                              <th className="px-3 py-2">{isEnglish ? 'Ticket / QR' : 'Mã vé / QR'}</th>
-                              <th className="px-3 py-2">{isEnglish ? 'Attendee' : 'Người tham dự'}</th>
-                              <th className="px-3 py-2">{isEnglish ? 'Event' : 'Sự kiện'}</th>
-                              <th className="px-3 py-2">{isEnglish ? 'Result' : 'Kết quả'}</th>
-                              <th className="px-3 py-2">{isEnglish ? 'Time' : 'Thời gian'}</th>
+                              <th className="bg-[#172242] px-3 py-2.5 text-center text-sm font-bold text-white [html.light_&]:bg-slate-100 [html.light_&]:text-[#0D1B2A]">
+                                {isEnglish ? 'Ticket / QR' : 'Mã vé / QR'}
+                              </th>
+                              <th className="bg-[#172242] px-3 py-2.5 text-center text-sm font-bold text-white [html.light_&]:bg-slate-100 [html.light_&]:text-[#0D1B2A]">
+                                {isEnglish ? 'Attendee' : 'Người tham dự'}
+                              </th>
+                              <th className="bg-[#172242] px-3 py-2.5 text-center text-sm font-bold text-white [html.light_&]:bg-slate-100 [html.light_&]:text-[#0D1B2A]">
+                                {isEnglish ? 'Event' : 'Sự kiện'}
+                              </th>
+                              <th className="bg-[#172242] px-3 py-2.5 text-center text-sm font-bold text-white [html.light_&]:bg-slate-100 [html.light_&]:text-[#0D1B2A]">
+                                {isEnglish ? 'Result' : 'Kết quả'}
+                              </th>
+                              <th className="bg-[#172242] px-3 py-2.5 text-center text-sm font-bold text-white [html.light_&]:bg-slate-100 [html.light_&]:text-[#0D1B2A]">
+                                {isEnglish ? 'Time' : 'Thời gian'}
+                              </th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-white/5 [html.light_&]:divide-slate-200">
@@ -1032,17 +1158,17 @@ export function AdminDevicesPage() {
                               const resultMeta = getScanResultMeta(item.result, isEnglish)
                               return (
                                 <tr key={item.id}>
-                                  <td className="px-3 py-2">
+                                  <td className="px-3 py-2 text-center">
                                     <p className="font-mono font-bold text-primary">
                                       {item.ticket_code || '—'}
                                     </p>
                                     {!item.ticket_code && item.qr_code_raw && (
-                                      <p className="max-w-[140px] truncate font-mono text-[11px] text-slate-400">
+                                      <p className="max-w-[140px] mx-auto truncate font-mono text-[11px] text-slate-400">
                                         {item.qr_code_raw}
                                       </p>
                                     )}
                                   </td>
-                                  <td className="px-3 py-2">
+                                  <td className="px-3 py-2 text-center">
                                     <p className="font-semibold text-white [html.light_&]:text-[#0D1B2A]">
                                       {item.attendee_name || '—'}
                                     </p>
@@ -1050,21 +1176,23 @@ export function AdminDevicesPage() {
                                       <p className="text-[11px] text-slate-400">{item.ticket_type_name}</p>
                                     )}
                                   </td>
-                                  <td className="px-3 py-2 text-slate-300 [html.light_&]:text-slate-700">
+                                  <td className="px-3 py-2 text-center text-slate-300 [html.light_&]:text-slate-700">
                                     {item.event_title || item.event_code || '—'}
                                   </td>
-                                  <td className="px-3 py-2">
-                                    <StatusBadge
-                                      status={item.result}
-                                      tone={resultMeta.tone}
-                                      label={resultMeta.label}
-                                      dot
-                                    />
-                                    {item.message && (
-                                      <p className="mt-0.5 text-[11px] text-slate-400">{item.message}</p>
-                                    )}
+                                  <td className="px-3 py-2 text-center">
+                                    <div className="flex flex-col items-center justify-center">
+                                      <StatusBadge
+                                        status={item.result}
+                                        tone={resultMeta.tone}
+                                        label={resultMeta.label}
+                                        dot
+                                      />
+                                      {item.message && (
+                                        <p className="mt-0.5 text-[11px] text-slate-400">{item.message}</p>
+                                      )}
+                                    </div>
                                   </td>
-                                  <td className="px-3 py-2 whitespace-nowrap text-slate-400">
+                                  <td className="px-3 py-2 whitespace-nowrap text-center text-slate-400">
                                     {formatDateTime(item.scanned_at, isEnglish)}
                                   </td>
                                 </tr>

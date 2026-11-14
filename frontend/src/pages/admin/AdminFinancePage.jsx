@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  ChevronLeft,
+  ChevronRight,
   Eye,
   Pencil,
   Plus,
@@ -20,6 +22,7 @@ import {
 import { uploadPolicyDocument } from '@/services/uploads.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { Modal } from '@/components/Modal.jsx'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
 import { Badge, Page, Panel, StatusBadge, Table, TableActionButton } from './AdminComponents.jsx'
 
 const getAutoLocale = () =>
@@ -319,7 +322,7 @@ function PolicyTable({ policies, isLoading, isError, isBusy, onEdit, onDocuments
         'Hành động',
       ]}
       rows={policies.map((policy) => [
-        <span key="type" className="text-sm text-subtle font-medium">{labelFrom(policyTypes, policy.policy_type)}</span>,
+        <span key="type" className="text-sm font-medium text-white">{labelFrom(policyTypes, policy.policy_type)}</span>,
         <span key="title" className="text-sm font-extrabold text-content">{policy.title}</span>,
         <button key="docs" type="button" onClick={() => onDocuments(policy)} className="inline-flex items-center gap-2 text-sm font-bold text-primary">
           <Upload className="size-4" /> Upload/Xem file ({policy.document_count || 0})
@@ -333,30 +336,82 @@ function PolicyTable({ policies, isLoading, isError, isBusy, onEdit, onDocuments
 }
 
 function PaginationControls({ page, pageSize, total, label, onPageChange }) {
+  const { isEnglish } = useLanguage()
   const start = total === 0 ? 0 : (page - 1) * pageSize + 1
   const end = Math.min(page * pageSize, total)
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+
+  const pageItems = useMemo(() => {
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1)
+    }
+    if (page <= 3) {
+      return [1, 2, 3, 4, 'ellipsis', totalPages]
+    }
+    if (page >= totalPages - 2) {
+      return [1, 'ellipsis', totalPages - 3, totalPages - 2, totalPages - 1, totalPages]
+    }
+    return [1, 'ellipsis', page - 1, page, page + 1, 'ellipsis', totalPages]
+  }, [page, totalPages])
 
   return (
     <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <p className="text-sm text-subtle font-medium">
-        Hiển thị <span className="font-bold">{start}</span> đến <span className="font-bold">{end}</span> trong tổng số <span className="font-bold">{total}</span> {label}
+        {isEnglish ? (
+          <>
+            Showing <span className="font-bold">{start}</span> to{' '}
+            <span className="font-bold">{end}</span> of{' '}
+            <span className="font-bold">{total}</span> {label}
+          </>
+        ) : (
+          <>
+            Hiển thị <span className="font-bold">{start}</span> đến{' '}
+            <span className="font-bold">{end}</span> trong tổng số{' '}
+            <span className="font-bold">{total}</span> {label}
+          </>
+        )}
       </p>
-      <div className="flex gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
-          disabled={page === 1}
+          disabled={page <= 1}
           onClick={() => onPageChange(page - 1)}
-          className="admin-secondary px-4 py-2 text-xs disabled:opacity-50"
+          className="grid size-9 place-items-center rounded-xl border border-border-soft/40 bg-panel-soft text-subtle transition hover:border-[#C99A47] hover:text-[#C99A47] disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
+          title={isEnglish ? 'Previous page' : 'Trang trước'}
+          aria-label={isEnglish ? 'Previous page' : 'Trang trước'}
         >
-          Trước
+          <ChevronLeft className="size-4" />
         </button>
+        {pageItems.map((item, index) =>
+          item === 'ellipsis' ? (
+            <span key={`ellipsis-${index}`} className="px-2 text-sm font-bold text-subtle">
+              ...
+            </span>
+          ) : (
+            <button
+              key={item}
+              type="button"
+              onClick={() => onPageChange(item)}
+              className={`grid size-9 place-items-center rounded-xl border text-xs font-extrabold transition cursor-pointer ${
+                item === page
+                  ? 'border-[#E6C17A]/40 bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] font-black shadow-md shadow-[#C99A47]/30'
+                  : 'border-border-soft/40 bg-panel-soft text-subtle hover:border-[#C99A47]/60 hover:text-[#E6C17A]'
+              }`}
+              aria-current={item === page ? 'page' : undefined}
+            >
+              {item}
+            </button>
+          )
+        )}
         <button
           type="button"
-          disabled={page * pageSize >= total}
+          disabled={page >= totalPages}
           onClick={() => onPageChange(page + 1)}
-          className="admin-secondary px-4 py-2 text-xs disabled:opacity-50"
+          className="grid size-9 place-items-center rounded-xl border border-border-soft/40 bg-panel-soft text-subtle transition hover:border-[#C99A47] hover:text-[#C99A47] disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
+          title={isEnglish ? 'Next page' : 'Trang sau'}
+          aria-label={isEnglish ? 'Next page' : 'Trang sau'}
         >
-          Sau
+          <ChevronRight className="size-4" />
         </button>
       </div>
     </div>
@@ -551,7 +606,7 @@ function PolicyDocumentsModal({ policy, onClose, onChanged }) {
         <TextInput label="Tiêu đề tài liệu" value={form.title} onChange={(title) => setForm({ ...form, title })} required />
         <TextInput label="Phiên bản" value={form.version} onChange={(version) => setForm({ ...form, version })} />
         <label className="block">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-300 [html.light_&]:text-[#1B365D]">File PDF hoặc DOCX</span>
+          <span className="text-xs font-bold uppercase tracking-wider text-white [html.light_&]:text-[#1B365D]">File PDF hoặc DOCX</span>
           <input
             required
             type="file"
@@ -629,7 +684,7 @@ function IconButton({ icon: Icon, danger = false, ...props }) {
 function TextInput({ label, value, onChange, ...props }) {
   return (
     <label className="block">
-      <span className="text-xs font-bold uppercase tracking-wider text-slate-300 [html.light_&]:text-[#1B365D]">{label}</span>
+      <span className="text-xs font-bold uppercase tracking-wider text-white [html.light_&]:text-[#1B365D]">{label}</span>
       <input
         value={value}
         onChange={(event) => onChange(event.target.value)}
@@ -647,7 +702,7 @@ function NumberInput({ label, value, onChange }) {
 function SelectInput({ label, value, options, onChange }) {
   return (
     <label className="block">
-      <span className="text-xs font-bold uppercase tracking-wider text-slate-300 [html.light_&]:text-[#1B365D]">{label}</span>
+      <span className="text-xs font-bold uppercase tracking-wider text-white [html.light_&]:text-[#1B365D]">{label}</span>
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
@@ -666,7 +721,7 @@ function SelectInput({ label, value, options, onChange }) {
 function TextareaInput({ label, value, onChange, rows = 4 }) {
   return (
     <label className="block">
-      <span className="text-xs font-bold uppercase tracking-wider text-slate-300 [html.light_&]:text-[#1B365D]">{label}</span>
+      <span className="text-xs font-bold uppercase tracking-wider text-white [html.light_&]:text-[#1B365D]">{label}</span>
       <textarea
         rows={rows}
         value={value}

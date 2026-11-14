@@ -24,6 +24,7 @@ import {
   Check,
   X,
   Eye,
+  EyeOff,
   Download,
   Bot,
   Copy,
@@ -33,7 +34,10 @@ import {
   Table,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   Ticket,
+  Plus,
 } from 'lucide-react'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -146,150 +150,169 @@ function formatDate(value) {
 // ---------------------------------------------------------------------------
 // AI Review Sub-components (3 Core Colors: Green / Amber / Red on Neutral Slate)
 // ---------------------------------------------------------------------------
-function StatusBanner({ recommendation, summary }) {
+// Enterprise AI Review Sub-Components (Modern Dark SaaS System)
+// Design Tokens:
+// Background: #081126 | Surface: #101D32 | Card: #1A2940 | Border: #263751
+// Gold: #E8B85D | Critical: #FF4569 | Success: #10B981 | Warning: #F59E0B | Info: #60A5FA | AI: #A78BFA
+// ---------------------------------------------------------------------------
+
+function AiExecutiveSummaryCard({ aiData }) {
   const { isEnglish } = useLanguage()
+  if (!aiData) return null
 
-  if (recommendation === 'APPROVE') {
-    return (
-      <div className="mb-4 rounded-2xl border border-emerald-500/30 bg-emerald-950/25 p-4 shadow-sm backdrop-blur-sm">
-        <div className="flex items-start gap-3.5">
-          <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/30">
-            <CheckCircle2 className="size-5" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="inline-block rounded-md bg-emerald-500/20 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-emerald-300">
-                {isEnglish ? 'RECOMMENDATION: APPROVE' : 'Khuyến nghị: Phê duyệt'}
-              </span>
-            </div>
-            <h4 className="mt-1 font-display text-sm font-bold text-emerald-300">
-              {isEnglish ? 'Eligible for approval' : 'Đủ điều kiện phê duyệt'}
-            </h4>
-            <p className="mt-1 text-xs text-slate-300 leading-relaxed">
-              {translatePhrase(summary, isEnglish ? 'en' : 'vi') || (isEnglish ? 'Event complies with core EventHub platform terms and policies.' : 'Sự kiện tuân thủ các điều khoản & chính sách cốt lõi của EventHub.')}
-            </p>
-          </div>
-        </div>
-      </div>
-    )
+  const {
+    recommendation,
+    summary,
+    quality_score = 85,
+    risk_score = 10,
+    critical_violations = [],
+    warnings = [],
+  } = aiData
+  const criticalCount = critical_violations.length
+  const warningCount = warnings.length
+
+  const getStatusConfig = () => {
+    if (recommendation === 'APPROVE') {
+      return {
+        badgeBg: 'bg-[#10B981]/15 text-[#10B981] border-[#10B981]/30',
+        badgeText: isEnglish ? 'AI RECOMMENDATION: APPROVE' : 'Khuyến nghị AI: Phê duyệt',
+        title: isEnglish ? 'Eligible for approval' : 'Đủ điều kiện phê duyệt',
+        icon: CheckCircle2,
+        iconColor: 'text-[#10B981]',
+        iconBg: 'bg-[#10B981]/15 border-[#10B981]/30',
+        defaultSummary: isEnglish
+          ? 'Event complies with core platform policies and terms.'
+          : 'Sự kiện tuân thủ các quy định và điều khoản cốt lõi của EventHub.',
+      }
+    }
+    if (recommendation === 'REJECT') {
+      return {
+        badgeBg: 'bg-[#FF4569]/15 text-[#FF4569] border-[#FF4569]/30',
+        badgeText: isEnglish ? 'AI RECOMMENDATION: REJECT' : 'Khuyến nghị AI: Từ chối yêu cầu',
+        title: isEnglish ? 'Critical policy violations detected' : 'Phát hiện vi phạm nghiêm trọng',
+        icon: ShieldAlert,
+        iconColor: 'text-[#FF4569]',
+        iconBg: 'bg-[#FF4569]/15 border-[#FF4569]/30',
+        defaultSummary: isEnglish
+          ? 'Mandatory policy violations detected. Recommendation: reject or request revision.'
+          : 'Phát hiện nội dung hoặc tài liệu vi phạm chính sách bắt buộc. Đề xuất từ chối hoặc yêu cầu điều chỉnh lại.',
+      }
+    }
+    return {
+      badgeBg: 'bg-[#F59E0B]/15 text-[#F59E0B] border-[#F59E0B]/30',
+      badgeText: isEnglish ? 'AI RECOMMENDATION: NEEDS COMPARISON' : 'Khuyến nghị AI: Cần đối chiếu thêm',
+      title: isEnglish ? 'Requires administrator review' : 'Cần quản trị viên xem xét',
+      icon: AlertTriangle,
+      iconColor: 'text-[#F59E0B]',
+      iconBg: 'bg-[#F59E0B]/15 border-[#F59E0B]/30',
+      defaultSummary: isEnglish
+        ? 'Event has minor conditions or notices requiring administrator review before approval.'
+        : 'Sự kiện có một số thiếu sót hoặc điều kiện cần lưu ý trước khi quyết định phê duyệt.',
+    }
   }
 
-  if (recommendation === 'REJECT') {
-    return (
-      <div className="mb-4 rounded-2xl border border-rose-500/30 bg-rose-950/25 p-4 shadow-sm backdrop-blur-sm">
-        <div className="flex items-start gap-3.5">
-          <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-rose-500/20 text-rose-400 ring-1 ring-rose-500/30">
-            <Ban className="size-5" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="inline-block rounded-md bg-rose-500/20 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-rose-300">
-                {isEnglish ? 'RECOMMENDATION: REFUSE THE REQUEST' : 'Khuyến nghị: Từ chối yêu cầu'}
-              </span>
-            </div>
-            <h4 className="mt-1 font-display text-sm font-bold text-rose-300">
-              {isEnglish ? 'Critical violations detected' : 'Phát hiện vi phạm nghiêm trọng'}
-            </h4>
-            <p className="mt-1 text-xs text-slate-300 leading-relaxed">
-              {translatePhrase(summary, isEnglish ? 'en' : 'vi') || (isEnglish ? 'Mandatory policy violations detected. Not eligible for approval.' : 'Phát hiện điều khoản vi phạm chính sách nền tảng. Đề xuất từ chối hoặc yêu cầu điều chỉnh lại.')}
-            </p>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  const config = getStatusConfig()
 
-  // Default: NEEDS_REVIEW
   return (
-    <div className="mb-4 rounded-2xl border border-amber-500/30 bg-amber-950/25 p-4 shadow-sm backdrop-blur-sm">
-      <div className="flex items-start gap-3.5">
-        <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-amber-500/20 text-amber-400 ring-1 ring-amber-500/30">
-          <AlertTriangle className="size-5" />
+    <div className="mb-4 space-y-3">
+      {/* Top: AI Recommendation Header */}
+      <div className="space-y-1.5">
+        <div className="flex items-center gap-2">
+          <span className={`inline-block rounded-md px-2 py-0.5 text-[10px] font-black uppercase tracking-wider border ${config.badgeBg}`}>
+            {config.badgeText}
+          </span>
         </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="inline-block rounded-md bg-amber-500/20 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-300">
-              {isEnglish ? 'RECOMMENDATION: NEEDS COMPARISON' : 'Khuyến nghị: Cần đối chiếu'}
+        <h4 className="font-display text-sm font-bold text-slate-100 [html.light_&]:text-[#0D1B2A]">
+          {config.title}
+        </h4>
+        <p className="text-xs text-slate-300 leading-relaxed [html.light_&]:text-slate-600">
+          {translatePhrase(summary, isEnglish ? 'en' : 'vi') || config.defaultSummary}
+        </p>
+      </div>
+
+      {/* Metrics Row (Unified Single Grid) */}
+      <div className="grid grid-cols-2 gap-2.5 pt-3 border-t border-[#263751] [html.light_&]:border-slate-200">
+        {/* Metric 1: Quality Score */}
+        <div className="rounded-xl border border-[#263751] bg-[#1A2940] p-2.5 space-y-1.5 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-[11px] font-medium text-slate-400 [html.light_&]:text-slate-600">{isEnglish ? 'Quality score' : 'Chất lượng thông tin'}</span>
+            <span className="font-bold text-[#10B981]">{quality_score}/100</span>
+          </div>
+          <div className="h-1.5 w-full rounded-full bg-[#081126] border border-[#263751]/60 overflow-hidden [html.light_&]:bg-slate-200 [html.light_&]:border-slate-300">
+            <div
+              className="h-full bg-gradient-to-r from-[#10B981] to-[#E8B85D] rounded-full transition-all duration-500"
+              style={{ width: `${Math.min(100, Math.max(0, quality_score))}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Metric 2: Risk Score */}
+        <div className="rounded-xl border border-[#263751] bg-[#1A2940] p-2.5 space-y-1.5 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-[11px] font-medium text-slate-400 [html.light_&]:text-slate-600">{isEnglish ? 'Risk index' : 'Chỉ số rủi ro'}</span>
+            <span className={`font-bold ${risk_score > 50 ? 'text-[#FF4569]' : risk_score > 20 ? 'text-[#F59E0B]' : 'text-[#10B981]'}`}>
+              {risk_score}/100
             </span>
           </div>
-          <h4 className="mt-1 font-display text-sm font-bold text-amber-300">
-            {isEnglish ? 'Requires administrator review' : 'Cần quản trị viên xem xét'}
-          </h4>
-          <p className="mt-1 text-xs text-slate-300 leading-relaxed">
-            {translatePhrase(summary, isEnglish ? 'en' : 'vi') || (isEnglish ? 'Event has minor conditions or notices requiring administrator review before making a decision.' : 'Sự kiện có một số thiếu sót hoặc điều kiện cần lưu ý trước khi quyết định phê duyệt.')}
-          </p>
+          <div className="h-1.5 w-full rounded-full bg-[#081126] border border-[#263751]/60 overflow-hidden [html.light_&]:bg-slate-200 [html.light_&]:border-slate-300">
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${risk_score > 50 ? 'bg-[#FF4569]' : risk_score > 20 ? 'bg-[#F59E0B]' : 'bg-[#10B981]'}`}
+              style={{ width: `${Math.min(100, Math.max(0, risk_score))}%` }}
+            />
+          </div>
         </div>
       </div>
     </div>
   )
 }
 
-function PolicyViolationCard({ item, onClick }) {
+function StatusBanner({ recommendation, summary }) {
+  return <AiExecutiveSummaryCard aiData={{ recommendation, summary }} />
+}
+
+function PolicyFindingCard({ item, severity = 'CRITICAL', onClick }) {
   const { isEnglish } = useLanguage()
-  const policy = item.policy_code || (isEnglish ? 'POLICY' : 'CHÍNH SÁCH')
+  const isCrit = severity === 'CRITICAL'
+  const policy = item.policy_code || (isCrit ? (isEnglish ? 'VIOLATION' : 'VI PHẠM') : (isEnglish ? 'NOTICE' : 'LƯU Ý'))
   const rawIssue = item.issue || item.message || (typeof item === 'string' ? item : '')
   const issue = isEnglish ? (translatePhrase(rawIssue, 'en') || rawIssue) : rawIssue
   const quote = item.highlighted_text
 
   return (
-    <button
-      type="button"
-      onClick={() => onClick?.(`[${isEnglish ? 'Violation' : 'Vi phạm'} ${policy}] ${issue}`)}
-      className="group relative flex w-full cursor-pointer flex-col gap-2 rounded-xl border border-rose-500/30 bg-slate-900/90 p-3.5 text-left transition hover:border-rose-500/60 hover:bg-rose-950/20 shadow-sm"
-      title={isEnglish ? 'Click to copy to notes' : 'Bấm để sao chép vào ghi chú'}
-    >
+    <div className={`group rounded-xl border ${isCrit ? 'border-[#FF4569]/30 bg-[#1A2940] hover:border-[#FF4569]/60 [html.light_&]:border-rose-200 [html.light_&]:bg-slate-50' : 'border-[#F59E0B]/30 bg-[#1A2940] hover:border-[#F59E0B]/60 [html.light_&]:border-amber-200 [html.light_&]:bg-slate-50'} p-3.5 space-y-2.5 transition shadow-sm`}>
       <div className="flex items-center justify-between gap-2">
-        <span className="inline-flex items-center gap-1.5 rounded-md bg-rose-500/20 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-rose-300 border border-rose-500/30">
-          <ShieldAlert className="size-3" />
+        <span className="text-[13px] font-mono font-bold text-white tracking-wide truncate [html.light_&]:text-[#0D1B2A]">
           {policy}
         </span>
-        <span className="text-[10px] font-semibold text-rose-400/80 group-hover:text-rose-300 transition">
-          {isEnglish ? '+ Add to notes' : '+ Thêm vào ghi chú'}
-        </span>
+        <button
+          type="button"
+          onClick={() => onClick?.(`[${isCrit ? (isEnglish ? 'Violation' : 'Vi phạm') : (isEnglish ? 'Notice' : 'Lưu ý')} ${policy}] ${issue}`)}
+          className="inline-flex items-center gap-1 text-[9px] font-medium text-[#E8B85D] hover:text-[#F3F4F6] [html.light_&]:text-amber-700 [html.light_&]:hover:text-amber-800 transition cursor-pointer shrink-0"
+          title={isEnglish ? 'Click to copy to notes' : 'Bấm để sao chép vào ghi chú'}
+        >
+          <span>+</span>
+          <span>{isEnglish ? 'Add to notes' : 'Thêm vào ghi chú'}</span>
+        </button>
       </div>
-      <p className="text-xs font-semibold text-slate-100 leading-snug">{issue}</p>
+
+      <p className="text-xs font-semibold text-slate-100 leading-snug break-words [html.light_&]:text-[#0D1B2A]">{issue}</p>
+
       {quote && (
-        <div className="mt-1 rounded-lg border-l-2 border-rose-500 bg-slate-950/80 px-3 py-2 text-[11px] italic text-slate-300">
-          <span className="font-semibold text-rose-400 not-italic mr-1.5">{isEnglish ? 'Quote:' : 'Trích dẫn:'}</span>
-          &ldquo;{quote}&rdquo;
+        <div className="rounded-lg border-l-2 border-[#E8B85D] bg-[#081126] px-3 py-2 text-[11px] text-slate-300 [html.light_&]:bg-white [html.light_&]:border-slate-200 [html.light_&]:text-slate-700">
+          <span className="font-bold text-[#E8B85D] block mb-0.5 [html.light_&]:text-amber-700">{isEnglish ? 'Extracted evidence:' : 'Bằng chứng trích xuất:'}</span>
+          <p className="italic font-mono break-words text-slate-300 [html.light_&]:text-slate-600">&ldquo;{quote}&rdquo;</p>
         </div>
       )}
-    </button>
+    </div>
   )
 }
 
-function PolicyWarningCard({ item, onClick }) {
-  const { isEnglish } = useLanguage()
-  const policy = item.policy_code || (isEnglish ? 'NOTICE' : 'LƯU Ý')
-  const rawIssue = item.issue || item.message || (typeof item === 'string' ? item : '')
-  const issue = isEnglish ? (translatePhrase(rawIssue, 'en') || rawIssue) : rawIssue
-  const quote = item.highlighted_text
+function PolicyViolationCard({ item, onClick }) {
+  return <PolicyFindingCard item={item} severity="CRITICAL" onClick={onClick} />
+}
 
-  return (
-    <button
-      type="button"
-      onClick={() => onClick?.(`[${isEnglish ? 'Notice' : 'Lưu ý'} ${policy}] ${issue}`)}
-      className="group relative flex w-full cursor-pointer flex-col gap-2 rounded-xl border border-amber-500/30 bg-slate-900/90 p-3.5 text-left transition hover:border-amber-500/60 hover:bg-amber-950/20 shadow-sm"
-      title={isEnglish ? 'Click to copy to notes' : 'Bấm để sao chép vào ghi chú'}
-    >
-      <div className="flex items-center justify-between gap-2">
-        <span className="inline-flex items-center gap-1.5 rounded-md bg-amber-500/20 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-300 border border-amber-500/30">
-          <AlertTriangle className="size-3" />
-          {policy}
-        </span>
-        <span className="text-[10px] font-semibold text-amber-400/80 group-hover:text-amber-300 transition">
-          {isEnglish ? '+ Add to notes' : '+ Thêm vào ghi chú'}
-        </span>
-      </div>
-      <p className="text-xs font-medium text-slate-200 leading-snug">{issue}</p>
-      {quote && (
-        <div className="mt-1 rounded-lg border-l-2 border-amber-500 bg-slate-950/80 px-3 py-2 text-[11px] italic text-slate-300">
-          <span className="font-semibold text-amber-400 not-italic mr-1.5">{isEnglish ? 'Quote:' : 'Trích dẫn:'}</span>
-          &ldquo;{quote}&rdquo;
-        </div>
-      )}
-    </button>
-  )
+function PolicyWarningCard({ item, onClick }) {
+  return <PolicyFindingCard item={item} severity="WARNING" onClick={onClick} />
 }
 
 function CompliantCheckItem({ check }) {
@@ -297,9 +320,9 @@ function CompliantCheckItem({ check }) {
   const rawText = typeof check === 'string' ? check : check.title || check.issue || JSON.stringify(check)
   const text = isEnglish ? (translatePhrase(rawText, 'en') || rawText) : rawText
   return (
-    <div className="flex items-start gap-2.5 rounded-xl border border-emerald-500/20 bg-slate-900/80 p-2.5 text-left">
-      <CheckCircle2 className="size-4 shrink-0 text-emerald-400 mt-0.5" />
-      <span className="text-xs text-slate-200 leading-relaxed">{text}</span>
+    <div className="flex items-start gap-2.5 text-left py-1">
+      <span className="mt-2 size-1.5 rounded-full bg-[#10B981] shrink-0" />
+      <span className="text-sm font-medium text-slate-200 leading-relaxed [html.light_&]:text-[#0D1B2A]">{text}</span>
     </div>
   )
 }
@@ -309,20 +332,14 @@ function SuggestionCard({ suggestion, onClick }) {
   const rawText = typeof suggestion === 'string' ? suggestion : suggestion.text || JSON.stringify(suggestion)
   const text = isEnglish ? (translatePhrase(rawText, 'en') || rawText) : rawText
   return (
-    <button
-      type="button"
+    <li
       onClick={() => onClick?.(isEnglish ? `[Suggestion] ${text}` : `[Gợi ý] ${text}`)}
-      className="group flex w-full cursor-pointer items-start gap-2.5 rounded-xl border border-amber-500/20 bg-slate-900/80 p-3 text-left transition hover:border-amber-500/40 hover:bg-amber-950/15 shadow-sm"
-      title={isEnglish ? 'Click to copy into notes' : 'Bấm để sao chép vào ghi chú'}
+      className="flex items-start gap-2.5 text-sm text-slate-200 leading-relaxed hover:text-white [html.light_&]:text-[#0D1B2A] [html.light_&]:hover:text-amber-800 cursor-pointer transition group"
+      title={isEnglish ? 'Click to copy into notes' : 'Bấm để thêm vào ghi chú'}
     >
-      <Sparkles className="size-4 shrink-0 text-amber-400 mt-0.5" />
-      <div className="flex-1 min-w-0">
-        <p className="text-xs text-slate-200 leading-relaxed">{text}</p>
-        <span className="mt-1 inline-block text-[10px] font-semibold text-amber-400/80 group-hover:text-amber-300">
-          {isEnglish ? '+ Add to notes' : '+ Thêm vào ghi chú'}
-        </span>
-      </div>
-    </button>
+      <span className="mt-2 size-1.5 rounded-full bg-[#E8B85D] shrink-0 group-hover:scale-125 transition-transform" />
+      <span className="flex-1 break-words">{text}</span>
+    </li>
   )
 }
 
@@ -414,67 +431,93 @@ function ContentSpellingAuditCard({ contentReview, event, onClick }) {
 
   const getStatusBadge = (st) => {
     if (st === 'VIOLATION') {
-      return <span className="rounded bg-rose-500/20 px-2.5 py-0.5 text-[10px] font-bold text-rose-300 border border-rose-500/30 whitespace-nowrap">Vi phạm</span>
+      return <span className="rounded bg-[#FF4569]/15 px-2.5 py-0.5 text-[10px] font-bold text-[#FF4569] border border-[#FF4569]/30 whitespace-nowrap">Vi phạm</span>
     }
     if (st === 'NEEDS_IMPROVEMENT') {
-      return <span className="rounded bg-amber-500/20 px-2.5 py-0.5 text-[10px] font-bold text-amber-300 border border-amber-500/30 whitespace-nowrap">Cần bổ sung</span>
+      return <span className="rounded bg-[#F59E0B]/15 px-2.5 py-0.5 text-[10px] font-bold text-[#F59E0B] border border-[#F59E0B]/30 whitespace-nowrap">Cần bổ sung</span>
     }
-    return <span className="rounded bg-emerald-500/20 px-2.5 py-0.5 text-[10px] font-bold text-emerald-300 border border-emerald-500/30 whitespace-nowrap">Đạt chuẩn</span>
+    return <CheckCircle2 className="size-4 text-[#10B981] shrink-0" />
+  }
+
+  const isHeaderViolation = descStatus === 'VIOLATION' || titleStatus === 'VIOLATION'
+  const isHeaderWarning = descStatus === 'NEEDS_IMPROVEMENT' || titleStatus === 'NEEDS_IMPROVEMENT'
+
+  const getHeaderBadge = () => {
+    if (isHeaderViolation) {
+      return (
+        <span className="rounded-full bg-[#FF4569]/15 px-2.5 py-0.5 text-[10px] font-bold uppercase text-[#FF4569] border border-[#FF4569]/30 whitespace-nowrap">
+          Có vi phạm
+        </span>
+      )
+    }
+    if (isHeaderWarning) {
+      return (
+        <span className="rounded-full bg-[#F59E0B]/15 px-2.5 py-0.5 text-[10px] font-bold uppercase text-[#F59E0B] border border-[#F59E0B]/30 whitespace-nowrap">
+          Cần bổ sung
+        </span>
+      )
+    }
+    return (
+      <span className="rounded-full bg-[#10B981]/15 px-2.5 py-0.5 text-[10px] font-bold uppercase text-[#10B981] border border-[#10B981]/30 whitespace-nowrap">
+        Đạt chuẩn
+      </span>
+    )
   }
 
   const overallTone = descStatus === 'VIOLATION' || titleStatus === 'VIOLATION'
-    ? 'border-rose-500/30 bg-rose-950/20'
+    ? 'border-[#FF4569]/30 bg-[#101D32] [html.light_&]:bg-rose-50/40 [html.light_&]:border-rose-200'
     : descStatus === 'NEEDS_IMPROVEMENT' || titleStatus === 'NEEDS_IMPROVEMENT'
-      ? 'border-amber-500/30 bg-amber-950/20'
-      : 'border-slate-700/60 bg-slate-900/60'
+      ? 'border-[#F59E0B]/30 bg-[#101D32] [html.light_&]:bg-amber-50/40 [html.light_&]:border-amber-200'
+      : 'border-[#263751] bg-[#101D32] [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200'
 
   return (
-    <div className={`rounded-2xl border ${overallTone} p-4 space-y-3.5 backdrop-blur-sm`}>
-      <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
-        <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-200">
-          <FileText className="size-4 text-indigo-400" />
-          Thẩm định Mô tả chi tiết & Nội dung sự kiện
+    <div className={`rounded-2xl border ${overallTone} p-4 space-y-3.5 shadow-sm`}>
+      <div className="flex items-center justify-between border-b border-[#263751] pb-2.5 [html.light_&]:border-slate-200">
+        <span className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">
+          <FileText className="size-4 text-white [html.light_&]:text-[#0D1B2A]" />
+          Kiểm duyệt Mô tả & Nội dung sự kiện
         </span>
-        {getStatusBadge(descStatus === 'VIOLATION' || titleStatus === 'VIOLATION' ? 'VIOLATION' : descStatus === 'NEEDS_IMPROVEMENT' || titleStatus === 'NEEDS_IMPROVEMENT' ? 'NEEDS_IMPROVEMENT' : 'VALID')}
+        {getHeaderBadge()}
       </div>
 
       {/* Description Audit Section */}
-      <div className="rounded-xl border border-white/10 bg-slate-950/70 p-3.5 space-y-2">
+      <div className="space-y-1.5 pl-1">
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5 text-xs font-bold text-white">
-            <span className="size-2 rounded-full bg-indigo-400"></span>
+          <div className="flex items-center gap-2 text-xs font-bold text-slate-100 [html.light_&]:text-[#0D1B2A]">
+            <span className="size-1.5 rounded-full bg-[#E8B85D] shrink-0"></span>
             <span>Mô tả chi tiết sự kiện:</span>
           </div>
           {getStatusBadge(descStatus)}
         </div>
 
         {descAnalysis ? (
-          <p className="text-xs text-slate-300 leading-relaxed break-words">{descAnalysis}</p>
+          <p className="text-xs text-slate-300 leading-relaxed break-words pl-3.5 [html.light_&]:text-slate-600">{descAnalysis}</p>
         ) : (
-          <p className="text-xs text-slate-400 italic">Mô tả bài viết đã được quét, không phát hiện vi phạm.</p>
+          <p className="text-xs text-slate-400 italic pl-3.5 [html.light_&]:text-slate-500">Mô tả bài viết đã được quét, không phát hiện vi phạm.</p>
         )}
 
         {/* Feature Checkpoints */}
-        <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[11px]">
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white/5 border border-white/5 text-slate-300">
+        <div className="flex flex-wrap items-center gap-1.5 pt-1 pl-3.5 text-[11px]">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#081126] border border-[#263751] text-slate-300 [html.light_&]:bg-white [html.light_&]:border-slate-300 [html.light_&]:text-slate-700">
             ✓ Giới thiệu & Cốt truyện
           </span>
-          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border ${descStatus === 'NEEDS_IMPROVEMENT' ? 'bg-amber-500/10 text-amber-300 border-amber-500/30' : 'bg-white/5 border-white/5 text-slate-300'}`}>
+          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border ${descStatus === 'NEEDS_IMPROVEMENT' ? 'bg-[#F59E0B]/15 text-[#F59E0B] border-[#F59E0B]/30 [html.light_&]:bg-amber-100 [html.light_&]:text-amber-800' : 'bg-[#081126] border border-[#263751] text-slate-300 [html.light_&]:bg-white [html.light_&]:border-slate-300 [html.light_&]:text-slate-700'}`}>
             {descStatus === 'NEEDS_IMPROVEMENT' ? '⚠ Cần cảnh báo độ tuổi / an toàn' : '✓ Quy định & An toàn'}
           </span>
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white/5 border border-white/5 text-slate-300">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#081126] border border-[#263751] text-slate-300 [html.light_&]:bg-white [html.light_&]:border-slate-300 [html.light_&]:text-slate-700">
             ✓ Minh bạch thanh toán
           </span>
         </div>
 
         {descStatus !== 'VALID' && (
-          <div className="pt-1.5">
+          <div className="pt-1.5 pl-3.5">
             <button
               type="button"
               onClick={() => onClick?.(`[Góp ý mô tả chi tiết] ${descAnalysis}`)}
-              className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-400 hover:text-amber-300 transition cursor-pointer"
+              className="inline-flex items-center gap-1 text-[9px] font-medium text-[#E8B85D] hover:text-[#F3F4F6] [html.light_&]:text-amber-700 [html.light_&]:hover:text-amber-800 transition cursor-pointer"
             >
-              <span>+ Thêm nhận xét mô tả vào ghi chú duyệt</span>
+              <span>+</span>
+              <span>Thêm nhận xét mô tả vào ghi chú</span>
             </button>
           </div>
         )}
@@ -482,36 +525,45 @@ function ContentSpellingAuditCard({ contentReview, event, onClick }) {
 
       {/* Title Audit Section */}
       {titleAnalysis && (
-        <div className="rounded-xl border border-white/5 bg-slate-950/50 p-3 space-y-1.5">
-          <div className="flex items-center justify-between text-xs">
-            <span className="font-semibold text-slate-200">Tiêu đề sự kiện:</span>
+        <div className="space-y-1.5 pl-1 pt-1 border-t border-[#263751]/40 [html.light_&]:border-slate-200">
+          <div className="flex items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2 font-bold text-slate-100 [html.light_&]:text-[#0D1B2A]">
+              <span className="size-1.5 rounded-full bg-[#E8B85D] shrink-0"></span>
+              <span>Tiêu đề sự kiện:</span>
+            </div>
             {getStatusBadge(titleStatus)}
           </div>
-          <p className="text-xs text-slate-300 leading-relaxed">{titleAnalysis}</p>
+          <p className="text-xs text-slate-300 leading-relaxed pl-3.5 [html.light_&]:text-slate-600">{titleAnalysis}</p>
         </div>
       )}
 
       {/* Spelling & Grammar Issues */}
       {spellingIssues.length > 0 && (
-        <div className="space-y-2 pt-1">
-          <div className="flex items-center gap-1.5 text-xs font-bold text-amber-300">
-            <SpellCheck className="size-4 text-amber-400" />
+        <div className="space-y-2 pt-2 border-t border-[#263751]/40 [html.light_&]:border-slate-200 pl-1">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-[#E8B85D] [html.light_&]:text-amber-700">
+            <SpellCheck className="size-4 text-[#E8B85D] [html.light_&]:text-amber-700" />
             <span>Phát hiện {spellingIssues.length} lưu ý chính tả / dấu câu:</span>
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-1 pl-1">
             {spellingIssues.map((issue, idx) => (
-              <button
+              <div
                 key={idx}
-                type="button"
-                onClick={() => onClick?.(`[Lỗi chính tả / văn bản] ${issue}`)}
-                className="group flex w-full cursor-pointer items-start justify-between rounded-lg border border-amber-500/20 bg-amber-950/20 px-3 py-2 text-left text-xs text-amber-200 transition hover:bg-amber-950/35 hover:border-amber-500/40"
-                title="Bấm để sao chép vào ghi chú"
+                className="flex items-center justify-between gap-2 py-1 text-xs text-slate-200 [html.light_&]:text-[#0D1B2A]"
               >
-                <span>• {issue}</span>
-                <span className="shrink-0 text-[10px] font-semibold text-amber-400/80 group-hover:text-amber-300 ml-2">
-                  + Thêm
-                </span>
-              </button>
+                <div className="flex items-start gap-2">
+                  <span className="size-1.5 rounded-full bg-[#E8B85D] mt-1.5 shrink-0" />
+                  <span className="leading-relaxed">{issue}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onClick?.(`[Lỗi chính tả / văn bản] ${issue}`)}
+                  className="shrink-0 inline-flex items-center gap-0.5 text-[9px] font-medium text-[#E8B85D] hover:text-[#F3F4F6] transition cursor-pointer ml-2"
+                  title="Bấm để sao chép vào ghi chú"
+                >
+                  <span>+</span>
+                  <span>Thêm</span>
+                </button>
+              </div>
             ))}
           </div>
         </div>
@@ -531,39 +583,39 @@ function DocumentModerationAuditCard({ documentReview, documentAnalysis, onPrevi
   const overallVerdict = documentReview?.overall_document_verdict || documentReview?.overall_verdict || 'SAFE'
 
   const getStatusBadge = (st) => {
-    if (st === 'VIOLATION') return <span className="rounded bg-rose-500/20 px-2 py-0.5 text-[10px] font-bold text-rose-300 border border-rose-500/30">Vi phạm tài liệu</span>
-    if (st === 'WARNING') return <span className="rounded bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-300 border border-amber-500/30">Cần lưu ý</span>
-    return <span className="rounded bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-300 border border-emerald-500/30">Hợp lệ</span>
+    if (st === 'VIOLATION') return <span className="rounded bg-[#FF4569]/15 px-2 py-0.5 text-[10px] font-bold text-[#FF4569] border border-[#FF4569]/30">Vi phạm tài liệu</span>
+    if (st === 'WARNING') return <span className="rounded bg-[#F59E0B]/15 px-2 py-0.5 text-[10px] font-bold text-[#F59E0B] border border-[#F59E0B]/30">Cần lưu ý</span>
+    return <span className="rounded bg-[#10B981]/15 px-2 py-0.5 text-[10px] font-bold text-[#10B981] border border-[#10B981]/30">Hợp lệ</span>
   }
 
   const getRelevanceBadge = (rel) => {
-    if (rel === 'HIGH') return <span className="rounded bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-300 border border-emerald-500/30">Khớp sự kiện & pháp lý</span>
-    if (rel === 'MEDIUM') return <span className="rounded bg-blue-500/20 px-2 py-0.5 text-[10px] font-semibold text-blue-300 border border-blue-500/30">Liên quan sự kiện</span>
-    if (rel === 'LOW') return <span className="rounded bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold text-amber-300 border border-amber-500/30">Độ liên quan thấp</span>
-    if (rel === 'NOT_RELEVANT') return <span className="rounded bg-rose-500/20 px-2 py-0.5 text-[10px] font-semibold text-rose-300 border border-rose-500/30">Không liên quan</span>
+    if (rel === 'HIGH') return <span className="rounded bg-[#10B981]/15 px-2 py-0.5 text-[10px] font-semibold text-[#10B981] border border-[#10B981]/30">Khớp sự kiện & pháp lý</span>
+    if (rel === 'MEDIUM') return <span className="rounded bg-[#60A5FA]/15 px-2 py-0.5 text-[10px] font-semibold text-[#60A5FA] border border-[#60A5FA]/30">Liên quan sự kiện</span>
+    if (rel === 'LOW') return <span className="rounded bg-[#F59E0B]/15 px-2 py-0.5 text-[10px] font-semibold text-[#F59E0B] border border-[#F59E0B]/30">Độ liên quan thấp</span>
+    if (rel === 'NOT_RELEVANT') return <span className="rounded bg-[#FF4569]/15 px-2 py-0.5 text-[10px] font-semibold text-[#FF4569] border border-[#FF4569]/30">Không liên quan</span>
     return null
   }
 
   const getDocTypeBadge = (name = '', url = '') => {
     const lower = `${name} ${url}`.toLowerCase()
-    if (lower.includes('.pdf')) return <span className="text-[10px] font-bold text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/20">PDF</span>
-    if (lower.includes('.docx') || lower.includes('.doc')) return <span className="text-[10px] font-bold text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20">WORD DOCX</span>
-    if (/\.(jpg|jpeg|png|webp)/.test(lower)) return <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">ẢNH SCAN</span>
-    return <span className="text-[10px] font-bold text-slate-400 bg-slate-500/10 px-1.5 py-0.5 rounded border border-slate-500/20">TÀI LIỆU</span>
+    if (lower.includes('.pdf')) return <span className="text-[10px] font-bold text-[#FF4569] bg-[#FF4569]/15 px-1.5 py-0.5 rounded border border-[#FF4569]/30">PDF</span>
+    if (lower.includes('.docx') || lower.includes('.doc')) return <span className="text-[10px] font-bold text-[#60A5FA] bg-[#60A5FA]/15 px-1.5 py-0.5 rounded border border-[#60A5FA]/30">WORD DOCX</span>
+    if (/\.(jpg|jpeg|png|webp)/.test(lower)) return <span className="text-[10px] font-bold text-[#10B981] bg-[#10B981]/15 px-1.5 py-0.5 rounded border border-[#10B981]/30">ẢNH SCAN</span>
+    return <span className="text-[10px] font-bold text-slate-300 bg-white/5 px-1.5 py-0.5 rounded border border-white/10">TÀI LIỆU</span>
   }
 
   return (
-    <div className="rounded-2xl border border-indigo-500/30 bg-slate-900/70 p-4 space-y-3 shadow-md">
-      <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
-        <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-200">
-          <FileCheck className="size-4 text-indigo-400" />
+    <div className="rounded-2xl border border-[#263751] bg-[#101D32] p-4 space-y-3.5 shadow-sm [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+      <div className="flex items-center justify-between border-b border-[#263751] pb-2.5 [html.light_&]:border-slate-200">
+        <span className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">
+          <FileCheck className="size-4 text-white [html.light_&]:text-[#0D1B2A]" />
           Kiểm duyệt Tài liệu Giấy phép ({items.length || docAnalysisList.length} tệp)
         </span>
         <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${overallVerdict === 'VIOLATION'
-            ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+            ? 'bg-[#FF4569]/15 text-[#FF4569] border border-[#FF4569]/30'
             : overallVerdict === 'WARNING'
-              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-              : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+              ? 'bg-[#F59E0B]/15 text-[#F59E0B] border border-[#F59E0B]/30'
+              : 'bg-[#10B981]/15 text-[#10B981] border border-[#10B981]/30'
           }`}>
           {overallVerdict === 'VIOLATION' ? 'Có vi phạm' : overallVerdict === 'WARNING' ? 'Cần lưu ý' : 'Hợp lệ'}
         </span>
@@ -575,11 +627,11 @@ function DocumentModerationAuditCard({ documentReview, documentAnalysis, onPrevi
           const extractedText = matchingAnalysis?.extractedText || null
 
           return (
-            <div key={idx} className="rounded-xl border border-slate-800 bg-slate-950/80 p-3.5 space-y-2.5">
+            <div key={idx} className="rounded-xl border border-[#263751] bg-[#1A2940] p-3.5 space-y-2.5 [html.light_&]:bg-white [html.light_&]:border-slate-200">
               <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                 <div className="flex items-center gap-2 min-w-0">
                   {getDocTypeBadge(doc.fileName, doc.url)}
-                  <span className="font-bold text-slate-100 truncate max-w-[220px]" title={doc.fileName}>
+                  <span className="font-bold text-slate-100 truncate max-w-[220px] [html.light_&]:text-[#0D1B2A]" title={doc.fileName}>
                     {doc.fileName || `Tài liệu ${idx + 1}`}
                   </span>
                 </div>
@@ -591,33 +643,33 @@ function DocumentModerationAuditCard({ documentReview, documentAnalysis, onPrevi
 
               {/* Phân tích tính liên quan & nội dung */}
               {doc.analysis && (
-                <p className="text-xs text-slate-300 leading-relaxed">
+                <p className="text-xs text-slate-300 leading-relaxed [html.light_&]:text-slate-600">
                   {doc.analysis}
                 </p>
               )}
 
               {/* Chi tiết vi phạm cụ thể: Vi phạm gì & Vi phạm chỗ nào trong tài liệu */}
               {(doc.violation_type || (doc.status === 'VIOLATION' && doc.issues?.length > 0)) && (
-                <div className="rounded-lg border border-rose-500/30 bg-rose-950/30 p-2.5 space-y-2">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-rose-300">
-                    <ShieldAlert className="size-3.5 text-rose-400 shrink-0" />
-                    <span>Vi phạm gì: {doc.violation_type || 'Nội dung tài liệu vi phạm quy định'}</span>
+                <div className="rounded-lg border border-[#FF4569]/30 bg-[#081126] p-2.5 space-y-2 [html.light_&]:bg-rose-50/50 [html.light_&]:border-rose-200">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-[#FF4569] [html.light_&]:text-rose-700">
+                    <ShieldAlert className="size-3.5 text-[#FF4569] [html.light_&]:text-rose-700 shrink-0" />
+                    <span>Vi phạm: {doc.violation_type || 'Nội dung tài liệu vi phạm quy định'}</span>
                   </div>
 
                   {doc.violating_location && (
-                    <div className="rounded-md border-l-2 border-rose-500 bg-slate-950/90 p-2.5 text-[11px] text-rose-200 font-mono">
-                      <span className="font-bold text-rose-400 not-italic block mb-1">
-                        Vi phạm chỗ nào trong tài liệu (trích dẫn cụ thể):
+                    <div className="rounded-md border-l-2 border-[#E8B85D] bg-[#101D32] p-2.5 text-[11px] text-slate-300 font-mono [html.light_&]:bg-white [html.light_&]:border-slate-200 [html.light_&]:text-slate-700">
+                      <span className="font-bold text-[#E8B85D] not-italic block mb-1 [html.light_&]:text-amber-700">
+                        Trích dẫn vi phạm trong tài liệu:
                       </span>
                       &ldquo;{doc.violating_location}&rdquo;
                     </div>
                   )}
 
                   {Array.isArray(doc.issues) && doc.issues.length > 0 && (
-                    <div className="space-y-1 text-xs text-rose-300/90">
+                    <div className="space-y-1 text-xs text-[#FF4569]/90 [html.light_&]:text-rose-700">
                       {doc.issues.map((iss, i) => (
                         <div key={i} className="flex items-start gap-1.5">
-                          <span className="text-rose-400">•</span>
+                          <span className="text-[#FF4569]">•</span>
                           <span>{iss}</span>
                         </div>
                       ))}
@@ -628,47 +680,24 @@ function DocumentModerationAuditCard({ documentReview, documentAnalysis, onPrevi
 
               {/* Gợi ý điều chỉnh */}
               {doc.suggestion && (
-                <button
-                  type="button"
-                  onClick={() => onClick?.(`[Gợi ý tài liệu ${doc.fileName || idx + 1}] ${doc.suggestion}`)}
-                  className="group flex w-full cursor-pointer items-start justify-between rounded-lg border border-amber-500/20 bg-amber-950/20 px-3 py-1.5 text-left text-xs text-amber-200 transition hover:bg-amber-950/35 hover:border-amber-500/40"
-                  title="Bấm để sao chép vào ghi chú"
-                >
-                  <span>💡 Gợi ý: {doc.suggestion}</span>
-                  <span className="shrink-0 font-semibold text-amber-400/80 group-hover:text-amber-300 ml-2">
-                    + Thêm
-                  </span>
-                </button>
-              )}
-
-              {/* Action Buttons: Xem tài liệu trực tiếp & Thêm lỗi */}
-              <div className="flex items-center justify-between pt-1 border-t border-slate-800/80">
-                <button
-                  type="button"
-                  onClick={() => {
-                    onPreviewDoc?.({
-                      name: doc.fileName || `Tài liệu ${idx + 1}`,
-                      url: doc.url,
-                      type: doc.fileName?.endsWith('.pdf') ? 'application/pdf' : doc.fileName?.match(/\.(docx?)$/i) ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' : 'document',
-                      extractedText: extractedText || doc.violating_location || null,
-                    })
-                  }}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600/30 border border-indigo-500/40 px-2.5 py-1 text-xs font-bold text-indigo-300 hover:bg-indigo-600/50 hover:text-white transition"
-                >
-                  <Eye className="size-3.5" />
-                  <span>Xem tài liệu & Trích xuất AI</span>
-                </button>
-
-                {(doc.status === 'VIOLATION' || doc.status === 'WARNING') && (
+                <div className="rounded-lg border border-[#E8B85D]/30 bg-[#081126] px-3 py-2 text-xs flex items-center justify-between gap-2 [html.light_&]:bg-amber-50/50 [html.light_&]:border-amber-200">
+                  <div className="space-y-0.5">
+                    <span className="text-[11px] font-bold text-[#E8B85D] block [html.light_&]:text-amber-800">Gợi ý tài liệu:</span>
+                    <span className="text-slate-200 [html.light_&]:text-slate-800">{doc.suggestion}</span>
+                  </div>
                   <button
                     type="button"
-                    onClick={() => onClick?.(`[Vi phạm tài liệu ${doc.fileName || idx + 1}] ${doc.violation_type || doc.analysis || ''}${doc.violating_location ? ` (Trích đoạn: "${doc.violating_location}")` : ''}`)}
-                    className="text-[11px] font-semibold text-rose-400 hover:text-rose-300 hover:underline"
+                    onClick={() => onClick?.(`[Gợi ý tài liệu ${doc.fileName || idx + 1}] ${doc.suggestion}`)}
+                    className="shrink-0 inline-flex items-center gap-0.5 font-medium text-[9px] text-[#E8B85D] hover:text-[#F3F4F6] [html.light_&]:text-amber-700 [html.light_&]:hover:text-amber-800 transition cursor-pointer ml-2"
+                    title="Bấm để sao chép vào ghi chú"
                   >
-                    + Thêm lỗi vào ghi chú
+                    <span>+</span>
+                    <span>Thêm</span>
                   </button>
-                )}
-              </div>
+                </div>
+              )}
+
+
             </div>
           )
         })}
@@ -676,7 +705,6 @@ function DocumentModerationAuditCard({ documentReview, documentAnalysis, onPrevi
     </div>
   )
 }
-
 
 function VisualCoTOcrSection({ ocrReasoning, extractedTexts }) {
   const [expanded, setExpanded] = useState(false)
@@ -702,7 +730,7 @@ function VisualCoTOcrSection({ ocrReasoning, extractedTexts }) {
 
   const getEffectLabel = (eff) => {
     switch (eff) {
-      case 'BLOOD_SPLATTER': return 'Vệt máu giả nghệ thuật'
+      case 'BLOOD_SPLATTER': return 'Vệt máu nghệ thuật'
       case 'SMOKE': return 'Khói sương'
       case 'DISTORTION': return 'Biến dạng'
       default: return null
@@ -710,43 +738,57 @@ function VisualCoTOcrSection({ ocrReasoning, extractedTexts }) {
   }
 
   return (
-    <div className="rounded-xl border border-indigo-500/25 bg-indigo-950/20 p-2.5 space-y-2 mt-2">
+    <div className="space-y-2.5 mt-2 pt-2 border-t border-[#263751]/60 [html.light_&]:border-slate-200">
       {/* Extracted Texts List */}
       {texts.length > 0 && (
         <div className="space-y-1.5">
-          <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-indigo-300">
-            <Sparkles className="size-3.5 text-indigo-400" />
-            <span>Văn bản giải mã qua Visual OCR ({texts.length} cụm từ):</span>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-[#E8B85D] [html.light_&]:text-amber-700">
+              <Sparkles className="size-3.5 text-[#E8B85D] [html.light_&]:text-amber-700" />
+              <span>Văn bản giải mã qua Visual OCR ({texts.length} cụm từ):</span>
+            </div>
+            {hasCoT && (
+              <button
+                type="button"
+                onClick={() => setExpanded(!expanded)}
+                className="grid size-6 place-items-center rounded-lg border border-[#263751] bg-[#101D32] text-slate-300 hover:text-white hover:border-[#E8B85D]/60 hover:bg-[#1A2940] transition cursor-pointer active:scale-95 shadow-sm shrink-0 [html.light_&]:bg-white [html.light_&]:border-slate-300 [html.light_&]:text-slate-700 [html.light_&]:hover:bg-slate-100"
+                title={expanded ? 'Thu gọn chi tiết suy luận OCR' : 'Xem chi tiết suy luận OCR'}
+              >
+                {expanded ? <EyeOff className="size-3.5 text-[#E8B85D] [html.light_&]:text-amber-700" /> : <Eye className="size-3.5 text-slate-300 [html.light_&]:text-slate-700" />}
+              </button>
+            )}
           </div>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="space-y-1.5 pl-1">
             {texts.map((t, i) => {
               const effectText = getEffectLabel(t.visual_effect)
               return (
                 <div
                   key={i}
-                  className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-black/40 px-2 py-1 text-xs flex-wrap"
+                  className="flex items-start gap-2 text-xs flex-wrap"
                 >
-                  <span className="font-bold text-white tracking-wide">
-                    {t.text}
+                  <span className="size-1.5 rounded-full bg-[#E8B85D] mt-1.5 shrink-0" />
+                  <span className="font-bold text-slate-100 tracking-wide [html.light_&]:text-[#0D1B2A]">
+                    &ldquo;{t.text}&rdquo;
                   </span>
                   {t.is_event_title && (
-                    <span className="rounded bg-indigo-500/30 px-1.5 py-0.5 text-[9px] font-bold text-indigo-200">
+                    <span className="rounded bg-[#1A2940] border border-[#263751] px-1.5 py-0.5 text-[10px] font-medium text-white [html.light_&]:bg-slate-100 [html.light_&]:border-slate-300 [html.light_&]:text-[#0D1B2A]">
                       Tên sự kiện
                     </span>
                   )}
-                  <span className="rounded bg-white/10 px-1.5 py-0.5 text-[9px] font-medium text-slate-300">
+                  <span className="rounded bg-[#1A2940] border border-[#263751] px-1.5 py-0.5 text-[10px] font-medium text-white [html.light_&]:bg-slate-100 [html.light_&]:border-slate-300 [html.light_&]:text-[#0D1B2A]">
                     {getFontStyleLabel(t.font_style)}
                   </span>
                   {effectText && (
-                    <span className="rounded bg-rose-500/20 border border-rose-500/30 px-1.5 py-0.5 text-[9px] font-medium text-rose-300">
+                    <span className="rounded bg-[#1A2940] border border-[#263751] px-1.5 py-0.5 text-[10px] font-medium text-white [html.light_&]:bg-slate-100 [html.light_&]:border-slate-300 [html.light_&]:text-[#0D1B2A]">
                       {effectText}
                     </span>
                   )}
                   {t.confidence && (
-                    <span className={`rounded px-1.5 py-0.5 text-[9px] font-bold ${t.confidence === 'HIGH'
-                        ? 'bg-emerald-500/20 text-emerald-300'
-                        : 'bg-amber-500/20 text-amber-300'
-                      }`}>
+                    <span className={`rounded border px-1.5 py-0.5 text-[10px] font-medium ${
+                      t.confidence === 'HIGH'
+                        ? 'bg-[#10B981]/15 border-[#10B981]/30 text-[#10B981] [html.light_&]:bg-emerald-50 [html.light_&]:border-emerald-200 [html.light_&]:text-emerald-700'
+                        : 'bg-[#F59E0B]/15 border-[#F59E0B]/30 text-[#F59E0B] [html.light_&]:bg-amber-50 [html.light_&]:border-amber-200 [html.light_&]:text-amber-800'
+                    }`}>
                       {t.confidence === 'HIGH' ? 'Tin cậy cao' : 'Tin cậy TB'}
                     </span>
                   )}
@@ -757,56 +799,39 @@ function VisualCoTOcrSection({ ocrReasoning, extractedTexts }) {
         </div>
       )}
 
-      {/* 4-Step CoT Reasoning */}
-      {hasCoT && (
-        <div className="pt-1.5 border-t border-indigo-500/20">
-          <button
-            type="button"
-            onClick={() => setExpanded(!expanded)}
-            className="flex w-full items-center justify-between text-[11px] font-bold text-indigo-300 hover:text-indigo-200 transition py-0.5 cursor-pointer"
-          >
-            <span className="flex items-center gap-1.5">
-              <span>🧠 Visual Chain-of-Thought (CoT) — 4 Bước suy luận OCR</span>
-            </span>
-            <span className="text-[10px] text-slate-400 font-normal">
-              {expanded ? '▲ Thu gọn' : '▼ Xem chi tiết 4 bước'}
-            </span>
-          </button>
-
-          {expanded && (
-            <div className="space-y-2 pt-2 text-[11px] leading-relaxed text-slate-300">
-              {ocrReasoning.step1_scene_context && (
-                <div className="rounded-lg bg-black/40 p-2.5 border border-white/5 space-y-0.5">
-                  <div className="font-bold text-indigo-300 flex items-center gap-1">
-                    <span>1. Phân tích bối cảnh & Chủ đề (Scene & Theme Context):</span>
-                  </div>
-                  <p className="text-slate-300">{ocrReasoning.step1_scene_context}</p>
-                </div>
-              )}
-              {ocrReasoning.step2_anchor_text && (
-                <div className="rounded-lg bg-black/40 p-2.5 border border-white/5 space-y-0.5">
-                  <div className="font-bold text-indigo-300 flex items-center gap-1">
-                    <span>2. Quét vùng chữ rõ nét làm mồi ngữ cảnh (Anchor Text):</span>
-                  </div>
-                  <p className="text-slate-300">{ocrReasoning.step2_anchor_text}</p>
-                </div>
-              )}
-              {ocrReasoning.step3_stylized_decoding && (
-                <div className="rounded-lg bg-black/40 p-2.5 border border-white/5 space-y-0.5">
-                  <div className="font-bold text-indigo-300 flex items-center gap-1">
-                    <span>3. Giải mã phông chữ biến dạng & Khung xương (Stylized Typography):</span>
-                  </div>
-                  <p className="text-slate-300">{ocrReasoning.step3_stylized_decoding}</p>
-                </div>
-              )}
-              {ocrReasoning.step4_moderation_verdict && (
-                <div className="rounded-lg bg-black/40 p-2.5 border border-white/5 space-y-0.5">
-                  <div className="font-bold text-indigo-300 flex items-center gap-1">
-                    <span>4. Đánh giá kiểm duyệt (Moderation Verdict):</span>
-                  </div>
-                  <p className="text-slate-300">{ocrReasoning.step4_moderation_verdict}</p>
-                </div>
-              )}
+      {/* 4-Step CoT Reasoning (Bỏ khung bọc, đổi sang màu trắng) */}
+      {hasCoT && expanded && (
+        <div className="space-y-2 pt-2 text-xs leading-relaxed border-t border-[#263751]/40 [html.light_&]:border-slate-200 pl-1">
+          {ocrReasoning.step1_scene_context && (
+            <div className="space-y-0.5">
+              <h5 className="font-bold text-white [html.light_&]:text-[#0D1B2A]">
+                1. Phân tích bối cảnh & Chủ đề (Scene & Theme Context):
+              </h5>
+              <p className="text-white/90 leading-relaxed [html.light_&]:text-slate-700">{ocrReasoning.step1_scene_context}</p>
+            </div>
+          )}
+          {ocrReasoning.step2_anchor_text && (
+            <div className="space-y-0.5">
+              <h5 className="font-bold text-white [html.light_&]:text-[#0D1B2A]">
+                2. Quét vùng chữ rõ nét làm mồi ngữ cảnh (Anchor Text):
+              </h5>
+              <p className="text-white/90 leading-relaxed [html.light_&]:text-slate-700">{ocrReasoning.step2_anchor_text}</p>
+            </div>
+          )}
+          {ocrReasoning.step3_stylized_decoding && (
+            <div className="space-y-0.5">
+              <h5 className="font-bold text-white [html.light_&]:text-[#0D1B2A]">
+                3. Giải mã phông chữ biến dạng & Khung xương (Stylized Typography):
+              </h5>
+              <p className="text-white/90 leading-relaxed [html.light_&]:text-slate-700">{ocrReasoning.step3_stylized_decoding}</p>
+            </div>
+          )}
+          {ocrReasoning.step4_moderation_verdict && (
+            <div className="space-y-0.5">
+              <h5 className="font-bold text-white [html.light_&]:text-[#0D1B2A]">
+                4. Đánh giá kiểm duyệt (Moderation Verdict):
+              </h5>
+              <p className="text-white/90 leading-relaxed [html.light_&]:text-slate-700">{ocrReasoning.step4_moderation_verdict}</p>
             </div>
           )}
         </div>
@@ -815,7 +840,7 @@ function VisualCoTOcrSection({ ocrReasoning, extractedTexts }) {
   )
 }
 
-function ImageModerationAuditCard({ imageReview, visionAnalysis, onClick }) {
+function ImageModerationAuditCard({ imageReview, visionAnalysis, event, onClick }) {
   // Strictly filter out any PERMIT items to never mix documents with images
   const items = Array.isArray(imageReview?.items) ? imageReview.items.filter(it => !it.source?.startsWith('PERMIT')) : []
   const visionItems = Array.isArray(visionAnalysis) ? visionAnalysis.filter(v => !v.source?.startsWith('PERMIT')) : []
@@ -833,6 +858,13 @@ function ImageModerationAuditCard({ imageReview, visionAnalysis, onClick }) {
     return src || 'Hình ảnh'
   }
 
+  const getThumbnailUrl = (src, url) => {
+    if (url) return url
+    if (src === 'MAIN_POSTER') return event?.poster_url || null
+    if (src === 'COVER_BANNER') return event?.banner_url || null
+    return null
+  }
+
   const formatAnalysis = (text, source) => {
     if (!text || typeof text !== 'string') return ''
     if (/[\u0E00-\u0E7F\u1780-\u17FF\u0E80-\u0EFF\u1000-\u109F\u0900-\u097F]/.test(text) || /(.)\1{4,}/.test(text) || /(.{2,8})\1{3,}/.test(text)) {
@@ -842,24 +874,24 @@ function ImageModerationAuditCard({ imageReview, visionAnalysis, onClick }) {
   }
 
   const getStatusBadge = (st) => {
-    if (st === 'VIOLATION') return <span className="rounded bg-rose-500/20 px-2 py-0.5 text-[10px] font-bold text-rose-300 border border-rose-500/30">Vi phạm</span>
-    if (st === 'WARNING') return <span className="rounded bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-300 border border-amber-500/30">Cần lưu ý</span>
-    if (st === 'MISSING') return <span className="rounded bg-rose-500/20 px-2 py-0.5 text-[10px] font-bold text-rose-300 border border-rose-500/30">Chưa có</span>
-    return <span className="rounded bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-300 border border-emerald-500/30">Hợp lệ</span>
+    if (st === 'VIOLATION') return <span className="rounded bg-[#FF4569]/15 px-2 py-0.5 text-[10px] font-bold text-[#FF4569] border border-[#FF4569]/30">Vi phạm</span>
+    if (st === 'WARNING') return <span className="rounded bg-[#F59E0B]/15 px-2 py-0.5 text-[10px] font-bold text-[#F59E0B] border border-[#F59E0B]/30">Cần lưu ý</span>
+    if (st === 'MISSING') return <span className="rounded bg-[#FF4569]/15 px-2 py-0.5 text-[10px] font-bold text-[#FF4569] border border-[#FF4569]/30">Chưa có</span>
+    return <span className="rounded bg-[#10B981]/15 px-2 py-0.5 text-[10px] font-bold text-[#10B981] border border-[#10B981]/30">Hợp lệ</span>
   }
 
   return (
-    <div className="rounded-2xl border border-slate-700/60 bg-slate-900/60 p-4 space-y-3">
-      <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
-        <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-200">
-          <ImageIcon className="size-4 text-slate-400" />
+    <div className="rounded-2xl border border-[#263751] bg-[#101D32] p-4 space-y-3.5 shadow-sm [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+      <div className="flex items-center justify-between border-b border-[#263751] pb-2.5 [html.light_&]:border-slate-200">
+        <span className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">
+          <ImageIcon className="size-4 text-white [html.light_&]:text-[#0D1B2A]" />
           Kiểm duyệt Hình ảnh ({items.length || visionItems.length} ảnh)
         </span>
         <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${overallVerdict === 'VIOLATION'
-          ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+          ? 'bg-[#FF4569]/15 text-[#FF4569] border border-[#FF4569]/30'
           : overallVerdict === 'WARNING'
-            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-            : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+            ? 'bg-[#F59E0B]/15 text-[#F59E0B] border border-[#F59E0B]/30'
+            : 'bg-[#10B981]/15 text-[#10B981] border border-[#10B981]/30'
           }`}>
           {overallVerdict === 'VIOLATION' ? 'Có vi phạm' : overallVerdict === 'WARNING' ? 'Cần lưu ý' : 'An toàn'}
         </span>
@@ -867,56 +899,80 @@ function ImageModerationAuditCard({ imageReview, visionAnalysis, onClick }) {
 
       {/* Render structured items from image_review.items */}
       {items.length > 0 ? (
-        <div className="space-y-2.5">
-          {items.map((img, idx) => (
-            <div key={idx} className="rounded-xl border border-slate-800 bg-slate-950/60 p-3 space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold text-slate-100">{getSourceLabel(img.source)}</span>
-                {getStatusBadge(img.status)}
-              </div>
-
-              {img.analysis && (
-                <p className="text-xs text-slate-300 leading-relaxed">{formatAnalysis(img.analysis, img.source)}</p>
-              )}
-
-              {/* Visual CoT OCR 4-step Reasoning & Extracted Texts */}
-              <VisualCoTOcrSection
-                ocrReasoning={img.ocr_reasoning}
-                extractedTexts={img.extracted_texts}
-              />
-
-              {Array.isArray(img.issues) && img.issues.length > 0 && (
-                <div className="space-y-1 pt-1">
-                  {img.issues.map((iss, i) => (
-                    <div key={i} className="flex items-start gap-1.5 text-xs text-rose-300">
-                      <AlertCircle className="size-3.5 shrink-0 text-rose-400 mt-0.5" />
-                      <span>{iss}</span>
+        <div className="space-y-3">
+          {items.map((img, idx) => {
+            const thumbUrl = getThumbnailUrl(img.source, img.url)
+            return (
+              <div key={idx} className="rounded-xl border border-[#263751] bg-[#1A2940] p-3.5 space-y-2.5 [html.light_&]:bg-white [html.light_&]:border-slate-200">
+                <div className="flex items-start justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    {thumbUrl ? (
+                      <img
+                        src={thumbUrl}
+                        alt=""
+                        className="size-11 rounded-lg object-cover border border-[#263751] shrink-0 [html.light_&]:border-slate-200"
+                      />
+                    ) : (
+                      <div className="size-11 rounded-lg bg-[#081126] border border-[#263751] grid place-items-center text-slate-400 shrink-0 [html.light_&]:bg-slate-100 [html.light_&]:border-slate-200">
+                        <ImageIcon className="size-5 text-[#A78BFA]" />
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <span className="font-bold text-slate-100 block truncate [html.light_&]:text-[#0D1B2A]">{getSourceLabel(img.source)}</span>
+                      <span className="text-[11px] text-slate-400 [html.light_&]:text-slate-500">Hình ảnh sự kiện</span>
                     </div>
-                  ))}
+                  </div>
+                  {getStatusBadge(img.status)}
                 </div>
-              )}
 
-              {img.suggestion && (
-                <button
-                  type="button"
-                  onClick={() => onClick?.(`[Gợi ý ảnh ${getSourceLabel(img.source)}] ${img.suggestion}`)}
-                  className="group flex w-full cursor-pointer items-start justify-between rounded-lg border border-amber-500/20 bg-amber-950/20 px-3 py-1.5 text-left text-xs text-amber-200 transition hover:bg-amber-950/35 hover:border-amber-500/40"
-                  title="Bấm để sao chép vào ghi chú"
-                >
-                  <span>💡 Gợi ý: {img.suggestion}</span>
-                  <span className="shrink-0 font-semibold text-amber-400/80 group-hover:text-amber-300 ml-2">
-                    + Thêm
-                  </span>
-                </button>
-              )}
-            </div>
-          ))}
+                {img.analysis && (
+                  <p className="text-xs text-slate-300 leading-relaxed [html.light_&]:text-slate-600">{formatAnalysis(img.analysis, img.source)}</p>
+                )}
+
+                {/* Visual CoT OCR 4-step Reasoning & Extracted Texts */}
+                <VisualCoTOcrSection
+                  ocrReasoning={img.ocr_reasoning}
+                  extractedTexts={img.extracted_texts}
+                />
+
+                {Array.isArray(img.issues) && img.issues.length > 0 && (
+                  <div className="space-y-1 pt-1">
+                    {img.issues.map((iss, i) => (
+                      <div key={i} className="flex items-start gap-1.5 text-xs text-[#FF4569]">
+                        <AlertCircle className="size-3.5 shrink-0 text-[#FF4569] mt-0.5" />
+                        <span>{iss}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Gợi ý hình ảnh */}
+                {img.suggestion && (
+                  <div className="rounded-lg border border-[#E8B85D]/30 bg-[#081126] px-3 py-2 text-xs flex items-center justify-between gap-2 [html.light_&]:bg-amber-50/50 [html.light_&]:border-amber-200">
+                    <div className="space-y-0.5">
+                      <span className="text-[11px] font-bold text-[#E8B85D] block [html.light_&]:text-amber-800">Gợi ý hình ảnh:</span>
+                      <span className="text-slate-200 [html.light_&]:text-slate-800">{img.suggestion}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => onClick?.(`[Gợi ý ảnh ${getSourceLabel(img.source)}] ${img.suggestion}`)}
+                      className="shrink-0 inline-flex items-center gap-0.5 font-medium text-[9px] text-[#E8B85D] hover:text-[#F3F4F6] [html.light_&]:text-amber-700 [html.light_&]:hover:text-amber-800 transition cursor-pointer ml-2"
+                      title="Bấm để sao chép vào ghi chú"
+                    >
+                      <span>+</span>
+                      <span>Thêm</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       ) : visionItems.length > 0 ? (
         <div className="space-y-2.5">
           {visionItems.map((img, idx) => (
-            <div key={idx} className="rounded-xl border border-slate-800 bg-slate-950/60 p-3 space-y-1">
-              <span className="text-xs font-semibold text-slate-100">{getSourceLabel(img.source)}</span>
+            <div key={idx} className="rounded-xl border border-[#263751] bg-[#1A2940] p-3 space-y-1 [html.light_&]:bg-white [html.light_&]:border-slate-200">
+              <span className="text-sm font-bold text-slate-100 [html.light_&]:text-[#0D1B2A]">{getSourceLabel(img.source)}</span>
               <p className="text-xs text-slate-300 leading-relaxed line-clamp-3">{img.description}</p>
             </div>
           ))}
@@ -1426,6 +1482,7 @@ export function AdminEventReviewDetailPage() {
   )
 
   const handleStartAi = () => {
+    setIsAiExpanded(true)
     setIsManuallyCancelled(false)
     setIsScanningActive(true)
     try { localStorage.setItem(`eh_ai_scanning_${eventId}`, 'true') } catch { }
@@ -1467,6 +1524,7 @@ export function AdminEventReviewDetailPage() {
     defaultValues: { review_note: '' },
   })
   const [isNoteExpanded, setIsNoteExpanded] = useState(false)
+  const [isAiExpanded, setIsAiExpanded] = useState(true)
   const reviewNoteWatch = watch('review_note') || ''
   const hasNote = Boolean(reviewNoteWatch.trim())
   const noteLinesCount = reviewNoteWatch.split('\n').filter(Boolean).length
@@ -1805,7 +1863,7 @@ export function AdminEventReviewDetailPage() {
           ) : event.display_state === 'SUSPENDED_BY_ADMIN' ? (
             <Badge tone="red">Bị đình chỉ</Badge>
           ) : event.pending_revision && event.pending_revision.status === 'SUBMITTED' ? (
-            <Badge tone="amber">Sửa đổi chờ duyệt</Badge>
+            <Badge tone="purple">Sửa đổi chờ duyệt</Badge>
           ) : event.sales_status === 'PAUSED' ? (
             <Badge tone="amber">Tạm dừng bán vé</Badge>
           ) : (
@@ -1814,15 +1872,6 @@ export function AdminEventReviewDetailPage() {
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          {(event.display_state === 'VISIBLE' || event.display_state === 'PUBLIC' || !event.display_state) && event.status === 'PUBLISHED' && (
-            <button
-              type="button"
-              onClick={handleSuspendEvent}
-              className="rounded-full bg-rose-500/10 border border-rose-500/30 px-3.5 py-1.5 text-xs font-semibold text-rose-300 hover:bg-rose-500/20 transition cursor-pointer"
-            >
-              Đình chỉ sự kiện
-            </button>
-          )}
           {event.display_state === 'SUSPENDED_BY_ADMIN' && (
             <button
               type="button"
@@ -2121,32 +2170,30 @@ export function AdminEventReviewDetailPage() {
                 </p>
               )}
 
-              <div className="mb-8 grid gap-4 sm:grid-cols-2">
-                <div className="flex items-start gap-4 rounded-[24px] border border-white/5 bg-white/[0.02] p-5 shadow-inner transition hover:-translate-y-1 hover:bg-white/[0.04] [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
-                  <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-indigo-500/10 text-indigo-400 ring-1 ring-indigo-500/20 [html.light_&]:bg-indigo-50 [html.light_&]:text-indigo-600">
-                    <Calendar className="size-6" />
-                  </div>
+              <div className="mb-8 space-y-3.5">
+                {/* Thời gian */}
+                <div className="flex items-start gap-3">
+                  <Calendar className="size-5 shrink-0 text-[#C99A47] mt-0.5" />
                   <div>
-                    <p className="text-xs font-black uppercase tracking-widest text-white [html.light_&]:text-slate-700">
+                    <p className="text-xs font-black uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">
                       {isEnglish ? 'Time' : 'Thời gian'}
                     </p>
-                    <p className="mt-1 text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">
-                      {isEnglish ? 'Start:' : 'Bắt đầu:'} <span className="font-semibold text-slate-300 [html.light_&]:text-slate-700">{formatDate(event.start_time)}</span>
-                    </p>
-                    <p className="text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">
-                      {isEnglish ? 'End:' : 'Kết thúc:'} <span className="font-semibold text-slate-300 [html.light_&]:text-slate-700">{formatDate(event.end_time)}</span>
+                    <p className="mt-0.5 text-sm font-semibold text-slate-200 [html.light_&]:text-[#0D1B2A]">
+                      {isEnglish ? 'Start:' : 'Bắt đầu:'} <span className="font-normal text-slate-300 [html.light_&]:text-slate-700">{formatDate(event.start_time)}</span>
+                      <span className="mx-2 text-slate-500">•</span>
+                      {isEnglish ? 'End:' : 'Kết thúc:'} <span className="font-normal text-slate-300 [html.light_&]:text-slate-700">{formatDate(event.end_time)}</span>
                     </p>
                   </div>
                 </div>
-                <div className="flex items-start gap-4 rounded-[24px] border border-white/5 bg-white/[0.02] p-5 shadow-inner transition hover:-translate-y-1 hover:bg-white/[0.04] [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
-                  <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-rose-500/10 text-rose-400 ring-1 ring-rose-500/20 [html.light_&]:bg-rose-50 [html.light_&]:text-rose-600">
-                    <MapPin className="size-6" />
-                  </div>
+
+                {/* Địa điểm */}
+                <div className="flex items-start gap-3">
+                  <MapPin className="size-5 shrink-0 text-[#C99A47] mt-0.5" />
                   <div>
-                    <p className="text-xs font-black uppercase tracking-widest text-white [html.light_&]:text-slate-700">
+                    <p className="text-xs font-black uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">
                       {isEnglish ? 'Location' : 'Địa điểm'}
                     </p>
-                    <p className="mt-1 text-sm font-medium text-slate-300 [html.light_&]:text-slate-700">
+                    <p className="mt-0.5 text-sm font-medium text-slate-300 [html.light_&]:text-slate-700 leading-relaxed">
                       {cleanAndFormatVenue(
                         event.venue ||
                         event.venue_name ||
@@ -2188,11 +2235,11 @@ export function AdminEventReviewDetailPage() {
                     <div className="rounded-[24px] border border-white/5 bg-white/[0.02] p-5 shadow-inner space-y-4 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
                       <div className="flex items-center justify-between border-b border-white/10 [html.light_&]:border-slate-200 pb-3">
                         <div className="flex items-center gap-2">
-                          <ShieldCheck className="size-5 text-indigo-400" />
+                          <ShieldCheck className="size-5 text-[#C99A47]" />
                           <h3 className="font-display text-base font-black text-white [html.light_&]:text-[#0D1B2A]">Giấy phép & Tài liệu đính kèm</h3>
                         </div>
                         {permitsList.length > 0 && (
-                          <span className="rounded-full bg-indigo-500/15 px-2.5 py-0.5 text-[11px] font-bold text-indigo-300 border border-indigo-500/20 [html.light_&]:bg-indigo-50 [html.light_&]:text-indigo-700 [html.light_&]:border-indigo-200">
+                          <span className="rounded-full bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-bold text-amber-300 border border-amber-500/20 [html.light_&]:bg-amber-50 [html.light_&]:text-amber-800 [html.light_&]:border-amber-200">
                             {permitsList.length} tài liệu
                           </span>
                         )}
@@ -2208,18 +2255,9 @@ export function AdminEventReviewDetailPage() {
                                 key={permit.id || idx}
                                 className="group flex items-center justify-between py-2.5 px-2 rounded-xl transition hover:bg-white/[0.04] [html.light_&]:hover:bg-slate-100"
                               >
-                                <div className="flex items-center gap-3 overflow-hidden min-w-0">
-                                  <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-indigo-500/10 text-indigo-400 ring-1 ring-indigo-500/20 [html.light_&]:bg-indigo-50 [html.light_&]:text-indigo-600">
-                                    {permit.type.includes('pdf') ? (
-                                      <FileText className="size-4" />
-                                    ) : permit.type.includes('image') ? (
-                                      <ImageIcon className="size-4" />
-                                    ) : (
-                                      <FileCheck className="size-4" />
-                                    )}
-                                  </div>
+                                <div className="flex items-center gap-3 overflow-hidden min-w-0 flex-1">
                                   <div className="min-w-0">
-                                    <span className="truncate block text-sm font-bold text-white [html.light_&]:text-[#0D1B2A] group-hover:text-indigo-200 transition" title={permit.name}>
+                                    <span className="truncate block text-sm font-bold text-white [html.light_&]:text-[#0D1B2A] group-hover:text-amber-200 transition" title={permit.name}>
                                       {permit.name}
                                     </span>
                                     <div className="flex items-center gap-1.5 text-xs text-slate-400 [html.light_&]:text-slate-500 mt-0.5">
@@ -2255,7 +2293,7 @@ export function AdminEventReviewDetailPage() {
                                             extractedText: matchingDocAnalysis?.extractedText || matchingVision?.extractedText || null,
                                           })
                                         }}
-                                        className="grid size-8 place-items-center rounded-lg bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 hover:text-white transition shadow-sm cursor-pointer"
+                                        className="grid size-8 place-items-center rounded-lg border border-white/10 bg-[#1c2747] text-slate-300 hover:border-amber-400/50 hover:bg-[#25335c] hover:text-amber-400 transition shadow-sm cursor-pointer"
                                         title="Xem tài liệu trực tiếp & văn bản AI trích xuất"
                                       >
                                         <Eye className="size-4" />
@@ -2279,7 +2317,7 @@ export function AdminEventReviewDetailPage() {
                 {/* Event Sessions */}
                 <div className="rounded-[24px] border border-white/5 bg-white/[0.02] p-5 shadow-inner space-y-4 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
                   <div className="flex items-center gap-2 border-b border-white/10 [html.light_&]:border-slate-200 pb-3">
-                    <Calendar className="size-5 text-indigo-400" />
+                    <Calendar className="size-5 text-[#C99A47]" />
                     <h3 className="font-display text-base font-black text-white [html.light_&]:text-[#0D1B2A]">Lịch trình các phiên</h3>
                   </div>
                   {event.sessions && event.sessions.length > 0 ? (
@@ -2309,7 +2347,7 @@ export function AdminEventReviewDetailPage() {
                 <div className="rounded-[24px] border border-white/5 bg-white/[0.02] p-5 shadow-inner space-y-4 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
                   <div className="flex items-center justify-between gap-3 border-b border-white/10 [html.light_&]:border-slate-200 pb-3 flex-nowrap overflow-x-auto">
                     <div className="flex items-center gap-2 shrink-0">
-                      <Tag className="size-5 text-indigo-400 shrink-0" />
+                      <Tag className="size-5 text-[#C99A47] shrink-0" />
                       <h3 className="font-display text-base font-black text-white [html.light_&]:text-[#0D1B2A] whitespace-nowrap">
                         {isEnglish ? 'Ticket Structure' : 'Cơ cấu loại vé'}
                       </h3>
@@ -2352,8 +2390,8 @@ export function AdminEventReviewDetailPage() {
                             type="button"
                             onClick={() => setTicketViewMode('grid')}
                             className={`flex items-center px-2.5 py-1 rounded-md text-xs font-bold transition whitespace-nowrap ${ticketViewMode === 'grid'
-                                ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-sm'
-                                : 'text-slate-400 hover:text-white [html.light_&]:text-slate-600 [html.light_&]:hover:text-[#0D1B2A]'
+                              ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-sm'
+                              : 'text-slate-400 hover:text-white [html.light_&]:text-slate-600 [html.light_&]:hover:text-[#0D1B2A]'
                               }`}
                             title={isEnglish ? 'View detailed card format' : 'Xem dạng thẻ chi tiết'}
                           >
@@ -2363,8 +2401,8 @@ export function AdminEventReviewDetailPage() {
                             type="button"
                             onClick={() => setTicketViewMode('table')}
                             className={`flex items-center px-2.5 py-1 rounded-md text-xs font-bold transition whitespace-nowrap ${ticketViewMode === 'table'
-                                ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-sm'
-                                : 'text-slate-400 hover:text-white [html.light_&]:text-slate-600 [html.light_&]:hover:text-[#0D1B2A]'
+                              ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-sm'
+                              : 'text-slate-400 hover:text-white [html.light_&]:text-slate-600 [html.light_&]:hover:text-[#0D1B2A]'
                               }`}
                             title={isEnglish ? 'View matrix table by session' : 'Xem bảng ma trận tổng hợp theo phiên'}
                           >
@@ -2381,9 +2419,9 @@ export function AdminEventReviewDetailPage() {
                       <button
                         type="button"
                         onClick={() => setSelectedTicketSessionId('ALL')}
-                        className={`px-3 py-1.5 rounded-lg font-bold transition whitespace-nowrap ${selectedTicketSessionId === 'ALL'
-                            ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-sm'
-                            : 'bg-white/5 text-slate-400 border border-white/10 hover:text-white hover:bg-white/10 hover:border-[#C99A47]/40 [html.light_&]:bg-white [html.light_&]:text-slate-600 [html.light_&]:border-slate-200 [html.light_&]:hover:bg-slate-100 [html.light_&]:hover:text-[#0D1B2A]'
+                        className={`px-3 py-1.5 rounded-lg transition whitespace-nowrap ${selectedTicketSessionId === 'ALL'
+                          ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-sm font-black'
+                          : 'bg-white/5 text-slate-200 font-bold border border-white/10 hover:text-white hover:bg-white/10 hover:border-[#C99A47]/40 [html.light_&]:bg-white [html.light_&]:text-slate-800 [html.light_&]:border-slate-300 [html.light_&]:hover:bg-slate-100 [html.light_&]:hover:text-[#0D1B2A]'
                           }`}
                       >
                         {isEnglish ? `All sessions (${event.sessions.length})` : `Tất cả các phiên (${event.sessions.length})`}
@@ -2405,9 +2443,9 @@ export function AdminEventReviewDetailPage() {
                             key={sess.id || sIdx}
                             type="button"
                             onClick={() => setSelectedTicketSessionId(sId)}
-                            className={`px-3 py-1.5 rounded-lg font-bold transition whitespace-nowrap ${isSelected
-                                ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-sm'
-                                : 'bg-white/5 text-slate-400 border border-white/10 hover:text-white hover:bg-white/10 hover:border-[#C99A47]/40 [html.light_&]:bg-white [html.light_&]:text-slate-600 [html.light_&]:border-slate-200 [html.light_&]:hover:bg-slate-100 [html.light_&]:hover:text-[#0D1B2A]'
+                            className={`px-3 py-1.5 rounded-lg transition whitespace-nowrap ${isSelected
+                              ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-sm font-black'
+                              : 'bg-white/5 text-slate-200 font-bold border border-white/10 hover:text-white hover:bg-white/10 hover:border-[#C99A47]/40 [html.light_&]:bg-white [html.light_&]:text-slate-800 [html.light_&]:border-slate-300 [html.light_&]:hover:bg-slate-100 [html.light_&]:hover:text-[#0D1B2A]'
                               }`}
                           >
                             {label}
@@ -2462,8 +2500,8 @@ export function AdminEventReviewDetailPage() {
                                 </td>
                                 <td className="py-3 px-3.5 text-center whitespace-nowrap">
                                   <span className={`inline-flex items-center justify-center whitespace-nowrap text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${t.is_seated
-                                      ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30'
-                                      : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                                    ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30'
+                                    : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
                                     }`}>
                                     {t.is_seated ? (isEnglish ? 'Seat' : 'Ghế ngồi') : (isEnglish ? 'Standing' : 'Vé tự do')}
                                   </span>
@@ -2535,8 +2573,8 @@ export function AdminEventReviewDetailPage() {
                                   </h4>
                                   <span
                                     className={`inline-flex items-center whitespace-nowrap text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${ticket.is_seated
-                                        ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30'
-                                        : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                                      ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30'
+                                      : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
                                       }`}
                                   >
                                     {ticket.is_seated ? (isEnglish ? 'Seat' : 'Ghế ngồi') : (isEnglish ? 'Standing' : 'Vé tự do')}
@@ -2642,24 +2680,28 @@ export function AdminEventReviewDetailPage() {
                 {/* Refund Policy */}
                 <div className="rounded-[24px] border border-white/5 bg-white/[0.02] p-5 shadow-inner space-y-4 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
                   <div className="flex items-center gap-2 border-b border-white/10 [html.light_&]:border-slate-200 pb-3">
-                    <FileText className="size-5 text-indigo-400" />
+                    <FileText className="size-5 text-[#C99A47]" />
                     <h3 className="font-display text-base font-black text-white [html.light_&]:text-[#0D1B2A]">Chính sách hoàn tiền sự kiện</h3>
                   </div>
-                  <p className="text-xs leading-relaxed text-slate-300 [html.light_&]:text-slate-700 whitespace-pre-wrap">
-                    {typeof event.refund_policy === 'string'
-                      ? event.refund_policy
-                      : event.refund_policy?.description ||
-                      (event.refund_policy && typeof event.refund_policy === 'object' && Object.keys(event.refund_policy).length > 0
-                        ? (event.refund_policy.allow_refund
-                          ? `Cho phép hoàn vé trước ${event.refund_policy.refund_before_days || 0} ngày (Tỷ lệ: ${event.refund_policy.refund_rate || 100}%)`
-                          : 'Sự kiện không hỗ trợ hoàn tiền.')
-                        : 'Áp dụng chính sách hoàn vé tiêu chuẩn của EventHub.')}
-                  </p>
+                  <div className="text-sm font-medium leading-relaxed text-slate-200 [html.light_&]:text-slate-800">
+                    <div className="flex items-start gap-2.5">
+                      <span className="text-[#C99A47] font-black shrink-0 text-base leading-none mt-0.5">•</span>
+                      <span>
+                        {typeof event.refund_policy === 'string'
+                          ? event.refund_policy
+                          : event.refund_policy?.description ||
+                          (event.refund_policy && typeof event.refund_policy === 'object' && Object.keys(event.refund_policy).length > 0
+                            ? (event.refund_policy.allow_refund
+                              ? `Cho phép hoàn vé trước ${event.refund_policy.refund_before_days || 0} ngày (Tỷ lệ: ${event.refund_policy.refund_rate || 100}%)`
+                              : 'Sự kiện không hỗ trợ hoàn tiền.')
+                            : 'Áp dụng chính sách hoàn vé tiêu chuẩn của EventHub.')}
+                      </span>
+                    </div>
+                  </div>
 
                   {event.refund_policy?.policy_file_url && (
                     <div className="mt-2 flex items-center justify-between py-2.5 px-2 rounded-xl transition hover:bg-white/[0.04] [html.light_&]:hover:bg-slate-100">
-                      <div className="flex items-center gap-3 overflow-hidden min-w-0">
-                        <FileText className="size-5 shrink-0 text-indigo-400" />
+                      <div className="flex items-center gap-3 overflow-hidden min-w-0 flex-1">
                         <div className="min-w-0">
                           <p className="truncate text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">
                             {event.refund_policy.policy_file_name || 'Tài liệu chính sách hoàn tiền đính kèm.pdf'}
@@ -2704,92 +2746,103 @@ export function AdminEventReviewDetailPage() {
         </div>
         {/* Right Column: AI Assistant & Actions - ONLY FOR PENDING_REVIEW */}
         {isPendingReview && (
-          <div className="flex w-full lg:w-[440px] xl:w-[480px] 2xl:w-[500px] shrink-0 flex-col gap-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-110px)] min-h-0">
-            {/* Top Card: AI Review Panel */}
-            <div className="flex flex-1 flex-col overflow-hidden bg-slate-950/80 rounded-[28px] border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)] backdrop-blur-xl min-h-0 [html.light_&]:bg-white [html.light_&]:border-[#C99A47]/30 [html.light_&]:shadow-lg">
-              {/* AI Assistant Header (Fixed on top of AI card) */}
-              <div className="shrink-0 px-4 py-3 border-b border-white/10 flex items-center justify-between gap-2 [html.light_&]:border-slate-200">
-                <div className="flex items-center gap-2 min-w-0">
-                  <div className="grid size-8 place-items-center rounded-xl bg-indigo-500/10 ring-1 ring-indigo-500/20 text-indigo-400 shrink-0 [html.light_&]:bg-indigo-50 [html.light_&]:text-indigo-600">
-                    <Bot className="size-4" />
+          isAiExpanded ? (
+            <div className="relative flex w-full lg:w-[440px] xl:w-[480px] 2xl:w-[500px] shrink-0 flex-col gap-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-110px)] min-h-0 transition-all duration-300">
+              {/* Nút mũi tên thu gọn ở viền ngoài cùng của khung (thu vô chiều ngang) */}
+              <button
+                type="button"
+                onClick={() => setIsAiExpanded(false)}
+                className="absolute right-4 top-3.5 lg:-left-3.5 lg:top-5 lg:right-auto z-30 flex size-7 items-center justify-center rounded-full border border-white/20 bg-slate-900 text-[#C99A47] shadow-[0_2px_12px_rgba(0,0,0,0.6)] backdrop-blur transition-all duration-200 hover:scale-110 hover:bg-[#C99A47] hover:text-slate-950 hover:border-[#E6C17A] [html.light_&]:bg-white [html.light_&]:border-[#C99A47] [html.light_&]:text-[#C99A47] [html.light_&]:hover:bg-[#C99A47] [html.light_&]:hover:text-white cursor-pointer"
+                title={isEnglish ? 'Collapse panel horizontally' : 'Thu gọn bảng AI (thu vô lề phải)'}
+              >
+                <ChevronRight className="size-4" />
+              </button>
+
+              {/* Top Card: AI Review Panel */}
+              <div className="flex flex-1 flex-col overflow-hidden bg-[#081126] rounded-[24px] border border-[#263751] shadow-[0_8px_32px_rgba(0,0,0,0.4)] backdrop-blur-xl min-h-0 [html.light_&]:bg-white [html.light_&]:border-slate-200 [html.light_&]:shadow-lg">
+                {/* AI Assistant Header (Fixed on top of AI card) */}
+                <div className="shrink-0 px-4 py-3 border-b border-[#263751] bg-[#101D32]/95 backdrop-blur-md flex items-center justify-between gap-2 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="grid size-8 place-items-center rounded-xl bg-[#A78BFA]/15 border border-[#A78BFA]/30 text-[#A78BFA] shrink-0 [html.light_&]:bg-purple-50 [html.light_&]:text-purple-700">
+                      <Bot className="size-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <h2 className="font-display text-xs sm:text-sm font-black text-slate-100 drop-shadow-sm tracking-tight uppercase whitespace-nowrap [html.light_&]:text-[#0D1B2A]">
+                        AI Review Assistant
+                      </h2>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <h2 className="font-display text-xs sm:text-sm font-black text-white drop-shadow-sm tracking-tight uppercase truncate [html.light_&]:text-[#0D1B2A]">
-                      AI Review Assistant
-                    </h2>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setIsCriteriaOpen(true)}
+                      className="inline-flex items-center gap-1.5 h-8 rounded-xl border border-[#263751] bg-[#1A2940] px-2.5 text-xs font-bold text-slate-300 shadow-sm transition hover:bg-[#101D32] hover:text-[#E8B85D] hover:border-[#E8B85D]/50 active:scale-95 cursor-pointer whitespace-nowrap [html.light_&]:bg-slate-100 [html.light_&]:border-slate-300 [html.light_&]:text-[#0D1B2A] [html.light_&]:hover:bg-slate-200"
+                      title="Cấu hình bộ tiêu chí & điều khoản AI"
+                    >
+                      <ShieldCheck className="size-3.5 text-[#E8B85D] shrink-0" />
+                      <span className="hidden sm:inline">{isEnglish ? 'Criteria' : 'Điều khoản'}</span>
+                    </button>
+
+                    {isScanningThisEvent ? (
+                      <button
+                        type="button"
+                        onClick={handleCancelAi}
+                        disabled={cancelAiMutation.isPending}
+                        className="inline-flex items-center gap-1.5 h-8 rounded-xl border border-[#FF4569]/60 bg-gradient-to-r from-[#FF4569] to-red-600 px-2.5 text-xs font-black tracking-wide text-white shadow-lg shadow-rose-950/50 backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:from-rose-500 hover:to-red-500 active:scale-95 disabled:opacity-50 cursor-pointer whitespace-nowrap"
+                        title="Dừng và hủy ngay tiến trình quét AI đang chạy"
+                      >
+                        <Square className="size-3.5 fill-white text-white animate-pulse shrink-0" />
+                        <span>{cancelAiMutation.isPending ? 'Đang dừng...' : 'Hủy quét'}</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleStartAi}
+                        disabled={runAiMutation.isPending || aiReviewQuery.isLoading}
+                        className="btn-led-gold-sm active:scale-95 cursor-pointer h-8"
+                        title="Chạy lại kiểm duyệt tự động bằng AI"
+                      >
+                        <span className="btn-led-gold-sm-inner !py-1 !px-2.5 !text-xs whitespace-nowrap">
+                          <RefreshCw className={`size-3.5 ${runAiMutation.isPending ? 'animate-spin' : ''} shrink-0`} />
+                          <span>{rawAiReview ? (isEnglish ? 'Re-run AI' : 'Chạy lại AI') : (isEnglish ? 'Run AI' : 'Chạy AI')}</span>
+                        </span>
+                      </button>
+                    )}
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setIsCriteriaOpen(true)}
-                    className="inline-flex items-center gap-1.5 h-8 rounded-xl border border-white/10 bg-white/5 px-2.5 text-xs font-semibold text-slate-200 shadow-sm transition hover:bg-white/10 hover:text-white hover:border-white/20 active:scale-95 cursor-pointer whitespace-nowrap [html.light_&]:bg-slate-100 [html.light_&]:border-slate-300 [html.light_&]:text-[#0D1B2A] [html.light_&]:hover:bg-slate-200"
-                    title="Cấu hình bộ tiêu chí & điều khoản AI"
-                  >
-                    <ShieldCheck className="size-3.5 text-indigo-400 [html.light_&]:text-indigo-600 shrink-0" />
-                    <span>Điều khoản AI</span>
-                  </button>
-
-                  {isScanningThisEvent ? (
-                    <button
-                      type="button"
-                      onClick={handleCancelAi}
-                      disabled={cancelAiMutation.isPending}
-                      className="inline-flex items-center gap-1.5 h-8 rounded-xl border border-rose-500/60 bg-gradient-to-r from-rose-600 via-rose-500 to-red-600 px-3 text-xs font-black tracking-wide text-white shadow-lg shadow-rose-950/50 backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:from-rose-500 hover:to-red-500 active:scale-95 disabled:opacity-50 cursor-pointer whitespace-nowrap"
-                      title="Dừng và hủy ngay tiến trình quét AI đang chạy"
-                    >
-                      <Square className="size-3.5 fill-white text-white animate-pulse shrink-0" />
-                      <span>{cancelAiMutation.isPending ? 'Đang dừng...' : 'Hủy quét'}</span>
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={handleStartAi}
-                      disabled={runAiMutation.isPending || aiReviewQuery.isLoading}
-                      className="btn-led-gold-sm active:scale-95 cursor-pointer h-8"
-                      title="Chạy lại kiểm duyệt tự động bằng AI"
-                    >
-                      <span className="btn-led-gold-sm-inner !py-1 !px-2.5 !text-xs whitespace-nowrap">
-                        <RefreshCw className={`size-3.5 ${runAiMutation.isPending ? 'animate-spin' : ''} shrink-0`} />
-                        <span>{rawAiReview ? 'Chạy lại AI' : 'Chạy AI'}</span>
-                      </span>
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* AI Info Scrollable Area */}
-              <div className={`flex-1 overflow-y-auto p-5 ${customScrollbar}`}>
+                {/* AI Info Scrollable Area */}
+                <div className={`flex-1 overflow-y-auto p-4 space-y-3.5 ${customScrollbar}`}>
                 {/* Active AI Scanning Progress State */}
                 {isScanningThisEvent && (
-                  <div className="mb-4 rounded-2xl border border-indigo-500/30 bg-slate-900/90 p-4 shadow-sm backdrop-blur-md [html.light_&]:bg-indigo-50 [html.light_&]:border-indigo-200">
+                  <div className="rounded-2xl border border-[#A78BFA]/30 bg-[#101D32] p-4 shadow-sm backdrop-blur-md [html.light_&]:bg-purple-50/50 [html.light_&]:border-purple-200">
                     <div className="flex items-start gap-3">
-                      <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-indigo-500/20 text-indigo-400 mt-0.5 [html.light_&]:bg-indigo-100 [html.light_&]:text-indigo-700">
+                      <div className="grid size-9 shrink-0 place-items-center rounded-xl bg-[#A78BFA]/15 text-[#A78BFA] mt-0.5">
                         <RefreshCw className="size-4 animate-spin" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between">
-                          <h4 className="text-xs font-bold text-indigo-300 [html.light_&]:text-indigo-900">
+                          <h4 className="text-xs font-bold text-[#A78BFA]">
                             AI đang phân tích & kiểm duyệt sự kiện...
                           </h4>
-                          <span className="flex items-center gap-1.5 text-[11px] font-semibold text-rose-300 bg-rose-950/40 border border-rose-500/30 px-2.5 py-0.5 rounded-lg [html.light_&]:bg-rose-50 [html.light_&]:text-rose-700 [html.light_&]:border-rose-200">
-                            <span className="size-1.5 rounded-full bg-rose-400 animate-ping" />
-                            Có thể bấm "Hủy quét" ở trên để dừng
+                          <span className="flex items-center gap-1.5 text-[11px] font-semibold text-[#FF4569] bg-[#FF4569]/10 border border-[#FF4569]/30 px-2.5 py-0.5 rounded-lg">
+                            <span className="size-1.5 rounded-full bg-[#FF4569] animate-ping" />
+                            Có thể bấm &quot;Hủy quét&quot; ở trên để dừng
                           </span>
                         </div>
-                        <div className="mt-2 space-y-1.5 text-xs text-slate-300 [html.light_&]:text-slate-700">
+                        <div className="mt-2 space-y-1.5 text-xs text-slate-300">
                           <p className="flex items-center gap-2">
-                            <span className="inline-block size-1.5 rounded-full bg-indigo-400 animate-ping" />
+                            <span className="inline-block size-1.5 rounded-full bg-[#A78BFA] animate-ping" />
                             <span><strong>Giai đoạn 1:</strong> Vision Model quét và kiểm tra an toàn từng hình ảnh...</span>
                           </p>
                           <p className="flex items-center gap-2">
-                            <span className="inline-block size-1.5 rounded-full bg-amber-400 animate-ping" />
+                            <span className="inline-block size-1.5 rounded-full bg-[#E8B85D] animate-ping" />
                             <span><strong>Giai đoạn 2:</strong> Qwen3 8B rà soát chính tả & đối chiếu bộ điều khoản...</span>
                           </p>
                         </div>
-                        <p className="mt-2 text-[10px] text-slate-400 [html.light_&]:text-slate-500 italic">
-                          Quá trình quét và đối chiếu toàn diện mất khoảng 30 - 60 giây. Bấm nút "Hủy quét" ở trên nếu bạn muốn dừng ngay lập tức.
+                        <p className="mt-2 text-[10px] text-slate-400 italic">
+                          Quá trình quét và đối chiếu toàn diện mất khoảng 30 - 60 giây. Bấm nút &quot;Hủy quét&quot; ở trên nếu bạn muốn dừng ngay lập tức.
                         </p>
                       </div>
                     </div>
@@ -2798,18 +2851,18 @@ export function AdminEventReviewDetailPage() {
 
                 {/* Empty State: AI Review Not Run Yet */}
                 {!aiData && !isScanningThisEvent && (
-                  <div className="my-6 rounded-2xl border border-slate-800 bg-slate-900/50 p-8 text-center backdrop-blur-sm [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
-                    <div className="mx-auto mb-3 grid size-12 place-items-center rounded-2xl bg-indigo-500/10 text-indigo-400 ring-1 ring-indigo-500/20 [html.light_&]:bg-indigo-50 [html.light_&]:text-indigo-600">
+                  <div className="my-6 rounded-2xl border border-[#263751] bg-[#101D32] p-8 text-center backdrop-blur-sm [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                    <div className="mx-auto mb-3 grid size-12 place-items-center rounded-2xl bg-[#A78BFA]/15 text-[#A78BFA] border border-[#A78BFA]/30">
                       <Bot className="size-6" />
                     </div>
-                    <h3 className="font-display text-base font-bold text-white [html.light_&]:text-[#0D1B2A]">Chưa chạy AI Đánh giá</h3>
+                    <h3 className="font-display text-base font-bold text-slate-100 [html.light_&]:text-[#0D1B2A]">Chưa chạy AI Đánh giá</h3>
                     <p className="mt-1 text-xs text-slate-400 [html.light_&]:text-slate-600 max-w-xs mx-auto leading-relaxed">
                       Sự kiện này chưa được AI kiểm duyệt. Bấm nút bên dưới để AI quét hình ảnh bằng Vision, soát lỗi chính tả và đối chiếu chính sách nền tảng.
                     </p>
                     <button
                       type="button"
                       onClick={handleStartAi}
-                      className="mt-5 inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-xs font-bold text-white shadow-md transition hover:bg-indigo-500 cursor-pointer"
+                      className="mt-5 inline-flex items-center gap-2 rounded-xl border border-[#E8B85D]/40 bg-gradient-to-r from-[#E8B85D] to-[#F3D698] px-5 py-2.5 text-xs font-bold text-[#081126] shadow-md transition hover:brightness-110 active:scale-95 cursor-pointer"
                     >
                       <Sparkles className="size-4" />
                       Bắt đầu Phân tích AI ngay
@@ -2817,255 +2870,278 @@ export function AdminEventReviewDetailPage() {
                   </div>
                 )}
 
-                {/* Full AI Review Results */}
-                {aiData && (
-                  <>
-                    {/* Recommendation Banner */}
-                    <StatusBanner recommendation={aiData.recommendation} summary={aiData.summary} />
+                  {/* Full AI Review Results */}
+                  {aiData && (
+                    <>
+                      {/* B. Unified AI Executive Summary Card */}
+                      <AiExecutiveSummaryCard aiData={aiData} />
 
-                    {/* Quality & Risk Meters */}
-                    <div className="mb-4 grid grid-cols-2 gap-3 rounded-2xl border border-slate-800 bg-slate-900/60 p-3.5 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
-                      <div>
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-slate-400 [html.light_&]:text-slate-600 font-medium">Chất lượng thông tin</span>
-                          <span className="font-bold text-emerald-400 [html.light_&]:text-emerald-700">{aiData.quality_score}/100</span>
-                        </div>
-                        <div className="mt-2 h-1.5 w-full rounded-full bg-slate-800 [html.light_&]:bg-slate-200 overflow-hidden">
-                          <div
-                            className="h-full bg-emerald-500 rounded-full transition-all duration-500"
-                            style={{ width: `${Math.min(100, Math.max(0, aiData.quality_score))}%` }}
-                          />
-                        </div>
+                      {/* Quick action header */}
+                      <div className="mb-3 flex items-center justify-between border-b border-[#263751] pb-2 [html.light_&]:border-slate-200">
+                        <span className="text-xs font-black uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">
+                          {isEnglish ? 'Detailed policy analysis' : 'Chi tiết phát hiện & Phân tích chính sách'}
+                        </span>
+                        {totalIssuesCount > 0 && (
+                          <button
+                            type="button"
+                            onClick={handleCopyAllIssues}
+                            className="grid size-7 place-items-center rounded-lg border border-[#263751] bg-[#1A2940] text-[#E8B85D] hover:bg-[#101D32] hover:text-[#F3F4F6] hover:border-[#E8B85D]/50 transition cursor-pointer active:scale-95 shadow-sm [html.light_&]:bg-slate-100 [html.light_&]:border-slate-300 [html.light_&]:text-amber-700 [html.light_&]:hover:bg-slate-200"
+                            title={isEnglish ? 'Copy all violations and warnings into review notes' : 'Sao chép toàn bộ lỗi vi phạm và cảnh báo vào ô ghi chú kiểm duyệt'}
+                          >
+                            <Copy className="size-3.5" />
+                          </button>
+                        )}
                       </div>
 
-                      <div>
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-slate-400 [html.light_&]:text-slate-600 font-medium">Chỉ số rủi ro</span>
-                          <span className={`font-bold ${aiData.risk_score > 50 ? 'text-rose-400 [html.light_&]:text-rose-700' : aiData.risk_score > 20 ? 'text-amber-400 [html.light_&]:text-amber-700' : 'text-emerald-400 [html.light_&]:text-emerald-700'}`}>
-                            {aiData.risk_score}/100
-                          </span>
-                        </div>
-                        <div className="mt-2 h-1.5 w-full rounded-full bg-slate-800 [html.light_&]:bg-slate-200 overflow-hidden">
-                          <div
-                            className={`h-full rounded-full transition-all duration-500 ${aiData.risk_score > 50 ? 'bg-rose-500' : aiData.risk_score > 20 ? 'bg-amber-500' : 'bg-emerald-500'}`}
-                            style={{ width: `${Math.min(100, Math.max(0, aiData.risk_score))}%` }}
+                      <div className="space-y-4">
+                        {/* 🔴 CRITICAL VIOLATIONS */}
+                        {aiData.critical_violations && aiData.critical_violations.length > 0 ? (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-[#FF4569]">
+                                <ShieldAlert className="size-3.5 text-[#FF4569]" />
+                                {isEnglish ? 'Critical violations' : 'Vi phạm nghiêm trọng'} ({aiData.critical_violations.length})
+                              </span>
+                            </div>
+                            <div className="space-y-2">
+                              {aiData.critical_violations.map((v, idx) => (
+                                <PolicyViolationCard key={idx} item={v} onClick={handleWarningClick} />
+                              ))}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 rounded-xl border border-[#10B981]/30 bg-[#10B981]/10 px-3 py-2.5 text-xs text-[#10B981] font-medium">
+                            <ShieldCheck className="size-4 text-[#10B981] shrink-0" />
+                            <span>{isEnglish ? 'No critical policy violations detected (0 red flags)' : 'Không phát hiện vi phạm chính sách nghiêm trọng (0 lỗi đỏ)'}</span>
+                          </div>
+                        )}
+
+                        {/* 🟡 WARNINGS / CAUTIONS */}
+                        {aiData.warnings && aiData.warnings.length > 0 && (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-[#F59E0B]">
+                                <AlertTriangle className="size-3.5 text-[#F59E0B]" />
+                                {isEnglish ? 'Warnings & Notices' : 'Cảnh báo & Cần lưu ý'} ({aiData.warnings.length})
+                              </span>
+                            </div>
+                            <div className="space-y-2">
+                              {aiData.warnings.map((w, idx) => (
+                                <PolicyWarningCard key={idx} item={w} onClick={handleWarningClick} />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 📝 SOÁT LỖI TIÊU ĐỀ, MÔ TẢ & CHÍNH TẢ */}
+                        {aiData.content_review && (
+                          <ContentSpellingAuditCard
+                            contentReview={aiData.content_review}
+                            event={event}
+                            onClick={handleWarningClick}
                           />
-                        </div>
+                        )}
+
+                        {/* 📄 KIỂM DUYỆT TÀI LIỆU GIẤY PHÉP */}
+                        {(aiData.document_review || aiData.document_analysis) && (
+                          <DocumentModerationAuditCard
+                            documentReview={aiData.document_review}
+                            documentAnalysis={aiData.document_analysis}
+                            onPreviewDoc={setPreviewDoc}
+                            onClick={handleWarningClick}
+                          />
+                        )}
+
+                        {/* 🖼️ KIỂM DUYỆT HÌNH ẢNH & OCR */}
+                        {(aiData.image_review || aiData.vision_analysis) && (
+                          <ImageModerationAuditCard
+                            imageReview={aiData.image_review}
+                            visionAnalysis={aiData.vision_analysis}
+                            event={event}
+                            onClick={handleWarningClick}
+                          />
+                        )}
+
+                        {/* 🟢 COMPLIANT CHECKS */}
+                        {aiData.compliant_checks && aiData.compliant_checks.length > 0 && (
+                          <div className="space-y-2">
+                            <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-[#10B981]">
+                              <CheckCircle2 className="size-3.5 text-[#10B981]" />
+                              {isEnglish ? 'Compliant criteria' : 'Tiêu chí đạt chuẩn'} ({aiData.compliant_checks.length})
+                            </span>
+                            <div className="space-y-1 pl-1">
+                              {aiData.compliant_checks.map((c, idx) => (
+                                <CompliantCheckItem key={idx} check={c} />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* 💡 SUGGESTIONS */}
+                        {aiData.suggestions && aiData.suggestions.length > 0 && (
+                          <div className="space-y-2.5 pt-1">
+                            <div className="flex items-center justify-between">
+                              <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-[#E8B85D]">
+                                <Sparkles className="size-3.5 text-[#E8B85D]" />
+                                {isEnglish ? 'Adjustment suggestions for Organizer' : 'Gợi ý điều chỉnh cho BTC'} ({aiData.suggestions.length})
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const allSuggestions = aiData.suggestions
+                                    .map(s => {
+                                      const raw = typeof s === 'string' ? s : s.text || JSON.stringify(s)
+                                      return `• ${raw}`
+                                    })
+                                    .join('\n')
+                                  handleWarningClick(`[${isEnglish ? 'Suggestions for Organizer' : 'Gợi ý cho BTC'}]\n${allSuggestions}`)
+                                }}
+                                className="inline-flex items-center gap-1 text-[8px] font-medium text-[#E8B85D] hover:text-[#F3F4F6] transition cursor-pointer shrink-0"
+                                title={isEnglish ? 'Click to copy all suggestions into notes' : 'Bấm để thêm toàn bộ gợi ý vào ghi chú'}
+                              >
+                                <span>+</span>
+                                <span>{isEnglish ? 'Add to notes' : 'Thêm vào ghi chú'}</span>
+                              </button>
+                            </div>
+                            <ul className="space-y-2 pl-1">
+                              {aiData.suggestions.map((s, idx) => (
+                                <SuggestionCard key={idx} suggestion={s} onClick={handleWarningClick} />
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                       </div>
-                    </div>
 
-                    {/* Quick action header */}
-                    <div className="mb-3 flex items-center justify-between border-b border-slate-800 [html.light_&]:border-slate-200 pb-2">
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 [html.light_&]:text-slate-600">
-                        {isEnglish ? 'Detailed policy analysis' : 'Chi tiết phân tích chính sách'}
-                      </span>
-                      {totalIssuesCount > 0 && (
-                        <button
-                          type="button"
-                          onClick={handleCopyAllIssues}
-                          className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-400 hover:text-indigo-300 transition cursor-pointer"
-                          title={isEnglish ? 'Copy all violations and warnings into review notes' : 'Sao chép toàn bộ lỗi vi phạm và cảnh báo vào ô ghi chú kiểm duyệt'}
-                        >
-                          <FileCheck className="size-3" />
-                          <span>{isEnglish ? 'Copy all errors' : 'Sao chép tất cả lỗi'}</span>
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="space-y-4">
-                      {/* 🔴 CRITICAL VIOLATIONS (MÀU ĐỎ) */}
-                      {aiData.critical_violations && aiData.critical_violations.length > 0 ? (
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-rose-400">
-                              <ShieldAlert className="size-3.5" />
-                              {isEnglish ? 'Critical violations' : 'Vi phạm nghiêm trọng'} ({aiData.critical_violations.length})
-                            </span>
-                          </div>
-                          <div className="space-y-2">
-                            {aiData.critical_violations.map((v, idx) => (
-                              <PolicyViolationCard key={idx} item={v} onClick={handleWarningClick} />
-                            ))}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-slate-900/80 px-3 py-2.5 text-xs text-emerald-300 font-medium">
-                          <ShieldCheck className="size-4 text-emerald-400 shrink-0" />
-                          <span>{isEnglish ? 'No critical policy violations detected (0 red flags)' : 'Không phát hiện vi phạm chính sách nghiêm trọng (0 lỗi đỏ)'}</span>
-                        </div>
-                      )}
-
-                      {/* 🟡 WARNINGS / CAUTIONS (MÀU VÀNG) */}
-                      {aiData.warnings && aiData.warnings.length > 0 && (
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-amber-400">
-                              <AlertTriangle className="size-3.5" />
-                              {isEnglish ? 'Warnings & Notices' : 'Cảnh báo & Cần lưu ý'} ({aiData.warnings.length})
-                            </span>
-                          </div>
-                          <div className="space-y-2">
-                            {aiData.warnings.map((w, idx) => (
-                              <PolicyWarningCard key={idx} item={w} onClick={handleWarningClick} />
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* 📝 SOÁT LỖI TIÊU ĐỀ, MÔ TẢ & CHÍNH TẢ */}
-                      {aiData.content_review && (
-                        <ContentSpellingAuditCard
-                          contentReview={aiData.content_review}
-                          event={event}
-                          onClick={handleWarningClick}
-                        />
-                      )}
-
-                      {/* 📄 KIỂM DUYỆT TÀI LIỆU GIẤY PHÉP (ĐỘC LẬP VỚI HÌNH ẢNH) */}
-                      {(aiData.document_review || aiData.document_analysis) && (
-                        <DocumentModerationAuditCard
-                          documentReview={aiData.document_review}
-                          documentAnalysis={aiData.document_analysis}
-                          onPreviewDoc={setPreviewDoc}
-                          onClick={handleWarningClick}
-                        />
-                      )}
-
-                      {/* 🖼️ KIỂM DUYỆT HÌNH ẢNH & OCR */}
-                      {(aiData.image_review || aiData.vision_analysis) && (
-                        <ImageModerationAuditCard
-                          imageReview={aiData.image_review}
-                          visionAnalysis={aiData.vision_analysis}
-                          onClick={handleWarningClick}
-                        />
-                      )}
-
-                      {/* 🟢 COMPLIANT CHECKS (MÀU XANH LÁ) */}
-                      {aiData.compliant_checks && aiData.compliant_checks.length > 0 && (
-                        <div className="space-y-2">
-                          <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-emerald-400">
-                            <CheckCircle2 className="size-3.5" />
-                            {isEnglish ? 'Compliant criteria' : 'Tiêu chí đạt chuẩn'} ({aiData.compliant_checks.length})
-                          </span>
-                          <div className="space-y-1.5">
-                            {aiData.compliant_checks.map((c, idx) => (
-                              <CompliantCheckItem key={idx} check={c} />
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* 💡 SUGGESTIONS (MÀU VÀNG HỔ PHÁCH) */}
-                      {aiData.suggestions && aiData.suggestions.length > 0 && (
-                        <div className="space-y-2">
-                          <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-amber-400">
-                            <Sparkles className="size-3.5" />
-                            {isEnglish ? 'Adjustment suggestions for Organizer' : 'Gợi ý điều chỉnh cho BTC'} ({aiData.suggestions.length})
-                          </span>
-                          <div className="space-y-1.5">
-                            {aiData.suggestions.map((s, idx) => (
-                              <SuggestionCard key={idx} suggestion={s} onClick={handleWarningClick} />
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    <p className="mt-4 text-center text-[10px] text-slate-500 italic">
-                      {isEnglish ? 'Click each item to automatically insert into review notes below.' : 'Bấm vào từng mục để tự động chèn vào ghi chú kiểm duyệt bên dưới.'}
-                    </p>
-                  </>
-                )}
-              </div>
-            </div>
-
-            {/* Bottom Card: Admin Action Form Area (Tách thành 1 khối riêng bên dưới) */}
-            <div className="shrink-0 bg-slate-950/95 rounded-[22px] border border-white/10 p-3.5 shadow-[0_8px_32px_rgba(0,0,0,0.4)] backdrop-blur-xl transition-all duration-300 [html.light_&]:bg-white [html.light_&]:border-[#C99A47]/30 [html.light_&]:shadow-lg">
-              {/* Header: Note toggle & AI suggestion */}
-              <div className="flex items-center justify-between gap-2 mb-2.5">
-                <button
-                  type="button"
-                  onClick={() => setIsNoteExpanded(!isNoteExpanded)}
-                  className="flex items-center gap-1.5 text-xs font-bold text-slate-300 hover:text-white transition group cursor-pointer [html.light_&]:text-[#0D1B2A] [html.light_&]:hover:text-amber-800"
-                  title={isNoteExpanded ? (isEnglish ? 'Click to collapse notes' : 'Bấm để thu gọn ô ghi chú') : (isEnglish ? 'Click to expand notes' : 'Bấm để mở rộng ô ghi chú')}
-                >
-                  <span>{isEnglish ? 'Review notes' : 'Ghi chú kiểm duyệt'}</span>
-                  {hasNote ? (
-                    <span className="rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-black px-2 py-0.5 border border-amber-500/30 animate-pulse">
-                      {noteLinesCount} {isEnglish ? (noteLinesCount > 1 ? 'items' : 'item') : 'mục'}
-                    </span>
-                  ) : (
-                    <span className="text-[10px] text-slate-500 font-normal group-hover:text-slate-400 [html.light_&]:text-slate-500">
-                      {isEnglish ? '(Optional)' : '(Tùy chọn)'}
-                    </span>
+                      <p className="mt-4 text-center text-[10px] text-slate-500 italic">
+                        {isEnglish ? 'Click each item to automatically insert into review notes below.' : 'Bấm vào từng mục để tự động chèn vào ghi chú kiểm duyệt bên dưới.'}
+                      </p>
+                    </>
                   )}
-                  {isNoteExpanded ? (
-                    <ChevronUp className="size-3.5 text-slate-400 group-hover:text-white transition-transform [html.light_&]:text-slate-600" />
-                  ) : (
-                    <ChevronDown className="size-3.5 text-slate-400 group-hover:text-white transition-transform [html.light_&]:text-slate-600" />
-                  )}
-                </button>
-
-                {aiData?.recommendation && (
-                  <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${aiData.recommendation === 'APPROVE'
-                    ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400 [html.light_&]:bg-emerald-50 [html.light_&]:text-emerald-700 [html.light_&]:border-emerald-200'
-                    : aiData.recommendation === 'REJECT'
-                      ? 'border-rose-500/30 bg-rose-500/10 text-rose-400 [html.light_&]:bg-rose-50 [html.light_&]:text-rose-700 [html.light_&]:border-rose-200'
-                      : 'border-amber-500/30 bg-amber-500/10 text-amber-400 [html.light_&]:bg-amber-50 [html.light_&]:text-amber-700 [html.light_&]:border-amber-200'
-                    }`}>
-                    {isEnglish ? 'AI Suggestion: ' : 'Gợi ý AI: '}
-                    {aiData.recommendation === 'APPROVE'
-                      ? (isEnglish ? 'Approve' : 'Phê duyệt')
-                      : aiData.recommendation === 'REJECT'
-                        ? (isEnglish ? 'Reject' : 'Từ chối')
-                        : (isEnglish ? 'Needs revision' : 'Cần sửa đổi')}
-                  </span>
-                )}
-              </div>
-
-              {/* Expandable Note Textarea */}
-              {isNoteExpanded && (
-                <div className="mb-2.5">
-                  <div className="mb-1 text-[10px] text-slate-400 [html.light_&]:text-slate-600">
-                    <span>{isEnglish ? 'Enter or click AI suggestions above to insert into notes' : 'Nhập hoặc bấm gợi ý AI ở trên để tự chèn vào ghi chú'}</span>
-                  </div>
-                  <textarea
-                    {...register('review_note')}
-                    placeholder={isEnglish ? 'Enter review notes to send to organizer...' : 'Nhập ghi chú gửi cho Ban tổ chức...'}
-                    className={`h-20 w-full resize-y rounded-xl border border-white/10 bg-black/50 p-2.5 text-xs font-medium text-white shadow-inner outline-none transition-all placeholder:text-slate-500 focus:border-amber-400/50 focus:bg-black/70 focus:ring-1 focus:ring-amber-400/50 [html.light_&]:bg-[#FAF5EC] [html.light_&]:border-[#C99A47]/30 [html.light_&]:text-[#0D1B2A] [html.light_&]:placeholder:text-slate-400 ${customScrollbar}`}
-                  />
                 </div>
-              )}
+              </div>
 
-              {/* Decision Action Buttons */}
-              <div className="grid gap-2.5 grid-cols-2">
-                <button
-                  type="button"
-                  onClick={() => onSubmitReview('REJECTED')}
-                  disabled={isPending}
-                  className="w-full disabled:cursor-not-allowed disabled:opacity-50 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 hover:border-white/25 text-slate-300 hover:text-white px-0 py-2.5 text-xs font-black shadow-sm transition cursor-pointer active:scale-95 [html.light_&]:bg-slate-100 [html.light_&]:border-slate-300 [html.light_&]:text-[#0D1B2A] [html.light_&]:hover:bg-slate-200"
-                >
-                  {event?.cancel_request?.status === 'PENDING'
-                    ? (isEnglish ? 'Reject cancellation' : 'Từ chối hủy')
-                    : event?.pending_revision
-                      ? (isEnglish ? 'Reject revision' : 'Từ chối sửa đổi')
-                      : (isEnglish ? 'Reject' : 'Từ chối')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onSubmitReview('APPROVED')}
-                  disabled={isPending}
-                  className="admin-primary w-full disabled:cursor-not-allowed disabled:opacity-50 !px-0 !py-2.5 rounded-xl font-black text-xs shadow-lg cursor-pointer"
-                >
-                  {event?.cancel_request?.status === 'PENDING'
-                    ? (isEnglish ? 'Approve cancellation' : 'Phê duyệt hủy')
-                    : event?.pending_revision
-                      ? (isEnglish ? 'Approve revision' : 'Phê duyệt sửa đổi')
-                      : (isEnglish ? 'Approve' : 'Phê duyệt')}
-                </button>
+              {/* Bottom Card: Admin Action Form Area (Tách thành 1 khối riêng bên dưới) */}
+              <div className="shrink-0 bg-slate-950/95 rounded-[22px] border border-white/10 p-3.5 shadow-[0_8px_32px_rgba(0,0,0,0.4)] backdrop-blur-xl transition-all duration-300 [html.light_&]:bg-white [html.light_&]:border-[#C99A47]/30 [html.light_&]:shadow-lg">
+                {/* Header: Note toggle & AI suggestion */}
+                <div className="flex items-center justify-between gap-2 mb-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setIsNoteExpanded(!isNoteExpanded)}
+                    className="flex items-center gap-1.5 text-xs font-bold text-slate-300 hover:text-white transition group cursor-pointer [html.light_&]:text-[#0D1B2A] [html.light_&]:hover:text-amber-800"
+                    title={isNoteExpanded ? (isEnglish ? 'Click to collapse notes' : 'Bấm để thu gọn ô ghi chú') : (isEnglish ? 'Click to expand notes' : 'Bấm để mở rộng ô ghi chú')}
+                  >
+                    <span>
+                      {isEnglish
+                        ? (hasNote ? 'Review notes' : 'Review notes (Optional)')
+                        : (hasNote ? 'Ghi chú kiểm duyệt' : 'Ghi chú kiểm duyệt (Tùy chọn)')}
+                    </span>
+                    {hasNote && (
+                      <span className="rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-black px-2 py-0.5 border border-amber-500/30 animate-pulse">
+                        {noteLinesCount} {isEnglish ? (noteLinesCount > 1 ? 'items' : 'item') : 'mục'}
+                      </span>
+                    )}
+                    {isNoteExpanded ? (
+                      <ChevronUp className="size-3.5 text-slate-400 group-hover:text-white transition-transform [html.light_&]:text-slate-600" />
+                    ) : (
+                      <ChevronDown className="size-3.5 text-slate-400 group-hover:text-white transition-transform [html.light_&]:text-slate-600" />
+                    )}
+                  </button>
+
+                  {aiData?.recommendation && (
+                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${aiData.recommendation === 'APPROVE'
+                      ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400 [html.light_&]:bg-emerald-50 [html.light_&]:text-emerald-700 [html.light_&]:border-emerald-200'
+                      : aiData.recommendation === 'REJECT'
+                        ? 'border-rose-500/30 bg-rose-500/10 text-rose-400 [html.light_&]:bg-rose-50 [html.light_&]:text-rose-700 [html.light_&]:border-rose-200'
+                        : 'border-amber-500/30 bg-amber-500/10 text-amber-400 [html.light_&]:bg-amber-50 [html.light_&]:text-amber-700 [html.light_&]:border-amber-200'
+                      }`}>
+                      {isEnglish
+                        ? `AI Suggestion: ${aiData.recommendation === 'APPROVE' ? 'Approve' : aiData.recommendation === 'REJECT' ? 'Reject' : 'Needs revision'}`
+                        : `Gợi ý AI: ${aiData.recommendation === 'APPROVE' ? 'Phê duyệt' : aiData.recommendation === 'REJECT' ? 'Từ chối' : 'Cần sửa đổi'}`}
+                    </span>
+                  )}
+                </div>
+
+                {/* Expandable Note Textarea */}
+                {isNoteExpanded && (
+                  <div className="mb-2.5">
+                    <div className="mb-1 text-[10px] text-slate-400 [html.light_&]:text-slate-600">
+                      <span>{isEnglish ? 'Enter or click AI suggestions above to insert into notes' : 'Nhập hoặc bấm gợi ý AI ở trên để tự chèn vào ghi chú'}</span>
+                    </div>
+                    <textarea
+                      {...register('review_note')}
+                      placeholder={isEnglish ? 'Enter review notes to send to organizer...' : 'Nhập ghi chú gửi cho Ban tổ chức...'}
+                      className={`h-20 w-full resize-y rounded-xl border border-white/10 bg-black/50 p-2.5 text-xs font-medium text-white shadow-inner outline-none transition-all placeholder:text-slate-500 focus:border-amber-400/50 focus:bg-black/70 focus:ring-1 focus:ring-amber-400/50 [html.light_&]:bg-[#FAF5EC] [html.light_&]:border-[#C99A47]/30 [html.light_&]:text-[#0D1B2A] [html.light_&]:placeholder:text-slate-400 ${customScrollbar}`}
+                    />
+                  </div>
+                )}
+
+                {/* Decision Action Buttons */}
+                <div className="grid gap-2.5 grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => onSubmitReview('REJECTED')}
+                    disabled={isPending}
+                    className="w-full disabled:cursor-not-allowed disabled:opacity-50 rounded-full border border-white/15 bg-white/5 hover:bg-white/10 hover:border-white/25 text-slate-300 hover:text-white px-0 py-2.5 text-xs font-black shadow-sm transition cursor-pointer active:scale-95 [html.light_&]:bg-slate-100 [html.light_&]:border-slate-300 [html.light_&]:text-[#0D1B2A] [html.light_&]:hover:bg-slate-200"
+                  >
+                    {event?.cancel_request?.status === 'PENDING'
+                      ? (isEnglish ? 'Reject cancellation' : 'Từ chối hủy')
+                      : event?.pending_revision
+                        ? (isEnglish ? 'Reject revision' : 'Từ chối sửa đổi')
+                        : (isEnglish ? 'Reject' : 'Từ chối')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onSubmitReview('APPROVED')}
+                    disabled={isPending}
+                    className="admin-primary w-full disabled:cursor-not-allowed disabled:opacity-50 !px-0 !py-2.5 rounded-full font-black text-xs shadow-lg cursor-pointer"
+                  >
+                    {event?.cancel_request?.status === 'PENDING'
+                      ? (isEnglish ? 'Approve cancellation' : 'Phê duyệt hủy')
+                      : event?.pending_revision
+                        ? (isEnglish ? 'Approve revision' : 'Phê duyệt sửa đổi')
+                        : (isEnglish ? 'Approve' : 'Phê duyệt')}
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
+          ) : (
+            /* Collapsed Dock Bar (Mở ra / Expand horizontally) */
+            <div className="shrink-0 lg:sticky lg:top-4 z-20 flex flex-col items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setIsAiExpanded(true)}
+                className="group flex flex-col items-center gap-2.5 rounded-2xl border border-white/10 bg-slate-950/90 py-4 px-2.5 shadow-xl hover:border-amber-400/60 hover:bg-slate-900 transition-all duration-200 cursor-pointer [html.light_&]:bg-white [html.light_&]:border-[#C99A47]/40 [html.light_&]:shadow-md"
+                title={isEnglish ? 'Expand AI Review Assistant' : 'Mở rộng bảng AI (mở ra)'}
+              >
+                <div className="grid size-8 place-items-center rounded-xl bg-amber-500/10 text-amber-400 ring-1 ring-amber-500/30 group-hover:scale-110 transition-transform">
+                  <ChevronLeft className="size-4" />
+                </div>
+                <Bot className="size-4 text-indigo-400" />
+                <span className="[writing-mode:vertical-rl] rotate-180 text-[11px] font-black uppercase tracking-wider text-slate-300 group-hover:text-amber-400 py-1 select-none [html.light_&]:text-[#0D1B2A]">
+                  AI Review Assistant
+                </span>
+                {aiData?.recommendation && (
+                  <span className={`size-2.5 rounded-full ${aiData.recommendation === 'APPROVE'
+                    ? 'bg-emerald-400'
+                    : aiData.recommendation === 'REJECT'
+                      ? 'bg-rose-400'
+                      : 'bg-amber-400'
+                    } animate-pulse`} />
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsAiExpanded(true)}
+                className="group flex flex-col items-center gap-1.5 rounded-2xl border border-white/10 bg-slate-950/90 py-3 px-2 shadow-lg hover:border-emerald-500/40 transition cursor-pointer [html.light_&]:bg-white [html.light_&]:border-slate-300"
+                title={isEnglish ? 'Open Decision Actions' : 'Mở bảng duyệt'}
+              >
+                <span className="[writing-mode:vertical-rl] rotate-180 text-[10px] font-bold uppercase tracking-wider text-emerald-400 select-none">
+                  {isEnglish ? 'Actions' : 'Phê duyệt'}
+                </span>
+              </button>
+            </div>
+          )
         )}
       </div>
 
