@@ -337,16 +337,9 @@ export function AdminDisputesPage() {
                 }`}
               >
                 <div>
-                  <div className="flex items-center justify-between">
-                    <p className="text-[12px] sm:text-[13px] font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">
-                      {isEnglish ? 'Pending Review' : 'Chờ xử lý'}
-                    </p>
-                    {Number(complaintStats.pending_complaints || 0) > 0 && (
-                      <span className="rounded-full border border-amber-500/40 bg-amber-500/20 px-2 py-0.5 text-[10px] font-extrabold text-amber-300">
-                        {isEnglish ? 'Action Required' : 'Cần xử lý'}
-                      </span>
-                    )}
-                  </div>
+                  <p className="text-[12px] sm:text-[13px] font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">
+                    {isEnglish ? 'Pending Review' : 'Chờ xử lý'}
+                  </p>
                   <p className="mt-2 font-mono text-2xl sm:text-3xl font-black text-white tracking-tight font-display drop-shadow-sm leading-tight [html.light_&]:text-[#0D1B2A]">
                     {complaintStats.pending_complaints || 0}
                   </p>
@@ -528,11 +521,11 @@ export function AdminDisputesPage() {
                       <p className="text-xs font-bold text-white [html.light_&]:text-[#0D1B2A]">
                         {item.customer_name || (isEnglish ? 'Customer' : 'Khách hàng')}
                       </p>
-                      <p className="text-[11px] text-slate-400 truncate">
+                      <p className="text-xs text-slate-400 truncate">
                         {item.contact_email || item.customer_email || ''}
                       </p>
                       {(item.contact_phone || item.customer_phone) && (
-                        <p className="text-[10px] text-slate-500 font-mono">
+                        <p className="text-xs text-slate-400 font-mono">
                           {item.contact_phone || item.customer_phone}
                         </p>
                       )}
@@ -563,7 +556,7 @@ export function AdminDisputesPage() {
 
                     // 4. Danh mục
                     <div key="category">
-                      <span className={`inline-block rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${getCategoryBadgeClass(item.category)}`}>
+                      <span className={`inline-block rounded-full border px-3 py-1 text-xs font-bold ${getCategoryBadgeClass(item.category)}`}>
                         {getLocalizedCategoryLabel(item.category, isEnglish)}
                       </span>
                     </div>,
@@ -586,7 +579,7 @@ export function AdminDisputesPage() {
 
                     // 6. Trạng thái
                     <div key="status">
-                      <span className={`inline-block rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${getStatusBadgeClass(item.status)}`}>
+                      <span className={`inline-block rounded-full border px-3 py-1 text-xs font-bold ${getStatusBadgeClass(item.status)}`}>
                         {getLocalizedStatusLabel(item.status, isEnglish)}
                       </span>
                       {item.admin_note && (
@@ -619,7 +612,7 @@ export function AdminDisputesPage() {
                     <span>
                       {isEnglish ? 'Complaint' : 'Khiếu nại'} #{complaintDetailModalItem.id?.slice(0, 8)}
                     </span>
-                    <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${getStatusBadgeClass(complaintDetailModalItem.status)}`}>
+                    <span className={`rounded-full border px-3 py-1 text-xs font-bold ${getStatusBadgeClass(complaintDetailModalItem.status)}`}>
                       {getLocalizedStatusLabel(complaintDetailModalItem.status, isEnglish)}
                     </span>
                   </div>
@@ -720,7 +713,7 @@ export function AdminDisputesPage() {
                   {/* Complaint Details Box */}
                   <div className="rounded-xl border border-white/10 bg-[#121c38]/50 p-4 space-y-2.5 [html.light_&]:border-slate-200 [html.light_&]:bg-slate-50/70 [html.light_&]:text-[#0D1B2A]">
                     <div className="flex items-center justify-between">
-                      <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${getCategoryBadgeClass(complaintDetailModalItem.category)}`}>
+                      <span className={`rounded-full border px-3 py-1 text-xs font-bold ${getCategoryBadgeClass(complaintDetailModalItem.category)}`}>
                         {getLocalizedCategoryLabel(complaintDetailModalItem.category, isEnglish)}
                       </span>
                     </div>
@@ -862,16 +855,9 @@ export function AdminDisputesPage() {
                 }`}
               >
                 <div>
-                  <div className="flex items-center justify-between">
-                    <p className="text-[12px] sm:text-[13px] font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">
-                      {isEnglish ? 'Disputed Refunds' : 'Đang khiếu nại'}
-                    </p>
-                    {unresolvedRefundCount > 0 && (
-                      <span className="rounded-full border border-amber-500/40 bg-amber-500/20 px-2 py-0.5 text-[10px] font-extrabold text-amber-300">
-                        {isEnglish ? 'Action Required' : 'Cần xử lý'}
-                      </span>
-                    )}
-                  </div>
+                  <p className="text-[12px] sm:text-[13px] font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">
+                    {isEnglish ? 'Disputed Refunds' : 'Đang khiếu nại'}
+                  </p>
                   <p className="mt-2 font-mono text-2xl sm:text-3xl font-black text-white tracking-tight font-display drop-shadow-sm leading-tight [html.light_&]:text-[#0D1B2A]">
                     {unresolvedRefundCount}
                   </p>
@@ -1079,13 +1065,13 @@ export function AdminDisputesPage() {
                     // 6. Đối soát từ BTC
                     <div key="proof" className="space-y-1">
                       {hasProof ? (
-                        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-300 [html.light_&]:text-emerald-800">
-                          <CheckCircle2 className="size-3 text-emerald-400 [html.light_&]:text-emerald-700" />
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-300 [html.light_&]:text-emerald-800">
+                          <CheckCircle2 className="size-3.5 text-emerald-400 [html.light_&]:text-emerald-700" />
                           {isEnglish ? 'Proof / Txn Ref provided' : 'Đã có mã GD / biên lai'}
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold text-amber-300 [html.light_&]:text-amber-800">
-                          <AlertCircle className="size-3 text-amber-400 [html.light_&]:text-amber-700" />
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-300 [html.light_&]:text-amber-800">
+                          <AlertCircle className="size-3.5 text-amber-400 [html.light_&]:text-amber-700" />
                           {isEnglish ? 'Missing proof' : 'Chưa có chứng từ'}
                         </span>
                       )}

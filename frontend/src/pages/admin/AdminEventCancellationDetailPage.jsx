@@ -377,8 +377,8 @@ export function AdminEventCancellationDetailPage() {
             </span>
           )}
           {isApproved && (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-xs font-semibold text-red-400 [html.light_&]:bg-red-50 [html.light_&]:text-red-700 [html.light_&]:border-red-300">
-              <CheckCircle2 className="size-3.5" />
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-500/60 bg-rose-500/25 px-3.5 py-1 text-xs font-black tracking-wide text-rose-200 shadow-[0_0_14px_rgba(244,63,94,0.35)] backdrop-blur-md [html.light_&]:bg-[#ffe4e6] [html.light_&]:text-[#9f1239] [html.light_&]:border-[#f43f5e] [html.light_&]:shadow-sm">
+              <CheckCircle2 className="size-3.5 text-rose-300" />
               {isEnglish ? 'Cancellation Approved' : 'Đã phê duyệt hủy'}
             </span>
           )}
@@ -459,8 +459,7 @@ export function AdminEventCancellationDetailPage() {
                     <span className="text-sm font-semibold text-slate-400 [html.light_&]:text-slate-600 block mb-1">
                       {isEnglish ? 'Refund Method:' : 'Phương thức hoàn tiền:'}
                     </span>
-                    <span className="font-semibold text-white [html.light_&]:text-[#0D1B2A] flex items-center gap-1.5">
-                      <Coins className="size-3.5 text-[#C99A47] [html.light_&]:text-[#C99A47]" />
+                    <span className="font-semibold text-white [html.light_&]:text-[#0D1B2A] block">
                       {cancelRequest?.refund_mode === 'MODE_A'
                         ? (isEnglish ? 'Automatic via PayOS' : 'Tự động qua cổng PayOS')
                         : (isEnglish ? 'Manual VietQR Transfer' : 'Chuyển khoản thủ công VietQR')}
@@ -472,8 +471,7 @@ export function AdminEventCancellationDetailPage() {
                   <span className="text-sm font-semibold text-slate-400 [html.light_&]:text-slate-600 block mb-1">
                     {isEnglish ? 'Refund Commitment:' : 'Cam kết hoàn tiền:'}
                   </span>
-                  <span className="font-semibold text-emerald-400 [html.light_&]:text-emerald-700 flex items-center gap-1.5">
-                    <ShieldCheck className="size-3.5 text-emerald-400 [html.light_&]:text-emerald-600" />
+                  <span className="font-semibold text-emerald-400 [html.light_&]:text-emerald-700 block">
                     {isEnglish ? 'Committed 100% Liability' : 'Đã cam kết trách nhiệm 100%'}
                   </span>
                 </div>
@@ -700,8 +698,7 @@ export function AdminEventCancellationDetailPage() {
                 <span className="text-slate-400 [html.light_&]:text-slate-600 block">
                   {isEnglish ? 'Contact Email' : 'Email liên hệ'}
                 </span>
-                <span className="font-semibold text-white [html.light_&]:text-[#0D1B2A] flex items-center gap-1.5 truncate">
-                  <Mail className="size-3.5 text-[#C99A47] [html.light_&]:text-[#C99A47] shrink-0" />
+                <span className="font-semibold text-white [html.light_&]:text-[#0D1B2A] block truncate">
                   {event.organizer_email || '—'}
                 </span>
               </div>
@@ -711,8 +708,7 @@ export function AdminEventCancellationDetailPage() {
                   <span className="text-slate-400 [html.light_&]:text-slate-600 block">
                     {isEnglish ? 'Phone Number' : 'Số điện thoại'}
                   </span>
-                  <span className="font-semibold text-white [html.light_&]:text-[#0D1B2A] flex items-center gap-1.5">
-                    <Phone className="size-3.5 text-[#C99A47] [html.light_&]:text-[#C99A47]" />
+                  <span className="font-semibold text-white [html.light_&]:text-[#0D1B2A] block">
                     {event.organizer_phone}
                   </span>
                 </div>
@@ -722,8 +718,7 @@ export function AdminEventCancellationDetailPage() {
                 <span className="text-slate-400 [html.light_&]:text-slate-600 block">
                   {isEnglish ? 'Event Schedule' : 'Thời gian diễn ra'}
                 </span>
-                <span className="font-semibold text-white [html.light_&]:text-[#0D1B2A] flex items-center gap-1.5">
-                  <Calendar className="size-3.5 text-[#C99A47] [html.light_&]:text-[#C99A47]" />
+                <span className="font-semibold text-white [html.light_&]:text-[#0D1B2A] block">
                   {formatDate(event.start_time)}
                 </span>
               </div>
@@ -895,38 +890,30 @@ export function AdminEventCancellationDetailPage() {
               </form>
             ) : (
               /* Already Processed */
-              <div className="mt-5 space-y-4">
-                <div className="rounded-xl border border-white/10 bg-[#121c38] p-4 text-center [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+              <div className="mt-4">
+                <div className="py-6 px-2 text-center">
                   {isApproved ? (
                     <>
-                      <CheckCircle2 className="mx-auto size-7 text-red-400 [html.light_&]:text-red-600 mb-2" />
+                      <CheckCircle2 className="mx-auto size-8 text-rose-400 [html.light_&]:text-rose-600 mb-2.5" />
                       <h4 className="font-bold text-sm text-white [html.light_&]:text-[#0D1B2A]">
                         {isEnglish ? 'Request has been approved' : 'Yêu cầu đã được phê duyệt'}
                       </h4>
-                      <p className="mt-1 text-xs text-slate-400 [html.light_&]:text-slate-600">
+                      <p className="mt-1.5 text-xs text-slate-300 [html.light_&]:text-slate-600 max-w-sm mx-auto leading-relaxed">
                         {isEnglish ? 'Event is cancelled and 100% refund list has been automatically created.' : 'Sự kiện đã hủy và danh sách hoàn tiền đã được tạo tự động.'}
                       </p>
                     </>
                   ) : (
                     <>
-                      <XCircle className="mx-auto size-7 text-slate-400 [html.light_&]:text-slate-600 mb-2" />
+                      <XCircle className="mx-auto size-8 text-slate-400 [html.light_&]:text-slate-600 mb-2.5" />
                       <h4 className="font-bold text-sm text-white [html.light_&]:text-[#0D1B2A]">
                         {isEnglish ? 'Request has been rejected' : 'Yêu cầu đã bị từ chối'}
                       </h4>
-                      <p className="mt-1 text-xs text-slate-400 [html.light_&]:text-slate-600">
+                      <p className="mt-1.5 text-xs text-slate-300 [html.light_&]:text-slate-600 max-w-sm mx-auto leading-relaxed">
                         {isEnglish ? 'Administrator has rejected the cancellation request. Event continues operations.' : 'Ban Quản trị đã từ chối yêu cầu hủy. Sự kiện tiếp tục hoạt động.'}
                       </p>
                     </>
                   )}
                 </div>
-
-                <Link
-                  to="/admin/events/review"
-                  className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-[#121c38] py-2.5 px-4 text-xs font-semibold text-white hover:bg-white/10 transition [html.light_&]:bg-white [html.light_&]:border-slate-300 [html.light_&]:text-[#0D1B2A] [html.light_&]:hover:bg-slate-100"
-                >
-                  <ArrowLeft className="size-4" />
-                  {isEnglish ? 'Back to event review list' : 'Quay lại danh sách duyệt sự kiện'}
-                </Link>
               </div>
             )}
           </div>

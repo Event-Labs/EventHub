@@ -238,31 +238,21 @@ export function AdminReviewCriteriaModal({ isOpen, onClose }) {
       <div className="relative flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-indigo-500/30 bg-[#0F172A] shadow-2xl shadow-indigo-950/80 [html.light_&]:bg-white [html.light_&]:border-slate-200 [html.light_&]:text-[#0D1B2A] [html.light_&]:shadow-xl">
         {/* Modal Header */}
         <div className="flex items-center justify-between border-b border-slate-800 bg-slate-900/90 px-6 py-4 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
-          <div className="flex items-center gap-3">
-            <div className="grid size-10 place-items-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-md shadow-indigo-500/30">
-              <ShieldCheck className="size-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-display text-lg font-black text-white [html.light_&]:text-[#0D1B2A]">
-                  Cấu hình Điều khoản & Tiêu chí Duyệt Sự kiện AI
-                </h3>
-                <span className="rounded-full border border-indigo-500/40 bg-indigo-500/20 px-2.5 py-0.5 text-xs font-bold text-indigo-300 [html.light_&]:bg-indigo-50 [html.light_&]:text-indigo-700 [html.light_&]:border-indigo-200">
-                  {activeCount} / {criteria.length} Đang áp dụng
-                </span>
-              </div>
-              <p className="text-xs text-slate-400 [html.light_&]:text-slate-600">
-                Thêm, sửa, xóa tiêu chí kiểm duyệt. AI sẽ tự động đọc trực tiếp bộ điều khoản này mỗi khi thẩm định sự kiện.
-              </p>
-            </div>
+          <div className="flex items-center gap-2.5">
+            <h3 className="font-display text-lg font-black text-white [html.light_&]:text-[#0D1B2A]">
+              Cấu hình Điều khoản & Tiêu chí Duyệt Sự kiện AI
+            </h3>
+            <span className="rounded-full border border-amber-500/40 bg-amber-500/20 px-2.5 py-0.5 text-xs font-bold text-amber-300 [html.light_&]:bg-amber-50 [html.light_&]:text-amber-800 [html.light_&]:border-amber-200">
+              {activeCount} / {criteria.length} Đang áp dụng
+            </span>
           </div>
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={openAddForm}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 px-3.5 py-2 text-xs font-black text-white shadow-md shadow-indigo-600/30 transition duration-200 hover:from-indigo-500 hover:to-indigo-400"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] border border-[#E6C17A]/40 px-3.5 py-2 text-xs font-black shadow-md shadow-amber-900/30 transition duration-200 hover:brightness-110 active:scale-95 cursor-pointer"
             >
-              <Plus className="size-4" />
+              <Plus className="size-4 text-[#0D1B2A]" />
               <span>Thêm điều khoản mới</span>
             </button>
             <button
@@ -318,7 +308,7 @@ export function AdminReviewCriteriaModal({ isOpen, onClose }) {
                 type="checkbox"
                 checked={showActiveOnly}
                 onChange={(e) => setShowActiveOnly(e.target.checked)}
-                className="size-4 rounded border-slate-700 bg-slate-950 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                className="size-4 rounded border-slate-700 bg-slate-950 accent-[#C99A47] cursor-pointer"
               />
               <span>Chỉ hiện điều khoản đang bật</span>
             </label>
@@ -493,49 +483,35 @@ export function AdminReviewCriteriaModal({ isOpen, onClose }) {
           )}
         </div>
 
-        {/* Modal Footer */}
-        <div className="flex items-center justify-between border-t border-slate-800 bg-slate-900/80 px-6 py-3.5">
-          <div className="text-xs text-slate-400">
-            Tổng cộng: <strong className="text-white">{filteredCriteria.length}</strong> điều khoản
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-xl bg-slate-800 px-5 py-2 text-xs font-bold text-slate-200 hover:bg-slate-700 transition"
-          >
-            Đóng
-          </button>
-        </div>
-
         {/* ============================================================ */}
         {/* ADD / EDIT CRITERION SUB-MODAL */}
         {/* ============================================================ */}
         {isFormOpen && (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-fadeIn">
-            <div className="w-full max-w-xl overflow-hidden rounded-2xl border border-indigo-500/50 bg-[#0F172A] shadow-2xl shadow-indigo-950">
-              <div className="flex items-center justify-between border-b border-slate-800 bg-slate-900/90 px-5 py-3.5">
-                <div className="flex items-center gap-2.5">
-                  <div className="grid size-8 place-items-center rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
-                    <FileText className="size-4" />
-                  </div>
-                  <h4 className="font-display text-base font-black text-white">
-                    {editingItem ? 'Chỉnh sửa Điều khoản duyệt AI' : 'Thêm Điều khoản duyệt AI mới'}
-                  </h4>
-                </div>
+            <form
+              onSubmit={handleSubmitForm}
+              className="flex flex-col w-full max-w-2xl max-h-[88vh] overflow-hidden rounded-2xl border border-white/15 bg-[#0b1329] text-white shadow-2xl shadow-black/90 [html.light_&]:border-slate-200 [html.light_&]:bg-white [html.light_&]:text-[#0D1B2A]"
+            >
+              {/* Pinned Header */}
+              <header className="shrink-0 flex items-center justify-between gap-4 border-b border-white/10 bg-[#111c3a] px-6 py-4 [html.light_&]:border-slate-200 [html.light_&]:bg-slate-50">
+                <h3 className="min-w-0 truncate font-display text-lg font-black text-white [html.light_&]:text-[#0D1B2A]">
+                  {editingItem ? 'Chỉnh sửa Điều khoản duyệt AI' : 'Thêm Điều khoản duyệt AI mới'}
+                </h3>
                 <button
                   type="button"
                   onClick={closeForm}
-                  className="grid size-7 place-items-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition"
+                  className="grid size-8 shrink-0 place-items-center rounded-full text-slate-400 transition hover:bg-white/10 hover:text-white [html.light_&]:text-slate-500 [html.light_&]:hover:bg-slate-200/60 [html.light_&]:hover:text-slate-800"
                 >
                   <X className="size-4" />
                 </button>
-              </div>
+              </header>
 
-              <form onSubmit={handleSubmitForm} className="p-5 space-y-4 max-h-[75vh] overflow-y-auto">
+              {/* Scrollable Form Body */}
+              <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5 bg-[#0b1329] space-y-4 [html.light_&]:bg-white">
                 {/* Code & Title Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-300">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">
                       Mã điều khoản <span className="text-rose-400">*</span>
                     </label>
                     <input
@@ -544,12 +520,12 @@ export function AdminReviewCriteriaModal({ isOpen, onClose }) {
                       placeholder="VD: LEGAL_PERMIT"
                       value={formData.code}
                       onChange={(e) => setFormData((prev) => ({ ...prev, code: e.target.value.toUpperCase().replace(/\s+/g, '_') }))}
-                      className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs font-mono font-bold text-indigo-300 placeholder-slate-600 focus:border-indigo-500 focus:outline-none"
+                      className="w-full rounded-lg border border-white/15 bg-[#0d172e] px-3 py-2.5 text-sm font-mono font-bold text-indigo-300 placeholder-slate-500 focus:border-amber-400/60 focus:ring-1 focus:ring-amber-400/30 focus:outline-none transition [html.light_&]:bg-slate-50 [html.light_&]:border-slate-300 [html.light_&]:text-[#0D1B2A]"
                     />
                   </div>
 
-                  <div className="sm:col-span-2 space-y-1">
-                    <label className="text-xs font-bold text-slate-300">
+                  <div className="sm:col-span-2 space-y-1.5">
+                    <label className="text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">
                       Tên điều khoản / Tiêu đề <span className="text-rose-400">*</span>
                     </label>
                     <input
@@ -558,107 +534,106 @@ export function AdminReviewCriteriaModal({ isOpen, onClose }) {
                       placeholder="VD: Giấy phép tổ chức bắt buộc (PDF)"
                       value={formData.title}
                       onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
-                      className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs font-bold text-white placeholder-slate-600 focus:border-indigo-500 focus:outline-none"
+                      className="w-full rounded-lg border border-white/15 bg-[#0d172e] px-3 py-2.5 text-sm font-bold text-white placeholder-slate-500 focus:border-amber-400/60 focus:ring-1 focus:ring-amber-400/30 focus:outline-none transition [html.light_&]:bg-slate-50 [html.light_&]:border-slate-300 [html.light_&]:text-[#0D1B2A]"
                     />
                   </div>
                 </div>
 
                 {/* Category & Severity & Order Index Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-300">Nhóm tiêu chí</label>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">Nhóm tiêu chí</label>
                     <select
                       value={formData.category}
                       onChange={(e) => setFormData((prev) => ({ ...prev, category: e.target.value }))}
-                      className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs font-bold text-slate-200 focus:border-indigo-500 focus:outline-none"
+                      className="w-full rounded-lg border border-white/15 bg-[#0d172e] px-3 py-2.5 text-sm font-bold text-slate-200 focus:border-amber-400/60 focus:ring-1 focus:ring-amber-400/30 focus:outline-none transition [html.light_&]:bg-slate-50 [html.light_&]:border-slate-300 [html.light_&]:text-[#0D1B2A]"
                     >
                       {Object.entries(CATEGORY_MAP).map(([key, item]) => (
-                        <option key={key} value={key}>
+                        <option key={key} value={key} className="bg-[#0d172e] text-white">
                           {item.label}
                         </option>
                       ))}
                     </select>
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-300">Mức độ nghiêm trọng</label>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">Mức độ nghiêm trọng</label>
                     <select
                       value={formData.severity}
                       onChange={(e) => setFormData((prev) => ({ ...prev, severity: e.target.value }))}
-                      className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs font-bold text-slate-200 focus:border-indigo-500 focus:outline-none"
+                      className="w-full rounded-lg border border-white/15 bg-[#0d172e] px-3 py-2.5 text-sm font-bold text-slate-200 focus:border-amber-400/60 focus:ring-1 focus:ring-amber-400/30 focus:outline-none transition [html.light_&]:bg-slate-50 [html.light_&]:border-slate-300 [html.light_&]:text-[#0D1B2A]"
                     >
                       {Object.entries(SEVERITY_MAP).map(([key, item]) => (
-                        <option key={key} value={key}>
+                        <option key={key} value={key} className="bg-[#0d172e] text-white">
                           {item.label}
                         </option>
                       ))}
                     </select>
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-300">Thứ tự ưu tiên</label>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">Thứ tự ưu tiên</label>
                     <input
                       type="number"
                       min="0"
                       value={formData.order_index}
                       onChange={(e) => setFormData((prev) => ({ ...prev, order_index: e.target.value }))}
-                      className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs font-bold text-white focus:border-indigo-500 focus:outline-none"
+                      className="w-full rounded-lg border border-white/15 bg-[#0d172e] px-3 py-2.5 text-sm font-bold text-white focus:border-amber-400/60 focus:ring-1 focus:ring-amber-400/30 focus:outline-none transition [html.light_&]:bg-slate-50 [html.light_&]:border-slate-300 [html.light_&]:text-[#0D1B2A]"
                     />
                   </div>
                 </div>
 
                 {/* Active switch */}
-                <div className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+                <div className="flex items-center justify-between rounded-xl border border-white/10 bg-[#0d172e] p-3 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
                   <div>
-                    <label className="text-xs font-bold text-white">Kích hoạt áp dụng vào AI ngay</label>
-                    <p className="text-[11px] text-slate-400">Nếu bật, AI sẽ lập tức đưa điều khoản này vào prompt để thẩm định các sự kiện tiếp theo.</p>
+                    <label className="text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">Kích hoạt áp dụng vào AI ngay</label>
+                    <p className="text-xs text-slate-400 [html.light_&]:text-slate-500 mt-0.5">Nếu bật, AI sẽ lập tức đưa điều khoản này vào prompt để thẩm định các sự kiện tiếp theo.</p>
                   </div>
                   <input
                     type="checkbox"
                     checked={formData.is_active}
                     onChange={(e) => setFormData((prev) => ({ ...prev, is_active: e.target.checked }))}
-                    className="size-4 rounded border-slate-700 bg-slate-950 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                    className="size-4.5 rounded border border-white/20 bg-[#0d172e] accent-[#C99A47] cursor-pointer"
                   />
                 </div>
 
                 {/* Rule Content Textarea */}
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-slate-300">
+                    <label className="text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">
                       Nội dung hướng dẫn chi tiết cho AI <span className="text-rose-400">*</span>
                     </label>
-                    <span className="text-[10px] text-slate-500">Viết rõ ràng, mạch lạc, dễ hiểu</span>
+                    <span className="text-xs text-slate-400 [html.light_&]:text-slate-500">Viết rõ ràng, mạch lạc, dễ hiểu</span>
                   </div>
                   <textarea
-                    rows={6}
+                    rows={5}
                     required
                     placeholder="Mô tả chi tiết những gì AI cần kiểm tra. Ví dụ: Sự kiện phải có giấy phép định dạng PDF; nếu thiếu hoặc file sai định dạng thì phân loại vào critical_violations để từ chối..."
                     value={formData.rule_content}
                     onChange={(e) => setFormData((prev) => ({ ...prev, rule_content: e.target.value }))}
-                    className="w-full rounded-xl border border-slate-800 bg-slate-950 p-3 text-xs text-white placeholder-slate-600 focus:border-indigo-500 focus:outline-none leading-relaxed"
+                    className="w-full rounded-lg border border-white/15 bg-[#0d172e] p-3 text-sm text-white placeholder-slate-500 focus:border-amber-400/60 focus:ring-1 focus:ring-amber-400/30 focus:outline-none leading-relaxed transition [html.light_&]:bg-slate-50 [html.light_&]:border-slate-300 [html.light_&]:text-[#0D1B2A]"
                   />
                 </div>
+              </div>
 
-                {/* Form Buttons */}
-                <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-800">
-                  <button
-                    type="button"
-                    onClick={closeForm}
-                    className="rounded-xl px-4 py-2 text-xs font-bold text-slate-300 hover:bg-slate-800 transition"
-                  >
-                    Hủy
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={createMutation.isPending || updateMutation.isPending}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 px-5 py-2 text-xs font-black text-white shadow-lg shadow-indigo-600/30 hover:from-indigo-500 hover:to-indigo-400 transition disabled:opacity-50"
-                  >
-                    <Check className="size-4" />
-                    <span>{editingItem ? 'Lưu thay đổi' : 'Thêm điều khoản'}</span>
-                  </button>
-                </div>
-              </form>
-            </div>
+              {/* Pinned Footer */}
+              <footer className="shrink-0 flex items-center justify-end gap-3 border-t border-white/10 bg-[#111c3a] px-6 py-4 [html.light_&]:border-slate-200 [html.light_&]:bg-slate-50">
+                <button
+                  type="button"
+                  onClick={closeForm}
+                  className="rounded-full border border-white/15 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white px-6 py-2.5 text-xs font-bold transition cursor-pointer active:scale-95 [html.light_&]:bg-slate-200/60 [html.light_&]:border-slate-300 [html.light_&]:text-[#0D1B2A]"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={createMutation.isPending || updateMutation.isPending}
+                  className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] border border-[#E6C17A]/40 px-6 py-2.5 text-xs font-black shadow-lg shadow-amber-900/30 hover:brightness-110 active:scale-95 transition disabled:opacity-50 cursor-pointer"
+                >
+                  <span>{editingItem ? 'Lưu thay đổi' : 'Thêm điều khoản'}</span>
+                </button>
+              </footer>
+            </form>
           </div>
         )}
 
