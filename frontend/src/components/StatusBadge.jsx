@@ -73,6 +73,8 @@ export const STATUS_CONFIG_MAP = {
   PUBLISHED: { label: 'Đã xuất bản', tone: 'green' },
   DRAFT: { label: 'Bản nháp', tone: 'slate' },
   PENDING_REVIEW: { label: 'Chờ duyệt', tone: 'amber' },
+  REVISION_PENDING: { label: 'Sửa đổi chờ duyệt', tone: 'purple' },
+  PENDING_REVISION: { label: 'Sửa đổi chờ duyệt', tone: 'purple' },
   NEEDS_REVISION: { label: 'Cần sửa đổi', tone: 'amber' },
   HIDDEN: { label: 'Đã ẩn', tone: 'neutral' },
   ENDED: { label: 'Đã kết thúc', tone: 'purple' },

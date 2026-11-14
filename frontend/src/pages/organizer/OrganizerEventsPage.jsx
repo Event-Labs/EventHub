@@ -86,7 +86,7 @@ export function getPrimaryEventStatus(event, organizerPlan = null, isEnglish = f
 
   // 7. Sửa đổi chờ duyệt
   if (event.pending_revision && event.pending_revision.status === 'SUBMITTED') {
-    return { key: 'REVISION_PENDING', label: isEnglish ? 'Pending Revision' : 'Sửa đổi chờ duyệt', tone: 'amber' }
+    return { key: 'REVISION_PENDING', label: isEnglish ? 'Pending Revision' : 'Sửa đổi chờ duyệt', tone: 'purple' }
   }
 
   // 8. Đã duyệt (Chờ BTC bấm xuất bản)

@@ -26,6 +26,8 @@ import {
   Zap,
   Info,
   X,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 import { useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -125,7 +127,7 @@ function statusBadge(eventOrStatus, approvalStatus, displayState, activeStatus) 
 
   // 6. Pending revision waiting review (Sửa đổi chờ duyệt)
   if (event?.pending_revision && event.pending_revision.status === 'SUBMITTED') {
-    return <Badge tone="amber">Sửa đổi chờ duyệt</Badge>
+    return <Badge tone="purple">Sửa đổi chờ duyệt</Badge>
   }
 
   // 7. Cancellation request rejected (Từ chối hủy)
@@ -154,7 +156,7 @@ function statusBadge(eventOrStatus, approvalStatus, displayState, activeStatus) 
 
 const getAutoLocale = () =>
   ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
-   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
+    (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
     ? 'en-US'
     : 'vi-VN'
 
@@ -469,7 +471,7 @@ export function AdminEventReviewPage() {
   /** Modal submit */
   const submitModalReview = (status) => {
     if (!selectedEvent) return
-    
+
     if (status === 'APPROVED') {
       setConfirmState({
         title: 'Xác nhận phê duyệt',
@@ -551,13 +553,12 @@ export function AdminEventReviewPage() {
       <div className="mb-6 overflow-hidden rounded-2xl border border-indigo-500/30 bg-gradient-to-br from-indigo-950/40 via-panel-soft/70 to-panel p-4 shadow-lg backdrop-blur-md">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-start gap-3.5">
-            <div className={`mt-0.5 grid size-11 shrink-0 place-items-center rounded-xl border shadow-inner ${
-              isScanning
-                ? 'border-amber-400/50 bg-gradient-to-br from-amber-500/30 to-rose-600/30 text-amber-300 shadow-amber-500/20'
-                : autoReviewSettings.auto_review_enabled
-                  ? 'border-indigo-400/40 bg-gradient-to-br from-indigo-500/30 to-purple-600/30 text-indigo-300 shadow-indigo-500/20 animate-pulse'
-                  : 'border-border-soft/60 bg-panel text-subtle'
-            }`}>
+            <div className={`mt-0.5 grid size-11 shrink-0 place-items-center rounded-xl border shadow-inner ${isScanning
+              ? 'border-amber-400/50 bg-gradient-to-br from-amber-500/30 to-rose-600/30 text-amber-300 shadow-amber-500/20'
+              : autoReviewSettings.auto_review_enabled
+                ? 'border-indigo-400/40 bg-gradient-to-br from-indigo-500/30 to-purple-600/30 text-indigo-300 shadow-indigo-500/20 animate-pulse'
+                : 'border-border-soft/60 bg-panel text-subtle'
+              }`}>
               <Bot className="size-5 sm:size-6" />
             </div>
             <div className="min-w-0 flex-1">
@@ -653,13 +654,12 @@ export function AdminEventReviewPage() {
               type="button"
               disabled={toggleAutoReviewMutation.isPending}
               onClick={() => toggleAutoReviewMutation.mutate(!autoReviewSettings.auto_review_enabled)}
-              className={`inline-flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-black shadow-md transition duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 ${
-                autoReviewSettings.auto_review_enabled
-                  ? 'border border-emerald-500/50 bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/30 [html.light_&]:border-emerald-300 [html.light_&]:bg-emerald-50 [html.light_&]:text-emerald-800'
-                  : 'border border-border-soft/50 bg-panel-soft text-subtle hover:bg-surface hover:text-content [html.light_&]:bg-white [html.light_&]:text-[#0D1B2A] [html.light_&]:border-[#C99A47]/30'
-              }`}
+              className={`inline-flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-black shadow-md transition duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 ${autoReviewSettings.auto_review_enabled
+                ? 'border border-emerald-500/70 bg-emerald-600/20 text-emerald-300 hover:bg-emerald-600/30 [html.light_&]:border-emerald-500 [html.light_&]:bg-emerald-50 [html.light_&]:text-emerald-800'
+                : 'border border-[#C99A47] bg-[#101D32] text-white hover:bg-[#C99A47]/10 hover:border-[#E6C17A] [html.light_&]:bg-white [html.light_&]:text-[#0D1B2A] [html.light_&]:border-[#C99A47] [html.light_&]:hover:bg-amber-50/60'
+                }`}
             >
-              <Zap className={`size-4 ${autoReviewSettings.auto_review_enabled ? 'text-emerald-400 [html.light_&]:text-emerald-600' : 'text-subtle [html.light_&]:text-[#C99A47]'}`} />
+              <Zap className={`size-4 shrink-0 ${autoReviewSettings.auto_review_enabled ? 'text-emerald-400 [html.light_&]:text-emerald-600' : 'text-[#C99A47]'}`} />
               <span>{autoReviewSettings.auto_review_enabled ? (isEnglish ? 'Turn off auto' : 'Tắt tự động') : (isEnglish ? 'Turn on auto' : 'Bật tự động')}</span>
             </button>
 
@@ -682,11 +682,6 @@ export function AdminEventReviewPage() {
             >
               <ShieldCheck className="size-4 text-indigo-400 shrink-0 [html.light_&]:text-indigo-600" />
               <span className="sm:hidden">{isEnglish ? 'Terms' : 'Điều khoản'}</span><span className="hidden sm:inline">{isEnglish ? 'AI Review Terms' : 'Điều khoản duyệt AI'}</span>
-              {criteriaList.length > 0 && (
-                <span className="rounded-full bg-indigo-500/30 px-1.5 py-0.5 text-[10px] font-black text-indigo-200 border border-indigo-500/40 shrink-0 [html.light_&]:border-indigo-300 [html.light_&]:bg-indigo-200 [html.light_&]:text-indigo-900">
-                  {activeCriteriaCount}
-                </span>
-              )}
             </button>
           </div>
         </div>
@@ -700,8 +695,8 @@ export function AdminEventReviewPage() {
             type="button"
             onClick={() => { setActiveStatus(tab.value); setPage(1) }}
             className={`inline-flex min-w-20 sm:min-w-28 items-center justify-center rounded-full px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-extrabold shadow-sm transition duration-200 hover:-translate-y-0.5 cursor-pointer ${activeStatus === tab.value
-                ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md shadow-[#C99A47]/30 ring-1 ring-[#E6C17A]/60'
-                : 'border border-border-soft/40 bg-panel-soft text-subtle hover:border-[#C99A47]/50 hover:bg-surface hover:text-white [html.light_&]:border-[#C99A47]/30 [html.light_&]:bg-white/85 [html.light_&]:text-[#0D1B2A] [html.light_&]:hover:bg-[#C99A47]/15 [html.light_&]:hover:text-[#0D1B2A]'
+              ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md shadow-[#C99A47]/30 ring-1 ring-[#E6C17A]/60'
+              : 'border border-border-soft/40 bg-panel-soft text-subtle hover:border-[#C99A47]/50 hover:bg-surface hover:text-white [html.light_&]:border-[#C99A47]/30 [html.light_&]:bg-white/85 [html.light_&]:text-[#0D1B2A] [html.light_&]:hover:bg-[#C99A47]/15 [html.light_&]:hover:text-[#0D1B2A]'
               }`}
           >
             {isEnglish ? (translatePhrase(tab.label, 'en') || tab.label) : tab.label}
@@ -711,17 +706,21 @@ export function AdminEventReviewPage() {
 
       {/* States */}
       {isLoading && (
-        <Panel className="mt-5 text-sm text-subtle">Đang tải danh sách sự kiện...</Panel>
+        <div className="py-16 text-center text-sm italic text-slate-400">
+          Đang tải danh sách sự kiện...
+        </div>
       )}
       {isError && (
-        <Panel className="mt-5 text-sm text-error">Không thể tải danh sách sự kiện.</Panel>
+        <div className="py-16 text-center text-sm italic text-rose-400">
+          Không thể tải danh sách sự kiện.
+        </div>
       )}
       {!isLoading && !isError && items.length === 0 && (
-        <Panel className="mt-5 text-sm text-subtle">
+        <div className="py-16 text-center text-sm italic text-slate-400">
           {activeStatus === 'ALL'
             ? 'Chưa có sự kiện nào trên hệ thống.'
             : 'Không có sự kiện nào ở trạng thái này.'}
-        </Panel>
+        </div>
       )}
 
       {/* Table */}
@@ -828,13 +827,7 @@ export function AdminEventReviewPage() {
                             ? 'Xem chi tiết & Thẩm định duyệt'
                             : 'Xem chi tiết sự kiện'
                     }
-                    tone={
-                      event.cancel_request?.status === 'PENDING' || event.status === 'CANCELLED'
-                        ? 'danger'
-                        : event.pending_revision
-                          ? 'warning'
-                          : 'primary'
-                    }
+                    tone="primary"
                     icon={Eye}
                     onClick={() => {
                       if (activeStatus === 'CANCEL_REJECTED' || event.cancel_request?.status === 'REJECTED') {
@@ -855,22 +848,26 @@ export function AdminEventReviewPage() {
               <span>
                 Trang {pagination.page} / {pagination.total_pages} · {pagination.total} sự kiện
               </span>
-              <div className="flex gap-2">
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
                   disabled={page <= 1}
                   onClick={() => setPage((p) => p - 1)}
-                  className="admin-secondary disabled:cursor-not-allowed disabled:opacity-50"
+                  className="admin-secondary !p-0 size-9 rounded-full disabled:cursor-not-allowed disabled:opacity-40 transition cursor-pointer"
+                  title={isEnglish ? 'Previous page' : 'Trang trước'}
+                  aria-label={isEnglish ? 'Previous page' : 'Trang trước'}
                 >
-                  Trước
+                  <ChevronLeft className="size-4" />
                 </button>
                 <button
                   type="button"
                   disabled={page >= pagination.total_pages}
                   onClick={() => setPage((p) => p + 1)}
-                  className="admin-secondary disabled:cursor-not-allowed disabled:opacity-50"
+                  className="admin-secondary !p-0 size-9 rounded-full disabled:cursor-not-allowed disabled:opacity-40 transition cursor-pointer"
+                  title={isEnglish ? 'Next page' : 'Trang tiếp theo'}
+                  aria-label={isEnglish ? 'Next page' : 'Trang tiếp theo'}
                 >
-                  Tiếp
+                  <ChevronRight className="size-4" />
                 </button>
               </div>
             </div>
@@ -1115,8 +1112,8 @@ function EventReviewModal({
                     <p className="font-bold text-content">
                       {session.session_name
                         ? (/^phiên\s*\d+/i.test(session.session_name)
-                            ? session.session_name
-                            : (isEnglish ? `Session ${event.sessions.indexOf(session) + 1}: ${session.session_name}` : `Phiên ${event.sessions.indexOf(session) + 1}: ${session.session_name}`))
+                          ? session.session_name
+                          : (isEnglish ? `Session ${event.sessions.indexOf(session) + 1}: ${session.session_name}` : `Phiên ${event.sessions.indexOf(session) + 1}: ${session.session_name}`))
                         : (isEnglish ? `Session ${event.sessions.indexOf(session) + 1}` : `Phiên ${event.sessions.indexOf(session) + 1}`)}
                     </p>
                     <p className="mt-1 text-subtle">{formatDateTime(session.start_time)} - {formatDateTime(session.end_time)}</p>
@@ -1665,8 +1662,8 @@ function AiReviewAssistantCard({ event, onApplyFeedback }) {
           {hasDocs && (
             <div className="rounded-xl border border-indigo-500/30 bg-slate-900/80 p-4 space-y-3 shadow-md">
               <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
-                <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-200">
-                  <FileCheck className="size-4 text-indigo-400" />
+                <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-white">
+                  <FileCheck className="size-4 text-white" />
                   Kiểm duyệt Tài liệu Giấy phép ({docItems.length || docAnalysisList.length} tệp)
                 </span>
                 <span className="text-[10px] text-indigo-300 font-semibold">
@@ -1687,13 +1684,12 @@ function AiReviewAssistantCard({ event, onApplyFeedback }) {
                             {doc.relevance_to_event === 'HIGH' ? 'Khớp sự kiện & pháp lý' : doc.relevance_to_event === 'NOT_RELEVANT' ? 'Không liên quan' : 'Liên quan một phần'}
                           </span>
                         )}
-                        <span className={`rounded px-1.5 py-0.5 text-[9px] font-bold border ${
-                          doc.status === 'VIOLATION'
-                            ? 'bg-rose-500/20 text-rose-300 border-rose-500/30'
-                            : doc.status === 'WARNING'
-                              ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-                              : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-                        }`}>
+                        <span className={`rounded px-1.5 py-0.5 text-[9px] font-bold border ${doc.status === 'VIOLATION'
+                          ? 'bg-rose-500/20 text-rose-300 border-rose-500/30'
+                          : doc.status === 'WARNING'
+                            ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                            : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                          }`}>
                           {doc.status === 'VIOLATION' ? 'Vi phạm tài liệu' : doc.status === 'WARNING' ? 'Cần lưu ý' : 'Hợp lệ'}
                         </span>
                       </div>
@@ -1734,7 +1730,7 @@ function AiReviewAssistantCard({ event, onApplyFeedback }) {
                         <button
                           type="button"
                           onClick={() => handleApplySingle(`[Vi phạm tài liệu ${doc.fileName || idx + 1}] ${doc.violation_type || doc.analysis || ''}${doc.violating_location ? ` (Trích: "${doc.violating_location}")` : ''}`)}
-                          className="text-[11px] font-semibold text-rose-400 hover:text-rose-300"
+                          className="text-[9px] font-medium text-[#E8B85D] hover:text-[#F3F4F6] transition cursor-pointer"
                         >
                           + Thêm vào ghi chú
                         </button>
@@ -1749,8 +1745,8 @@ function AiReviewAssistantCard({ event, onApplyFeedback }) {
           {/* 🖼️ KIỂM DUYỆT HÌNH ẢNH & VISION AUDIT */}
           <div className="rounded-xl border border-slate-700/60 bg-slate-900/60 p-4 space-y-3">
             <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
-              <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-200">
-                <ImageIcon className="size-4 text-slate-400" />
+              <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-white">
+                <ImageIcon className="size-4 text-white" />
                 Kiểm duyệt Hình ảnh qua AI Vision ({imageItems.length || visionItems.length} ảnh)
               </span>
               <span className="text-[10px] text-slate-400 italic">
@@ -2056,48 +2052,43 @@ function AiAutoReviewSettingsModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4 backdrop-blur-md">
-      <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-indigo-500/40 bg-[#0F172A] shadow-2xl shadow-indigo-950/60">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-border-soft/60 bg-slate-900/80 px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="grid size-10 place-items-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-md shadow-indigo-500/30">
-              <Bot className="size-5" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <h3 className="font-display text-lg font-black text-white">
-                Cài đặt Hệ thống AI Tự động Duyệt & Cảnh báo
-              </h3>
-              <p className="text-xs text-slate-400">
-                Tùy chỉnh tiêu chuẩn tự động phê duyệt, từ chối và phản hồi Organizer
-              </p>
-            </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
+      <section className="flex flex-col w-full max-w-2xl max-h-[90vh] overflow-hidden rounded-2xl border border-white/15 bg-[#0b1329] text-white shadow-2xl shadow-black/90 [html.light_&]:border-slate-200 [html.light_&]:bg-white [html.light_&]:text-[#0D1B2A] [html.light_&]:shadow-slate-300/50">
+        {/* Pinned Header */}
+        <header className="shrink-0 flex items-center justify-between gap-4 border-b border-white/10 bg-[#111c3a] px-6 py-4 [html.light_&]:border-slate-200 [html.light_&]:bg-slate-50">
+          <div className="min-w-0 flex-1">
+            <h3 className="min-w-0 truncate font-display text-xl font-black text-white [html.light_&]:text-[#0D1B2A]">
+              Cài đặt Hệ thống AI Tự động Duyệt & Cảnh báo
+            </h3>
+            <p className="text-xs text-slate-400 [html.light_&]:text-slate-600 mt-0.5">
+              Tùy chỉnh tiêu chuẩn tự động phê duyệt, từ chối và phản hồi Organizer
+            </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="grid size-8 place-items-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition"
+            className="grid size-8 shrink-0 place-items-center rounded-full text-slate-400 transition hover:bg-white/10 hover:text-white [html.light_&]:text-slate-500 [html.light_&]:hover:bg-slate-200/60 [html.light_&]:hover:text-slate-800 cursor-pointer"
           >
-            <X className="size-5" />
+            <X className="size-4" />
           </button>
-        </div>
+        </header>
 
-        {/* Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
+        {/* Scrollable Form Body */}
+        <form id="ai-auto-review-form" onSubmit={handleSubmit} className="min-h-0 flex-1 overflow-y-auto px-6 py-5 bg-[#0b1329] [html.light_&]:bg-white space-y-4">
           {/* Link to Criteria Management */}
           {onOpenCriteria && (
-            <div className="flex items-center justify-between rounded-xl border border-indigo-500/30 bg-indigo-950/40 p-3.5">
+            <div className="flex items-center justify-between rounded-xl border border-white/10 bg-[#121c38] p-4 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
               <div className="flex items-center gap-2.5">
-                <ShieldCheck className="size-4 text-indigo-400" />
+                <ShieldCheck className="size-4 text-[#E8B85D]" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-bold text-white">Quản lý Bộ Điều khoản & Tiêu chí Duyệt AI</p>
-                  <p className="text-[11px] text-slate-400">Thêm, sửa, xóa các quy tắc kiểm tra (Giấy phép PDF, Hình ảnh, Giá vé...)</p>
+                  <p className="text-xs font-bold text-white [html.light_&]:text-[#0D1B2A]">Quản lý Bộ Điều khoản & Tiêu chí Duyệt AI</p>
+                  <p className="text-[11px] text-slate-400 [html.light_&]:text-slate-600">Thêm, sửa, xóa các quy tắc kiểm tra (Giấy phép PDF, Hình ảnh, Giá vé...)</p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={onOpenCriteria}
-                className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-indigo-500 transition"
+                className="rounded-full bg-[#E8B85D] hover:bg-[#d4a34b] text-[#0D1B2A] px-4 py-1.5 text-xs font-bold transition shadow-sm cursor-pointer shrink-0 ml-3"
               >
                 Cấu hình điều khoản
               </button>
@@ -2105,22 +2096,21 @@ function AiAutoReviewSettingsModal({
           )}
 
           {/* Main Master Toggle */}
-          <div className={`rounded-xl border p-4 transition ${
-            formState.auto_review_enabled
-              ? 'border-indigo-500/50 bg-indigo-950/30 shadow-inner'
-              : 'border-slate-800 bg-slate-900/50'
-          }`}>
+          <div className={`rounded-xl border p-4 transition ${formState.auto_review_enabled
+            ? 'border-[#E8B85D]/40 bg-[#121c38] [html.light_&]:bg-amber-50/50 [html.light_&]:border-amber-300'
+            : 'border-white/10 bg-[#121c38] [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200'
+            }`}>
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <label className="text-sm font-bold text-white flex items-center gap-2">
+                <label className="text-sm font-bold text-white [html.light_&]:text-[#0D1B2A] flex items-center gap-2">
                   <span>Kích hoạt AI Quét Thẩm định (Chu kỳ 15 phút / 1 sự kiện)</span>
                   {formState.auto_review_enabled && (
-                    <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded-full bg-indigo-500/30 text-indigo-300 border border-indigo-500/40">
+                    <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-[#E8B85D]/15 text-[#E8B85D] border border-[#E8B85D]/30 [html.light_&]:bg-amber-100 [html.light_&]:text-amber-800 [html.light_&]:border-amber-300">
                       Đang kích hoạt
                     </span>
                   )}
                 </label>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-slate-400 [html.light_&]:text-slate-600">
                   Cứ sau mỗi 15 phút, hệ thống tự động quét đúng 1 sự kiện đang chờ duyệt (hoặc Admin có thể bấm nút chạy thủ công bất cứ lúc nào).
                 </p>
               </div>
@@ -2128,7 +2118,7 @@ function AiAutoReviewSettingsModal({
                 type="checkbox"
                 checked={formState.auto_review_enabled}
                 onChange={(e) => setFormState((prev) => ({ ...prev, auto_review_enabled: e.target.checked }))}
-                className="size-5 rounded border-slate-700 bg-slate-950 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                className="size-5 rounded border-white/20 bg-[#081126] text-[#E8B85D] accent-[#E8B85D] focus:ring-[#E8B85D] [html.light_&]:bg-white [html.light_&]:border-slate-300 cursor-pointer shrink-0 ml-3"
               />
             </div>
           </div>
@@ -2136,63 +2126,63 @@ function AiAutoReviewSettingsModal({
           {/* Sub options grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Auto Approve Card */}
-            <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 space-y-2">
+            <div className="rounded-xl border border-white/10 bg-[#121c38] p-4 space-y-2 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <CheckCircle2 className="size-4 text-emerald-400" />
-                  <span className="text-sm font-bold text-emerald-300">Tự động Phê duyệt</span>
+                  <CheckCircle2 className="size-4 text-[#10B981]" />
+                  <span className="text-sm font-bold text-[#10B981]">Tự động Phê duyệt</span>
                 </div>
                 <input
                   type="checkbox"
                   disabled={!formState.auto_review_enabled}
                   checked={formState.auto_approve_enabled}
                   onChange={(e) => setFormState((prev) => ({ ...prev, auto_approve_enabled: e.target.checked }))}
-                  className="size-4 rounded border-slate-700 bg-slate-950 text-emerald-500 focus:ring-emerald-400 disabled:opacity-40 cursor-pointer"
+                  className="size-4 rounded border-white/20 bg-[#081126] text-[#E8B85D] accent-[#E8B85D] focus:ring-[#E8B85D] [html.light_&]:bg-white [html.light_&]:border-slate-300 disabled:opacity-40 cursor-pointer"
                 />
               </div>
-              <p className="text-xs text-slate-400 leading-relaxed">
+              <p className="text-xs text-slate-400 [html.light_&]:text-slate-600 leading-relaxed">
                 • <strong>BẬT</strong>: Sự kiện đạt chuẩn sẽ tự động chuyển sang <strong>ĐÃ DUYỆT (APPROVED)</strong>.<br />
                 • <strong>TẮT</strong>: Cứ sau 15p AI chỉ quét review trước cho Admin và đưa ra kết quả, giữ nguyên sự kiện ở trạng thái Chờ duyệt để Admin kiểm tra và quyết định.
               </p>
             </div>
 
             {/* Auto Reject Card */}
-            <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 space-y-2">
+            <div className="rounded-xl border border-white/10 bg-[#121c38] p-4 space-y-2 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <XCircle className="size-4 text-rose-400" />
-                  <span className="text-sm font-bold text-rose-300">Tự động Từ chối</span>
+                  <XCircle className="size-4 text-[#FF4569]" />
+                  <span className="text-sm font-bold text-[#FF4569]">Tự động Từ chối</span>
                 </div>
                 <input
                   type="checkbox"
                   disabled={!formState.auto_review_enabled}
                   checked={formState.auto_reject_enabled}
                   onChange={(e) => setFormState((prev) => ({ ...prev, auto_reject_enabled: e.target.checked }))}
-                  className="size-4 rounded border-slate-700 bg-slate-950 text-rose-500 focus:ring-rose-400 disabled:opacity-40 cursor-pointer"
+                  className="size-4 rounded border-white/20 bg-[#081126] text-[#E8B85D] accent-[#E8B85D] focus:ring-[#E8B85D] [html.light_&]:bg-white [html.light_&]:border-slate-300 disabled:opacity-40 cursor-pointer"
                 />
               </div>
-              <p className="text-xs text-slate-400 leading-relaxed">
+              <p className="text-xs text-slate-400 [html.light_&]:text-slate-600 leading-relaxed">
                 Tự động chuyển sự kiện sang trạng thái <strong>TỪ CHỐI (HIDDEN)</strong> khi phát hiện vi phạm pháp lý hoặc chính sách nghiêm trọng.
               </p>
             </div>
           </div>
 
           {/* Auto Notify Organizer */}
-          <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 space-y-2">
+          <div className="rounded-xl border border-white/10 bg-[#121c38] p-4 space-y-2 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <FileText className="size-4 text-amber-400" />
-                <span className="text-sm font-bold text-amber-300">Gửi cảnh báo & đề xuất cải thiện cho Organizer</span>
+                <FileText className="size-4 text-[#E8B85D]" />
+                <span className="text-sm font-bold text-[#E8B85D]">Gửi cảnh báo & đề xuất cải thiện cho Organizer</span>
               </div>
               <input
                 type="checkbox"
                 disabled={!formState.auto_review_enabled}
                 checked={formState.auto_notify_organizer}
                 onChange={(e) => setFormState((prev) => ({ ...prev, auto_notify_organizer: e.target.checked }))}
-                className="size-4 rounded border-slate-700 bg-slate-950 text-amber-500 focus:ring-amber-400 disabled:opacity-40 cursor-pointer"
+                className="size-4 rounded border-white/20 bg-[#081126] text-[#E8B85D] accent-[#E8B85D] focus:ring-[#E8B85D] [html.light_&]:bg-white [html.light_&]:border-slate-300 disabled:opacity-40 cursor-pointer"
               />
             </div>
-            <p className="text-xs text-slate-400 leading-relaxed">
+            <p className="text-xs text-slate-400 [html.light_&]:text-slate-600 leading-relaxed">
               Tự động gửi thông báo chi tiết (vi phạm cụ thể, cảnh báo, đề xuất cải thiện nội dung và lỗi chính tả phát hiện bởi AI) về email & tài khoản của Organizer.
             </p>
           </div>
@@ -2200,12 +2190,12 @@ function AiAutoReviewSettingsModal({
           {/* Threshold Sliders */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
             {/* Min Quality Score */}
-            <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 space-y-3">
+            <div className="rounded-xl border border-white/10 bg-[#121c38] p-4 space-y-3 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-slate-300">
+                <label className="text-xs font-bold text-slate-300 [html.light_&]:text-slate-700">
                   Điểm chất lượng tối thiểu để duyệt
                 </label>
-                <span className="text-sm font-black text-emerald-400">{formState.min_quality_score}/100</span>
+                <span className="text-sm font-black text-[#10B981]">{formState.min_quality_score}/100</span>
               </div>
               <input
                 type="range"
@@ -2215,20 +2205,20 @@ function AiAutoReviewSettingsModal({
                 disabled={!formState.auto_review_enabled || !formState.auto_approve_enabled}
                 value={formState.min_quality_score}
                 onChange={(e) => setFormState((prev) => ({ ...prev, min_quality_score: Number(e.target.value) }))}
-                className="w-full accent-emerald-500 cursor-pointer disabled:opacity-40"
+                className="w-full accent-[#E8B85D] cursor-pointer disabled:opacity-40"
               />
-              <p className="text-[11px] text-slate-500">
+              <p className="text-[11px] text-slate-500 [html.light_&]:text-slate-600">
                 Khuyến nghị: 75-80 điểm. Sự kiện có điểm thấp hơn sẽ chuyển sang Admin duyệt thủ công.
               </p>
             </div>
 
             {/* Max Risk Score */}
-            <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 space-y-3">
+            <div className="rounded-xl border border-white/10 bg-[#121c38] p-4 space-y-3 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-slate-300">
+                <label className="text-xs font-bold text-slate-300 [html.light_&]:text-slate-700">
                   Mức rủi ro tối đa cho phép
                 </label>
-                <span className="text-sm font-black text-rose-400">{formState.max_risk_score}/100</span>
+                <span className="text-sm font-black text-[#FF4569]">{formState.max_risk_score}/100</span>
               </div>
               <input
                 type="range"
@@ -2238,43 +2228,34 @@ function AiAutoReviewSettingsModal({
                 disabled={!formState.auto_review_enabled || !formState.auto_approve_enabled}
                 value={formState.max_risk_score}
                 onChange={(e) => setFormState((prev) => ({ ...prev, max_risk_score: Number(e.target.value) }))}
-                className="w-full accent-rose-500 cursor-pointer disabled:opacity-40"
+                className="w-full accent-[#E8B85D] cursor-pointer disabled:opacity-40"
               />
-              <p className="text-[11px] text-slate-500">
+              <p className="text-[11px] text-slate-500 [html.light_&]:text-slate-600">
                 Khuyến nghị: ≤ 25 điểm. Sự kiện có rủi ro cao hơn sẽ không thể tự động duyệt.
               </p>
             </div>
           </div>
-
-          {/* Footer Actions */}
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-xs font-bold text-slate-300 rounded-xl hover:bg-slate-800 transition"
-            >
-              Hủy
-            </button>
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 px-5 py-2 text-xs font-black text-white shadow-lg shadow-indigo-600/30 hover:from-indigo-500 hover:to-indigo-400 transition disabled:opacity-50"
-            >
-              {isLoading ? (
-                <>
-                  <RefreshCw className="size-4 animate-spin" />
-                  <span>Đang lưu...</span>
-                </>
-              ) : (
-                <>
-                  <Check className="size-4" />
-                  <span>Lưu cấu hình</span>
-                </>
-              )}
-            </button>
-          </div>
         </form>
-      </div>
+
+        {/* Pinned Footer */}
+        <footer className="shrink-0 flex items-center justify-end gap-3 border-t border-white/10 bg-[#111c3a] px-6 py-4 [html.light_&]:border-slate-200 [html.light_&]:bg-slate-50">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full border border-white/15 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white px-6 py-2.5 text-xs font-bold transition cursor-pointer active:scale-95 [html.light_&]:bg-slate-200/60 [html.light_&]:border-slate-300 [html.light_&]:text-[#0D1B2A]"
+          >
+            Hủy
+          </button>
+          <button
+            type="submit"
+            form="ai-auto-review-form"
+            disabled={isLoading}
+            className="rounded-full bg-[#E8B85D] hover:bg-[#d4a34b] text-[#0D1B2A] px-6 py-2.5 text-xs font-black shadow-md transition disabled:opacity-50 cursor-pointer active:scale-95"
+          >
+            {isLoading ? 'Đang lưu...' : 'Lưu cấu hình'}
+          </button>
+        </footer>
+      </section>
     </div>
   )
 }
