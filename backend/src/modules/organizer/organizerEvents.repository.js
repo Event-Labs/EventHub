@@ -1028,6 +1028,88 @@ class OrganizerEventsRepository {
     );
     return rows[0]?.count || 0;
   }
+
+  /**
+   * SQL predicate for events in statuses that reserve venues / seat maps against overlapping sessions:
+   * Đang bán vé (PUBLISHED), Tạm dừng bán (PAUSED), Đã ẩn (HIDDEN), Chờ xuất bản (APPROVED), Chờ duyệt (PENDING_REVIEW).
+   */
+  static BLOCKING_EVENT_STATUS_SQL = `
+    e.deleted_at IS NULL
+    AND e.status <> 'CANCELLED'
+    AND COALESCE(e.display_state, '') <> 'SUSPENDED_BY_ADMIN'
+    AND NOT (
+      e.end_time < NOW()
+      OR (e.end_time IS NULL AND e.start_time IS NOT NULL AND e.start_time < NOW() - INTERVAL '4 hours')
+    )
+    AND NOT (e.status = 'COMPLETED' AND COALESCE(e.approval_status, '') <> 'APPROVED')
+    AND (
+      e.display_state = 'HIDDEN_BY_ORGANIZER'
+      OR e.status = 'HIDDEN'
+      OR e.sales_status = 'PAUSED'
+      OR e.status = 'APPROVED'
+      OR (e.status = 'COMPLETED' AND e.approval_status = 'APPROVED')
+      OR e.status = 'PUBLISHED'
+      OR e.status = 'PENDING_REVIEW'
+    )
+  `;
+
+  async findOccupiedSessionSlots(organizerId, excludeEventId = null) {
+    const { rows } = await db.query(
+      `
+      SELECT
+        es.id AS session_id,
+        es.venue_id,
+        es.seat_map_id,
+        es.start_time,
+        es.end_time,
+        es.session_name,
+        e.id AS event_id,
+        e.title AS event_title,
+        e.status,
+        e.approval_status,
+        e.display_state,
+        e.sales_status
+      FROM event_sessions es
+      JOIN events e ON e.id = es.event_id
+      WHERE e.organizer_id = $1
+        AND ($2::uuid IS NULL OR e.id <> $2::uuid)
+        AND ${OrganizerEventsRepository.BLOCKING_EVENT_STATUS_SQL}
+      ORDER BY es.start_time ASC
+      `,
+      [organizerId, excludeEventId || null],
+    );
+    return rows;
+  }
+
+  async findSessionResourceConflict({ venueId, seatMapId = null, startTime, endTime, excludeEventId = null }) {
+    const { rows } = await db.query(
+      `
+      SELECT
+        es.id AS session_id,
+        es.venue_id,
+        es.seat_map_id,
+        es.start_time,
+        es.end_time,
+        e.id AS event_id,
+        e.title AS event_title,
+        (es.venue_id = $1::uuid) AS venue_conflict,
+        ($2::uuid IS NOT NULL AND es.seat_map_id = $2::uuid) AS seat_map_conflict
+      FROM event_sessions es
+      JOIN events e ON e.id = es.event_id
+      WHERE ($5::uuid IS NULL OR e.id <> $5::uuid)
+        AND ${OrganizerEventsRepository.BLOCKING_EVENT_STATUS_SQL}
+        AND (
+          es.venue_id = $1::uuid
+          OR ($2::uuid IS NOT NULL AND es.seat_map_id = $2::uuid)
+        )
+        AND es.start_time < $4::timestamptz
+        AND es.end_time > $3::timestamptz
+      LIMIT 1
+      `,
+      [venueId, seatMapId || null, startTime, endTime, excludeEventId || null],
+    );
+    return rows[0] || null;
+  }
 }
 
 module.exports = new OrganizerEventsRepository();

@@ -97,7 +97,7 @@ class VenuesService {
     await this.assertOwnsVenue(organizerId, venueId);
     const inUse = await venuesRepository.countActiveUsage(venueId);
     if (inUse > 0) {
-      throw new AppError('Venue đang được sử dụng bởi sự kiện active', 400, ErrorCodes.INVALID_INPUT);
+      throw new AppError('Địa điểm đang được sử dụng bởi sự kiện chưa kết thúc, không thể xóa.', 400, ErrorCodes.INVALID_INPUT);
     }
     const deleted = await venuesRepository.softDelete(venueId, organizerId);
     if (!deleted) {

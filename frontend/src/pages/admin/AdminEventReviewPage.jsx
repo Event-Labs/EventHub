@@ -300,9 +300,9 @@ export function AdminEventReviewPage() {
         } else if (res.action === 'REJECTED') {
           toast.error(`Hệ thống AI đã tự động từ chối sự kiện ${title}.`)
         } else if (res.action === 'PRE_REVIEWED') {
-          toast.success(`Đã hoàn tất quét review trước cho ${title}. Kết quả đã sẵn sàng để Admin kiểm tra.`)
+          toast.success(`Đã hoàn tất quét kiểm tra trước cho ${title}. Kết quả đã sẵn sàng để quản trị viên kiểm tra.`)
         } else {
-          toast.info(`AI đã thẩm định ${title}: Cần Admin xem xét thêm (Needs Review).`)
+          toast.info(`AI đã thẩm định ${title}: Cần quản trị viên xem xét thêm.`)
         }
       }
       queryClient.invalidateQueries({ queryKey: ['admin-events'] })

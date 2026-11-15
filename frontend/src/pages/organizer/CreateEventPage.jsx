@@ -4,6 +4,7 @@ import { Sparkles, Wand2, X as CloseIcon, Check, RefreshCw, Layers, Lock } from 
 import { fetchEventCategories } from '@/services/events.js'
 import {
   createOrganizerEvent,
+  fetchOccupiedSlots,
   fetchOrganizerEvent,
   fetchOrganizerVenues,
   submitOrganizerEvent,
@@ -186,6 +187,30 @@ function checkSessionsOverlap(sessions) {
           keyB: sB.id || sB.clientKey,
         }
       }
+    }
+  }
+  return null
+}
+
+function findOccupiedSlotConflict(session, occupiedSlots = [], { venueId = null, seatMapId = null } = {}) {
+  if (!session?.start_date || !session?.start_time || !session?.end_time || !Array.isArray(occupiedSlots) || !occupiedSlots.length) {
+    return null
+  }
+  const sStart = new Date(`${session.start_date}T${session.start_time}`).getTime()
+  const sEnd = new Date(`${session.start_date}T${session.end_time}`).getTime()
+  if (Number.isNaN(sStart) || Number.isNaN(sEnd) || sEnd <= sStart) return null
+
+  for (const slot of occupiedSlots) {
+    const slotStart = new Date(slot.start_time).getTime()
+    const slotEnd = new Date(slot.end_time).getTime()
+    if (Number.isNaN(slotStart) || Number.isNaN(slotEnd)) continue
+    if (!(sStart < slotEnd && sEnd > slotStart)) continue
+
+    if (venueId && String(slot.venue_id) === String(venueId)) {
+      return slot
+    }
+    if (seatMapId && slot.seat_map_id && String(slot.seat_map_id) === String(seatMapId)) {
+      return slot
     }
   }
   return null
@@ -768,7 +793,7 @@ function Step1EventInfo({
 }
 
 
-function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
+function Step2ScheduleVenue({ formData, setFormData, venues, completeness, occupiedSlots = [] }) {
   const { isEnglish } = useLanguage()
   const todayStr = useMemo(() => {
     const d = new Date()
@@ -1169,12 +1194,29 @@ function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
                             onChange={(e) => updateSession(key, 'venue_id', e.target.value)}
                           >
                             <option value="">Chọn địa điểm</option>
-                            {venues.map((v) => (
-                              <option key={v.id} value={v.id}>
-                                {v.name}{v.city ? ` (${v.city})` : ''}
-                              </option>
-                            ))}
+                            {venues.map((v) => {
+                              const conflict = findOccupiedSlotConflict(session, occupiedSlots, { venueId: v.id })
+                              return (
+                                <option key={v.id} value={v.id} disabled={Boolean(conflict)}>
+                                  {v.name}{v.city ? ` (${v.city})` : ''}
+                                  {conflict ? (isEnglish ? ` — Busy (${conflict.event_title})` : ` — Trùng lịch (${conflict.event_title})`) : ''}
+                                </option>
+                              )
+                            })}
                           </select>
+                          {(() => {
+                            const selectedVenueConflict = session.venue_id
+                              ? findOccupiedSlotConflict(session, occupiedSlots, { venueId: session.venue_id })
+                              : null
+                            if (!selectedVenueConflict) return null
+                            return (
+                              <p className="mt-1.5 text-xs text-red-400">
+                                {isEnglish
+                                  ? `This venue is occupied by "${selectedVenueConflict.event_title}" during this time slot. Please choose another venue or time.`
+                                  : `Địa điểm này đang được sự kiện "${selectedVenueConflict.event_title}" sử dụng trong khung giờ này. Vui lòng chọn địa điểm hoặc khung giờ khác.`}
+                              </p>
+                            )
+                          })()}
                         </div>
                       </div>
 
@@ -1489,7 +1531,7 @@ function RowSelectDropdown({ rows, onSelectRow }) {
   )
 }
 
-function SeatMapSelectDropdown({ value, options = [], onChange, placeholder = '-- Chọn sơ đồ --', loading = false }) {
+function SeatMapSelectDropdown({ value, options = [], onChange, placeholder = '-- Chọn sơ đồ --', loading = false, activeSession = null, occupiedSlots = [], isEnglish = false }) {
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef(null)
 
@@ -1553,18 +1595,23 @@ function SeatMapSelectDropdown({ value, options = [], onChange, placeholder = '-
           ) : (
             options.map((sm) => {
               const isSelected = String(sm.id) === String(value)
+              const conflict = findOccupiedSlotConflict(activeSession, occupiedSlots, { seatMapId: sm.id })
               return (
                 <button
                   key={sm.id}
                   type="button"
+                  disabled={Boolean(conflict)}
                   onClick={() => {
+                    if (conflict) return
                     onChange(sm.id)
                     setIsOpen(false)
                   }}
-                  className={`w-full text-left px-4 py-2.5 text-sm transition-all flex items-center justify-between cursor-pointer border-b border-white/5 last:border-b-0 ${
-                    isSelected
-                      ? 'bg-[#C99A47]/20 text-[#F3D382] font-semibold'
-                      : 'text-slate-200 hover:bg-[#C99A47]/15 hover:text-[#F3D382]'
+                  className={`w-full text-left px-4 py-2.5 text-sm transition-all flex items-center justify-between border-b border-white/5 last:border-b-0 ${
+                    conflict
+                      ? 'opacity-50 cursor-not-allowed text-slate-400'
+                      : isSelected
+                        ? 'bg-[#C99A47]/20 text-[#F3D382] font-semibold cursor-pointer'
+                        : 'text-slate-200 hover:bg-[#C99A47]/15 hover:text-[#F3D382] cursor-pointer'
                   }`}
                 >
                   <div className="flex flex-col gap-0.5">
@@ -1573,6 +1620,7 @@ function SeatMapSelectDropdown({ value, options = [], onChange, placeholder = '-
                     </span>
                     <span className="text-[11px] text-slate-400">
                       {sm.seat_count || 0} ghế • {sm.zone_count || 0} khu vực
+                      {conflict ? (isEnglish ? ` • Busy: ${conflict.event_title}` : ` • Trùng lịch: ${conflict.event_title}`) : ''}
                     </span>
                   </div>
                   {isSelected && (
@@ -1596,6 +1644,7 @@ function Step3TicketsSeats({
   organizerPlan = null,
   isEditMode = false,
   eventId = '',
+  occupiedSlots = [],
 }) {
   const { isEnglish } = useLanguage()
   const toast = useToast()
@@ -2267,7 +2316,23 @@ function Step3TicketsSeats({
                 options={venueSeatMaps}
                 onChange={handleSeatMapSelect}
                 loading={loadingMaps}
+                activeSession={activeSession}
+                occupiedSlots={occupiedSlots}
+                isEnglish={isEnglish}
               />
+              {(() => {
+                const selectedMapConflict = activeSession?.seat_map_id
+                  ? findOccupiedSlotConflict(activeSession, occupiedSlots, { seatMapId: activeSession.seat_map_id })
+                  : null
+                if (!selectedMapConflict) return null
+                return (
+                  <p className="mt-2 text-xs text-red-400">
+                    {isEnglish
+                      ? `This seat map is occupied by "${selectedMapConflict.event_title}" during this time slot. Please choose another seat map or time.`
+                      : `Sơ đồ ghế này đang được sự kiện "${selectedMapConflict.event_title}" sử dụng trong khung giờ này. Vui lòng chọn sơ đồ hoặc khung giờ khác.`}
+                  </p>
+                )
+              })()}
               {loadingMaps && (
                 <p className="mt-2 text-sm text-muted">Đang tải sơ đồ...</p>
               )}
@@ -4215,6 +4280,7 @@ export function CreateEventPage() {
   })
   const [categories, setCategories] = useState([])
   const [venues, setVenues] = useState([])
+  const [occupiedSlots, setOccupiedSlots] = useState([])
   const [tagInput, setTagInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [initialLoading, setInitialLoading] = useState(Boolean(routeEventId))
@@ -4310,12 +4376,15 @@ export function CreateEventPage() {
 
   useEffect(() => {
     setInitialLoading(true)
-    Promise.all([fetchEventCategories(), fetchOrganizerVenues()])
-      .then(([cats, vns]) => {
+    Promise.all([
+      fetchEventCategories(),
+      fetchOrganizerVenues(),
+      fetchOccupiedSlots(routeEventId || null).catch(() => []),
+    ])
+      .then(([cats, vns, slots]) => {
         setCategories(cats)
         setVenues(vns)
-
-
+        setOccupiedSlots(Array.isArray(slots) ? slots : [])
       })
       .catch((err) => {
         console.error(err)
@@ -4577,6 +4646,11 @@ export function CreateEventPage() {
         }
         if (!s.venue_id) return `${sName}: Vui lòng chọn địa điểm tổ chức.`
 
+        const venueConflict = findOccupiedSlotConflict(s, occupiedSlots, { venueId: s.venue_id })
+        if (venueConflict) {
+          return `${sName}: Địa điểm đang được sử dụng bởi sự kiện "${venueConflict.event_title}" trong khung giờ trùng lặp.`
+        }
+
         const startTime = new Date(`${s.start_date}T${s.start_time}`)
         const endTime = new Date(`${s.start_date}T${s.end_time}`)
 
@@ -4678,6 +4752,12 @@ export function CreateEventPage() {
         if (seatingType === 'ASSIGNED') {
           if (!s.seat_map_id) {
             return isEnglish ? `${sName} is set to assigned seating but no seat map is selected.` : `${sName} được thiết lập có chỗ ngồi nhưng chưa chọn sơ đồ ghế.`
+          }
+          const seatMapConflict = findOccupiedSlotConflict(s, occupiedSlots, { seatMapId: s.seat_map_id })
+          if (seatMapConflict) {
+            return isEnglish
+              ? `${sName}: Seat map is already in use by event "${seatMapConflict.event_title}" during an overlapping time slot.`
+              : `${sName}: Sơ đồ ghế đang được sử dụng bởi sự kiện "${seatMapConflict.event_title}" trong khung giờ trùng lặp.`
           }
         }
         const tickets = formData.ticketTypes.filter((tt) => String(tt.session_key) === String(key))
@@ -5435,6 +5515,7 @@ export function CreateEventPage() {
               setFormData={setFormData}
               venues={venues}
               completeness={completeness}
+              occupiedSlots={occupiedSlots}
             />
           )}
           {currentStep === 3 && (
@@ -5446,6 +5527,7 @@ export function CreateEventPage() {
               organizerPlan={organizerPlan}
               isEditMode={isEditMode}
               eventId={routeEventId}
+              occupiedSlots={occupiedSlots}
             />
           )}
           {currentStep === 4 && (

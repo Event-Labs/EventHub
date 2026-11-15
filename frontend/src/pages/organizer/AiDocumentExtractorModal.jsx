@@ -375,7 +375,7 @@ export function AiDocumentExtractorModal({
       setIsUploadingBanner(true)
       const res = await uploadEventBanner(file)
       setAiBannerUrl(res.url)
-      toast.success('Đã tải lên ảnh bìa (banner) thành công!')
+      toast.success('Đã tải lên ảnh bìa thành công!')
     } catch (err) {
       console.error(err)
       toast.error(err?.message || 'Không thể tải lên ảnh bìa.')
