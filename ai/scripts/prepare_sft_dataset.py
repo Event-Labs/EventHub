@@ -28,7 +28,7 @@ Quy tắc bắt buộc:
 2. Các trường không có thông tin hoặc chưa xác định phải gán giá trị null (hoặc mảng rỗng [] đối với tags).
 3. Định dạng ngày tháng: YYYY-MM-DD. Định dạng giờ: HH:mm (24 giờ).
 4. Phân biệt rõ giờ check-in (checkin_start_time) và giờ bắt đầu sự kiện (start_time).
-5. Nếu sự kiện diễn ra nhiều ngày hoặc nhiều phiên, trích xuất đầy đủ từng session trong mảng "sessions".
+5. Nếu sự kiện diễn ra nhiều ngày hoặc nhiều phiên độc lập (có khung giờ bắt đầu–kết thúc riêng như Phiên Sáng / Phiên Chiều), trích xuất đầy đủ từng session trong mảng "sessions". Tuyệt đối không tách từng tiết mục/agenda chỉ có 1 mốc giờ bắt đầu nối tiếp nhau trong cùng một ngày (như 16:00 Opening, 16:30 Showcase, ..., 21:00 Closing dưới DAY 1, DAY 2) thành nhiều session riêng; hãy gom thành 1 session cho mỗi ngày với start_time là giờ bắt đầu chương trình và end_time là mốc kết thúc cuối ngày.
 6. Toàn bộ các hạng vé, giá vé (VNĐ, số nguyên) và số lượng phải được đưa vào mảng "ticket_types". Vé miễn phí ghi price là 0.
 7. Chỉ trả về duy nhất chuỗi JSON hợp lệ, bắt đầu bằng { và kết thúc bằng }. Tuyệt đối không thêm lời giải thích hoặc markdown code block bên ngoài.""".strip()
 

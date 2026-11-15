@@ -857,7 +857,7 @@ export function OrganizerPaymentSettingsPage() {
                                               onClick={(e) => {
                                                 e.stopPropagation()
                                                 navigator.clipboard.writeText(serverIp)
-                                                toast.success(`Đã sao chép IP Outbound riêng: ${serverIp}`)
+                                                toast.success(`Đã sao chép IP gửi đi riêng: ${serverIp}`)
                                               }}
                                               className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-3 py-1.5 font-bold text-[#0D1B2A] hover:opacity-90 transition shadow-sm cursor-pointer"
                                             >
