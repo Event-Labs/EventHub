@@ -64,9 +64,18 @@ function extractImagesFromHtml(html) {
 function collectAllEventImages(eventData = {}) {
   const imageSources = [];
 
-  // 1. Ảnh chính (Poster)
-  if (eventData.thumbnail_url && typeof eventData.thumbnail_url === 'string') {
-    const trimmed = eventData.thumbnail_url.trim();
+  // 1. Ảnh chính (Poster / Thumbnail / Avatar)
+  const posterUrl =
+    eventData.thumbnail_url ||
+    eventData.thumbnail ||
+    eventData.poster_url ||
+    eventData.poster ||
+    eventData.avatar_url ||
+    eventData.avatar ||
+    eventData.imageUrl ||
+    eventData.image;
+  if (posterUrl && typeof posterUrl === 'string') {
+    const trimmed = posterUrl.trim();
     if (trimmed) {
       imageSources.push({
         source: 'MAIN_POSTER',
@@ -77,8 +86,13 @@ function collectAllEventImages(eventData = {}) {
   }
 
   // 2. Ảnh bìa (Cover Banner)
-  if (eventData.banner_url && typeof eventData.banner_url === 'string') {
-    const trimmed = eventData.banner_url.trim();
+  const coverUrl =
+    eventData.banner_url ||
+    eventData.banner ||
+    eventData.cover_url ||
+    eventData.cover;
+  if (coverUrl && typeof coverUrl === 'string') {
+    const trimmed = coverUrl.trim();
     if (trimmed && !imageSources.some((item) => item.url === trimmed)) {
       imageSources.push({
         source: 'COVER_BANNER',
@@ -165,13 +179,13 @@ async function fetchImageAsBase64(imageUrl, timeoutMs = 8000) {
     if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
       let downloadUrl = trimmed;
 
-      // Hỗ trợ Cloudinary CDN: tự động render trang 1 của PDF sang ảnh JPG hoặc tối ưu hóa kích thước ảnh
+      // Hỗ trợ Cloudinary CDN: tự động render trang 1 của PDF sang ảnh JPG nếu thuộc /image/upload/, hoặc tối ưu hóa kích thước ảnh
       if (downloadUrl.includes('res.cloudinary.com')) {
         if (downloadUrl.toLowerCase().includes('.pdf')) {
-          if (downloadUrl.includes('/upload/')) {
+          if (downloadUrl.includes('/image/upload/')) {
             downloadUrl = downloadUrl
               .replace(/\.pdf(\?.*)?$/i, '.jpg')
-              .replace('/upload/', '/upload/w_1000,c_limit,q_auto:good,f_jpg,pg_1/');
+              .replace('/image/upload/', '/image/upload/w_1000,c_limit,q_auto:good,f_jpg,pg_1/');
           }
         } else if (downloadUrl.includes('/image/upload/')) {
           if (!downloadUrl.includes('/w_') && !downloadUrl.includes('/c_limit')) {

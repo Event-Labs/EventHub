@@ -1757,37 +1757,50 @@ function AiReviewAssistantCard({ event, onApplyFeedback }) {
             {hasImages ? (
               <div className="space-y-2.5">
                 {imageItems.length > 0 ? (
-                  imageItems.map((img, idx) => (
-                    <div key={idx} className="rounded-xl border border-slate-800 bg-slate-950/60 p-3 space-y-2">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-semibold text-slate-100">{getImageSourceLabel(img.source)}</span>
-                        {getImageStatusBadge(img.status)}
-                      </div>
-                      {img.analysis && (
-                        <p className="text-xs text-slate-300 leading-relaxed">{formatAnalysis(img.analysis, img.source)}</p>
-                      )}
-                      {Array.isArray(img.issues) && img.issues.length > 0 && (
-                        <div className="space-y-1 pt-1">
-                          {img.issues.map((iss, i) => (
-                            <div key={i} className="flex items-start gap-1.5 text-xs text-rose-300">
-                              <AlertCircle className="size-3.5 shrink-0 text-rose-400 mt-0.5" />
-                              <span>{iss}</span>
-                            </div>
-                          ))}
+                  imageItems.map((img, idx) => {
+                    const thumbUrl = img.url || (img.source === 'MAIN_POSTER' ? (event?.thumbnail_url || event?.poster_url) : img.source === 'COVER_BANNER' ? (event?.banner_url || event?.cover_url) : null)
+                    return (
+                      <div key={idx} className="rounded-xl border border-slate-800 bg-slate-950/60 p-3 space-y-2">
+                        <div className="flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-2 min-w-0">
+                            {thumbUrl ? (
+                              <img
+                                src={thumbUrl}
+                                alt=""
+                                className="size-8 rounded object-cover border border-slate-700 shrink-0"
+                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                              />
+                            ) : null}
+                            <span className="font-semibold text-slate-100 truncate">{getImageSourceLabel(img.source)}</span>
+                          </div>
+                          {getImageStatusBadge(img.status)}
                         </div>
-                      )}
-                      {img.suggestion && (
-                        <button
-                          type="button"
-                          onClick={() => handleApplySingle(`[Gợi ý ảnh ${getImageSourceLabel(img.source)}] ${img.suggestion}`)}
-                          className="flex w-full items-center justify-between rounded-lg border border-amber-500/20 bg-amber-950/20 px-3 py-1.5 text-left text-xs text-amber-200 hover:bg-amber-950/35 transition"
-                        >
-                          <span>💡 Gợi ý: {img.suggestion}</span>
-                          <span className="font-semibold text-amber-400">+ Thêm</span>
-                        </button>
-                      )}
-                    </div>
-                  ))
+                        {img.analysis && (
+                          <p className="text-xs text-slate-300 leading-relaxed">{formatAnalysis(img.analysis, img.source)}</p>
+                        )}
+                        {Array.isArray(img.issues) && img.issues.length > 0 && (
+                          <div className="space-y-1 pt-1">
+                            {img.issues.map((iss, i) => (
+                              <div key={i} className="flex items-start gap-1.5 text-xs text-rose-300">
+                                <AlertCircle className="size-3.5 shrink-0 text-rose-400 mt-0.5" />
+                                <span>{iss}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {img.suggestion && (
+                          <button
+                            type="button"
+                            onClick={() => handleApplySingle(`[Gợi ý ảnh ${getImageSourceLabel(img.source)}] ${img.suggestion}`)}
+                            className="flex w-full items-center justify-between rounded-lg border border-amber-500/20 bg-amber-950/20 px-3 py-1.5 text-left text-xs text-amber-200 hover:bg-amber-950/35 transition"
+                          >
+                            <span>💡 Gợi ý: {img.suggestion}</span>
+                            <span className="font-semibold text-amber-400">+ Thêm</span>
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })
                 ) : (
                   visionItems.map((img, idx) => (
                     <div key={idx} className="rounded-xl border border-slate-800 bg-slate-950/60 p-3 space-y-1">

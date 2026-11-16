@@ -859,9 +859,9 @@ function ImageModerationAuditCard({ imageReview, visionAnalysis, event, onClick 
   }
 
   const getThumbnailUrl = (src, url) => {
-    if (url) return url
-    if (src === 'MAIN_POSTER') return event?.poster_url || null
-    if (src === 'COVER_BANNER') return event?.banner_url || null
+    if (url && typeof url === 'string' && url.trim()) return url.trim()
+    if (src === 'MAIN_POSTER') return event?.thumbnail_url || event?.poster_url || event?.image || event?.thumbnail || null
+    if (src === 'COVER_BANNER') return event?.banner_url || event?.cover_url || event?.banner || null
     return null
   }
 
@@ -911,12 +911,19 @@ function ImageModerationAuditCard({ imageReview, visionAnalysis, event, onClick 
                         src={thumbUrl}
                         alt=""
                         className="size-11 rounded-lg object-cover border border-[#263751] shrink-0 [html.light_&]:border-slate-200"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                          const fallback = e.currentTarget.parentElement?.querySelector('.img-fallback-icon');
+                          if (fallback) fallback.style.display = 'grid';
+                        }}
                       />
-                    ) : (
-                      <div className="size-11 rounded-lg bg-[#081126] border border-[#263751] grid place-items-center text-slate-400 shrink-0 [html.light_&]:bg-slate-100 [html.light_&]:border-slate-200">
-                        <ImageIcon className="size-5 text-[#A78BFA]" />
-                      </div>
-                    )}
+                    ) : null}
+                    <div
+                      className="img-fallback-icon size-11 rounded-lg bg-[#081126] border border-[#263751] grid place-items-center text-slate-400 shrink-0 [html.light_&]:bg-slate-100 [html.light_&]:border-slate-200"
+                      style={{ display: thumbUrl ? 'none' : 'grid' }}
+                    >
+                      <ImageIcon className="size-5 text-[#A78BFA]" />
+                    </div>
                     <div className="min-w-0">
                       <span className="font-bold text-slate-100 block truncate [html.light_&]:text-[#0D1B2A]">{getSourceLabel(img.source)}</span>
                       <span className="text-[11px] text-slate-400 [html.light_&]:text-slate-500">Hình ảnh sự kiện</span>

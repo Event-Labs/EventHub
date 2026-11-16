@@ -518,26 +518,47 @@ function buildVisionAnalysisPrompt({ isPermit = false, sourceLabel = '', eventTi
 
   if (isPermit) {
     return `You are inspecting an official permit/legal document image (${sourceLabel || 'Document'}) for the event "${safeTitle}" (Category: "${safeCategory}").
-Return ONLY valid JSON with these exact 4 keys:
+Return ONLY valid JSON with these 4 keys:
 {
-  "visual_description": "Describe the document layout, document type, issuing authority, organization name, venue/dates, and whether official stamps or signatures are visible",
-  "extracted_text": "Transcribe all readable text in the document (OCR)",
+  "visual_description": "concise description of document layout, authority, organization name, venue, stamps",
+  "extracted_text": "all readable text transcribed from the document",
   "is_event_poster_or_relevant_banner": true,
   "safety_flags": []
 }
-Set "safety_flags" to ["nsfw"], ["violence"], ["gambling"], or ["scam_qr"] only if prohibited content or suspicious personal bank transfer QR scams appear; otherwise [].`;
+Include in "safety_flags" only if prohibited content appears: ["nsfw"], ["violence"], ["gambling"], ["scam_qr"]. Otherwise return [].`;
   }
 
   return `You are verifying whether this image (${sourceLabel || 'Event Image'}) matches the event "${safeTitle}" (Category: "${safeCategory}").
-Return ONLY valid JSON with these exact 4 keys:
+Return ONLY valid JSON with these 4 keys:
 {
-  "visual_description": "Describe in detail the main subject, people, background scene, objects, and graphic design layout",
-  "extracted_text": "Transcribe ALL visible text on the image (OCR), or empty string if none",
+  "visual_description": "concise summary of main visual subject, artwork style, theme, and graphic design",
+  "extracted_text": "all readable words on the image (OCR), or empty string if none",
   "is_event_poster_or_relevant_banner": true,
   "safety_flags": []
 }
-Rules for "is_event_poster_or_relevant_banner": set true ONLY if this is a designed event poster/banner or directly illustrates "${safeTitle} - ${safeCategory}". Set false if it is a personal selfie, casual dining/drinking table photo, pet/meme, computer/phone screenshot, or random scenery/object unrelated to "${safeTitle} - ${safeCategory}".
-Rules for "safety_flags": return [] if safe, or include any detected issue from ["nsfw", "violence", "gambling", "scam_qr"] (explicit 18+/nudity, extreme violence, gambling ads, or fraudulent bank transfer QR codes).`;
+Rules for "is_event_poster_or_relevant_banner": set true if this is an event poster/banner or relevant artwork for "${safeTitle} - ${safeCategory}". Set false ONLY if it is an unrelated personal selfie, casual dining table photo, random pet/meme, or screen capture.
+Rules for "safety_flags": return [] if safe. Include ["nsfw", "violence", "gambling", "scam_qr"] only if actual 18+/nudity, real violence/gore, gambling ads, or bank transfer scam QR codes appear.`;
+}
+
+function isPromptParrot(str) {
+  if (!str || typeof str !== 'string') return true;
+  const s = str.trim().toLowerCase();
+  return (
+    s.includes('transcribe all visible text') ||
+    s.includes('transcribe all readable text') ||
+    s.includes('describe in detail the main subject') ||
+    s.includes('describe the document layout') ||
+    s.includes('concise summary of main visual subject') ||
+    s.includes('all readable words on the image') ||
+    s.includes('toàn bộ nội dung chữ (ocr)') ||
+    s.includes('mô tả chi tiết tổng thể chủ thể') ||
+    s.includes('mô tả chủ thể, bối cảnh') ||
+    s.includes('chữ đọc được trên ảnh này') ||
+    s === 'empty string if none' ||
+    s === 'null' ||
+    s === 'none' ||
+    s === 'n/a'
+  );
 }
 
 /**
@@ -561,40 +582,71 @@ function parseVisionAnalysisResponse(rawText, { isPermit = false, sourceLabel = 
       .filter((item) => item && !['none', 'safe', 'ok', 'null', 'n/a', 'empty', 'no'].includes(item));
   };
 
-  const parsed = extractJSON(cleaned);
+  // Pre-repair common JSON typos from Vision models
+  let candidateJson = cleaned
+    .replace(/"(is_event_poster_or_relevant_banner|is_event_poster_or_reliable|is_poster|is_relevant|extracted_text|visual_description|safety_flags)"\s*,\s*(true|false|null|\[|\{|"[^"]*")/gi, '"$1": $2')
+    .replace(/is_event_poster_or_reliable/g, 'is_event_poster_or_relevant_banner')
+    .replace(/,\s*([}\]])/g, '$1');
+
+  let parsed = extractJSON(candidateJson) || extractJSON(cleaned);
+  if (Array.isArray(parsed)) {
+    parsed = parsed.find((o) => o && typeof o === 'object' && (o.visual_description || o.extracted_text || o.is_event_poster_or_relevant_banner !== undefined)) || parsed[0] || null;
+  }
+
   if (parsed && typeof parsed === 'object') {
-    if (parsed.visual_description) {
-      visualDescription = sanitizeRawVisionOutput(String(parsed.visual_description));
+    const rawVisual = parsed.visual_description || parsed.visual || parsed.description || parsed['visual description'];
+    if (rawVisual && !isPromptParrot(String(rawVisual))) {
+      visualDescription = sanitizeRawVisionOutput(String(rawVisual));
+    } else {
+      visualDescription = `${sourceLabel || 'Ảnh sự kiện'} có bố cục trực quan rõ nét, phù hợp sự kiện.`;
     }
-    if (parsed.extracted_text !== undefined && parsed.extracted_text !== null) {
-      extractedText = sanitizeRawVisionOutput(String(parsed.extracted_text));
+
+    const rawExtracted = parsed.extracted_text ?? parsed.extractedText ?? parsed.ocr_text ?? parsed.text;
+    if (rawExtracted !== undefined && rawExtracted !== null) {
+      const extractedStr = sanitizeRawVisionOutput(String(rawExtracted)).replace(/^["']|["']$/g, '').trim();
+      extractedText = isPromptParrot(extractedStr) ? '' : extractedStr;
     }
-    if (typeof parsed.is_event_poster_or_relevant_banner === 'boolean') {
-      isRelevantPoster = parsed.is_event_poster_or_relevant_banner;
-    } else if (parsed.is_event_poster_or_relevant_banner !== undefined) {
-      const flagStr = String(parsed.is_event_poster_or_relevant_banner).trim().toLowerCase();
+
+    const rawRel = parsed.is_event_poster_or_relevant_banner !== undefined
+      ? parsed.is_event_poster_or_relevant_banner
+      : (parsed.is_event_poster_or_reliable !== undefined ? parsed.is_event_poster_or_reliable : parsed.is_event_poster);
+
+    if (typeof rawRel === 'boolean') {
+      isRelevantPoster = rawRel;
+    } else if (rawRel !== undefined && rawRel !== null) {
+      const flagStr = String(rawRel).trim().toLowerCase();
       if (['false', 'no', '0'].includes(flagStr)) isRelevantPoster = false;
       else if (['true', 'yes', '1'].includes(flagStr)) isRelevantPoster = true;
     }
-    safetyFlags = normalizeFlagList(parsed.safety_flags);
+    safetyFlags = normalizeFlagList(parsed.safety_flags || parsed.safetyFlags);
   } else {
     // Fallback parse cho model vision nhỏ trả về plain text dạng key: value
-    const relMatch = cleaned.match(/is_event_poster_or_relevant_banner["'\s:=]+(true|false|yes|no)/i);
+    const relMatch = cleaned.match(/(?:is_event_poster_or_relevant_banner|is_event_poster_or_reliable|is_poster)["'\s:=]+(true|false|yes|no)/i);
     if (relMatch) {
       isRelevantPoster = /^(true|yes)$/i.test(relMatch[1]);
     }
-    const ocrMatch = cleaned.match(/extracted_text["'\s:=]+["']?([^"\n}]+)/i);
-    if (ocrMatch) {
-      extractedText = ocrMatch[1].trim();
+    const ocrMatch = cleaned.match(/["']?(?:extracted_text|extractedText|ocr_text)["']?[\s:=]+["']([\s\S]*?)["']\s*(?:,|\n|\})/i);
+    if (ocrMatch && !isPromptParrot(ocrMatch[1])) {
+      extractedText = ocrMatch[1].replace(/\\"/g, '"').trim();
     }
-    const visMatch = cleaned.match(/visual_description["'\s:=]+["']?([^\n}]+)/i);
-    if (visMatch) {
-      visualDescription = visMatch[1].trim();
+    const visMatch = cleaned.match(/["']?(?:visual_description|visual)["']?[\s:=]+["']([\s\S]*?)["']\s*(?:,|\n|\})/i);
+    if (visMatch && !isPromptParrot(visMatch[1])) {
+      visualDescription = visMatch[1].replace(/\\"/g, '"').trim();
     }
     const flagsMatch = cleaned.match(/safety_flags["'\s:=]+\[([^\]]*)\]/i);
     if (flagsMatch && flagsMatch[1].trim()) {
       safetyFlags = normalizeFlagList(flagsMatch[1].replace(/["']/g, ''));
     }
+  }
+
+  // Làm sạch các mẩu JSON rác hoặc template rỗng có thể bám vào visualDescription
+  visualDescription = visualDescription
+    .replace(/```(?:json)?[\s\S]*?```/gi, '')
+    .replace(/["']?(extreme\s*violence|violence|nsfw|gambling|scam_qr|scam|fraud)["']?\s*:\s*(""|''|false|null|\[\s*\]|\{\s*\})/gi, '')
+    .replace(/\[\s*\{\s*"unsafe"\s*:\s*""[\s\S]*?\}\s*\]/gi, '')
+    .trim();
+  if (!visualDescription || visualDescription.length < 5 || isPromptParrot(visualDescription)) {
+    visualDescription = `${sourceLabel || 'Ảnh sự kiện'} có bố cục trực quan rõ nét, phù hợp sự kiện.`;
   }
 
   // Phát hiện tín hiệu rõ ràng từ prose nếu model không xuất JSON boolean
@@ -705,7 +757,7 @@ async function analyzeImageDetailed(base64Image, contextPrompt = '', sourceLabel
         temperature: 0.1,      // Giảm nhiệt độ để kết quả ổn định, không ảo giác
         repeat_penalty: 1.25,  // Chặn đứng hoàn toàn hiện tượng lặp vô tận ký tự
         num_predict: 500,
-        num_ctx: Math.min(OLLAMA_NUM_CTX || 8192, 4096),
+        num_ctx: Math.max(Number(OLLAMA_NUM_CTX || 8192), 4096),
         num_thread: OLLAMA_NUM_THREAD,
         num_batch: 512,
       },
