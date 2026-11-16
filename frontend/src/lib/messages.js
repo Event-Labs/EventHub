@@ -1,3 +1,5 @@
+import { translatePhrase } from '@/i18n/phraseDictionary.js'
+
 const TECHNICAL_MESSAGE_MAP = {
   Success: 'Thao tác thành công.',
   Error: 'Đã xảy ra lỗi. Vui lòng thử lại.',
@@ -22,6 +24,9 @@ const TECHNICAL_MESSAGE_MAP = {
   'Venue not found': 'Không tìm thấy địa điểm.',
   'Venue name is required': 'Vui lòng nhập tên địa điểm.',
   'Address is required': 'Vui lòng nhập địa chỉ.',
+  'Please resolve venue coordinates from the address': 'Vui lòng xác định tọa độ địa điểm từ địa chỉ.',
+  'Venue coordinates are invalid': 'Tọa độ địa điểm không hợp lệ.',
+  'Venue đang được sử dụng bởi sự kiện active': 'Địa điểm đang được sử dụng bởi sự kiện chưa kết thúc, không thể xóa.',
   'Seat map not found': 'Không tìm thấy sơ đồ ghế.',
   'Seat map name is required': 'Vui lòng nhập tên sơ đồ ghế.',
   'Seat map must have at least one seat': 'Sơ đồ ghế cần có ít nhất một ghế.',
@@ -66,14 +71,36 @@ const TECHNICAL_MESSAGE_MAP = {
   'Request failed with status code 500': 'Hệ thống gặp sự cố. Vui lòng thử lại sau.',
 }
 
-const ENGLISH_PATTERN = /[A-Za-z]{3,}/
 const VIETNAMESE_PATTERN = /[À-ỹ]/
 
-export function normalizeMessage(message, fallback = 'Đã xảy ra lỗi. Vui lòng thử lại.') {
-  if (!message) return fallback
+export function getActiveLocale() {
+  try {
+    const docLang = typeof document !== 'undefined' ? document.documentElement?.lang : ''
+    if (docLang === 'en' || docLang === 'vi') return docLang
+    const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('eventhub_locale') : ''
+    if (saved === 'en' || saved === 'vi') return saved
+  } catch {
+    // Ignore storage/DOM access errors
+  }
+  return 'vi'
+}
+
+export function normalizeMessage(message, fallback = 'Đã xảy ra lỗi. Vui lòng thử lại.', locale = getActiveLocale()) {
+  const resolvedFallback = locale === 'en'
+    ? translatePhrase(fallback, 'en')
+    : (TECHNICAL_MESSAGE_MAP[fallback] || translatePhrase(fallback, 'vi'))
+
+  if (!message) return resolvedFallback
 
   const value = String(message).trim()
-  if (!value) return fallback
+  if (!value) return resolvedFallback
+
+  if (locale === 'en') {
+    if (VIETNAMESE_PATTERN.test(value)) {
+      return translatePhrase(value, 'en')
+    }
+    return value
+  }
 
   if (TECHNICAL_MESSAGE_MAP[value]) {
     return TECHNICAL_MESSAGE_MAP[value]
@@ -83,20 +110,17 @@ export function normalizeMessage(message, fallback = 'Đã xảy ra lỗi. Vui l
     return value
   }
 
-  if (ENGLISH_PATTERN.test(value)) {
-    return value
-  }
-
-  return value
+  return translatePhrase(value, 'vi')
 }
 
 export function getApiMessage(error, fallback = 'Đã xảy ra lỗi. Vui lòng thử lại.') {
+  const locale = getActiveLocale()
   const apiError = error?.response?.data
   const issues = apiError?.errors || apiError?.data
 
   if (Array.isArray(issues) && issues.length > 0) {
     const messages = issues
-      .map((item) => normalizeMessage(item?.message, 'Dữ liệu chưa hợp lệ.'))
+      .map((item) => normalizeMessage(item?.message, 'Dữ liệu chưa hợp lệ.', locale))
       .filter(Boolean)
 
     if (messages.length > 0) {
@@ -104,5 +128,5 @@ export function getApiMessage(error, fallback = 'Đã xảy ra lỗi. Vui lòng 
     }
   }
 
-  return normalizeMessage(apiError?.message || error?.message, fallback)
+  return normalizeMessage(apiError?.message || error?.message, fallback, locale)
 }

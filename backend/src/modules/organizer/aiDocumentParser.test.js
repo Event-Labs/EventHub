@@ -3327,6 +3327,67 @@ Note: ticket quantity not fixed yet.`;
       expect(sanitized.ticket_types[0].quantity_total).toBeNull();
       expect(sanitized.ticket_types[1].quantity_total).toBeNull();
     });
+
+    test('should group DAY 1 / DAY 2 start-time-only agenda milestones into 2 daily sessions instead of 10 sessions', async () => {
+      const indieDoc = `🎵 VIETNAM INDIE MUSIC WEEKEND 2033 🎵
+
+📅 21–22 APRIL 2033
+
+📍 Riverside Music Park
+Đường Hoàng Sa, Bình Thạnh, TP. Hồ Chí Minh.
+
+⏰ Gates open: 15:00
+🎤 Main program starts: 16:00
+
+DAY 1
+
+16:00 Opening
+
+16:30 Local Indie Showcase
+
+18:00 Emerging Artists
+
+19:30 Headliner Set
+
+21:00 Night Session
+
+DAY 2
+
+16:00 Acoustic Session
+
+17:30 Indie Bands Showcase
+
+19:00 International Guest
+
+20:30 Final Performance
+
+21:30 Closing
+
+🎟 TICKETS
+1-Day Pass — 350,000 VND
+2-Day Weekend Pass — 600,000 VND`;
+
+      const res = await aiDocumentParserService.extractEventFromText(indieDoc);
+      expect(res.data.title).toBe('VIETNAM INDIE MUSIC WEEKEND 2033');
+      expect(res.data.venue_name).toBe('Riverside Music Park');
+      expect(res.data.district).toBe('Bình Thạnh');
+      expect(res.data.province).toBe('Thành phố Hồ Chí Minh');
+      expect(res.data.sessions).toHaveLength(2);
+      expect(res.data.sessions[0]).toMatchObject({
+        session_name: 'Ngày 1',
+        start_date: '2033-04-21',
+        start_time: '16:00',
+        end_time: '21:00',
+        checkin_start_time: '15:00',
+      });
+      expect(res.data.sessions[1]).toMatchObject({
+        session_name: 'Ngày 2',
+        start_date: '2033-04-22',
+        start_time: '16:00',
+        end_time: '21:30',
+        checkin_start_time: '15:00',
+      });
+    });
   });
 });
 

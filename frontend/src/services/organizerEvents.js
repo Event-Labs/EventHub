@@ -29,6 +29,12 @@ export async function fetchOrganizerVenues() {
   return response.data.data
 }
 
+export async function fetchOccupiedSlots(excludeEventId = null) {
+  const params = excludeEventId ? { excludeEventId } : undefined
+  const response = await http.get('/organizer/events/occupied-slots', { params })
+  return response.data.data || []
+}
+
 export async function createOrganizerEvent(payload) {
   const response = await http.post('/organizer/events', payload)
   return response.data.data
