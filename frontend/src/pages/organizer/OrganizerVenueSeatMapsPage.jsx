@@ -889,6 +889,10 @@ export function OrganizerVenueSeatMapsPage() {
         <div className="flex justify-center py-16">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
         </div>
+      ) : !seatMaps.length ? (
+        <p className="mt-4 text-center text-sm text-muted py-6 border border-dashed border-border-soft/30 rounded-xl bg-panel-soft/30">
+          Chưa có sơ đồ ghế. Nhấn &quot;Tạo sơ đồ mới&quot; để bắt đầu.
+        </p>
       ) : (
         <OrganizerTable
           minWidth="min-w-[840px]"
@@ -922,12 +926,6 @@ export function OrganizerVenueSeatMapsPage() {
             </div>,
           ])}
         />
-      )}
-
-      {!loading && !seatMaps.length && (
-        <p className="mt-4 text-center text-sm text-muted py-6 border border-dashed border-border-soft/30 rounded-xl bg-panel-soft/30">
-          Chưa có sơ đồ ghế. Nhấn &quot;Tạo sơ đồ mới&quot; để bắt đầu.
-        </p>
       )}
 
       <SeatMapPreviewModal

@@ -137,12 +137,45 @@ const SEAT_STATUS = {
   DISABLED: 'DISABLED',
 }
 
+function isLightColor(hex) {
+  if (!hex || typeof hex !== 'string') return false
+  const clean = hex.replace('#', '').trim()
+  if (clean.length < 6) return false
+  const r = parseInt(clean.substring(0, 2), 16)
+  const g = parseInt(clean.substring(2, 4), 16)
+  const b = parseInt(clean.substring(4, 6), 16)
+  if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) return false
+  const yiq = (r * 299 + g * 587 + b * 114) / 1000
+  return yiq >= 170
+}
+
 // Trả về className cho ghế — zone color KHÔNG được xử lý ở đây,
 // chỉ xử lý qua dải màu đáy (giống customer booking).
-function getSeatStatusClass(status, selected) {
+function getSeatStatusClass(status, selected, isLightCanvas = false) {
   if (selected) {
     // Đang chọn: cam
-    return 'cursor-pointer border-orange-400 bg-orange-400 text-slate-950 shadow-md shadow-orange-400/40'
+    return isLightCanvas
+      ? 'cursor-pointer border-amber-500 bg-amber-500 text-white shadow-md shadow-amber-500/30'
+      : 'cursor-pointer border-orange-400 bg-orange-400 text-slate-950 shadow-md shadow-orange-400/40'
+  }
+  if (isLightCanvas) {
+    switch (status) {
+      case SEAT_STATUS.AVAILABLE:
+        // Nền sáng: viền slate-300, nền trắng, chữ slate-800 đậm rõ nét
+        return 'cursor-pointer border-slate-300 bg-white text-slate-800 hover:border-primary hover:text-primary shadow-xs'
+      case SEAT_STATUS.SOLD:
+      case SEAT_STATUS.BOOKED:
+        return 'cursor-not-allowed border-slate-300 bg-slate-200 text-slate-400'
+      case SEAT_STATUS.HELD:
+      case SEAT_STATUS.RESERVED:
+        return 'cursor-not-allowed border-amber-300 bg-amber-100 text-amber-700'
+      case SEAT_STATUS.BLOCKED:
+      case SEAT_STATUS.DISABLED:
+      case SEAT_STATUS.MAINTENANCE:
+        return 'cursor-not-allowed border-slate-300 bg-slate-200/80 text-slate-400 line-through'
+      default:
+        return 'cursor-not-allowed border-slate-300 bg-slate-200 text-slate-400'
+    }
   }
   switch (status) {
     case SEAT_STATUS.AVAILABLE:
@@ -1603,6 +1636,9 @@ export function SeatMapCanvas({
   const contentWidth = xyLayout?.width || fallbackWidth
   const contentHeight = xyLayout?.height || fallbackHeight
 
+  const canvasBg = configuredLayout?.canvasBg || (typeof seatMap?.config === 'object' ? seatMap?.config?.canvasBg : '#0F172A')
+  const isLightCanvas = isLightColor(canvasBg)
+
   function applyZoomToCanvas(nextZoom) {
     zoomRef.current = nextZoom
     if (zoomSpacerRef.current) {
@@ -1816,7 +1852,7 @@ export function SeatMapCanvas({
         onClick={() => clickable && onToggleSeat?.(id)}
         title={tooltipText}
         style={{ width: w, height: SEAT_HEIGHT, flexShrink: 0, ...style }}
-        className={`rounded-md border font-bold transition ${getSeatStatusClass(status, selected)}`}
+        className={`rounded-md border font-bold transition ${getSeatStatusClass(status, selected, isLightCanvas)}`}
       >
         <span
           className="block truncate px-0.5 leading-4"
@@ -1828,7 +1864,7 @@ export function SeatMapCanvas({
         {!selected && status === SEAT_STATUS.AVAILABLE && zoneColor && (
           <span
             className="mx-auto block rounded-full"
-            style={{ backgroundColor: zoneColor, height: 2, width: Math.max(4, w - 8), marginTop: 1 }}
+            style={{ backgroundColor: zoneColor, height: 2.5, width: Math.max(4, w - 8), marginTop: 1 }}
           />
         )}
       </button>
@@ -1872,7 +1908,9 @@ export function SeatMapCanvas({
           >
             <div
               ref={zoomLayerRef}
-              className="relative origin-top-left rounded-lg border border-border-soft/40 bg-background/40"
+              className={`relative origin-top-left rounded-lg border ${
+                isLightCanvas ? 'border-slate-300 shadow-sm' : 'border-border-soft/40 bg-background/40'
+              }`}
               style={{
                 width: xyLayout.width,
                 height: xyLayout.height,
@@ -1880,14 +1918,16 @@ export function SeatMapCanvas({
                 willChange: 'transform',
                 backgroundColor: configuredLayout?.canvasBg,
                 backgroundImage: configuredLayout
-                  ? 'radial-gradient(circle, rgba(255,255,255,0.08) 1px, transparent 1px)'
+                  ? isLightCanvas
+                    ? 'radial-gradient(circle, rgba(15,23,42,0.12) 1px, transparent 1px)'
+                    : 'radial-gradient(circle, rgba(255,255,255,0.08) 1px, transparent 1px)'
                   : undefined,
                 backgroundSize: configuredLayout ? '20px 20px' : undefined,
               }}
             >
               {configuredLayout?.stage ? (
                 <div
-                  className="absolute grid place-items-center overflow-hidden border-2 border-white/30 px-2 text-center text-xs font-extrabold text-white shadow-lg shadow-slate-950/20"
+                  className="absolute grid place-items-center overflow-hidden px-2 text-center text-xs font-extrabold shadow-md"
                   style={{
                     left: configuredLayout.stage.x,
                     top: configuredLayout.stage.y,
@@ -1896,6 +1936,8 @@ export function SeatMapCanvas({
                     transform: configuredLayout.stage.rotation ? `rotate(${configuredLayout.stage.rotation}deg)` : undefined,
                     transformOrigin: 'center',
                     backgroundColor: configuredLayout.stage.color,
+                    color: isLightColor(configuredLayout.stage.color) ? '#0D1B2A' : '#FFFFFF',
+                    border: isLightCanvas ? '2px solid rgba(15,23,42,0.3)' : '2px solid rgba(255,255,255,0.3)',
                     ...stageShapeStyle(configuredLayout.stage.shape),
                   }}
                 >
@@ -1911,45 +1953,64 @@ export function SeatMapCanvas({
                   SÂN KHẤU
                 </div>
               )}
-              {configuredLayout?.standingAreas.map((area, index) => (
-                <button
-                  key={area.id || index}
-                  type="button"
-                  disabled={readOnly}
-                  title={area.name}
-                  aria-label={area.name}
-                  onClick={() => onSelectStandingArea?.(area, index)}
-                  className="absolute flex flex-col items-center justify-center rounded-xl border-2 border-dashed text-xs font-extrabold text-white shadow-lg"
-                  style={{
-                    left: area.x,
-                    top: area.y,
-                    width: area.w,
-                    height: area.h,
-                    background: `color-mix(in srgb, ${area.color || '#EF4444'} 25%, transparent)`,
-                    borderColor: area.color || '#EF4444',
-                    transform: area.rotation ? `rotate(${area.rotation}deg)` : undefined,
-                  }}
-                >
-                  <span>{area.name}</span>
-                  <span className="mt-1 text-[10px] font-semibold text-white/85">Sức chứa: {area.capacity || 0} người</span>
-                </button>
-              ))}
-              {configuredLayout?.auxiliaryElements.map((element, index) => (
-                <div
-                  key={element.id || `aux-${index}`}
-                  className="absolute grid place-items-center overflow-hidden rounded-md border border-border-soft bg-panel-soft px-2 text-center text-[11px] font-bold text-content"
-                  style={{
-                    left: element.x,
-                    top: element.y,
-                    width: element.w,
-                    height: element.h,
-                    transform: element.rotation ? `rotate(${element.rotation}deg)` : undefined,
-                    backgroundColor: element.color || undefined,
-                  }}
-                >
-                  {element.label || element.name}
-                </div>
-              ))}
+              {configuredLayout?.standingAreas.map((area, index) => {
+                const areaColor = area.color || '#EF4444'
+                const areaTextColor = isLightCanvas ? '#0F172A' : '#FFFFFF'
+                const subTextColor = isLightCanvas ? '#334155' : 'rgba(255,255,255,0.85)'
+                const bgTint = isLightCanvas
+                  ? `color-mix(in srgb, ${areaColor} 20%, white)`
+                  : `color-mix(in srgb, ${areaColor} 25%, transparent)`
+                return (
+                  <button
+                    key={area.id || index}
+                    type="button"
+                    disabled={readOnly}
+                    title={area.name}
+                    aria-label={area.name}
+                    onClick={() => onSelectStandingArea?.(area, index)}
+                    className="absolute flex flex-col items-center justify-center rounded-xl border-2 border-dashed text-xs font-extrabold shadow-sm transition-all"
+                    style={{
+                      left: area.x,
+                      top: area.y,
+                      width: area.w,
+                      height: area.h,
+                      background: bgTint,
+                      borderColor: areaColor,
+                      color: areaTextColor,
+                      transform: area.rotation ? `rotate(${area.rotation}deg)` : undefined,
+                    }}
+                  >
+                    <span className="font-black drop-shadow-xs">{area.name}</span>
+                    <span className="mt-1 text-[10px] font-bold" style={{ color: subTextColor }}>
+                      Sức chứa: {area.capacity || 0} người
+                    </span>
+                  </button>
+                )
+              })}
+              {configuredLayout?.auxiliaryElements.map((element, index) => {
+                const isAuxLight = element.color ? isLightColor(element.color) : isLightCanvas
+                const auxBg = element.color || (isLightCanvas ? '#E2E8F0' : 'var(--color-panel-soft)')
+                const auxText = isLightCanvas ? (element.color && !isAuxLight ? '#FFFFFF' : '#0F172A') : '#F8FAFC'
+                const auxBorder = isLightCanvas ? '1px solid rgba(15,23,42,0.25)' : '1px solid var(--color-border-soft)'
+                return (
+                  <div
+                    key={element.id || `aux-${index}`}
+                    className="absolute grid place-items-center overflow-hidden rounded-md px-2 text-center text-[11px] font-bold shadow-xs"
+                    style={{
+                      left: element.x,
+                      top: element.y,
+                      width: element.w,
+                      height: element.h,
+                      transform: element.rotation ? `rotate(${element.rotation}deg)` : undefined,
+                      backgroundColor: auxBg,
+                      color: auxText,
+                      border: auxBorder,
+                    }}
+                  >
+                    {element.label || element.name}
+                  </div>
+                )
+              })}
               {seats.map((seat) => {
                 const position = xyLayout.positions.get(seatId(seat))
                 if (!position) return null
@@ -2001,7 +2062,9 @@ export function SeatMapCanvas({
         >
           <div
             ref={zoomLayerRef}
-            className="origin-top-left rounded-lg border border-border-soft/40 bg-background/40 p-4"
+            className={`origin-top-left rounded-lg border p-4 ${
+              isLightCanvas ? 'border-slate-300 bg-white shadow-sm' : 'border-border-soft/40 bg-background/40'
+            }`}
             style={{
               width: fallbackWidth,
               minHeight: fallbackHeight,
@@ -2024,7 +2087,7 @@ export function SeatMapCanvas({
               {rows.map(({ rowLabel, seats: rowSeats }) => (
                 <div key={rowLabel} className="flex items-center gap-2">
                   {/* Nhãn hàng */}
-                  <span className="w-6 shrink-0 text-right text-[10px] font-bold text-subtle">{rowLabel}</span>
+                  <span className={`w-6 shrink-0 text-right text-[10px] font-bold ${isLightCanvas ? 'text-slate-600' : 'text-subtle'}`}>{rowLabel}</span>
                   {/* Ghế trong hàng */}
                   <div className="flex gap-1.5">
                     {rowSeats.map((seat) => renderSeat(seat, seatWidth))}

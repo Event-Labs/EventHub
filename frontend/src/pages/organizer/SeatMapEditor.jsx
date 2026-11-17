@@ -16,6 +16,7 @@ import {
   GripVertical,
   Hand,
   Loader2,
+  Lock,
   Minus,
   MousePointer2,
   Paintbrush,
@@ -147,8 +148,8 @@ function RenameModal({ isOpen, title, initialValue, onSave, onClose }) {
   )
 }
 
-/** Gán row_label + seat_number duy nhất trước khi lưu (tránh UNIQUE constraint). */
-function normalizeSeatsForSave(seats) {
+/** Gán row_label + seat_number duy nhất trước khi lưu (tránh UNIQUE constraint), bảo vệ ghế cũ khi ở chế độ bổ sung */
+function normalizeSeatsForSave(seats, lockedSeatIds = new Set()) {
   const existingKeys = new Set()
   let allValidAndUnique = seats.length > 0
   for (const s of seats) {
@@ -167,6 +168,14 @@ function normalizeSeatsForSave(seats) {
     return seats
   }
 
+  // Pre-populate used keys with locked seats to guarantee their labels are 100% preserved
+  const used = new Set()
+  for (const s of seats) {
+    if (lockedSeatIds && lockedSeatIds.has(String(s.localId))) {
+      used.add(`${s.rowLabel}|${s.seatNumber}`)
+    }
+  }
+
   const sorted = [...seats].sort((a, b) => a.y - b.y || a.x - b.x)
   const rowGroups = []
 
@@ -181,12 +190,16 @@ function normalizeSeatsForSave(seats) {
   }
 
   rowGroups.sort((a, b) => a.band - b.band)
-  const used = new Set()
   const labelById = new Map()
 
   rowGroups.forEach((group, rowIdx) => {
     group.items.sort((a, b) => a.x - b.x)
     group.items.forEach((seat, colIdx) => {
+      if (lockedSeatIds && lockedSeatIds.has(String(seat.localId))) {
+        labelById.set(seat.localId, { rowLabel: seat.rowLabel, seatNumber: seat.seatNumber })
+        return
+      }
+
       let rowLabel = rowLabelForIndex(rowIdx)
       let seatNumber = String(colIdx + 1)
       let key = `${rowLabel}|${seatNumber}`
@@ -608,6 +621,10 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
   const [mapName, setMapName] = useState('')
   const [zones, setZones] = useState([])
   const [seats, setSeats] = useState([])
+  const [isAppendOnly, setIsAppendOnly] = useState(false)
+  const [existingSeatIds, setExistingSeatIds] = useState(new Set())
+  const [existingZoneIds, setExistingZoneIds] = useState(new Set())
+  const [existingStandingAreaIds, setExistingStandingAreaIds] = useState(new Set())
   const [loading, setLoading] = useState(Boolean(seatMapId))
   const [canvasBg, setCanvasBg] = useState('#0F172A')
   const isLightCanvas = useMemo(() => isLightColor(canvasBg), [canvasBg])
@@ -884,9 +901,14 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
           h: sm.config?.stageHeight || 52,
           rotation: sm.config?.stageRotation || 0,
         })
-        setStandingAreas(sm.config?.standingAreas || [])
-        setAuxElements(sm.config?.auxiliaryElements || [])
+        const standingList = sm.config?.standingAreas || sm.config?.standing_areas || []
+        setStandingAreas(standingList)
+        setAuxElements(sm.config?.auxiliaryElements || sm.config?.auxiliary_elements || [])
         setZones((sm.zones || []).map((z) => ({ localId: z.id, name: z.name, color: z.color })))
+        setIsAppendOnly(Boolean(sm.is_append_only))
+        setExistingSeatIds(new Set((sm.seats || []).map((s) => String(s.id))))
+        setExistingZoneIds(new Set((sm.zones || []).map((z) => String(z.id))))
+        setExistingStandingAreaIds(new Set(standingList.map((a) => String(a.id))))
         let loaded = (sm.seats || []).map((s) => ({
           localId: s.id,
           rowLabel: s.row_label,
@@ -1062,12 +1084,38 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
     saveHistory()
 
     if (selectedIds.size > 0) {
-      deletedCount += selectedIds.size
-      setSeats((prev) => prev.filter((s) => !selectedIds.has(s.localId)))
-      setSelectedIds(new Set())
+      if (isAppendOnly) {
+        const lockedSeats = Array.from(selectedIds).filter((id) => existingSeatIds.has(String(id)))
+        const deletableSeats = Array.from(selectedIds).filter((id) => !existingSeatIds.has(String(id)))
+        if (lockedSeats.length > 0) {
+          toast.warning(`Không thể xóa ${lockedSeats.length} ghế cũ để bảo vệ vé đã phát hành.`)
+        }
+        if (deletableSeats.length > 0) {
+          const deletableSet = new Set(deletableSeats)
+          deletedCount += deletableSeats.length
+          setSeats((prev) => prev.filter((s) => !deletableSet.has(s.localId)))
+          setSelectedIds((prev) => {
+            const next = new Set(prev)
+            deletableSeats.forEach((id) => next.delete(id))
+            return next
+          })
+        }
+      } else {
+        deletedCount += selectedIds.size
+        setSeats((prev) => prev.filter((s) => !selectedIds.has(s.localId)))
+        setSelectedIds(new Set())
+      }
     }
 
     if (selectedShapeId) {
+      if (isAppendOnly && selectedShapeId === 'STAGE') {
+        toast.warning('Không thể xóa sân khấu trong chế độ bổ sung.')
+        return
+      }
+      if (isAppendOnly && existingStandingAreaIds.has(String(selectedShapeId))) {
+        toast.warning('Không thể xóa khu vực đứng cũ trong chế độ bổ sung.')
+        return
+      }
       if (selectedShapeId === 'STAGE') {
         setStageConfig((c) => ({ ...c, position: 'HIDDEN' }))
         setSelectedShapeId(null)
@@ -1092,7 +1140,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
     if (deletedCount > 0) {
       toast.success(`Đã xóa ${deletedCount} phần tử`)
     }
-  }, [selectedIds, selectedShapeId, standingAreas, auxElements, saveHistory, toast])
+  }, [selectedIds, selectedShapeId, standingAreas, auxElements, saveHistory, toast, isAppendOnly, existingSeatIds, existingStandingAreaIds])
 
   const cutSelected = useCallback(() => {
     copySelected()
@@ -1244,10 +1292,14 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
   const deleteSelected = deleteCurrentSelection
 
   const deleteStandingArea = useCallback((id) => {
+    if (isAppendOnly && existingStandingAreaIds.has(String(id))) {
+      toast.warning('Không thể xóa khu vực đứng cũ trong chế độ bổ sung.')
+      return
+    }
     saveHistory()
     setStandingAreas((prev) => prev.filter((a) => String(a.id) !== String(id)))
     setSelectedShapeId((cur) => (String(cur) === String(id) ? null : cur))
-  }, [saveHistory])
+  }, [saveHistory, isAppendOnly, existingStandingAreaIds, toast])
 
   const deleteAuxElement = useCallback((id) => {
     saveHistory()
@@ -1259,6 +1311,13 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
     if (!dx && !dy) return
 
     if (selectedIds.size > 0) {
+      if (isAppendOnly) {
+        const hasLocked = Array.from(selectedIds).some((id) => existingSeatIds.has(String(id)))
+        if (hasLocked) {
+          toast.warning('Không thể di chuyển ghế cũ trong chế độ bổ sung.')
+          return
+        }
+      }
       setSeats((prev) =>
         prev.map((s) =>
           selectedIds.has(s.localId)
@@ -1269,6 +1328,14 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
     }
 
     if (selectedShapeId) {
+      if (isAppendOnly && selectedShapeId === 'STAGE') {
+        toast.warning('Không thể di chuyển sân khấu trong chế độ bổ sung.')
+        return
+      }
+      if (isAppendOnly && existingStandingAreaIds.has(String(selectedShapeId))) {
+        toast.warning('Không thể di chuyển khu vực đứng cũ trong chế độ bổ sung.')
+        return
+      }
       if (selectedShapeId === 'STAGE') {
         setStageConfig((c) => ({
           ...c,
@@ -1294,7 +1361,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
         )
       }
     }
-  }, [selectedIds, selectedShapeId, standingAreas, auxElements])
+  }, [selectedIds, selectedShapeId, standingAreas, auxElements, isAppendOnly, existingSeatIds, existingStandingAreaIds, toast])
 
   const addSeatBlock = useCallback((rows = 4, cols = 10) => {
     saveHistory()
@@ -1341,6 +1408,10 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
 
   const renumberSeats = useCallback(() => {
     if (seats.length === 0) return
+    if (isAppendOnly) {
+      toast.warning('Không thể đánh lại số toàn bộ ghế trong chế độ bổ sung để bảo vệ số ghế đã phát hành.')
+      return
+    }
     saveHistory()
     const sorted = [...seats].sort((a, b) => a.y - b.y || a.x - b.x)
     const rowGroups = []
@@ -1383,22 +1454,34 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
       if (!selectedIds.size) return
       saveHistory()
       setSeats((prev) =>
-        prev.map((s) => (selectedIds.has(s.localId) ? { ...s, zoneLocalId: zoneId } : s)),
+        prev.map((s) => {
+          if (!selectedIds.has(s.localId)) return s
+          if (isAppendOnly && existingSeatIds.has(String(s.localId))) return s
+          return { ...s, zoneLocalId: zoneId }
+        }),
       )
     },
-    [selectedIds, saveHistory],
+    [selectedIds, saveHistory, isAppendOnly, existingSeatIds],
   )
 
   const disableSelected = useCallback(() => {
     if (!selectedIds.size) return
     saveHistory()
     setSeats((prev) =>
-      prev.map((s) => (selectedIds.has(s.localId) ? { ...s, isDisabled: true } : s)),
+      prev.map((s) => {
+        if (!selectedIds.has(s.localId)) return s
+        if (isAppendOnly && existingSeatIds.has(String(s.localId))) return s
+        return { ...s, isDisabled: true }
+      }),
     )
-  }, [selectedIds, saveHistory])
+  }, [selectedIds, saveHistory, isAppendOnly, existingSeatIds])
 
   const alignSelectedHorizontal = useCallback(() => {
     if (!selectedIds.size) return
+    if (isAppendOnly && Array.from(selectedIds).some((id) => existingSeatIds.has(String(id)))) {
+      toast.warning('Không thể căn chỉnh vị trí của ghế cũ trong chế độ bổ sung.')
+      return
+    }
     saveHistory()
     const selectedSeats = seats.filter((s) => selectedIds.has(s.localId))
     if (!selectedSeats.length) return
@@ -1408,10 +1491,14 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
       prev.map((s) => (selectedIds.has(s.localId) ? { ...s, y: targetY } : s)),
     )
     toast.success(`Đã căn thẳng hàng ngang ${selectedSeats.length} ghế`)
-  }, [selectedIds, seats, saveHistory, toast])
+  }, [selectedIds, seats, saveHistory, toast, isAppendOnly, existingSeatIds])
 
   const alignSelectedVertical = useCallback(() => {
     if (!selectedIds.size) return
+    if (isAppendOnly && Array.from(selectedIds).some((id) => existingSeatIds.has(String(id)))) {
+      toast.warning('Không thể căn chỉnh vị trí của ghế cũ trong chế độ bổ sung.')
+      return
+    }
     saveHistory()
     const selectedSeats = seats.filter((s) => selectedIds.has(s.localId))
     if (!selectedSeats.length) return
@@ -1421,10 +1508,14 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
       prev.map((s) => (selectedIds.has(s.localId) ? { ...s, x: targetX } : s)),
     )
     toast.success(`Đã căn thẳng hàng dọc ${selectedSeats.length} ghế`)
-  }, [selectedIds, seats, saveHistory, toast])
+  }, [selectedIds, seats, saveHistory, toast, isAppendOnly, existingSeatIds])
 
   const snapSelectedToGrid = useCallback(() => {
     if (!selectedIds.size) return
+    if (isAppendOnly && Array.from(selectedIds).some((id) => existingSeatIds.has(String(id)))) {
+      toast.warning('Không thể căn chỉnh vị trí của ghế cũ trong chế độ bổ sung.')
+      return
+    }
     saveHistory()
     const selectedSeats = seats.filter((s) => selectedIds.has(s.localId))
     if (!selectedSeats.length) return
@@ -1443,27 +1534,35 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
       }),
     )
     toast.success(`Đã hít đều ${selectedIds.size} ghế theo lưới chuẩn của khối`)
-  }, [selectedIds, seats, saveHistory, toast])
+  }, [selectedIds, seats, saveHistory, toast, isAppendOnly, existingSeatIds])
 
   const autoAlignSelected = useCallback(() => {
     if (!selectedIds.size) return
+    if (isAppendOnly && Array.from(selectedIds).some((id) => existingSeatIds.has(String(id)))) {
+      toast.warning('Không thể căn chỉnh vị trí của ghế cũ trong chế độ bổ sung.')
+      return
+    }
     saveHistory()
     setSeats((prev) => {
       const next = autoAlignSeatList(prev, selectedIds)
       return next
     })
     toast.success(`Đã tự động căn thẳng hàng ${selectedIds.size} ghế theo các trục!`)
-  }, [selectedIds, saveHistory, toast])
+  }, [selectedIds, saveHistory, toast, isAppendOnly, existingSeatIds])
 
   const autoAlignAllSeats = useCallback(() => {
     if (!seats.length) return
+    if (isAppendOnly) {
+      toast.warning('Không thể tự động căn toàn bộ sơ đồ trong chế độ bổ sung.')
+      return
+    }
     saveHistory()
     setSeats((prev) => {
       const next = autoAlignSeatList(prev, null)
       return next
     })
     toast.success(`Đã tự động căn thẳng hàng toàn bộ ${seats.length} ghế!`)
-  }, [seats.length, saveHistory, toast])
+  }, [seats.length, saveHistory, toast, isAppendOnly])
 
   useEffect(() => {
     function onKeyDown(e) {
@@ -1668,6 +1767,10 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
   }
 
   function deleteZone(zoneLocalId) {
+    if (isAppendOnly && existingZoneIds.has(String(zoneLocalId))) {
+      toast.warning('Không thể xóa khu vực đã tồn tại trong chế độ bổ sung.')
+      return
+    }
     recordHistory()
     setZones((prev) => prev.filter((z) => z.localId !== zoneLocalId))
     setSeats((prev) =>
@@ -1934,6 +2037,10 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
       document.activeElement.blur()
     }
     if (tool === 'ERASE') {
+      if (isAppendOnly) {
+        toast.warning('Không thể xóa hoặc ẩn sân khấu trong chế độ bổ sung.')
+        return
+      }
       e.stopPropagation()
       saveHistory()
       setStageConfig((c) => ({ ...c, position: 'HIDDEN' }))
@@ -1947,6 +2054,10 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
     setSelectedShapeId('STAGE')
     setSelectedIds(new Set())
     setSidebarTab('STAGE')
+    if (isAppendOnly) {
+      setIsDraggingStage(false)
+      return
+    }
     setIsDraggingStage(true)
     const pt = toSVGPoint(e)
 
@@ -2015,6 +2126,10 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
       document.activeElement.blur()
     }
     if (tool === 'ERASE') {
+      if (isAppendOnly && existingStandingAreaIds.has(String(area.id))) {
+        toast.warning('Không thể xóa khu vực đứng cũ trong chế độ bổ sung.')
+        return
+      }
       e.stopPropagation()
       deleteStandingArea(area.id)
       toast.success(`Đã xóa ${area.name || 'vùng đứng'}`)
@@ -2026,6 +2141,10 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
     setSelectedShapeId(area.id)
     setSelectedIds(new Set())
     setSidebarTab('ZONES')
+    if (isAppendOnly && existingStandingAreaIds.has(String(area.id))) {
+      setDraggingStandingId(null)
+      return
+    }
     setDraggingStandingId(area.id)
     const pt = toSVGPoint(e)
     setStandingDragOffset({ x: pt.x - area.x, y: pt.y - area.y })
@@ -2052,6 +2171,10 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
     setSelectedShapeId(null)
 
     if (tool === 'ERASE') {
+      if (isAppendOnly && existingSeatIds.has(String(seat.localId))) {
+        toast.warning(isEnglish ? 'Cannot delete existing seats in append-only mode.' : 'Không thể xóa ghế cũ trong chế độ bổ sung.')
+        return
+      }
       recordHistory()
       if (selectedIds.size > 1 && selectedIds.has(seat.localId)) {
         deleteSelected()
@@ -2067,6 +2190,10 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
     }
 
     if (tool === 'DISABLE') {
+      if (isAppendOnly && existingSeatIds.has(String(seat.localId))) {
+        toast.warning(isEnglish ? 'Cannot disable existing seats in append-only mode.' : 'Không thể vô hiệu hóa ghế cũ trong chế độ bổ sung.')
+        return
+      }
       recordHistory()
       if (selectedIds.size > 1 && selectedIds.has(seat.localId)) {
         disableSelected()
@@ -2081,13 +2208,19 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
     }
 
     if (tool === 'PAINT') {
+      if (isAppendOnly && existingSeatIds.has(String(seat.localId))) {
+        toast.warning(isEnglish ? 'Cannot change zone of existing seats in append-only mode.' : 'Không thể đổi khu vực của ghế cũ trong chế độ bổ sung.')
+        return
+      }
       if (activeZoneId) {
         recordHistory()
         const targets =
           selectedIds.has(seat.localId) && selectedIds.size > 1 ? selectedIds : new Set([seat.localId])
         setSeats((prev) =>
           prev.map((s) =>
-            targets.has(s.localId) && !s.isDisabled ? { ...s, zoneLocalId: activeZoneId } : s,
+            targets.has(s.localId) && !s.isDisabled && (!isAppendOnly || !existingSeatIds.has(String(s.localId)))
+              ? { ...s, zoneLocalId: activeZoneId }
+              : s,
           ),
         )
       } else {
@@ -2108,6 +2241,13 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
           setSelectedIds(next)
         }
       }
+
+      const hasLockedSeat = isAppendOnly && Array.from(next).some((id) => existingSeatIds.has(String(id)))
+      if (hasLockedSeat) {
+        setIsDraggingSeats(false)
+        return
+      }
+
       recordHistory()
       setIsDraggingSeats(true)
       setSeatDragAnchorId(seat.localId)
@@ -2513,7 +2653,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
       zoneIndexMap[z.localId] = i
     })
 
-    const normalizedSeats = normalizeSeatsForSave(seatsToSave)
+    const normalizedSeats = normalizeSeatsForSave(seatsToSave, isAppendOnly ? existingSeatIds : new Set())
 
     const payload = {
       name: mapName,
@@ -2536,8 +2676,14 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
       },
       rows_count: gridConfig.rows,
       cols_count: gridConfig.cols,
-      zones: zones.map((z, i) => ({ name: z.name, color: z.color, sort_order: i })),
+      zones: zones.map((z, i) => ({
+        id: isAppendOnly && existingZoneIds.has(String(z.localId)) ? z.localId : undefined,
+        name: z.name,
+        color: z.color,
+        sort_order: i,
+      })),
       seats: normalizedSeats.map((s) => ({
+        id: isAppendOnly && existingSeatIds.has(String(s.localId)) ? s.localId : undefined,
         row_label: s.rowLabel,
         seat_number: s.seatNumber,
         x_position: Math.round(s.x),
@@ -2558,6 +2704,16 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
         localStorage.removeItem(AUTOSAVE_KEY)
       } catch (e) {}
       setAutoSaveStatus('SAVED')
+      if (isAppendOnly) {
+        toast.success(
+          isEnglish
+            ? 'Seat map updated successfully with new seats! Note: Adding seats does not automatically increase ticket quota; remember to assign new seats/zones to ticket types.'
+            : 'Đã bổ sung ghế mới thành công! Lưu ý: Thêm ghế không tự động tăng số lượng vé, hãy gán khu vực/ghế mới vào loại vé phù hợp để mở bán.',
+          { duration: 6000 },
+        )
+      } else {
+        toast.success(isEnglish ? 'Seat map saved successfully!' : 'Đã lưu sơ đồ ghế thành công!')
+      }
       onSave(result)
     } catch (err) {
       console.error(err)
@@ -2676,6 +2832,31 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
           {saving ? (isEnglish ? 'Saving & returning...' : 'Đang lưu & quay lại...') : (isEnglish ? 'Save diagram' : 'Lưu sơ đồ')}
         </button>
       </header>
+
+      {/* Banner cảnh báo Chế độ Chỉ Bổ Sung (Append-Only) khi Event đã mở bán vé */}
+      {isAppendOnly && (
+        <div className="flex items-center justify-between border-b border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-xs text-amber-200 shrink-0 z-30 shadow-xs">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-amber-400">
+              <Lock className="size-3.5" />
+            </div>
+            <div>
+              <span className="font-bold text-amber-300">
+                {isEnglish ? 'Append-Only Mode:' : 'Chế độ chỉ bổ sung:'}
+              </span>{' '}
+              <span>
+                {isEnglish
+                  ? 'Event is published or tickets have been reserved. Existing seats and zones are locked to protect sold tickets. You can add new zones and new seats.'
+                  : 'Sự kiện đã mở bán hoặc đã có vé phát hành. Các ghế và khu vực cũ được khóa cố định để bảo vệ vé đã bán. Bạn chỉ có thể tạo khu vực mới và vẽ thêm ghế mới.'}
+              </span>
+            </div>
+          </div>
+          <span className="hidden sm:inline-flex shrink-0 items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/20 px-3 py-1 font-bold text-amber-300 text-[11px] tracking-wide">
+            <Lock className="size-3" />
+            {isEnglish ? 'PROTECTING ISSUED TICKETS' : 'BẢO VỆ VÉ ĐÃ PHÁT HÀNH'}
+          </span>
+        </div>
+      )}
 
       <div className="relative flex flex-1 overflow-hidden">
         {/* Sidebar */}
@@ -3357,12 +3538,15 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                                 type="text"
                                 value={isEnglish ? (translatePhrase(zone.name, 'en') || zone.name) : zone.name}
                                 onClick={(e) => e.stopPropagation()}
+                                disabled={isAppendOnly && existingZoneIds.has(String(zone.localId))}
                                 onChange={(e) =>
                                   setZones((prev) =>
                                     prev.map((z) => (z.localId === zone.localId ? { ...z, name: e.target.value } : z)),
                                   )
                                 }
-                                className="bg-transparent font-bold text-xs text-content outline-none border-b border-transparent focus:border-tertiary truncate flex-1"
+                                className={`bg-transparent font-bold text-xs text-content outline-none border-b border-transparent focus:border-tertiary truncate flex-1 ${
+                                  isAppendOnly && existingZoneIds.has(String(zone.localId)) ? 'opacity-70 cursor-not-allowed' : ''
+                                }`}
                               />
                             </div>
                             <div className="flex items-center gap-2">
@@ -3380,17 +3564,23 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                                   {isEnglish ? 'Assign' : 'Gán'}
                                 </button>
                               )}
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  deleteZone(zone.localId)
-                                }}
-                                className="text-muted hover:text-error transition p-1"
-                                title={isEnglish ? 'Delete ticket zone' : 'Xóa khu vực vé'}
-                              >
-                                <Trash2 className="size-3.5" />
-                              </button>
+                              {(!isAppendOnly || !existingZoneIds.has(String(zone.localId))) ? (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    deleteZone(zone.localId)
+                                  }}
+                                  className="text-muted hover:text-error transition p-1"
+                                  title={isEnglish ? 'Delete ticket zone' : 'Xóa khu vực vé'}
+                                >
+                                  <Trash2 className="size-3.5" />
+                                </button>
+                              ) : (
+                                <span title={isEnglish ? 'Zone locked (Issued tickets protection)' : 'Khu vực cố định (Bảo vệ vé đã phát hành)'}>
+                                  <Lock className="size-3 text-amber-400" />
+                                </span>
+                              )}
                             </div>
                           </div>
                         )
@@ -5071,6 +5261,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
 
                 {/* Seats */}
                 {seats.map((seat) => {
+                  const isLocked = isAppendOnly && existingSeatIds.has(String(seat.localId))
                   const zone = zones.find((z) => z.localId === seat.zoneLocalId)
                   const fill = seat.isDisabled
                     ? (isLightCanvas ? '#E2E8F0' : '#1E293B')
@@ -5086,7 +5277,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                       key={seat.localId}
                       transform={`translate(${seat.x},${seat.y})`}
                       onMouseDown={(e) => handleSeatMouseDown(e, seat)}
-                      style={{ cursor: tool === 'ERASE' ? 'not-allowed' : 'pointer' }}
+                      style={{ cursor: tool === 'ERASE' || isLocked ? 'not-allowed' : 'pointer' }}
                     >
                       <rect
                         width={SEAT_W}
@@ -5095,13 +5286,15 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                         fill={fill}
                         stroke={isSelected
                           ? '#2563EB'
-                          : seat.isDisabled
-                            ? (isLightCanvas ? '#94A3B8' : '#475569')
-                            : isLightCanvas
-                              ? 'rgba(15, 23, 42, 0.3)'
-                              : 'rgba(255, 255, 255, 0.12)'
+                          : isLocked
+                            ? '#F59E0B'
+                            : seat.isDisabled
+                              ? (isLightCanvas ? '#94A3B8' : '#475569')
+                              : isLightCanvas
+                                ? 'rgba(15, 23, 42, 0.3)'
+                                : 'rgba(255, 255, 255, 0.12)'
                         }
-                        strokeWidth={isSelected ? 3 : 1}
+                        strokeWidth={isSelected ? 3 : isLocked ? 1.5 : 1}
                         strokeDasharray={seat.isDisabled ? '2 2' : undefined}
                         opacity={seat.isDisabled ? (isLightCanvas ? 0.45 : 0.35) : 1}
                       />
@@ -5116,6 +5309,20 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                       >
                         {seat.rowLabel}{seat.seatNumber}
                       </text>
+                      {isLocked && (
+                        <circle
+                          cx={SEAT_W - 4.5}
+                          cy={4.5}
+                          r={2.5}
+                          fill="#F59E0B"
+                          style={{ pointerEvents: 'none' }}
+                        />
+                      )}
+                      <title>
+                        {isLocked
+                          ? `Ghế ${seat.rowLabel}${seat.seatNumber} (Đã phát hành - Khóa cố định)`
+                          : `Ghế ${seat.rowLabel}${seat.seatNumber}`}
+                      </title>
                     </g>
                   )
                 })}
