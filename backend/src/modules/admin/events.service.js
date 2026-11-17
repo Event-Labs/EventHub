@@ -636,7 +636,7 @@ function inspectImageStructuredFlags(img = {}, event = {}) {
  */
 function assessImageSafety(description, source = '') {
   const rawDesc = String(description || '').trim();
-  const desc = rawDesc.toLowerCase();
+  let desc = rawDesc.toLowerCase();
   const isPermit = typeof source === 'string' && source.startsWith('PERMIT');
 
   if (!desc || desc.length < 15 || desc.includes('không thể tải') || desc.includes('failed to load') || desc.includes('error')) {
@@ -647,8 +647,12 @@ function assessImageSafety(description, source = '') {
     };
   }
 
-  // Loại bỏ các cụm từ phủ định (ví dụ "không chứa nội dung nhạy cảm", "không có khiêu dâm") trước khi thẩm định
-  const sanitizedDesc = stripNegatedSafetyPhrases(desc);
+  // Loại bỏ các mẩu JSON rỗng, key trống và prompt template trước khi thẩm định
+  let sanitizedDesc = desc
+    .replace(/["']?(extreme\s*violence|violence|nsfw|gambling|scam_qr|scam|fraud)["']?\s*:\s*(""|''|false|null|\[\s*\]|\{\s*\})/gi, '')
+    .replace(/\[\s*\{\s*"unsafe"\s*:\s*""[\s\S]*?\}\s*\]/gi, '')
+    .replace(/transcribe all visible text on the image \(ocr\),? or empty string if none/gi, '');
+  sanitizedDesc = stripNegatedSafetyPhrases(sanitizedDesc);
 
   // Đánh giá riêng cho tài liệu đính kèm (Permits/Documents)
   if (isPermit) {
@@ -703,7 +707,7 @@ function assessImageSafety(description, source = '') {
     /\b(lộ ngực trần|lộ vùng kín|khiêu dâm thô thiển)\b/i,
   ];
   const violentPatterns = [
-    /\b(bạo lực đẫm máu|máu me be bét|hành vi bạo lực kinh dị|đâm chém dã man|xác chết đẫm máu|gore|extreme violence)\b/i,
+    /\b(bạo lực đẫm máu|máu me be bét|hành vi bạo lực kinh dị|đâm chém dã man|xác chết đẫm máu|gore|gory scenes|bloody violence|graphic violence)\b/i,
   ];
   const gamblingPatterns = [
     /\b(sòng bạc trái phép|đánh bạc online|tài xỉu cá cược lậu|cá độ bóng đá lậu|nạp rút tiền cá cược)\b/i,
@@ -763,8 +767,9 @@ function assessImageSafety(description, source = '') {
 function generateVisualCoTOcrReasoning(event, imageItem) {
   const title = String(event?.title || 'Sự kiện EventHub').trim();
   const desc = String(imageItem?.description || imageItem?.analysis || '').trim();
-  const textLower = `${title} ${desc} ${event?.short_description || ''}`.toLowerCase();
-  const isImageFlagged = imageItem?.status === 'VIOLATION' || imageItem?.is_event_poster_or_relevant_banner === false;
+  const ocrText = String(imageItem?.extracted_text || imageItem?.extractedText || '').trim();
+  const textLower = `${title} ${desc} ${event?.short_description || ''} ${ocrText}`.toLowerCase();
+  const isImageFlagged = imageItem?.status === 'VIOLATION';
 
   const isHorror = /(kịch ma|kinh dị|ma quái|nhà có ma|con quỷ|rùng rợn|ma mị|halloween)/i.test(textLower);
   const isMusic = /(nhạc hội|âm nhạc|concert|liveshow|edm|festival|acoustic|ca sĩ)/i.test(textLower);
@@ -776,70 +781,88 @@ function generateVisualCoTOcrReasoning(event, imageItem) {
   let step4 = '';
   const extractedTexts = [];
 
+  // Tự động phân tách các dòng chữ OCR nếu có
+  if (ocrText) {
+    const lines = ocrText
+      .split(/[\n\r]+/)
+      .map((l) => l.trim().replace(/^["']|["']$/g, ''))
+      .filter((l) => l.length > 1 && !/transcribe all visible text|describe in detail|toàn bộ nội dung chữ/i.test(l));
+    lines.slice(0, 4).forEach((line, idx) => {
+      extractedTexts.push({
+        text: line,
+        font_style: 'NORMAL',
+        confidence: 'HIGH',
+        visual_effect: 'NONE',
+        is_event_title: idx === 0 || line.toLowerCase().includes(title.toLowerCase()),
+      });
+    });
+  }
+
   if (isImageFlagged) {
-    step1 = `Phân tích bối cảnh & Chủ đề: Hình ảnh được cung cấp cho sự kiện "${title}" (${event?.category_name || 'Chưa phân loại'}) có mô tả trực quan: ${desc.slice(0, 220) || 'Không rõ nội dung'}.`;
-    step2 = `Quét vùng chữ rõ nét làm mồi ngữ cảnh: ${imageItem?.extracted_text ? `Chữ OCR đọc được: "${imageItem.extracted_text}"` : 'Không nhận diện được tên sự kiện hoặc thông tin chương trình rõ ràng trên ảnh.'}`;
-    step3 = `Giải mã phông chữ biến dạng: Đối chiếu chữ OCR và bố cục đồ họa với chủ đề "${title}" — không tìm thấy dấu hiệu poster/banner thiết kế sự kiện hợp lệ hoặc phát hiện nội dung vi phạm.`;
-    step4 = `Đánh giá kiểm duyệt: CẢNH BÁO VI PHẠM — Hình ảnh không phải poster/banner phù hợp với chủ đề sự kiện hoặc chứa dấu hiệu rủi ro an toàn cần từ chối/xem xét.`;
+    step1 = `Phân tích bối cảnh & Chủ đề: Hình ảnh được cung cấp cho sự kiện "${title}" (${event?.category_name || 'Chưa phân loại'}) có mô tả trực quan: ${desc.slice(0, 220) || 'Chưa xác định'}.`;
+    step2 = `Quét vùng chữ rõ nét làm mồi ngữ cảnh: ${ocrText ? `Chữ OCR đọc được trên ấn phẩm: "${ocrText.slice(0, 160)}"` : 'Không nhận diện được tên sự kiện hoặc khối chữ rõ nét trên ảnh.'}`;
+    step3 = `Giải mã phông chữ biến dạng: Đối chiếu chữ OCR và bố cục đồ họa với chủ đề "${title}".`;
+    step4 = `Đánh giá kiểm duyệt: ${imageItem?.issues?.[0] || 'Hình ảnh cần đối chiếu thêm với tiêu chuẩn kiểm duyệt của EventHub.'}`;
   } else if (isHorror) {
     step1 = `Phân tích bối cảnh & Chủ đề: Hình ảnh mang phong cách nghệ thuật sân khấu kịch kinh dị / kịch ma. Tông màu chủ đạo là u tối (xanh thẫm, đen, ánh sáng đỏ ma mị) kết hợp chi tiết đồ họa cây cối, bộ xương hoặc vệt sáng huyền bí, định hình không gian sân khấu kịch.`;
-    step2 = `Quét vùng chữ rõ nét làm mồi ngữ cảnh: Đọc các cụm từ in chuẩn, phông chữ dễ nhận diện như thông tin tác giả/đạo diễn ('Ns. Quốc Thảo'), diễn viên tham gia hoặc thể loại 'VỞ KỊCH MA 4D'. Xác nhận văn bản trên ấn phẩm sử dụng 100% Tiếng Việt.`;
-    step3 = `Giải mã phông chữ biến dạng: Tiêu đề sự kiện sử dụng phông chữ kinh dị uốn lượn có hiệu ứng máu/khói cách điệu. Bóc tách các nét râu ria trang trí, đối chiếu khung xương chữ cái (skeleton) với tên sự kiện '${title}' trong ngữ cảnh tiếng Việt có dấu. Khôi phục chính xác cụm từ Tiếng Việt, loại bỏ hoàn toàn các ký tự ảo giác hoặc nhầm lẫn sang chữ tượng hình nước ngoài.`;
+    step2 = `Quét vùng chữ rõ nét làm mồi ngữ cảnh: ${ocrText ? `Nhận diện chữ OCR trên ấn phẩm: "${ocrText.slice(0, 160)}".` : 'Đọc các cụm từ in chuẩn, phông chữ dễ nhận diện về thông tin chương trình và tác giả/đạo diễn.'}`;
+    step3 = `Giải mã phông chữ biến dạng: Tiêu đề sự kiện sử dụng phông chữ kinh dị uốn lượn có hiệu ứng máu/khói cách điệu. Bóc tách các nét râu ria trang trí, đối chiếu khung xương chữ cái với tên sự kiện '${title}' trong ngữ cảnh tiếng Việt có dấu.`;
     step4 = `Đánh giá kiểm duyệt: Các hiệu ứng uốn lượn, vệt máu giả trên chữ và tông màu ma quái là thủ pháp đồ họa nghệ thuật hợp lệ của thể loại kịch ma, không phải hình ảnh bạo lực đẫm máu thực tế hay khiêu dâm. Kết luận: Hình ảnh đạt chuẩn an toàn kiểm duyệt.`;
 
-    extractedTexts.push({
-      text: title,
-      font_style: 'STYLIZED_HORROR',
-      confidence: 'HIGH',
-      visual_effect: 'BLOOD_SPLATTER',
-      is_event_title: true,
-    });
-    extractedTexts.push({
-      text: 'VỞ KỊCH MA 4D',
-      font_style: 'NORMAL',
-      confidence: 'HIGH',
-      visual_effect: 'NONE',
-      is_event_title: false,
-    });
+    if (extractedTexts.length === 0) {
+      extractedTexts.push({
+        text: title,
+        font_style: 'STYLIZED_HORROR',
+        confidence: 'HIGH',
+        visual_effect: 'BLOOD_SPLATTER',
+        is_event_title: true,
+      });
+    }
   } else if (isMusic) {
     step1 = `Phân tích bối cảnh & Chủ đề: Thiết kế đồ họa đêm nhạc hội / biểu diễn nghệ thuật sôi động. Tông màu rực rỡ với hiệu ứng ánh sáng sân khấu, visual âm nhạc hiện đại.`;
-    step2 = `Quét vùng chữ rõ nét làm mồi ngữ cảnh: Nhận diện các cụm từ in chuẩn về thời gian biểu diễn, địa điểm sân khấu, tên nghệ sĩ và đơn vị đồng hành bằng tiếng Việt.`;
-    step3 = `Giải mã phông chữ biến dạng: Tiêu đề sử dụng phông chữ nghệ thuật cách điệu (neon glow / 3D). Bóc tách hiệu ứng ánh sáng phát quang, đối chiếu khung xương chữ cái với tiêu đề '${title}'. Khôi phục đầy đủ dấu thanh tiếng Việt chuẩn mực.`;
+    step2 = `Quét vùng chữ rõ nét làm mồi ngữ cảnh: ${ocrText ? `Nhận diện chữ OCR trên ấn phẩm: "${ocrText.slice(0, 160)}".` : 'Nhận diện các cụm từ in chuẩn về thời gian biểu diễn, địa điểm sân khấu, tên nghệ sĩ và đơn vị đồng hành bằng tiếng Việt.'}`;
+    step3 = `Giải mã phông chữ biến dạng: Tiêu đề sử dụng phông chữ nghệ thuật cách điệu (neon glow / 3D). Bóc tách hiệu ứng ánh sáng phát quang, đối chiếu khung xương chữ cái với tiêu đề '${title}'.`;
     step4 = `Đánh giá kiểm duyệt: Hình ảnh tươi sáng, trang phục biểu diễn sân khấu lành mạnh, không vi phạm tiêu chuẩn cộng đồng về thuần phong mỹ tục.`;
 
-    extractedTexts.push({
-      text: title,
-      font_style: 'NEON_GLOW',
-      confidence: 'HIGH',
-      visual_effect: 'NONE',
-      is_event_title: true,
-    });
+    if (extractedTexts.length === 0) {
+      extractedTexts.push({
+        text: title,
+        font_style: 'NEON_GLOW',
+        confidence: 'HIGH',
+        visual_effect: 'NONE',
+        is_event_title: true,
+      });
+    }
   } else if (isWorkshop) {
     step1 = `Phân tích bối cảnh & Chủ đề: Thiết kế ấn phẩm hội thảo / diễn đàn học thuật chuyên nghiệp. Tông màu trang nhã, công nghệ và bố cục cân đối.`;
-    step2 = `Quét vùng chữ rõ nét làm mồi ngữ cảnh: Các khối chữ in rõ ràng về thông tin diễn giả, đơn vị tổ chức, thời gian và địa điểm tổ chức sự kiện.`;
+    step2 = `Quét vùng chữ rõ nét làm mồi ngữ cảnh: ${ocrText ? `Nhận diện chữ OCR trên ấn phẩm: "${ocrText.slice(0, 160)}".` : 'Các khối chữ in rõ ràng về thông tin diễn giả, đơn vị tổ chức, thời gian và địa điểm tổ chức sự kiện.'}`;
     step3 = `Giải mã phông chữ biến dạng: Sử dụng phông chữ sans-serif chuẩn mực, không có biến dạng phức tạp, chữ rõ nét và có độ tương phản cao với nền.`;
     step4 = `Đánh giá kiểm duyệt: Nội dung nghiêm túc, minh bạch, phù hợp tuyệt đối với tiêu chuẩn kiểm duyệt của EventHub.`;
 
-    extractedTexts.push({
-      text: title,
-      font_style: 'NORMAL',
-      confidence: 'HIGH',
-      visual_effect: 'NONE',
-      is_event_title: true,
-    });
+    if (extractedTexts.length === 0) {
+      extractedTexts.push({
+        text: title,
+        font_style: 'NORMAL',
+        confidence: 'HIGH',
+        visual_effect: 'NONE',
+        is_event_title: true,
+      });
+    }
   } else {
     step1 = `Phân tích bối cảnh & Chủ đề: Ấn phẩm sự kiện "${title}" có bố cục hài hòa, màu sắc phù hợp với chủ đề tổ chức.`;
-    step2 = `Quét vùng chữ rõ nét làm mồi ngữ cảnh: Đọc các cụm từ tiếng Việt rõ dấu về tên sự kiện, mốc thời gian và hướng dẫn tham gia.`;
-    step3 = `Giải mã phông chữ biến dạng: Đối chiếu hình dáng khung xương chữ cái với bảng chữ cái Tiếng Việt, loại bỏ hiệu ứng đồ họa che khuất để xác định chính xác nội dung chữ.`;
+    step2 = `Quét vùng chữ rõ nét làm mồi ngữ cảnh: ${ocrText ? `Đọc được khối chữ OCR trên ấn phẩm: "${ocrText.slice(0, 160)}".` : 'Đọc các cụm từ tiếng Việt rõ dấu về tên sự kiện, mốc thời gian và hướng dẫn tham gia.'}`;
+    step3 = `Giải mã phông chữ biến dạng: Đối chiếu hình dáng khung xương chữ cái với bảng chữ cái Tiếng Việt, xác định chính xác nội dung chữ.`;
     step4 = `Đánh giá kiểm duyệt: Hình ảnh rõ nét, thiết kế phù hợp ngữ cảnh, không phát hiện nội dung nhạy cảm hay vi phạm tiêu chuẩn cộng đồng.`;
 
-    extractedTexts.push({
-      text: title,
-      font_style: 'NORMAL',
-      confidence: 'HIGH',
-      visual_effect: 'NONE',
-      is_event_title: true,
-    });
+    if (extractedTexts.length === 0) {
+      extractedTexts.push({
+        text: title,
+        font_style: 'NORMAL',
+        confidence: 'HIGH',
+        visual_effect: 'NONE',
+        is_event_title: true,
+      });
+    }
   }
 
   return {
@@ -861,6 +884,9 @@ function buildValidatedImageReview(imageAnalysisResults = [], aiImageReview = nu
   const aiItems = (Array.isArray(aiImageReview?.items) ? aiImageReview.items : []).filter(
     (it) => !it.source || !it.source.startsWith('PERMIT'),
   );
+
+  const hasThumbnail = Boolean(event?.thumbnail_url && event.thumbnail_url.trim());
+  const hasBanner = Boolean(event?.banner_url && event.banner_url.trim());
 
   const isForeignOrGibberish = (str) => {
     if (!str || typeof str !== 'string') return true;
@@ -925,6 +951,29 @@ function buildValidatedImageReview(imageAnalysisResults = [], aiImageReview = nu
       }
     }
 
+    // Bảo vệ chống báo lỗi sai (False Positive) khi sự kiện thực tế ĐÃ CÓ ảnh
+    if (img.source === 'MAIN_POSTER' && hasThumbnail) {
+      issues = issues.filter((iss) => !/thiếu ảnh đại diện|chưa có ảnh đại diện|chưa có poster|thiếu poster|chưa được cung cấp/i.test(iss));
+      if (status === 'MISSING') status = 'VALID';
+      if (/chưa được cung cấp|chưa có ảnh đại diện|chưa có poster|thiếu ảnh đại diện/i.test(analysis)) {
+        analysis = 'Ảnh đại diện chính (Poster) đã được tải lên đầy đủ, bố cục trực quan rõ nét và phù hợp với sự kiện.';
+      }
+      if (/tải lên ảnh đại diện|tải lên poster/i.test(suggestion)) {
+        suggestion = '';
+      }
+    }
+
+    if (img.source === 'COVER_BANNER' && hasBanner) {
+      issues = issues.filter((iss) => !/thiếu ảnh bìa|chưa có ảnh bìa|chưa có banner|thiếu banner|chưa được cung cấp/i.test(iss));
+      if (status === 'MISSING') status = 'VALID';
+      if (/chưa được cung cấp|chưa có ảnh bìa|chưa có banner|thiếu ảnh bìa/i.test(analysis)) {
+        analysis = 'Ảnh bìa (Cover Banner) đã được tải lên đầy đủ, thiết kế phù hợp với chủ đề sự kiện.';
+      }
+      if (/tải lên ảnh bìa|tải lên banner/i.test(suggestion)) {
+        suggestion = '';
+      }
+    }
+
     if (safety.status === 'VIOLATION' || structured.hasSafetyViolation || structured.relevanceStatus === 'VIOLATION') {
       status = 'VIOLATION';
     } else if ((safety.status === 'WARNING' || structured.relevanceStatus === 'WARNING') && status === 'VALID') {
@@ -961,8 +1010,11 @@ function buildValidatedImageReview(imageAnalysisResults = [], aiImageReview = nu
       }
     }
 
+    const itemUrl = img.url || (img.source === 'MAIN_POSTER' ? (event?.thumbnail_url || '') : img.source === 'COVER_BANNER' ? (event?.banner_url || '') : '');
+
     return {
       source: img.source,
+      url: itemUrl,
       fileName: img.fileName || '',
       status,
       analysis,
@@ -1269,18 +1321,16 @@ function applyStage2Guardrails({
       policyCode === 'LEGAL_PERMIT_AUTHENTICITY' ||
       /\[Vi phạm tài liệu\]|\[Lưu ý tài liệu\]|\[Vi phạm hình ảnh\]|\[Lưu ý hình ảnh\]/i.test(issue);
 
-    // 1. Giữ nguyên hành vi lọc lỗi giả về hình ảnh
-    if (policyCode === 'IMAGE_POLICY') {
+    // 1. Lọc lỗi giả về hình ảnh (cả trong criticalViolations và warnings)
+    if (policyCode === 'IMAGE_POLICY' || /\[(Vi phạm|Lưu ý) hình ảnh\]/i.test(issue) || /ảnh đại diện|poster|ảnh bìa|banner/i.test(issue)) {
       if (/mô tả|bài viết/i.test(issue) && /thiếu|chưa có|không có|bổ sung ảnh/i.test(issue)) {
         return true;
       }
-      if (isWarningList) {
-        if (hasThumbnail && /chưa có ảnh đại diện|thiếu ảnh đại diện|chưa có thumbnail|thiếu poster|chưa có poster/i.test(issue)) {
-          return true;
-        }
-        if (hasBanner && /chưa có ảnh bìa|thiếu ảnh bìa|chưa có banner/i.test(issue)) {
-          return true;
-        }
+      if (hasThumbnail && /(chưa có|thiếu|chưa được cung cấp|chưa cập nhật).{0,30}(ảnh đại diện|thumbnail|poster)/i.test(issue)) {
+        return true;
+      }
+      if (hasBanner && /(chưa có|thiếu|chưa được cung cấp|chưa cập nhật).{0,30}(ảnh bìa|banner)/i.test(issue)) {
+        return true;
       }
     }
 
@@ -1425,6 +1475,33 @@ function applyStage2Guardrails({
   });
 
   if (updatedImageReview && Array.isArray(updatedImageReview.items)) {
+    if (hasThumbnail) {
+      const mainPoster = updatedImageReview.items.find((it) => it.source === 'MAIN_POSTER');
+      if (mainPoster) {
+        if (Array.isArray(mainPoster.issues)) {
+          mainPoster.issues = mainPoster.issues.filter(
+            (iss) => !/(thiếu|chưa có|chưa được cung cấp|chưa cập nhật).{0,30}(ảnh đại diện|poster|thumbnail)/i.test(iss),
+          );
+        }
+        if (mainPoster.status === 'MISSING' || (mainPoster.status === 'WARNING' && (!mainPoster.issues || mainPoster.issues.length === 0))) {
+          mainPoster.status = 'VALID';
+        }
+      }
+    }
+    if (hasBanner) {
+      const bannerItem = updatedImageReview.items.find((it) => it.source === 'COVER_BANNER');
+      if (bannerItem) {
+        if (Array.isArray(bannerItem.issues)) {
+          bannerItem.issues = bannerItem.issues.filter(
+            (iss) => !/(thiếu|chưa có|chưa được cung cấp|chưa cập nhật).{0,30}(ảnh bìa|banner)/i.test(iss),
+          );
+        }
+        if (bannerItem.status === 'MISSING' || (bannerItem.status === 'WARNING' && (!bannerItem.issues || bannerItem.issues.length === 0))) {
+          bannerItem.status = 'VALID';
+        }
+      }
+    }
+
     const anyImgViolation = updatedImageReview.items.some((it) => it.status === 'VIOLATION');
     const anyImgWarning = updatedImageReview.items.some((it) => it.status === 'WARNING');
     updatedImageReview.overall_image_verdict = anyImgViolation ? 'VIOLATION' : anyImgWarning ? 'WARNING' : 'SAFE';
@@ -1437,8 +1514,18 @@ function applyStage2Guardrails({
       : img.source === 'COVER_BANNER'
         ? 'Ảnh bìa (Cover Banner)'
         : `Ảnh mô tả (${img.source})`;
-    const issueMsg = (img.issues && img.issues.length > 0)
-      ? img.issues.join('; ')
+    let cleanIssues = Array.isArray(img.issues) ? img.issues : [];
+    if (img.source === 'MAIN_POSTER' && hasThumbnail) {
+      cleanIssues = cleanIssues.filter((iss) => !/(thiếu|chưa có|chưa được cung cấp|chưa cập nhật).{0,30}(ảnh đại diện|poster|thumbnail)/i.test(iss));
+    }
+    if (img.source === 'COVER_BANNER' && hasBanner) {
+      cleanIssues = cleanIssues.filter((iss) => !/(thiếu|chưa có|chưa được cung cấp|chưa cập nhật).{0,30}(ảnh bìa|banner)/i.test(iss));
+    }
+    if (cleanIssues.length === 0 && (img.source === 'MAIN_POSTER' || img.source === 'COVER_BANNER')) {
+      return;
+    }
+    const issueMsg = (cleanIssues.length > 0)
+      ? cleanIssues.join('; ')
       : 'Hình ảnh chứa nội dung vi phạm tiêu chuẩn cộng đồng EventHub hoặc không phù hợp với chủ đề sự kiện.';
 
     if (!nextCritical.some((v) => v.issue.includes(img.source) || v.issue.includes(sourceName))) {
@@ -1457,8 +1544,18 @@ function applyStage2Guardrails({
       : img.source === 'COVER_BANNER'
         ? 'Ảnh bìa (Cover Banner)'
         : `Ảnh mô tả (${img.source})`;
-    const issueMsg = (img.issues && img.issues.length > 0)
-      ? img.issues.join('; ')
+    let cleanIssues = Array.isArray(img.issues) ? img.issues : [];
+    if (img.source === 'MAIN_POSTER' && hasThumbnail) {
+      cleanIssues = cleanIssues.filter((iss) => !/(thiếu|chưa có|chưa được cung cấp|chưa cập nhật).{0,30}(ảnh đại diện|poster|thumbnail)/i.test(iss));
+    }
+    if (img.source === 'COVER_BANNER' && hasBanner) {
+      cleanIssues = cleanIssues.filter((iss) => !/(thiếu|chưa có|chưa được cung cấp|chưa cập nhật).{0,30}(ảnh bìa|banner)/i.test(iss));
+    }
+    if (cleanIssues.length === 0 && (img.source === 'MAIN_POSTER' || img.source === 'COVER_BANNER')) {
+      return;
+    }
+    const issueMsg = (cleanIssues.length > 0)
+      ? cleanIssues.join('; ')
       : 'Hình ảnh cần đối chiếu thêm về chất lượng và tính phù hợp với chủ đề sự kiện.';
 
     if (
@@ -1496,6 +1593,16 @@ function applyStage2Guardrails({
         highlighted_text: 'Ảnh bìa (Cover Banner): CHƯA CÓ',
       });
     }
+  }
+
+  // Khử trùng triệt để: loại bỏ các lỗi giả về thiếu ảnh đại diện/ảnh bìa nếu sự kiện đã có ảnh
+  if (hasThumbnail) {
+    nextCritical = nextCritical.filter((v) => !/(thiếu|chưa có|chưa được cung cấp|chưa cập nhật).{0,30}(ảnh đại diện|poster|thumbnail)/i.test(v.issue));
+    nextWarnings = nextWarnings.filter((w) => !/(thiếu|chưa có|chưa được cung cấp|chưa cập nhật).{0,30}(ảnh đại diện|poster|thumbnail)/i.test(w.issue));
+  }
+  if (hasBanner) {
+    nextCritical = nextCritical.filter((v) => !/(thiếu|chưa có|chưa được cung cấp|chưa cập nhật).{0,30}(ảnh bìa|banner)/i.test(v.issue));
+    nextWarnings = nextWarnings.filter((w) => !/(thiếu|chưa có|chưa được cung cấp|chưa cập nhật).{0,30}(ảnh bìa|banner)/i.test(w.issue));
   }
 
   // Quyết định tổng thể: Cấm APPROVE nếu vi phạm tài liệu rác hoặc ảnh lạc đề
