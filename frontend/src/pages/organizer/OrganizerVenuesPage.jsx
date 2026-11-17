@@ -534,7 +534,7 @@ function VenueDetailModal({ open, venue, onClose, onEdit }) {
           {/* Quick Stats Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="rounded-xl border border-border-soft/30 bg-panel-soft/40 p-4">
-              <div className="flex items-center gap-2 text-xs font-semibold text-muted mb-1">
+              <div className="flex items-center gap-2 text-sm font-semibold text-white mb-1">
                 <Armchair className="size-4 text-[#E6C17A]" />
                 <span>Sức chứa tối đa</span>
               </div>
@@ -542,7 +542,7 @@ function VenueDetailModal({ open, venue, onClose, onEdit }) {
             </div>
 
             <div className="rounded-xl border border-border-soft/30 bg-panel-soft/40 p-4">
-              <div className="flex items-center gap-2 text-xs font-semibold text-muted mb-1">
+              <div className="flex items-center gap-2 text-sm font-semibold text-white mb-1">
                 <Layers className="size-4 text-[#E6C17A]" />
                 <span>Số sơ đồ ghế</span>
               </div>
@@ -550,7 +550,7 @@ function VenueDetailModal({ open, venue, onClose, onEdit }) {
             </div>
 
             <div className="rounded-xl border border-border-soft/30 bg-panel-soft/40 p-4">
-              <div className="flex items-center gap-2 text-xs font-semibold text-muted mb-1">
+              <div className="flex items-center gap-2 text-sm font-semibold text-white mb-1">
                 <Building2 className="size-4 text-[#E6C17A]" />
                 <span>Khu vực</span>
               </div>
@@ -562,7 +562,7 @@ function VenueDetailModal({ open, venue, onClose, onEdit }) {
             {/* Left Col: Info & Description */}
             <div className="space-y-4">
               <div>
-                <h4 className="text-xs font-extrabold uppercase tracking-wider text-subtle mb-2">Địa chỉ & Tọa độ</h4>
+                <h4 className="text-xs font-extrabold uppercase tracking-wider text-white mb-2">Địa chỉ & Tọa độ</h4>
                 <div className="rounded-xl border border-border-soft/30 bg-panel-soft/30 p-4 space-y-3">
                   <div>
                     <span className="text-xs text-muted block mb-0.5">Địa chỉ đầy đủ</span>
@@ -586,7 +586,7 @@ function VenueDetailModal({ open, venue, onClose, onEdit }) {
               </div>
 
               <div>
-                <h4 className="text-xs font-extrabold uppercase tracking-wider text-subtle mb-2">Mô tả</h4>
+                <h4 className="text-xs font-extrabold uppercase tracking-wider text-white mb-2">Mô tả</h4>
                 <div className="rounded-xl border border-border-soft/30 bg-panel-soft/30 p-4 min-h-[80px]">
                   <p className="text-sm text-subtle leading-relaxed whitespace-pre-wrap">
                     {venue.description || 'Chưa có mô tả chi tiết cho địa điểm này.'}
@@ -597,7 +597,7 @@ function VenueDetailModal({ open, venue, onClose, onEdit }) {
               {/* Seat maps listing inside modal */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-xs font-extrabold uppercase tracking-wider text-subtle">Sơ đồ ghế thuộc địa điểm</h4>
+                  <h4 className="text-xs font-extrabold uppercase tracking-wider text-white">Sơ đồ ghế thuộc địa điểm</h4>
                   <Link
                     to={`/organizer/venues/${venue.id}/seat-maps`}
                     className="text-xs text-[#E6C17A] hover:underline font-semibold"
@@ -614,8 +614,8 @@ function VenueDetailModal({ open, venue, onClose, onEdit }) {
                     <ul className="space-y-2 max-h-36 overflow-y-auto pr-1">
                       {seatMaps.map((sm) => (
                         <li key={sm.id} className="flex items-center justify-between rounded-lg bg-surface p-2.5 text-xs border border-border-soft/20">
-                          <span className="font-semibold text-content">{sm.name}</span>
-                          <span className="text-muted">{sm.total_seats || sm.seat_count || 0} ghế</span>
+                          <span className="font-semibold text-white truncate max-w-[200px]" title={sm.name}>{sm.name}</span>
+                          <span className="text-slate-300 font-medium shrink-0 ml-2">{sm.total_seats || sm.seat_count || 0} ghế</span>
                         </li>
                       ))}
                     </ul>
@@ -626,7 +626,7 @@ function VenueDetailModal({ open, venue, onClose, onEdit }) {
 
             {/* Right Col: Map view */}
             <div className="flex flex-col">
-              <h4 className="text-xs font-extrabold uppercase tracking-wider text-subtle mb-2">Vị trí trên bản đồ</h4>
+              <h4 className="text-xs font-extrabold uppercase tracking-wider text-white mb-2">Vị trí trên bản đồ</h4>
               <div className="flex-1 min-h-[280px] rounded-xl border border-border-soft/30 overflow-hidden relative">
                 <div ref={mapRef} className="z-0 h-full w-full min-h-[280px]" />
                 {!isValidCoordinate(venue.latitude) && (
