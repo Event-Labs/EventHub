@@ -269,6 +269,26 @@ describe('SubscriptionGuardService', () => {
       });
     });
 
+    it('throws 400 when event ticket types exceed max_ticket_types_per_event', async () => {
+      db.query
+        .mockResolvedValueOnce({ rows: [mockPlan] })
+        .mockResolvedValueOnce({
+          rows: [{ active_events: 1, ticket_types: 2, ticket_capacity: 200, staff_count: 2, promo_codes: 1, seat_map_sessions: 0 }],
+        })
+        .mockResolvedValueOnce({
+          rows: [{ active_events: 1, ticket_types: 5, ticket_capacity: 200, staff_count: 2, promo_codes: 1, seat_map_sessions: 0 }],
+        })
+        .mockResolvedValueOnce({ rows: [{ status: 'DRAFT' }] });
+
+      await expect(
+        subscriptionGuard.assertEventSubmitAllowed(organizerId, eventId),
+      ).rejects.toMatchObject({
+        statusCode: 400,
+        errorCode: ErrorCodes.INVALID_INPUT,
+        message: expect.stringContaining('Số loại vé của sự kiện đã vượt giới hạn của gói hiện tại (5/4)'),
+      });
+    });
+
     it('succeeds when all usages are within limits', async () => {
       db.query
         .mockResolvedValueOnce({ rows: [mockPlan] })

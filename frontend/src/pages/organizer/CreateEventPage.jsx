@@ -2053,6 +2053,13 @@ function Step3TicketsSeats({
     (sum, tt) => sum + Number(tt.price || 0) * Number(tt.quantity || 0),
     0,
   )
+  const distinctTicketTypesCount = useMemo(() => {
+    return new Set(
+      (formData.ticketTypes || [])
+        .map((tt) => tt.name?.trim().toLowerCase())
+        .filter(Boolean),
+    ).size
+  }, [formData.ticketTypes])
 
   const venueSeatMaps = seatMapOptions[activeSession?.venue_id] || []
   const unassignedCount = loadedSeatMap
@@ -2996,8 +3003,11 @@ function Step3TicketsSeats({
           </div>
           <div className="space-y-4 p-6">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-subtle font-medium">Loại vé</span>
-              <span className="font-extrabold text-content bg-panel-soft px-3 py-1 rounded-xl border border-border-soft/20">{formData.ticketTypes.length}</span>
+              <span className="text-subtle font-medium">{isEnglish ? 'Ticket Types' : 'Loại vé'}</span>
+              <span className="font-extrabold text-content bg-panel-soft px-3 py-1 rounded-xl border border-border-soft/20">
+                {distinctTicketTypesCount}
+                {organizerPlan?.max_ticket_types_per_event > 0 ? ` / ${organizerPlan.max_ticket_types_per_event}` : ''}
+              </span>
             </div>
             <div className="flex items-center justify-between text-sm">
               <span className="text-subtle font-medium">Tổng số lượng</span>
@@ -4773,6 +4783,16 @@ export function CreateEventPage() {
             return isEnglish ? `${sName}: Quantity for "${tierLabel}" must be > 0.` : `${sName}: Số lượng vé "${tierLabel}" phải > 0.`
           }
         }
+      }
+
+      // Check max ticket types limit from subscription plan
+      const distinctTicketCount = new Set(
+        formData.ticketTypes.map((tt) => tt.name?.trim().toLowerCase()).filter(Boolean)
+      ).size
+      if (organizerPlan?.max_ticket_types_per_event > 0 && distinctTicketCount > Number(organizerPlan.max_ticket_types_per_event)) {
+        return isEnglish
+          ? `Event ticket types (${distinctTicketCount}) exceeds your current plan limit (${organizerPlan.max_ticket_types_per_event}). Please adjust ticket types or upgrade your plan.`
+          : `Số loại vé của sự kiện (${distinctTicketCount}) đã vượt giới hạn của gói hiện tại (${organizerPlan.max_ticket_types_per_event}). Vui lòng điều chỉnh dữ liệu hoặc nâng cấp gói.`
       }
     }
     if (step === 4) {
