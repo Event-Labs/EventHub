@@ -13,7 +13,12 @@ class EventsAdminRepository {
         e.thumbnail_url,
         e.banner_url,
         e.category_id,
+        c.name AS category_name,
         e.format,
+        e.tags,
+        e.visibility,
+        e.additional_terms,
+        e.require_attendee_info,
         e.start_time,
         e.end_time,
         e.seating_rules,
@@ -56,6 +61,7 @@ class EventsAdminRepository {
       FROM events e
       JOIN organizers o ON o.id = e.organizer_id
       LEFT JOIN users u ON u.id = o.user_id
+      LEFT JOIN event_categories c ON c.id = e.category_id
       LEFT JOIN LATERAL (
         SELECT
           s.name AS plan_name,
