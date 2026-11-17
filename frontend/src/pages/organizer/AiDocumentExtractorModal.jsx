@@ -653,38 +653,7 @@ export function AiDocumentExtractorModal({
                   className="hidden"
                 />
 
-                {/* 1. Top Success Banner (No duplicate venue button) */}
-                <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex items-start sm:items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
-                      <CheckCircle2 className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h4 className="text-sm sm:text-base font-bold text-white">
-                        Trích xuất thông tin thành công!
-                      </h4>
-                      <p className="text-xs text-slate-300 mt-0.5 [html.light_&]:text-slate-600">
-                        Dưới đây là thông tin sự kiện AI đã bóc tách từ tài liệu. Bạn có thể xem lại và áp dụng vào bản nháp.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 flex-wrap shrink-0">
-                    {extractedResult.data.require_attendee_information && (
-                      <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-sky-500/15 text-sky-300 border border-sky-500/30">
-                        Thu thập thông tin
-                      </span>
-                    )}
-                    {matchedVenue && (
-                      <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-300 bg-emerald-500/15 px-3 py-1 rounded-lg border border-emerald-500/30">
-                        <Check className="w-3.5 h-3.5 text-emerald-400" />
-                        Đã khớp địa điểm
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* 2. Venue Warning Banner if unmatched (Single & Prominent action) */}
+                {/* 1. Venue Warning Banner if unmatched (Single & Prominent action) */}
                 {!matchedVenue && (
                   <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3.5 text-xs animate-in fade-in">
                     <div className="flex items-start gap-3 text-amber-200">
@@ -703,7 +672,7 @@ export function AiDocumentExtractorModal({
                     <button
                       type="button"
                       onClick={handleOpenQuickCreateVenue}
-                      className="px-4 py-2.5 rounded-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black text-xs font-bold shrink-0 transition-all flex items-center gap-2 shadow-lg shadow-amber-500/20 cursor-pointer"
+                      className="px-4 py-2.5 rounded-full border border-[#C99A47] bg-transparent hover:bg-[#C99A47]/15 text-[#E6C17A] hover:text-[#FFF6DC] text-xs font-bold shrink-0 transition-all flex items-center gap-2 cursor-pointer shadow-sm hover:shadow-[0_0_14px_rgba(201,154,71,0.25)] active:scale-95 [html.light_&]:border-[#C99A47] [html.light_&]:text-[#B37E2A] [html.light_&]:hover:text-[#8C5F18] [html.light_&]:hover:bg-[#C99A47]/10"
                     >
                       <Plus className="w-4 h-4 stroke-[2.5]" />
                       <span>Tạo địa điểm mới nhanh</span>
@@ -711,15 +680,22 @@ export function AiDocumentExtractorModal({
                   </div>
                 )}
 
-                {/* 3. Event Title & Short Description */}
+                {/* 2. Event Title & Short Description */}
                 <div className="bg-[#121c38] rounded-xl p-3.5 sm:p-4 border border-white/10 space-y-2.5 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
-                  <div>
-                    <span className="text-xs font-bold text-white uppercase tracking-wider [html.light_&]:text-[#0D1B2A]">
-                      Tên sự kiện
-                    </span>
-                    <h3 className="text-sm sm:text-base font-bold text-white mt-0.5 leading-snug [html.light_&]:text-[#0D1B2A]">
-                      {extractedResult.data.title || 'Sự kiện chưa đặt tên'}
-                    </h3>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <span className="text-xs font-bold text-white uppercase tracking-wider [html.light_&]:text-[#0D1B2A]">
+                        Tên sự kiện
+                      </span>
+                      <h3 className="text-sm sm:text-base font-bold text-white mt-0.5 leading-snug [html.light_&]:text-[#0D1B2A]">
+                        {extractedResult.data.title || 'Sự kiện chưa đặt tên'}
+                      </h3>
+                    </div>
+                    {extractedResult.data.require_attendee_information && (
+                      <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-sky-500/15 text-sky-300 border border-sky-500/30 shrink-0">
+                        Thu thập thông tin
+                      </span>
+                    )}
                   </div>
 
                   {extractedResult.data.short_description && (
@@ -921,7 +897,7 @@ export function AiDocumentExtractorModal({
                     <div className="w-full sm:w-1/3 flex flex-col">
                       <div className="flex items-center justify-between mb-1.5">
                         <label className="block text-xs font-semibold text-slate-200 [html.light_&]:text-[#0D1B2A]">
-                          Ảnh đại diện (1:1) <span className="text-rose-500 font-bold ml-0.5">*</span>
+                          Ảnh đại diện (1:1)
                         </label>
                         {aiThumbnailUrl && (
                           <button
@@ -988,7 +964,7 @@ export function AiDocumentExtractorModal({
                     <div className="w-full sm:w-2/3 flex flex-col">
                       <div className="flex items-center justify-between mb-1.5">
                         <label className="block text-xs font-semibold text-slate-200 [html.light_&]:text-[#0D1B2A]">
-                          Ảnh bìa (16:9) <span className="text-rose-500 font-bold ml-0.5">*</span>
+                          Ảnh bìa (16:9)
                         </label>
                         {aiBannerUrl && (
                           <button
@@ -1446,45 +1422,45 @@ export function AiDocumentExtractorModal({
       {/* SEAT MAP CREATION PROMPT MODAL */}
       {isSeatMapPromptOpen && newlyCreatedVenue && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="relative w-full max-w-md bg-[#0b1329] border border-white/15 rounded-2xl shadow-2xl p-6 space-y-4 [html.light_&]:bg-white [html.light_&]:border-slate-200 [html.light_&]:text-[#0D1B2A]">
+          <div className="relative w-full max-w-[520px] bg-[#0b1329] border border-white/15 rounded-2xl shadow-2xl p-6 space-y-4 [html.light_&]:bg-white [html.light_&]:border-slate-200 [html.light_&]:text-[#0D1B2A]">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 [html.light_&]:bg-indigo-50 [html.light_&]:border-indigo-200">
+              <div className="w-10 h-10 rounded-xl bg-[#C99A47]/15 border border-[#C99A47]/30 flex items-center justify-center text-[#E6C17A] shrink-0 [html.light_&]:bg-amber-50 [html.light_&]:border-amber-200 [html.light_&]:text-amber-700">
                 <Armchair className="w-5 h-5" />
               </div>
               <div>
                 <h4 className="text-base font-bold text-white [html.light_&]:text-[#0D1B2A]">Tạo sơ đồ ghế cho sự kiện?</h4>
                 <p className="text-xs text-slate-400 [html.light_&]:text-slate-600">
-                  Địa điểm: <span className="text-amber-300 font-semibold [html.light_&]:text-amber-700">{newlyCreatedVenue.name}</span>
+                  Địa điểm: <span className="text-[#E6C17A] font-semibold [html.light_&]:text-amber-700">{newlyCreatedVenue.name}</span>
                 </p>
               </div>
             </div>
 
-            <p className="text-xs text-slate-300 leading-relaxed [html.light_&]:text-slate-600">
+            <p className="text-sm text-white leading-relaxed [html.light_&]:text-[#0D1B2A]">
               Bạn có muốn tạo sơ đồ ghế cho sự kiện tại địa điểm mới <strong>&quot;{newlyCreatedVenue.name}&quot;</strong> này không?
             </p>
 
-            <div className="p-3 rounded-xl bg-[#121c38] border border-white/10 text-xs text-slate-300 flex items-start gap-2.5 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200 [html.light_&]:text-slate-700">
-              <HelpCircle className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
+            {/* Frameless Lưu ý */}
+            <div className="flex items-start gap-2.5 text-xs text-slate-300 leading-relaxed [html.light_&]:text-slate-600">
+              <HelpCircle className="w-4 h-4 text-[#E6C17A] shrink-0 mt-0.5" />
               <p className="leading-relaxed">
                 <strong className="text-white [html.light_&]:text-[#0D1B2A]">Lưu ý:</strong> Nếu cần thiết cho khách hàng chọn vị trí ghế ngồi trực quan khi mua vé, bạn có thể tạo sơ đồ ghế ngay bây giờ.
               </p>
             </div>
 
-            <div className="flex items-center justify-end gap-3 pt-2">
+            <div className="flex items-center justify-end gap-3 pt-3">
               <button
                 type="button"
                 onClick={handleSkipSeatMap}
-                className="px-4 py-2 rounded-full text-xs font-medium text-slate-300 hover:text-white border border-white/15 bg-white/5 hover:bg-white/10 transition-colors cursor-pointer [html.light_&]:bg-slate-100 [html.light_&]:border-slate-300 [html.light_&]:text-[#0D1B2A] [html.light_&]:hover:bg-slate-200"
+                className="px-5 py-2.5 rounded-full text-xs font-semibold text-slate-300 hover:text-white border border-white/15 bg-white/5 hover:bg-white/10 transition-colors cursor-pointer whitespace-nowrap [html.light_&]:bg-slate-100 [html.light_&]:border-slate-300 [html.light_&]:text-[#0D1B2A] [html.light_&]:hover:bg-slate-200"
               >
-                Không, quay lại xem thông tin
+                Quay lại
               </button>
               <button
                 type="button"
                 onClick={handleOpenSeatMapEditor}
-                className="px-5 py-2.5 rounded-full bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] font-bold text-xs shadow-lg shadow-[#C99A47]/20 flex items-center gap-2 transition-all cursor-pointer hover:brightness-110 active:scale-95"
+                className="px-6 py-2.5 rounded-full bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] font-bold text-xs shadow-lg shadow-[#C99A47]/20 transition-all cursor-pointer hover:brightness-110 active:scale-95 whitespace-nowrap"
               >
-                <Armchair className="w-4 h-4" />
-                <span>Có, tạo sơ đồ ghế ngay</span>
+                Tạo sơ đồ ghế ngay
               </button>
             </div>
           </div>
