@@ -164,6 +164,13 @@ export function OrganizerAttendeesPage() {
     setPage(1)
   }, [selectedEventId, events])
 
+  const displayedTicketTypes = useMemo(() => {
+    if (selectedSessionId) {
+      return ticketTypes.filter((tt) => String(tt.event_session_id) === String(selectedSessionId))
+    }
+    return ticketTypes
+  }, [ticketTypes, selectedSessionId])
+
   // Load attendees
   const loadAttendees = useCallback(async () => {
     if (!selectedEventId) return
@@ -326,16 +333,22 @@ export function OrganizerAttendeesPage() {
               )}
 
               {/* Ticket type filter */}
-              {ticketTypes.length > 0 && (
+              {displayedTicketTypes.length > 0 && (
                 <CosmicSelect
                   value={selectedTicketTypeId}
                   onChange={setSelectedTicketTypeId}
                   options={[
                     { value: '', label: 'Tất cả loại vé' },
-                    ...ticketTypes.map((tt) => ({
-                      value: tt.id,
-                      label: tt.name,
-                    })),
+                    ...displayedTicketTypes.map((tt) => {
+                      const session = sessions.find((s) => String(s.id) === String(tt.event_session_id))
+                      const label = !selectedSessionId && sessions.length > 1 && session
+                        ? `${tt.name} (${session.session_name || 'Phiên'})`
+                        : tt.name
+                      return {
+                        value: tt.id,
+                        label,
+                      }
+                    }),
                   ]}
                   minWidth="min-w-[160px]"
                 />

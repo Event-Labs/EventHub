@@ -99,8 +99,19 @@ class SubscriptionGuardService {
             OR (e.status = 'COMPLETED' AND e.approval_status = 'APPROVED' AND COALESCE(e.sales_status, 'ON_SALE') != 'ENDED' AND COALESCE(e.end_time, e.start_time + interval '4 hours') >= now())
           )
         )::int AS active_events,
-        COUNT(DISTINCT tt.id)::int AS ticket_types,
-        COALESCE(SUM(tt.quantity), 0)::int AS ticket_capacity,
+        COUNT(DISTINCT CONCAT(sess.event_id, '___', LOWER(TRIM(tt.name)))) FILTER (WHERE tt.name IS NOT NULL)::int AS ticket_types,
+        COALESCE(
+          (
+            SELECT SUM(tt_sub.quantity)::int
+            FROM event_sessions sess_sub
+            JOIN ticket_types tt_sub ON tt_sub.event_session_id = sess_sub.id
+            JOIN events e_sub ON e_sub.id = sess_sub.event_id
+            WHERE e_sub.organizer_id = $1
+              AND e_sub.deleted_at IS NULL
+              ${eventId ? 'AND e_sub.id = $2' : ''}
+          ),
+          0
+        )::int AS ticket_capacity,
         COUNT(DISTINCT es.staff_id)::int AS staff_count,
         COUNT(DISTINCT pc.id) FILTER (WHERE pc.is_active = true)::int AS promo_codes,
         COUNT(DISTINCT sess.seat_map_id) FILTER (WHERE sess.seat_map_id IS NOT NULL)::int AS seat_map_sessions

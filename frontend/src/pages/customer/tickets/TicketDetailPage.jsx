@@ -1575,7 +1575,7 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest, onPayoutSub
                       <Check className="size-3.5" />
                       {confirmingBank
                         ? (isEnglish ? 'Confirming...' : 'Đang xác nhận...')
-                        : (isEnglish ? 'Confirm this account is correct' : 'Xác nhận STK này chính xác')}
+                        : (isEnglish ? 'Confirm this account is correct' : 'Xác nhận STK')}
                     </button>
                     {canEditPayout && (
                       <button
@@ -1583,7 +1583,7 @@ function RefundDetailModal({ isOpen, onClose, ticket, refundRequest, onPayoutSub
                         onClick={startEditingPayout}
                         className="w-full sm:w-auto rounded-full border border-white/20 bg-white/5 hover:bg-white/10 px-3.5 py-2.5 text-xs font-semibold text-slate-200 transition cursor-pointer"
                       >
-                        {isEnglish ? 'Change Account' : 'Đổi số tài khoản khác'}
+                        {isEnglish ? 'Change Account' : 'Chỉnh sửa STK'}
                       </button>
                     )}
                   </div>
