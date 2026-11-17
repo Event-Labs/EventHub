@@ -855,12 +855,9 @@ export function EventDetailPage() {
               </div>
             )}
             {isEnded && !isCancelled && (
-              <div className="mb-5 rounded-xl border border-slate-700 bg-slate-800/60 p-3.5 text-xs text-slate-300 flex items-start gap-2.5">
-                <AlertTriangle className="size-4 shrink-0 text-slate-400 mt-0.5" />
-                <span className="leading-relaxed">
-                  <strong>{isEnglish ? 'Ended:' : 'Đã kết thúc:'}</strong> {isEnglish ? 'The event has concluded and ticket sales are closed.' : 'Sự kiện đã diễn ra và đã đóng cổng bán vé.'}
-                </span>
-              </div>
+              <p className="mb-5 text-center text-xs text-slate-400 italic leading-relaxed">
+                <strong>{isEnglish ? 'Ended:' : 'Đã kết thúc:'}</strong> {isEnglish ? 'The event has concluded and ticket sales are closed.' : 'Sự kiện đã diễn ra và đã đóng cổng bán vé.'}
+              </p>
             )}
 
             {bookingError && (

@@ -79,8 +79,8 @@ export function OrganizerTable({ headers, rows, minWidth = 'min-w-full' }) {
                 const label = isObj ? header.label : header
                 const isCenter = isObj
                   ? header.align === 'center'
-                  : ['Số sự kiện', 'Người đăng ký', 'Tổng số ghế', 'Total number of seats', 'Total Seats', 'Thao tác', 'Hành động', 'Trạng thái', 'Status', 'TRẠNG THÁI', 'STATUS'].includes(label) ||
-                    (typeof label === 'string' && ['trạng thái', 'status', 'tổng số ghế', 'total number of seats', 'total seats'].includes(label.trim().toLowerCase()))
+                  : ['Số sự kiện', 'Người đăng ký', 'Tổng số ghế', 'Total number of seats', 'Total Seats', 'Khu vực', 'Zones', 'Thao tác', 'Hành động', 'Trạng thái', 'Status', 'TRẠNG THÁI', 'STATUS'].includes(label) ||
+                    (typeof label === 'string' && ['trạng thái', 'status', 'tổng số ghế', 'total number of seats', 'total seats', 'khu vực', 'zones'].includes(label.trim().toLowerCase()))
 
                 return (
                   <th
@@ -108,8 +108,8 @@ export function OrganizerTable({ headers, rows, minWidth = 'min-w-full' }) {
                   const label = isObj ? header.label : header
                   const isCenter = isObj
                     ? header.align === 'center'
-                    : ['Số sự kiện', 'Người đăng ký', 'Tổng số ghế', 'Total number of seats', 'Total Seats', 'Thao tác', 'Hành động', 'Trạng thái', 'Status', 'TRẠNG THÁI', 'STATUS'].includes(label) ||
-                      (typeof label === 'string' && ['trạng thái', 'status', 'tổng số ghế', 'total number of seats', 'total seats'].includes(label.trim().toLowerCase()))
+                    : ['Số sự kiện', 'Người đăng ký', 'Tổng số ghế', 'Total number of seats', 'Total Seats', 'Khu vực', 'Zones', 'Thao tác', 'Hành động', 'Trạng thái', 'Status', 'TRẠNG THÁI', 'STATUS'].includes(label) ||
+                      (typeof label === 'string' && ['trạng thái', 'status', 'tổng số ghế', 'total number of seats', 'total seats', 'khu vực', 'zones'].includes(label.trim().toLowerCase()))
 
                   return (
                     <td

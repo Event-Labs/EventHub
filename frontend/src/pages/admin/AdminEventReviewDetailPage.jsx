@@ -344,6 +344,7 @@ function SuggestionCard({ suggestion, onClick }) {
 }
 
 function ContentSpellingAuditCard({ contentReview, event, onClick }) {
+  const { isEnglish } = useLanguage()
   // Fallback to client-side evaluation if contentReview is absent or incomplete
   const fallbackReview = useMemo(() => {
     if (!event) return null
@@ -471,16 +472,17 @@ function ContentSpellingAuditCard({ contentReview, event, onClick }) {
       : 'border-[#263751] bg-[#101D32] [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200'
 
   return (
-    <div className={`rounded-2xl border ${overallTone} p-4 space-y-3.5 shadow-sm`}>
-      <div className="flex items-center justify-between border-b border-[#263751] pb-2.5 [html.light_&]:border-slate-200">
-        <span className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">
-          <FileText className="size-4 text-white [html.light_&]:text-[#0D1B2A]" />
-          Kiểm duyệt Mô tả & Nội dung sự kiện
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-slate-100 [html.light_&]:text-[#0D1B2A]">
+          <FileText className="size-3.5 text-white [html.light_&]:text-[#0D1B2A]" />
+          {isEnglish ? 'Description & Content Audit' : 'Kiểm duyệt Mô tả & Nội dung sự kiện'}
         </span>
         {getHeaderBadge()}
       </div>
 
-      {/* Description Audit Section */}
+      <div className={`rounded-2xl border ${overallTone} p-4 space-y-3.5 shadow-sm`}>
+        {/* Description Audit Section */}
       <div className="space-y-1.5 pl-1">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 text-xs font-bold text-slate-100 [html.light_&]:text-[#0D1B2A]">
@@ -568,11 +570,13 @@ function ContentSpellingAuditCard({ contentReview, event, onClick }) {
           </div>
         </div>
       )}
+      </div>
     </div>
   )
 }
 
 function DocumentModerationAuditCard({ documentReview, documentAnalysis, onPreviewDoc, onClick }) {
+  const { isEnglish } = useLanguage()
   const items = Array.isArray(documentReview?.items) ? documentReview.items : []
   const docAnalysisList = Array.isArray(documentAnalysis) ? documentAnalysis : []
 
@@ -605,10 +609,10 @@ function DocumentModerationAuditCard({ documentReview, documentAnalysis, onPrevi
   }
 
   return (
-    <div className="rounded-2xl border border-[#263751] bg-[#101D32] p-4 space-y-3.5 shadow-sm [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
-      <div className="flex items-center justify-between border-b border-[#263751] pb-2.5 [html.light_&]:border-slate-200">
-        <span className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">
-          <FileCheck className="size-4 text-white [html.light_&]:text-[#0D1B2A]" />
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-slate-100 [html.light_&]:text-[#0D1B2A]">
+          <FileCheck className="size-3.5 text-white [html.light_&]:text-[#0D1B2A]" />
           Kiểm duyệt Tài liệu Giấy phép ({items.length || docAnalysisList.length} tệp)
         </span>
         <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${overallVerdict === 'VIOLATION'
@@ -621,7 +625,7 @@ function DocumentModerationAuditCard({ documentReview, documentAnalysis, onPrevi
         </span>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-2">
         {items.map((doc, idx) => {
           const matchingAnalysis = docAnalysisList.find(a => (doc.url && a.url === doc.url) || (doc.fileName && a.fileName === doc.fileName) || (a.source && a.source.includes(String(idx + 1))))
           const extractedText = matchingAnalysis?.extractedText || null
@@ -841,6 +845,7 @@ function VisualCoTOcrSection({ ocrReasoning, extractedTexts }) {
 }
 
 function ImageModerationAuditCard({ imageReview, visionAnalysis, event, onClick }) {
+  const { isEnglish } = useLanguage()
   // Strictly filter out any PERMIT items to never mix documents with images
   const items = Array.isArray(imageReview?.items) ? imageReview.items.filter(it => !it.source?.startsWith('PERMIT')) : []
   const visionItems = Array.isArray(visionAnalysis) ? visionAnalysis.filter(v => !v.source?.startsWith('PERMIT')) : []
@@ -881,10 +886,10 @@ function ImageModerationAuditCard({ imageReview, visionAnalysis, event, onClick 
   }
 
   return (
-    <div className="rounded-2xl border border-[#263751] bg-[#101D32] p-4 space-y-3.5 shadow-sm [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
-      <div className="flex items-center justify-between border-b border-[#263751] pb-2.5 [html.light_&]:border-slate-200">
-        <span className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">
-          <ImageIcon className="size-4 text-white [html.light_&]:text-[#0D1B2A]" />
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-slate-100 [html.light_&]:text-[#0D1B2A]">
+          <ImageIcon className="size-3.5 text-white [html.light_&]:text-[#0D1B2A]" />
           Kiểm duyệt Hình ảnh ({items.length || visionItems.length} ảnh)
         </span>
         <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${overallVerdict === 'VIOLATION'
@@ -899,7 +904,7 @@ function ImageModerationAuditCard({ imageReview, visionAnalysis, event, onClick 
 
       {/* Render structured items from image_review.items */}
       {items.length > 0 ? (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {items.map((img, idx) => {
             const thumbUrl = getThumbnailUrl(img.source, img.url)
             return (
@@ -985,7 +990,7 @@ function ImageModerationAuditCard({ imageReview, visionAnalysis, event, onClick 
           ))}
         </div>
       ) : (
-        <div className="space-y-2 text-xs text-slate-300">
+        <div className="rounded-xl border border-[#263751] bg-[#1A2940] p-3.5 space-y-2 text-xs text-slate-300 [html.light_&]:bg-white [html.light_&]:border-slate-200">
           {imageReview?.poster_analysis && <div><strong>Poster:</strong> {imageReview.poster_analysis}</div>}
           {imageReview?.banner_analysis && <div><strong>Banner:</strong> {imageReview.banner_analysis}</div>}
         </div>
@@ -2917,15 +2922,15 @@ export function AdminEventReviewDetailPage() {
                             </div>
                           </div>
                         ) : (
-                          <div className="flex items-center gap-2 rounded-xl border border-[#10B981]/30 bg-[#10B981]/10 px-3 py-2.5 text-xs text-[#10B981] font-medium">
-                            <ShieldCheck className="size-4 text-[#10B981] shrink-0" />
-                            <span>{isEnglish ? 'No critical policy violations detected (0 red flags)' : 'Không phát hiện vi phạm chính sách nghiêm trọng (0 lỗi đỏ)'}</span>
+                          <div className="flex items-center gap-2.5 rounded-xl border border-[#10B981]/30 bg-[#10B981]/10 px-3.5 py-3 text-sm text-[#10B981] font-semibold">
+                            <ShieldCheck className="size-5 text-[#10B981] shrink-0" />
+                            <span>{isEnglish ? 'No critical policy violations detected' : 'Không phát hiện vi phạm chính sách nghiêm trọng'}</span>
                           </div>
                         )}
 
                         {/* 🟡 WARNINGS / CAUTIONS */}
                         {aiData.warnings && aiData.warnings.length > 0 && (
-                          <div className="space-y-2">
+                          <div className="space-y-2 border-t border-white/10 pt-4 [html.light_&]:border-slate-200">
                             <div className="flex items-center justify-between">
                               <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-[#F59E0B]">
                                 <AlertTriangle className="size-3.5 text-[#F59E0B]" />
@@ -2942,36 +2947,42 @@ export function AdminEventReviewDetailPage() {
 
                         {/* 📝 SOÁT LỖI TIÊU ĐỀ, MÔ TẢ & CHÍNH TẢ */}
                         {aiData.content_review && (
-                          <ContentSpellingAuditCard
-                            contentReview={aiData.content_review}
-                            event={event}
-                            onClick={handleWarningClick}
-                          />
+                          <div className="border-t border-white/10 pt-4 [html.light_&]:border-slate-200">
+                            <ContentSpellingAuditCard
+                              contentReview={aiData.content_review}
+                              event={event}
+                              onClick={handleWarningClick}
+                            />
+                          </div>
                         )}
 
                         {/* 📄 KIỂM DUYỆT TÀI LIỆU GIẤY PHÉP */}
                         {(aiData.document_review || aiData.document_analysis) && (
-                          <DocumentModerationAuditCard
-                            documentReview={aiData.document_review}
-                            documentAnalysis={aiData.document_analysis}
-                            onPreviewDoc={setPreviewDoc}
-                            onClick={handleWarningClick}
-                          />
+                          <div className="border-t border-white/10 pt-4 [html.light_&]:border-slate-200">
+                            <DocumentModerationAuditCard
+                              documentReview={aiData.document_review}
+                              documentAnalysis={aiData.document_analysis}
+                              onPreviewDoc={setPreviewDoc}
+                              onClick={handleWarningClick}
+                            />
+                          </div>
                         )}
 
                         {/* 🖼️ KIỂM DUYỆT HÌNH ẢNH & OCR */}
                         {(aiData.image_review || aiData.vision_analysis) && (
-                          <ImageModerationAuditCard
-                            imageReview={aiData.image_review}
-                            visionAnalysis={aiData.vision_analysis}
-                            event={event}
-                            onClick={handleWarningClick}
-                          />
+                          <div className="border-t border-white/10 pt-4 [html.light_&]:border-slate-200">
+                            <ImageModerationAuditCard
+                              imageReview={aiData.image_review}
+                              visionAnalysis={aiData.vision_analysis}
+                              event={event}
+                              onClick={handleWarningClick}
+                            />
+                          </div>
                         )}
 
                         {/* 🟢 COMPLIANT CHECKS */}
                         {aiData.compliant_checks && aiData.compliant_checks.length > 0 && (
-                          <div className="space-y-2">
+                          <div className="space-y-2 border-t border-white/10 pt-4 [html.light_&]:border-slate-200">
                             <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-[#10B981]">
                               <CheckCircle2 className="size-3.5 text-[#10B981]" />
                               {isEnglish ? 'Compliant criteria' : 'Tiêu chí đạt chuẩn'} ({aiData.compliant_checks.length})
@@ -2986,7 +2997,7 @@ export function AdminEventReviewDetailPage() {
 
                         {/* 💡 SUGGESTIONS */}
                         {aiData.suggestions && aiData.suggestions.length > 0 && (
-                          <div className="space-y-2.5 pt-1">
+                          <div className="space-y-2.5 pt-4 border-t border-white/10 [html.light_&]:border-slate-200">
                             <div className="flex items-center justify-between">
                               <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-[#E8B85D]">
                                 <Sparkles className="size-3.5 text-[#E8B85D]" />
