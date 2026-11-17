@@ -589,21 +589,21 @@ class OrganizerEventsService {
         };
       }
 
-      // Major Revision check (Section 4.4, AC-UE-03)
-      if (changeClass === 'MAJOR') {
+      // Revision check for published/approved events (Section 4.4, AC-UE-03)
+      if (changeClass === 'MAJOR' || (changeClass === 'MINOR' && changes.length > 0)) {
         if (currentEvent.pending_revision && currentEvent.pending_revision.status === 'SUBMITTED') {
           throw new AppError('Đã có một Revision đang mở cho sự kiện này.', 400, ErrorCodes.REVISION_ALREADY_OPEN);
         }
 
         const revision = {
           id: crypto.randomUUID(),
-          change_class: 'MAJOR',
+          change_class: changeClass,
           status: 'SUBMITTED',
           payload_before: currentEvent,
           payload_after: data,
           diff: changes,
           proposed_changes: changes,
-          reason: payload.reason || 'Major Event Update',
+          reason: payload.reason || (changeClass === 'MAJOR' ? 'Major Event Update' : 'Event Content Update'),
           submitted_by: userId,
           submitted_at: new Date().toISOString(),
           sla_due_at: new Date(Date.now() + 24 * 3600000).toISOString(),
@@ -625,7 +625,7 @@ class OrganizerEventsService {
         return {
           ...mapEvent(currentEvent),
           pending_revision: revision,
-          message: 'Thay đổi lớn đã được gửi tới Quản trị viên xét duyệt. Bản sự kiện đang chạy được giữ nguyên.',
+          message: 'Thay đổi đã được gửi tới Quản trị viên xét duyệt. Bản sự kiện đang chạy được giữ nguyên.',
         };
       }
 

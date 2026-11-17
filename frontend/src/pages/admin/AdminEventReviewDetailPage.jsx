@@ -1097,6 +1097,348 @@ function parseAiReviewData(aiData) {
 }
 
 // ---------------------------------------------------------------------------
+// Revision Diff Helpers
+// ---------------------------------------------------------------------------
+function decodeHtmlToPlain(html) {
+  if (!html) return ''
+  return String(html)
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&amp;/gi, '&')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n\s*\n/g, '\n')
+    .trim()
+}
+
+function getBlockTagLabel(tag) {
+  const t = String(tag || 'p').toLowerCase()
+  if (t === 'li') return 'Danh sách liệt kê (• <li>)'
+  if (/^h[1-6]$/.test(t)) return `Tiêu đề mục (<${t}>)`
+  if (t === 'blockquote') return 'Trích dẫn (<blockquote>)'
+  return 'Đoạn văn (<p>)'
+}
+
+function extractSemanticHtmlBlocks(html) {
+  if (!html || typeof html !== 'string') return []
+  const blocks = []
+  const blockRegex = /<(p|li|h[1-6]|blockquote)\b[^>]*>([\s\S]*?)<\/\1>/gi
+  let match
+  while ((match = blockRegex.exec(html)) !== null) {
+    const tag = match[1].toLowerCase()
+    const innerHtml = match[2] || ''
+    const fullHtml = match[0]
+    const text = decodeHtmlToPlain(innerHtml)
+    const hasImage = /<img\b/i.test(innerHtml)
+    if (!text && !hasImage) continue
+    blocks.push({
+      tag,
+      tagLabel: getBlockTagLabel(tag),
+      html: fullHtml,
+      innerHtml,
+      text,
+      hasBold: /<(strong|b)\b/i.test(innerHtml),
+      hasItalic: /<(em|i)\b/i.test(innerHtml),
+      hasImage,
+    })
+  }
+
+  if (blocks.length === 0) {
+    const plain = decodeHtmlToPlain(html)
+    if (plain) {
+      plain.split('\n').map((s) => s.trim()).filter(Boolean).forEach((line) => {
+        blocks.push({
+          tag: 'p',
+          tagLabel: 'Đoạn văn',
+          html: `<p>${line}</p>`,
+          innerHtml: line,
+          text: line,
+          hasBold: false,
+          hasItalic: false,
+          hasImage: false,
+        })
+      })
+    }
+  }
+  return blocks
+}
+
+function computeWordDiffTokens(oldStr, newStr) {
+  const aStr = String(oldStr ?? '').trim()
+  const bStr = String(newStr ?? '').trim()
+  if (aStr === bStr) {
+    return {
+      oldTokens: aStr ? [{ text: aStr, type: 'same' }] : [],
+      newTokens: bStr ? [{ text: bStr, type: 'same' }] : [],
+      hasChanges: false,
+    }
+  }
+
+  const tokenize = (s) => s.split(/(\s+|[.,;!?()[\]{}"'“”‘’/\\—–-]+)/).filter((t) => t !== '')
+  const aTokens = tokenize(aStr)
+  const bTokens = tokenize(bStr)
+
+  if (aTokens.length * bTokens.length > 250000) {
+    return {
+      oldTokens: aStr ? [{ text: aStr, type: 'removed' }] : [],
+      newTokens: bStr ? [{ text: bStr, type: 'added' }] : [],
+      hasChanges: true,
+    }
+  }
+
+  const m = aTokens.length
+  const n = bTokens.length
+  const dp = Array.from({ length: m + 1 }, () => new Int32Array(n + 1))
+
+  for (let i = m - 1; i >= 0; i--) {
+    for (let j = n - 1; j >= 0; j--) {
+      if (aTokens[i] === bTokens[j]) {
+        dp[i][j] = 1 + dp[i + 1][j + 1]
+      } else {
+        dp[i][j] = Math.max(dp[i + 1][j], dp[i][j + 1])
+      }
+    }
+  }
+
+  const rawOld = []
+  const rawNew = []
+  let i = 0
+  let j = 0
+  while (i < m && j < n) {
+    if (aTokens[i] === bTokens[j]) {
+      rawOld.push({ text: aTokens[i], type: 'same' })
+      rawNew.push({ text: bTokens[j], type: 'same' })
+      i++
+      j++
+    } else if (dp[i + 1][j] >= dp[i][j + 1]) {
+      rawOld.push({ text: aTokens[i], type: 'removed' })
+      i++
+    } else {
+      rawNew.push({ text: bTokens[j], type: 'added' })
+      j++
+    }
+  }
+  while (i < m) {
+    rawOld.push({ text: aTokens[i], type: 'removed' })
+    i++
+  }
+  while (j < n) {
+    rawNew.push({ text: bTokens[j], type: 'added' })
+    j++
+  }
+
+  const mergeTokens = (list) => {
+    const merged = []
+    for (const item of list) {
+      const last = merged[merged.length - 1]
+      if (last && last.type === item.type) {
+        last.text += item.text
+      } else {
+        merged.push({ ...item })
+      }
+    }
+    return merged
+  }
+
+  return {
+    oldTokens: mergeTokens(rawOld),
+    newTokens: mergeTokens(rawNew),
+    hasChanges: true,
+  }
+}
+
+function computeHtmlDescriptionDiff(oldHtml, newHtml) {
+  const oldBlocks = extractSemanticHtmlBlocks(oldHtml)
+  const newBlocks = extractSemanticHtmlBlocks(newHtml)
+  const m = oldBlocks.length
+  const n = newBlocks.length
+
+  const dp = Array.from({ length: m + 1 }, () => new Int32Array(n + 1))
+  for (let i = m - 1; i >= 0; i--) {
+    for (let j = n - 1; j >= 0; j--) {
+      if (oldBlocks[i].text === newBlocks[j].text) {
+        dp[i][j] = 1 + dp[i + 1][j + 1]
+      } else {
+        dp[i][j] = Math.max(dp[i + 1][j], dp[i][j + 1])
+      }
+    }
+  }
+
+  const anchors = []
+  let i = 0
+  let j = 0
+  while (i < m && j < n) {
+    if (oldBlocks[i].text === newBlocks[j].text) {
+      anchors.push([i, j])
+      i++
+      j++
+    } else if (dp[i + 1][j] >= dp[i][j + 1]) {
+      i++
+    } else {
+      j++
+    }
+  }
+  anchors.push([m, n])
+
+  const items = []
+  let prevI = 0
+  let prevJ = 0
+
+  for (const [currI, currJ] of anchors) {
+    const removedSlice = oldBlocks.slice(prevI, currI)
+    const addedSlice = newBlocks.slice(prevJ, currJ)
+    const pairCount = Math.min(removedSlice.length, addedSlice.length)
+
+    for (let k = 0; k < pairCount; k++) {
+      const ob = removedSlice[k]
+      const nb = addedSlice[k]
+      items.push({
+        type: 'TEXT_CHANGE',
+        blockNumber: prevJ + k + 1,
+        oldBlock: ob,
+        newBlock: nb,
+        wordDiff: computeWordDiffTokens(ob.text, nb.text),
+        formatChanged: ob.tag !== nb.tag,
+        formatSummary: ob.tag !== nb.tag ? `${ob.tagLabel} → ${nb.tagLabel}` : null,
+      })
+    }
+
+    for (let k = pairCount; k < removedSlice.length; k++) {
+      items.push({
+        type: 'REMOVED_BLOCK',
+        blockNumber: prevI + k + 1,
+        oldBlock: removedSlice[k],
+      })
+    }
+
+    for (let k = pairCount; k < addedSlice.length; k++) {
+      items.push({
+        type: 'ADDED_BLOCK',
+        blockNumber: prevJ + k + 1,
+        newBlock: addedSlice[k],
+      })
+    }
+
+    if (currI < m && currJ < n) {
+      const ob = oldBlocks[currI]
+      const nb = newBlocks[currJ]
+      const tagChanged = ob.tag !== nb.tag
+      const styleChanged = ob.hasBold !== nb.hasBold || ob.hasItalic !== nb.hasItalic
+      if (tagChanged || styleChanged) {
+        const formatParts = []
+        if (tagChanged) formatParts.push(`${ob.tagLabel} → ${nb.tagLabel}`)
+        if (ob.hasBold !== nb.hasBold) formatParts.push(nb.hasBold ? 'Thêm in đậm' : 'Bỏ in đậm')
+        if (ob.hasItalic !== nb.hasItalic) formatParts.push(nb.hasItalic ? 'Thêm in nghiêng' : 'Bỏ in nghiêng')
+        items.push({
+          type: 'FORMAT_CHANGE',
+          blockNumber: currJ + 1,
+          oldBlock: ob,
+          newBlock: nb,
+          formatSummary: formatParts.join(' • '),
+        })
+      }
+    }
+
+    prevI = currI + 1
+    prevJ = currJ + 1
+  }
+
+  return {
+    totalOldBlocks: m,
+    totalNewBlocks: n,
+    items,
+  }
+}
+
+function parseJsonObjSafe(val) {
+  if (!val) return {}
+  if (typeof val === 'string') {
+    try {
+      return JSON.parse(val)
+    } catch {
+      return {}
+    }
+  }
+  return typeof val === 'object' ? val : {}
+}
+
+function normalizeRefundPolicyForDiff(policy) {
+  const p = parseJsonObjSafe(policy)
+  const allowRefund = Boolean(p.allow_refund ?? p.allow_refunds)
+  const rules = allowRefund && Array.isArray(p.refund_rules)
+    ? p.refund_rules
+        .map((r) => ({
+          days_before: Number(r?.days_before || 0),
+          refund_rate: Number(r?.refund_rate ?? r?.percentage ?? 0),
+        }))
+        .sort((a, b) => b.days_before - a.days_before)
+    : []
+  return {
+    allow_refund: allowRefund,
+    refund_rules: rules,
+    refund_notes: typeof p.refund_notes === 'string' ? p.refund_notes.trim() : '',
+    deadline_days: p.deadline_days !== undefined && p.deadline_days !== null ? Number(p.deadline_days) : null,
+    policy_file_url: p.policy_file_url || null,
+    policy_file_name: p.policy_file_name || null,
+  }
+}
+
+function normalizePermitFilesForDiff(policyOrPermits) {
+  const p = parseJsonObjSafe(policyOrPermits)
+  const files = Array.isArray(policyOrPermits)
+    ? policyOrPermits
+    : Array.isArray(p.permit_files)
+      ? p.permit_files
+      : []
+  return files
+    .filter(Boolean)
+    .map((f) => ({
+      id: f.id || null,
+      url: f.url || f.file_url || null,
+      name: f.name || f.file_name || 'Tài liệu đính kèm',
+      size: f.size ? Number(f.size) : null,
+      type: f.type || f.mime_type || 'document',
+    }))
+}
+
+function normalizeSeatingRulesForDiff(rules) {
+  const r = parseJsonObjSafe(rules)
+  return {
+    require_adjacent_seats: Boolean(r.require_adjacent_seats),
+    require_same_row: Boolean(r.require_same_row),
+    disallow_single_seat_left: Boolean(r.disallow_single_seat_left),
+    max_tickets_per_order:
+      Number.isInteger(Number(r.max_tickets_per_order)) && Number(r.max_tickets_per_order) > 0
+        ? Number(r.max_tickets_per_order)
+        : 10,
+  }
+}
+
+function formatRefundSummaryText(normPolicy) {
+  if (!normPolicy?.allow_refund) return 'Không hỗ trợ hoàn vé'
+  const rulesStr = (normPolicy.refund_rules || [])
+    .map((r) => `Trước ${r.days_before} ngày: hoàn ${r.refund_rate}%`)
+    .join('; ')
+  const notesStr = normPolicy.refund_notes ? ` (Ghi chú: ${normPolicy.refund_notes})` : ''
+  return `Cho phép hoàn vé${rulesStr ? ` — ${rulesStr}` : ''}${notesStr}`
+}
+
+function formatSeatingRulesSummaryText(normRules) {
+  if (!normRules) return 'Mặc định'
+  const parts = [
+    `Tối đa ${normRules.max_tickets_per_order || 10} vé/đơn`,
+    normRules.require_adjacent_seats ? 'Bắt buộc ghế liền kề' : 'Không bắt buộc ghế liền kề',
+    normRules.require_same_row ? 'Bắt buộc cùng hàng' : 'Không bắt buộc cùng hàng',
+    normRules.disallow_single_seat_left ? 'Cấm để trống ghế lẻ' : 'Cho phép trống ghế lẻ',
+  ]
+  return parts.join(' • ')
+}
+
+// ---------------------------------------------------------------------------
 // Main Component
 // ---------------------------------------------------------------------------
 export function AdminEventReviewDetailPage() {
@@ -1113,6 +1455,7 @@ export function AdminEventReviewDetailPage() {
   const [suspendLoading, setSuspendLoading] = useState(false)
   const [selectedTicketSessionId, setSelectedTicketSessionId] = useState('ALL')
   const [ticketViewMode, setTicketViewMode] = useState('grid') // 'grid' | 'table'
+  const [showFullDescDiff, setShowFullDescDiff] = useState(false)
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -1133,7 +1476,7 @@ export function AdminEventReviewDetailPage() {
     enabled: !!eventId,
   })
 
-  // Parse pending revision details (ticket changes, session updates, general fields)
+  // Parse pending revision details (comprehensive diff across all fields, tickets, sessions, tags, description, media, policies)
   const revisionDetails = useMemo(() => {
     const rev = event?.pending_revision
     if (!rev) return null
@@ -1142,17 +1485,33 @@ export function AdminEventReviewDetailPage() {
     const before = rev.payload_before || {}
     const after = rev.payload_after || {}
 
+    const allSessions = Array.isArray(before.sessions) && before.sessions.length > 0 ? before.sessions : (event?.sessions || [])
+    const sessionNameById = new Map(allSessions.map((s, idx) => [String(s.id), s.session_name || `Phiên #${idx + 1}`]))
+
     // 1. Ticket changes
-    const ticketChanges = []
+    const rawTicketChanges = []
     const diffTickets = diffList.filter((d) => d.field === 'ticket_type' || d.field === 'ticket_added' || d.field === 'ticket_removed')
 
     if (diffTickets.length > 0) {
       diffTickets.forEach((dt) => {
+        const sName = dt.event_session_id ? sessionNameById.get(String(dt.event_session_id)) : null
         if (dt.field === 'ticket_type') {
-          ticketChanges.push({
+          rawTicketChanges.push({
             id: dt.ticket_id,
+            sessionName: sName,
             name: dt.ticket_name || dt.newValue?.name || dt.oldValue?.name || 'Vé',
-            typeLabel: dt.priceChanged && dt.qtyChanged ? 'Đổi giá & số lượng' : dt.priceChanged ? 'Đổi giá vé' : dt.qtyChanged ? 'Đổi số lượng' : 'Cập nhật',
+            typeLabel:
+              dt.priceChanged && dt.qtyChanged
+                ? 'Đổi giá & số lượng'
+                : dt.priceChanged
+                  ? 'Đổi giá vé'
+                  : dt.qtyChanged
+                    ? 'Đổi số lượng'
+                    : dt.nameChanged
+                      ? 'Đổi tên hạng vé'
+                      : dt.descChanged
+                        ? 'Đổi mô tả vé'
+                        : 'Cập nhật hạng vé',
             priceChanged: Boolean(dt.priceChanged),
             oldPrice: Number(dt.oldPrice ?? dt.oldValue?.price ?? 0),
             newPrice: Number(dt.newPrice ?? dt.newValue?.price ?? 0),
@@ -1162,19 +1521,24 @@ export function AdminEventReviewDetailPage() {
             nameChanged: Boolean(dt.nameChanged),
             oldName: dt.oldValue?.name,
             newName: dt.newValue?.name,
+            descChanged: Boolean(dt.descChanged),
+            oldDescription: dt.oldValue?.description || '',
+            newDescription: dt.newValue?.description || '',
           })
         } else if (dt.field === 'ticket_added') {
-          ticketChanges.push({
+          rawTicketChanges.push({
+            sessionName: sName,
             name: dt.ticket_name || dt.newValue?.name || 'Vé mới',
-            typeLabel: 'Thêm vé mới',
+            typeLabel: 'Thêm hạng vé mới',
             isAdded: true,
             newPrice: Number(dt.newValue?.price || 0),
             newQuantity: Number(dt.newValue?.quantity || 0),
           })
         } else if (dt.field === 'ticket_removed') {
-          ticketChanges.push({
+          rawTicketChanges.push({
+            sessionName: sName,
             name: dt.ticket_name || dt.oldValue?.name || 'Vé đã xóa',
-            typeLabel: 'Xóa loại vé',
+            typeLabel: 'Xóa hạng vé',
             isRemoved: true,
             oldPrice: Number(dt.oldValue?.price || 0),
             oldQuantity: Number(dt.oldValue?.quantity || 0),
@@ -1182,22 +1546,33 @@ export function AdminEventReviewDetailPage() {
         }
       })
     } else if (Array.isArray(after.ticket_types)) {
-      // Fallback: direct comparison between payload_before and payload_after
-      const beforeTickets = Array.isArray(before.ticket_types) && before.ticket_types.length > 0 ? before.ticket_types : (event.ticket_types || [])
+      const beforeTickets = Array.isArray(before.ticket_types) && before.ticket_types.length > 0 ? before.ticket_types : (event?.ticket_types || [])
       const beforeMap = new Map(beforeTickets.map((t) => [t.id, t]))
 
       after.ticket_types.forEach((att) => {
+        const sName = att.event_session_id ? sessionNameById.get(String(att.event_session_id)) : null
         if (att.id && beforeMap.has(att.id)) {
           const btt = beforeMap.get(att.id)
           const priceChanged = att.price !== undefined && Number(att.price) !== Number(btt.price)
           const qtyChanged = att.quantity !== undefined && Number(att.quantity) !== Number(btt.quantity)
-          const nameChanged = att.name && att.name.trim() !== (btt.name || '').trim()
+          const nameChanged = Boolean(att.name && att.name.trim() !== (btt.name || '').trim())
+          const descChanged = att.description !== undefined && String(att.description || '').trim() !== String(btt.description || '').trim()
 
-          if (priceChanged || qtyChanged || nameChanged) {
-            ticketChanges.push({
+          if (priceChanged || qtyChanged || nameChanged || descChanged) {
+            rawTicketChanges.push({
               id: att.id,
+              sessionName: sName,
               name: att.name || btt.name || 'Vé',
-              typeLabel: priceChanged && qtyChanged ? 'Đổi giá & số lượng' : priceChanged ? 'Đổi giá vé' : qtyChanged ? 'Đổi số lượng' : 'Cập nhật',
+              typeLabel:
+                priceChanged && qtyChanged
+                  ? 'Đổi giá & số lượng'
+                  : priceChanged
+                    ? 'Đổi giá vé'
+                    : qtyChanged
+                      ? 'Đổi số lượng'
+                      : nameChanged
+                        ? 'Đổi tên hạng vé'
+                        : 'Cập nhật hạng vé',
               priceChanged,
               oldPrice: Number(btt.price || 0),
               newPrice: Number(att.price ?? btt.price ?? 0),
@@ -1207,12 +1582,16 @@ export function AdminEventReviewDetailPage() {
               nameChanged,
               oldName: btt.name,
               newName: att.name,
+              descChanged,
+              oldDescription: btt.description || '',
+              newDescription: att.description || '',
             })
           }
         } else if (!att.id) {
-          ticketChanges.push({
+          rawTicketChanges.push({
+            sessionName: sName,
             name: att.name || 'Vé mới',
-            typeLabel: 'Thêm vé mới',
+            typeLabel: 'Thêm hạng vé mới',
             isAdded: true,
             newPrice: Number(att.price || 0),
             newQuantity: Number(att.quantity || 0),
@@ -1221,7 +1600,22 @@ export function AdminEventReviewDetailPage() {
       })
     }
 
-    // 2. Session changes (only sessions that actually changed!)
+    // Group identical ticket changes across multiple sessions for cleaner display
+    const ticketGroupMap = new Map()
+    rawTicketChanges.forEach((tc) => {
+      const gKey = `${tc.name}__${tc.typeLabel}__${tc.oldPrice ?? ''}__${tc.newPrice ?? ''}__${tc.oldQuantity ?? ''}__${tc.newQuantity ?? ''}__${tc.oldName ?? ''}__${tc.newDescription ?? ''}`
+      if (!ticketGroupMap.has(gKey)) {
+        ticketGroupMap.set(gKey, {
+          ...tc,
+          sessionsAffected: tc.sessionName ? [tc.sessionName] : [],
+        })
+      } else if (tc.sessionName) {
+        ticketGroupMap.get(gKey).sessionsAffected.push(tc.sessionName)
+      }
+    })
+    const ticketChanges = Array.from(ticketGroupMap.values())
+
+    // 2. Session changes (ONLY sessions that actually changed)
     const sessionChanges = []
     const diffSessions = diffList.filter((d) => d.field?.startsWith('session_') || d.field === 'sessions_added' || d.field === 'session_removed')
 
@@ -1230,24 +1624,45 @@ export function AdminEventReviewDetailPage() {
         if (ds.field === 'sessions_added') {
           sessionChanges.push({
             name: ds.newValue?.session_name || 'Suất diễn mới',
-            typeLabel: 'Thêm suất mới',
+            typeLabel: 'Thêm suất diễn mới',
+            isAdded: true,
             startTime: ds.newValue?.start_time,
             endTime: ds.newValue?.end_time,
           })
         } else if (ds.field === 'session_removed') {
           sessionChanges.push({
             name: ds.oldValue?.session_name || 'Suất diễn đã xóa',
-            typeLabel: 'Đã xóa',
+            typeLabel: 'Xóa suất diễn',
             isRemoved: true,
-          })
-        } else {
-          sessionChanges.push({
-            name: ds.newValue?.session_name || ds.oldValue?.session_name || 'Suất diễn',
-            typeLabel: 'Điều chỉnh thời gian / địa điểm',
-            startTime: ds.newValue?.start_time || ds.oldValue?.start_time,
-            endTime: ds.newValue?.end_time || ds.oldValue?.end_time,
             oldStartTime: ds.oldValue?.start_time,
             oldEndTime: ds.oldValue?.end_time,
+          })
+        } else if (ds.field?.endsWith('_name')) {
+          sessionChanges.push({
+            name: String(ds.newValue || 'Suất diễn'),
+            oldName: String(ds.oldValue || ''),
+            nameChanged: true,
+            typeLabel: 'Đổi tên suất diễn',
+          })
+        } else {
+          const oldStart = ds.oldValue?.start_time
+          const oldEnd = ds.oldValue?.end_time
+          const newStart = ds.newValue?.start_time || oldStart
+          const newEnd = ds.newValue?.end_time || oldEnd
+          const timeChanged =
+            (oldStart && newStart && new Date(oldStart).getTime() !== new Date(newStart).getTime()) ||
+            (oldEnd && newEnd && new Date(oldEnd).getTime() !== new Date(newEnd).getTime())
+          const nameChanged = Boolean(ds.newValue?.session_name && ds.oldValue?.session_name && ds.newValue.session_name !== ds.oldValue.session_name)
+          sessionChanges.push({
+            name: ds.newValue?.session_name || ds.oldValue?.session_name || 'Suất diễn',
+            oldName: ds.oldValue?.session_name,
+            nameChanged,
+            timeChanged,
+            typeLabel: timeChanged ? 'Đổi thời gian diễn' : 'Điều chỉnh suất diễn',
+            startTime: newStart,
+            endTime: newEnd,
+            oldStartTime: oldStart,
+            oldEndTime: oldEnd,
           })
         }
       })
@@ -1259,11 +1674,14 @@ export function AdminEventReviewDetailPage() {
           const timeChanged =
             new Date(as.start_time).getTime() !== new Date(bs.start_time).getTime() ||
             new Date(as.end_time).getTime() !== new Date(bs.end_time).getTime()
-          const nameChanged = as.session_name && as.session_name !== bs.session_name
+          const nameChanged = Boolean(as.session_name && as.session_name !== bs.session_name)
           if (timeChanged || nameChanged) {
             sessionChanges.push({
               name: as.session_name || bs.session_name || `Suất #${idx + 1}`,
-              typeLabel: 'Điều chỉnh',
+              oldName: bs.session_name,
+              nameChanged,
+              timeChanged,
+              typeLabel: timeChanged && nameChanged ? 'Đổi tên & thời gian' : timeChanged ? 'Đổi thời gian diễn' : 'Đổi tên suất diễn',
               startTime: as.start_time,
               endTime: as.end_time,
               oldStartTime: bs.start_time,
@@ -1273,47 +1691,293 @@ export function AdminEventReviewDetailPage() {
         } else if (!as.id) {
           sessionChanges.push({
             name: as.session_name || `Suất #${idx + 1}`,
-            typeLabel: 'Thêm suất mới',
+            typeLabel: 'Thêm suất diễn mới',
+            isAdded: true,
             startTime: as.start_time,
             endTime: as.end_time,
           })
         }
       })
-    }
-
-    // 3. Other general field changes
-    const generalChanges = []
-    const fieldLabels = {
-      title: 'Tiêu đề sự kiện',
-      format: 'Hình thức tổ chức',
-      category_id: 'Danh mục sự kiện',
-      short_description: 'Mô tả ngắn',
-      description: 'Mô tả chi tiết',
-      refund_policy: 'Chính sách hoàn tiền',
-      additional_terms: 'Điều khoản bổ sung',
-      require_attendee_info: 'Yêu cầu thông tin người tham dự',
-      thumbnail_url: 'Ảnh thumbnail',
-      banner_url: 'Ảnh banner',
-    }
-
-    diffList
-      .filter((d) => !d.field?.startsWith('session') && !d.field?.startsWith('ticket'))
-      .forEach((d) => {
-        generalChanges.push({
-          field: d.field,
-          label: fieldLabels[d.field] || d.field,
-          oldValue: d.oldValue,
-          newValue: d.newValue,
-        })
+      const afterIds = new Set(after.sessions.filter((s) => s.id).map((s) => s.id))
+      before.sessions.forEach((bs, idx) => {
+        if (bs.id && !afterIds.has(bs.id)) {
+          sessionChanges.push({
+            name: bs.session_name || `Suất #${idx + 1}`,
+            typeLabel: 'Xóa suất diễn',
+            isRemoved: true,
+            oldStartTime: bs.start_time,
+            oldEndTime: bs.end_time,
+          })
+        }
       })
+    }
+
+    // 3. Tag changes (Tags)
+    let tagChanges = null
+    const rawOldTags = before.tags !== undefined ? before.tags : event?.tags
+    const rawNewTags = after.tags !== undefined ? after.tags : diffList.find((d) => d.field === 'tags')?.newValue
+    if (rawNewTags !== undefined) {
+      const oldTags = Array.isArray(rawOldTags) ? rawOldTags.map((t) => String(t).trim()).filter(Boolean) : []
+      const newTags = Array.isArray(rawNewTags) ? rawNewTags.map((t) => String(t).trim()).filter(Boolean) : []
+      if (JSON.stringify(oldTags) !== JSON.stringify(newTags)) {
+        const oldSet = new Set(oldTags)
+        const newSet = new Set(newTags)
+        const added = newTags.filter((t) => !oldSet.has(t))
+        const removed = oldTags.filter((t) => !newSet.has(t))
+        const unchanged = newTags.filter((t) => oldSet.has(t))
+        tagChanges = {
+          oldTags,
+          newTags,
+          added,
+          removed,
+          unchanged,
+        }
+      }
+    }
+
+    // 4. Detailed Description changes (HTML Description)
+    let descriptionChange = null
+    const oldDesc = String(before.description ?? event?.description ?? '').trim()
+    const newDescRaw = after.description !== undefined ? after.description : diffList.find((d) => d.field === 'description')?.newValue
+    if (newDescRaw !== undefined) {
+      const newDesc = String(newDescRaw ?? '').trim()
+      if (oldDesc !== newDesc) {
+        const diffData = computeHtmlDescriptionDiff(oldDesc, newDesc)
+        descriptionChange = {
+          oldHtml: oldDesc,
+          newHtml: newDesc,
+          ...diffData,
+        }
+      }
+    }
+
+    // 5. Media changes (Banner & Thumbnail)
+    const mediaChanges = []
+    const checkMediaField = (field, label) => {
+      const oldUrl = before[field] !== undefined ? before[field] : event?.[field]
+      const newUrl = after[field] !== undefined ? after[field] : diffList.find((d) => d.field === field)?.newValue
+      if (newUrl !== undefined && String(oldUrl || '') !== String(newUrl || '')) {
+        mediaChanges.push({
+          field,
+          label,
+          oldUrl: oldUrl || null,
+          newUrl: newUrl || null,
+        })
+      }
+    }
+    checkMediaField('thumbnail_url', 'Ảnh thu nhỏ (Poster / Thumbnail)')
+    checkMediaField('banner_url', 'Ảnh bìa sự kiện (Banner)')
+
+    // 6. Text & General Field changes (Title, Short Description, Additional Terms, Format, Visibility, Category, Attendee Info, Refund Policy, Permits, Seating Rules)
+    const generalChanges = []
+
+    const checkTextField = (field, label) => {
+      const oldVal = String(before[field] ?? event?.[field] ?? '').trim()
+      const newRaw = after[field] !== undefined ? after[field] : diffList.find((d) => d.field === field)?.newValue
+      if (newRaw !== undefined) {
+        const newVal = String(newRaw ?? '').trim()
+        if (oldVal !== newVal) {
+          generalChanges.push({
+            field,
+            label,
+            kind: 'text',
+            oldValue: oldVal || 'Chưa cập nhật',
+            newValue: newVal || 'Đã xóa nội dung',
+            wordDiff: computeWordDiffTokens(oldVal, newVal),
+          })
+        }
+      }
+    }
+    checkTextField('title', 'Tiêu đề sự kiện')
+    checkTextField('short_description', 'Mô tả ngắn (Tóm tắt)')
+    checkTextField('additional_terms', 'Điều khoản bổ sung')
+
+    // Format
+    const oldFormat = before.format ?? event?.format
+    const newFormat = after.format !== undefined ? after.format : diffList.find((d) => d.field === 'format')?.newValue
+    if (newFormat !== undefined && String(oldFormat || '') !== String(newFormat || '')) {
+      const fmtMap = { OFFLINE: 'Trực tiếp (Offline)', ONLINE: 'Trực tuyến (Online)', HYBRID: 'Kết hợp (Hybrid)' }
+      generalChanges.push({
+        field: 'format',
+        label: 'Hình thức tổ chức',
+        kind: 'badge',
+        oldValue: fmtMap[oldFormat] || oldFormat || '—',
+        newValue: fmtMap[newFormat] || newFormat || '—',
+      })
+    }
+
+    // Visibility
+    const oldVis = before.visibility ?? event?.visibility
+    const newVis = after.visibility !== undefined ? after.visibility : diffList.find((d) => d.field === 'visibility')?.newValue
+    if (newVis !== undefined && oldVis !== undefined && String(oldVis || '') !== String(newVis || '')) {
+      const visMap = { PUBLIC: 'Công khai (Public)', PRIVATE: 'Riêng tư (Private)', UNLISTED: 'Không công khai (Unlisted)' }
+      generalChanges.push({
+        field: 'visibility',
+        label: 'Chế độ hiển thị',
+        kind: 'badge',
+        oldValue: visMap[oldVis] || oldVis,
+        newValue: visMap[newVis] || newVis,
+      })
+    }
+
+    // Category
+    const oldCat = before.category_id ?? event?.category_id
+    const newCat = after.category_id !== undefined ? after.category_id : diffList.find((d) => d.field === 'category_id')?.newValue
+    if (newCat !== undefined && String(oldCat || '') !== String(newCat || '')) {
+      generalChanges.push({
+        field: 'category_id',
+        label: 'Danh mục sự kiện',
+        kind: 'badge',
+        oldValue: before.category_name || event?.category_name || String(oldCat || 'Chưa phân loại'),
+        newValue: after.category_name || String(newCat || 'Chưa phân loại'),
+      })
+    }
+
+    // Require Attendee Info
+    const oldReqInfo = before.require_attendee_info ?? event?.require_attendee_info
+    const newReqInfo = after.require_attendee_info !== undefined ? after.require_attendee_info : diffList.find((d) => d.field === 'require_attendee_info')?.newValue
+    if (newReqInfo !== undefined && oldReqInfo !== undefined && Boolean(oldReqInfo) !== Boolean(newReqInfo)) {
+      generalChanges.push({
+        field: 'require_attendee_info',
+        label: 'Yêu cầu thông tin người tham dự',
+        kind: 'badge',
+        oldValue: oldReqInfo ? 'Có yêu cầu' : 'Không yêu cầu',
+        newValue: newReqInfo ? 'Có yêu cầu' : 'Không yêu cầu',
+      })
+    }
+
+    // Refund Policy & Permit Files (deep normalized check to prevent JSONB key-order false positives)
+    if (after.refund_policy !== undefined || diffList.some((d) => d.field === 'refund_policy' || d.field === 'permit_files')) {
+      const oldPolicyNorm = normalizeRefundPolicyForDiff(before.refund_policy ?? event?.refund_policy)
+      const newPolicyNorm = normalizeRefundPolicyForDiff(after.refund_policy ?? diffList.find((d) => d.field === 'refund_policy')?.newValue)
+      if (JSON.stringify(oldPolicyNorm) !== JSON.stringify(newPolicyNorm)) {
+        generalChanges.push({
+          field: 'refund_policy',
+          label: 'Chính sách hoàn tiền',
+          kind: 'policy',
+          oldValue: formatRefundSummaryText(oldPolicyNorm),
+          newValue: formatRefundSummaryText(newPolicyNorm),
+        })
+      }
+
+      if (after.refund_policy !== undefined || diffList.some((d) => d.field === 'permit_files')) {
+        const oldPermits = normalizePermitFilesForDiff(before.refund_policy ?? event?.refund_policy)
+        const newPermits = normalizePermitFilesForDiff(after.refund_policy ?? diffList.find((d) => d.field === 'permit_files')?.newValue)
+        if (
+          JSON.stringify(oldPermits.map((p) => `${p.url || ''}__${p.name || ''}`)) !==
+          JSON.stringify(newPermits.map((p) => `${p.url || ''}__${p.name || ''}`))
+        ) {
+          generalChanges.push({
+            field: 'permit_files',
+            label: 'Giấy phép & Tài liệu đính kèm',
+            kind: 'policy',
+            oldValue: oldPermits.length > 0 ? oldPermits.map((p) => p.name).join(', ') : 'Không có tài liệu',
+            newValue: newPermits.length > 0 ? newPermits.map((p) => p.name).join(', ') : 'Không có tài liệu',
+          })
+        }
+      }
+    }
+
+    // Seating Rules
+    if (after.seating_rules !== undefined || diffList.some((d) => d.field === 'seating_rules')) {
+      const oldRules = normalizeSeatingRulesForDiff(before.seating_rules ?? event?.seating_rules)
+      const newRules = normalizeSeatingRulesForDiff(after.seating_rules ?? diffList.find((d) => d.field === 'seating_rules')?.newValue)
+      if (JSON.stringify(oldRules) !== JSON.stringify(newRules)) {
+        generalChanges.push({
+          field: 'seating_rules',
+          label: 'Quy tắc chọn ghế',
+          kind: 'policy',
+          oldValue: formatSeatingRulesSummaryText(oldRules),
+          newValue: formatSeatingRulesSummaryText(newRules),
+        })
+      }
+    }
+
+    // Build summary pills for quick overview
+    const summaryPills = []
+    if (tagChanges) {
+      const parts = []
+      if (tagChanges.added.length > 0) parts.push(`+${tagChanges.added.length} mới`)
+      if (tagChanges.removed.length > 0) parts.push(`-${tagChanges.removed.length} xóa`)
+      summaryPills.push({
+        key: 'tags',
+        label: 'Thẻ sự kiện (Tags)',
+        badge: parts.join(', ') || 'Cập nhật',
+        tone: 'emerald',
+      })
+    }
+    if (descriptionChange) {
+      const blockCount = descriptionChange.items?.length || 1
+      summaryPills.push({
+        key: 'description',
+        label: 'Mô tả chi tiết',
+        badge: `${blockCount} đoạn chỉnh sửa`,
+        tone: 'amber',
+      })
+    }
+    if (ticketChanges.length > 0) {
+      summaryPills.push({
+        key: 'tickets',
+        label: 'Hạng vé',
+        badge: `${ticketChanges.length} mục`,
+        tone: 'amber',
+      })
+    }
+    if (sessionChanges.length > 0) {
+      summaryPills.push({
+        key: 'sessions',
+        label: 'Suất diễn',
+        badge: `${sessionChanges.length} suất`,
+        tone: 'indigo',
+      })
+    }
+    if (mediaChanges.length > 0) {
+      summaryPills.push({
+        key: 'media',
+        label: 'Hình ảnh sự kiện',
+        badge: `${mediaChanges.length} ảnh`,
+        tone: 'purple',
+      })
+    }
+    generalChanges.forEach((gc) => {
+      summaryPills.push({
+        key: gc.field,
+        label: gc.label,
+        badge: 'Đã sửa',
+        tone: 'blue',
+      })
+    })
 
     return {
       ticketChanges,
       sessionChanges,
+      tagChanges,
+      descriptionChange,
+      mediaChanges,
       generalChanges,
+      summaryPills,
+      submittedAt: rev.submitted_at || null,
       changeClass: rev.change_class || 'MAJOR',
     }
-  }, [event?.pending_revision, event?.ticket_types, event?.sessions])
+  }, [
+    event?.pending_revision,
+    event?.ticket_types,
+    event?.sessions,
+    event?.tags,
+    event?.description,
+    event?.short_description,
+    event?.title,
+    event?.format,
+    event?.visibility,
+    event?.category_id,
+    event?.category_name,
+    event?.thumbnail_url,
+    event?.banner_url,
+    event?.refund_policy,
+    event?.seating_rules,
+    event?.additional_terms,
+    event?.require_attendee_info,
+  ])
 
   // Group tickets across sessions with rich session metadata
   const groupedTickets = useMemo(() => {
@@ -1681,7 +2345,7 @@ export function AdminEventReviewDetailPage() {
           subtitle: decision === 'APPROVE' ? 'Áp dụng các thay đổi mới vào sự kiện trực tiếp.' : 'Giữ nguyên cấu hình sự kiện hiện tại.',
           eventTitle: event?.title,
           description: decision === 'APPROVE'
-            ? 'Các thay đổi về ngày giờ/suất diễn sẽ được áp dụng chính thức và trạng thái tạm dừng bán (nếu có) sẽ được mở lại.'
+            ? 'Toàn bộ nội dung chỉnh sửa đề xuất từ Ban tổ chức sẽ được áp dụng chính thức vào sự kiện và mở lại bán vé (nếu đang tạm dừng).'
             : 'Bản đề xuất sửa đổi sẽ bị từ chối và lưu vào lịch sử kiểm duyệt. Cấu hình sự kiện hiện tại sẽ được giữ nguyên.',
           tone: decision === 'APPROVE' ? 'gold' : 'danger',
           confirmText: decision === 'APPROVE' ? 'Phê duyệt sửa đổi' : 'Từ chối sửa đổi',
@@ -1803,7 +2467,7 @@ export function AdminEventReviewDetailPage() {
         title: 'Phê duyệt sửa đổi sự kiện',
         subtitle: 'Áp dụng các thay đổi mới vào sự kiện trực tiếp.',
         eventTitle: event?.title,
-        description: 'Các thay đổi về ngày giờ/suất diễn sẽ được áp dụng chính thức và trạng thái tạm dừng bán (nếu có) sẽ được mở lại.',
+        description: 'Toàn bộ nội dung chỉnh sửa đề xuất từ Ban tổ chức sẽ được áp dụng chính thức vào sự kiện và mở lại bán vé (nếu đang tạm dừng).',
         tone: 'gold',
         confirmText: 'Xác nhận duyệt sửa đổi',
         cancelText: 'Hủy bỏ',
@@ -1947,164 +2611,650 @@ export function AdminEventReviewDetailPage() {
 
           {/* Pending Revision Banner */}
           {event.pending_revision && (
-            <div className="mb-6 rounded-xl border border-white/10 bg-[#121c38]/90 p-4 sm:p-5 shadow-sm [html.light_&]:bg-white [html.light_&]:border-[#C99A47]/30 [html.light_&]:shadow-md">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-white/5 text-amber-300 border border-white/10 [html.light_&]:bg-amber-50 [html.light_&]:border-amber-200">
-                    <Sparkles className="size-4" />
+            <div className="mb-6 rounded-2xl border border-amber-500/25 bg-gradient-to-b from-[#141f3d]/95 to-[#0f172e]/95 p-4 sm:p-6 shadow-[0_12px_36px_rgba(0,0,0,0.35)] [html.light_&]:from-white [html.light_&]:to-slate-50/90 [html.light_&]:border-[#C99A47]/40 [html.light_&]:shadow-md">
+              {/* Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-white/10 [html.light_&]:border-slate-200">
+                <div className="flex items-start gap-3.5">
+                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-amber-500/15 text-amber-300 border border-amber-500/30 shadow-inner [html.light_&]:bg-amber-50 [html.light_&]:text-amber-700 [html.light_&]:border-amber-300">
+                    <Sparkles className="size-5" />
                   </span>
                   <div>
-                    <h3 className="text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">Bản sửa đổi sự kiện chờ duyệt</h3>
-                    <p className="text-xs text-slate-400 [html.light_&]:text-slate-600 mt-0.5">
-                      Ban tổ chức đã đề xuất các thay đổi đối với sự kiện. Vui lòng kiểm tra và duyệt nội dung.
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-base font-black text-white [html.light_&]:text-[#0D1B2A]">
+                        Bản sửa đổi sự kiện chờ duyệt
+                      </h3>
+                      <span className="rounded-full bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-bold text-amber-300 border border-amber-500/25 [html.light_&]:bg-amber-100 [html.light_&]:text-amber-800 [html.light_&]:border-amber-300">
+                        {revisionDetails?.summaryPills?.length || 0} hạng mục thay đổi
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-300 [html.light_&]:text-slate-600 mt-1">
+                      Ban tổ chức đã gửi đề xuất chỉnh sửa sự kiện. Các nội dung thay đổi được đối chiếu chi tiết <strong className="text-rose-300 [html.light_&]:text-rose-700">Trước khi sửa</strong> và <strong className="text-emerald-300 [html.light_&]:text-emerald-700">Sau khi sửa</strong> bên dưới.
                     </p>
                   </div>
                 </div>
-                <span className="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-[11px] font-medium text-amber-300 border border-amber-500/20 shrink-0">
-                  Chờ duyệt sửa đổi
-                </span>
+
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  {revisionDetails?.submittedAt && (
+                    <span className="rounded-lg bg-white/5 px-2.5 py-1 text-[11px] font-medium text-slate-300 border border-white/10 [html.light_&]:bg-slate-100 [html.light_&]:text-slate-700 [html.light_&]:border-slate-200">
+                      Gửi lúc: <strong className="text-white [html.light_&]:text-[#0D1B2A]">{formatDate(revisionDetails.submittedAt)}</strong>
+                    </span>
+                  )}
+                  <span className="rounded-full bg-purple-500/15 px-3 py-1 text-[11px] font-bold text-purple-300 border border-purple-500/30 shrink-0 [html.light_&]:bg-purple-50 [html.light_&]:text-purple-800 [html.light_&]:border-purple-200">
+                    Chờ duyệt sửa đổi
+                  </span>
+                </div>
               </div>
 
-              {/* Proposed Changes Diff */}
-              <div className="mt-4 space-y-3">
-                <div className="text-xs bg-black/25 p-3.5 rounded-lg border border-white/5 space-y-3 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
-                  <div className="flex items-center justify-between">
-                    <p className="font-semibold text-slate-300 [html.light_&]:text-slate-700 uppercase tracking-wide text-[11px]">
-                      Nội dung thay đổi đề xuất:
-                    </p>
-                  </div>
+              {/* Summary Pills Bar */}
+              {revisionDetails?.summaryPills && revisionDetails.summaryPills.length > 0 && (
+                <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl bg-black/30 px-3.5 py-2.5 border border-white/5 [html.light_&]:bg-slate-100/80 [html.light_&]:border-slate-200">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 [html.light_&]:text-slate-600 mr-1">
+                    Tóm tắt chỉnh sửa:
+                  </span>
+                  {revisionDetails.summaryPills.map((pill) => (
+                    <span
+                      key={pill.key}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-white/[0.06] border border-white/10 px-2.5 py-1 text-xs font-semibold text-white [html.light_&]:bg-white [html.light_&]:text-[#0D1B2A] [html.light_&]:border-slate-300 shadow-xs"
+                    >
+                      <span className="size-1.5 rounded-full bg-amber-400" />
+                      <span>{pill.label}</span>
+                      <span className="rounded bg-amber-500/20 px-1.5 py-0.2 text-[10px] font-bold text-amber-300 border border-amber-500/25 [html.light_&]:bg-amber-50 [html.light_&]:text-amber-800 [html.light_&]:border-amber-200">
+                        {pill.badge}
+                      </span>
+                    </span>
+                  ))}
+                </div>
+              )}
 
-                  {/* 1. Ticket Changes */}
-                  {revisionDetails?.ticketChanges && revisionDetails.ticketChanges.length > 0 && (
-                    <div className="space-y-2 pt-1">
-                      <p className="text-xs font-semibold text-slate-300 [html.light_&]:text-slate-700 flex items-center gap-1.5">
-                        <Ticket className="size-3.5 text-amber-400" />
-                        Thay đổi loại vé ({revisionDetails.ticketChanges.length}):
-                      </p>
-                      <div className="grid gap-2">
-                        {revisionDetails.ticketChanges.map((tc, idx) => (
-                          <div key={tc.id || idx} className="rounded-lg border border-white/10 bg-white/[0.02] p-3 text-xs space-y-1.5 [html.light_&]:bg-white [html.light_&]:border-slate-200">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <span className="font-bold text-white [html.light_&]:text-[#0D1B2A] text-sm">{tc.name}</span>
-                                {tc.nameChanged && tc.oldName && (
-                                  <span className="text-[11px] text-slate-400 [html.light_&]:text-slate-500">(Tên cũ: {tc.oldName})</span>
-                                )}
-                              </div>
-                              <span className="rounded bg-white/5 px-2 py-0.5 text-[10px] font-medium text-slate-300 border border-white/10 [html.light_&]:bg-slate-100 [html.light_&]:text-slate-700 [html.light_&]:border-slate-300">
-                                {tc.typeLabel}
-                              </span>
-                            </div>
-                            {tc.priceChanged && (
-                              <div className="flex items-center gap-2 pt-0.5">
-                                <span className="text-slate-400 [html.light_&]:text-slate-600">Giá vé:</span>
-                                <span className="text-slate-500 line-through">
-                                  {tc.oldPrice.toLocaleString('vi-VN')} đ
-                                </span>
-                                <span className="text-slate-400 font-bold">→</span>
-                                <span className="text-emerald-400 font-bold text-sm [html.light_&]:text-emerald-700">
-                                  {tc.newPrice.toLocaleString('vi-VN')} đ
-                                </span>
-                              </div>
-                            )}
-                            {tc.qtyChanged && (
-                              <div className="flex items-center gap-2">
-                                <span className="text-slate-400 [html.light_&]:text-slate-600">Số lượng mở bán:</span>
-                                <span className="text-slate-500">
-                                  {tc.oldQuantity.toLocaleString('vi-VN')} vé
-                                </span>
-                                <span className="text-slate-400 font-bold">→</span>
-                                <span className="text-white [html.light_&]:text-[#0D1B2A] font-medium">
-                                  {tc.newQuantity.toLocaleString('vi-VN')} vé
-                                </span>
-                              </div>
-                            )}
-                            {tc.isAdded && (
-                              <div className="text-xs text-slate-300 [html.light_&]:text-slate-700 flex items-center gap-2">
-                                <span>Giá mở bán: <strong className="text-emerald-400 [html.light_&]:text-emerald-700">{tc.newPrice.toLocaleString('vi-VN')} đ</strong></span>
-                                <span>•</span>
-                                <span>Số lượng: <strong className="text-white [html.light_&]:text-[#0D1B2A]">{tc.newQuantity.toLocaleString('vi-VN')} vé</strong></span>
-                              </div>
-                            )}
-                            {tc.isRemoved && (
-                              <div className="text-xs text-rose-300 [html.light_&]:text-rose-700">
-                                Đã xoá loại vé này khỏi sự kiện
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 2. Session Changes (Only if sessions actually changed or added) */}
-                  {revisionDetails?.sessionChanges && revisionDetails.sessionChanges.length > 0 && (
-                    <div className="space-y-2 pt-1">
-                      <p className="text-xs font-semibold text-slate-300 [html.light_&]:text-slate-700 flex items-center gap-1.5">
-                        <Calendar className="size-3.5 text-amber-400" />
-                        Điều chỉnh suất diễn ({revisionDetails.sessionChanges.length}):
-                      </p>
-                      <div className="grid gap-2">
-                        {revisionDetails.sessionChanges.map((sess, idx) => (
-                          <div key={idx} className="rounded-lg border border-white/10 bg-white/[0.02] p-2.5 text-xs text-slate-200 flex flex-wrap items-center justify-between gap-2 [html.light_&]:bg-white [html.light_&]:border-slate-200">
-                            <span className="font-semibold text-white [html.light_&]:text-[#0D1B2A]">{sess.name}</span>
-                            <div className="flex items-center gap-3 text-slate-300 [html.light_&]:text-slate-600">
-                              <span>Bắt đầu: <strong className="text-white [html.light_&]:text-[#0D1B2A]">{formatDate(sess.startTime)}</strong></span>
-                              <span>•</span>
-                              <span>Kết thúc: <strong className="text-white [html.light_&]:text-[#0D1B2A]">{formatDate(sess.endTime)}</strong></span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Fallback if no specific ticket/session diff detected but raw sessions exist */}
-                  {(!revisionDetails?.ticketChanges || revisionDetails.ticketChanges.length === 0) &&
-                    (!revisionDetails?.sessionChanges || revisionDetails.sessionChanges.length === 0) &&
-                    event.pending_revision.payload_after?.sessions && (
-                      <div className="space-y-2 pt-1">
-                        <p className="text-xs font-semibold text-slate-300 [html.light_&]:text-slate-700">Suất diễn mới:</p>
-                        <div className="grid gap-2">
-                          {event.pending_revision.payload_after.sessions.map((sess, idx) => (
-                            <div key={sess.id || idx} className="rounded-lg border border-white/10 bg-white/[0.02] p-2.5 text-xs text-slate-200 flex flex-wrap items-center justify-between gap-2 [html.light_&]:bg-white [html.light_&]:border-slate-200">
-                              <span className="font-semibold text-white [html.light_&]:text-[#0D1B2A]">{sess.session_name || `Suất #${idx + 1}`}</span>
-                              <div className="flex items-center gap-3 text-slate-300 [html.light_&]:text-slate-600">
-                                <span>Bắt đầu: <strong className="text-white [html.light_&]:text-[#0D1B2A]">{formatDate(sess.start_time)}</strong></span>
-                                <span>•</span>
-                                <span>Kết thúc: <strong className="text-white [html.light_&]:text-[#0D1B2A]">{formatDate(sess.end_time)}</strong></span>
-                              </div>
-                            </div>
-                          ))}
+              {/* Proposed Changes Detailed Cards */}
+              <div className="mt-4 space-y-4">
+                {/* 1. TAGS DIFF CARD */}
+                {revisionDetails?.tagChanges && (
+                  <div className="rounded-xl border border-white/10 bg-black/25 p-4 space-y-3.5 [html.light_&]:bg-white [html.light_&]:border-slate-200">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-2.5 [html.light_&]:border-slate-200">
+                      <div className="flex items-center gap-2">
+                        <span className="grid size-7 place-items-center rounded-lg bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 [html.light_&]:bg-emerald-50 [html.light_&]:text-emerald-700 [html.light_&]:border-emerald-200">
+                          <Tag className="size-3.5" />
+                        </span>
+                        <div>
+                          <h4 className="text-xs sm:text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">
+                            Thẻ sự kiện (Tags)
+                          </h4>
                         </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-[11px] font-semibold">
+                        {revisionDetails.tagChanges.added.length > 0 && (
+                          <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-emerald-300 [html.light_&]:bg-emerald-50 [html.light_&]:text-emerald-700 [html.light_&]:border-emerald-200">
+                            +{revisionDetails.tagChanges.added.length} thẻ mới
+                          </span>
+                        )}
+                        {revisionDetails.tagChanges.removed.length > 0 && (
+                          <span className="rounded-full bg-rose-500/15 border border-rose-500/30 px-2.5 py-0.5 text-rose-300 [html.light_&]:bg-rose-50 [html.light_&]:text-rose-700 [html.light_&]:border-rose-200">
+                            -{revisionDetails.tagChanges.removed.length} thẻ đã xóa
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Highlighted Added / Removed Tags */}
+                    {(revisionDetails.tagChanges.added.length > 0 || revisionDetails.tagChanges.removed.length > 0) && (
+                      <div className="flex flex-wrap items-center gap-2 rounded-lg bg-white/[0.03] p-3 border border-white/5 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                        <span className="text-[11px] font-bold uppercase tracking-wide text-slate-400 [html.light_&]:text-slate-600 mr-1">
+                          Chi tiết thay đổi:
+                        </span>
+                        {revisionDetails.tagChanges.added.map((t) => (
+                          <span
+                            key={`add-${t}`}
+                            className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/35 px-3 py-1 text-xs font-bold text-emerald-300 shadow-xs [html.light_&]:bg-emerald-50 [html.light_&]:text-emerald-800 [html.light_&]:border-emerald-300"
+                          >
+                            <Plus className="size-3 stroke-[2.5]" />
+                            <span>#{t}</span>
+                            <span className="text-[10px] font-medium opacity-80">(Mới thêm)</span>
+                          </span>
+                        ))}
+                        {revisionDetails.tagChanges.removed.map((t) => (
+                          <span
+                            key={`rem-${t}`}
+                            className="inline-flex items-center gap-1.5 rounded-full bg-rose-500/15 border border-rose-500/35 px-3 py-1 text-xs font-bold text-rose-300 shadow-xs [html.light_&]:bg-rose-50 [html.light_&]:text-rose-800 [html.light_&]:border-rose-300"
+                          >
+                            <X className="size-3 stroke-[2.5]" />
+                            <span className="line-through">#{t}</span>
+                            <span className="text-[10px] font-medium opacity-80">(Đã xóa)</span>
+                          </span>
+                        ))}
                       </div>
                     )}
 
-                  {/* 3. General Field Changes */}
-                  {revisionDetails?.generalChanges && revisionDetails.generalChanges.length > 0 && (
-                    <div className="space-y-1.5 pt-1">
-                      {revisionDetails.generalChanges.map((gc) => (
-                        <div key={gc.field} className="text-xs text-slate-300 bg-white/[0.02] rounded-lg p-2.5 border border-white/5 flex flex-wrap items-center justify-between gap-2 [html.light_&]:bg-white [html.light_&]:border-slate-200">
-                          <span className="font-medium text-slate-300 [html.light_&]:text-slate-700">{gc.label}:</span>
-                          {typeof gc.newValue === 'object' && gc.newValue !== null ? (
-                            <span className="text-slate-400 [html.light_&]:text-slate-500">Đã cập nhật nội dung mới</span>
+                    {/* Before vs After Tag Sets */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                      <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3 space-y-2 [html.light_&]:bg-slate-50/70 [html.light_&]:border-slate-200">
+                        <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-400 [html.light_&]:text-slate-600">
+                          <span>Trước khi sửa</span>
+                          <span>{revisionDetails.tagChanges.oldTags.length} thẻ</span>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {revisionDetails.tagChanges.oldTags.length > 0 ? (
+                            revisionDetails.tagChanges.oldTags.map((t) => {
+                              const isRemoved = revisionDetails.tagChanges.removed.includes(t)
+                              return (
+                                <span
+                                  key={`old-${t}`}
+                                  className={`inline-flex items-center rounded-md px-2.5 py-1 text-xs font-medium border ${
+                                    isRemoved
+                                      ? 'bg-rose-500/15 text-rose-300 border-rose-500/30 line-through [html.light_&]:bg-rose-50 [html.light_&]:text-rose-700 [html.light_&]:border-rose-200'
+                                      : 'bg-white/5 text-slate-300 border-white/10 [html.light_&]:bg-white [html.light_&]:text-slate-700 [html.light_&]:border-slate-200'
+                                  }`}
+                                >
+                                  #{t}
+                                </span>
+                              )
+                            })
                           ) : (
-                            <div className="flex items-center gap-2">
-                              {gc.oldValue !== undefined && gc.oldValue !== null && (
-                                <span className="line-through text-slate-500">{String(gc.oldValue)}</span>
+                            <span className="text-slate-500 italic">Chưa có thẻ nào</span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/[0.03] p-3 space-y-2 [html.light_&]:bg-emerald-50/40 [html.light_&]:border-emerald-200">
+                        <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-emerald-300 [html.light_&]:text-emerald-700">
+                          <span>Sau khi sửa (Đề xuất mới)</span>
+                          <span>{revisionDetails.tagChanges.newTags.length} thẻ</span>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {revisionDetails.tagChanges.newTags.length > 0 ? (
+                            revisionDetails.tagChanges.newTags.map((t) => {
+                              const isAdded = revisionDetails.tagChanges.added.includes(t)
+                              return (
+                                <span
+                                  key={`new-${t}`}
+                                  className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs border ${
+                                    isAdded
+                                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-bold shadow-xs [html.light_&]:bg-emerald-100 [html.light_&]:text-emerald-800 [html.light_&]:border-emerald-300'
+                                      : 'bg-white/5 text-slate-200 border-white/10 font-medium [html.light_&]:bg-white [html.light_&]:text-slate-700 [html.light_&]:border-slate-200'
+                                  }`}
+                                >
+                                  {isAdded && <Plus className="size-3" />}
+                                  <span>#{t}</span>
+                                </span>
+                              )
+                            })
+                          ) : (
+                            <span className="text-slate-500 italic">Đã xóa toàn bộ thẻ</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 2. DETAILED DESCRIPTION DIFF CARD */}
+                {revisionDetails?.descriptionChange && (
+                  <div className="rounded-xl border border-white/10 bg-black/25 p-4 space-y-3.5 [html.light_&]:bg-white [html.light_&]:border-slate-200">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-2.5 [html.light_&]:border-slate-200">
+                      <div className="flex items-center gap-2">
+                        <span className="grid size-7 place-items-center rounded-lg bg-amber-500/15 text-amber-400 border border-amber-500/25 [html.light_&]:bg-amber-50 [html.light_&]:text-amber-700 [html.light_&]:border-amber-200">
+                          <FileText className="size-3.5" />
+                        </span>
+                        <div>
+                          <h4 className="text-xs sm:text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">
+                            Mô tả chi tiết sự kiện
+                          </h4>
+                          <p className="text-[11px] text-slate-400 [html.light_&]:text-slate-500">
+                            {revisionDetails.descriptionChange.items?.length > 0
+                              ? `Phát hiện ${revisionDetails.descriptionChange.items.length} vị trí thay đổi nội dung / định dạng trên tổng số ${revisionDetails.descriptionChange.totalNewBlocks} đoạn.`
+                              : 'Cập nhật định dạng HTML mô tả sự kiện.'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setShowFullDescDiff((prev) => !prev)}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/5 hover:bg-white/10 px-3 py-1.5 text-xs font-semibold text-amber-300 transition cursor-pointer [html.light_&]:bg-slate-100 [html.light_&]:border-slate-300 [html.light_&]:text-[#0D1B2A] [html.light_&]:hover:bg-slate-200"
+                      >
+                        <Eye className="size-3.5" />
+                        <span>{showFullDescDiff ? 'Thu gọn toàn văn' : 'So sánh toàn bộ mô tả (Trước & Sau)'}</span>
+                        {showFullDescDiff ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
+                      </button>
+                    </div>
+
+                    {/* Specific Changed Blocks List */}
+                    {revisionDetails.descriptionChange.items && revisionDetails.descriptionChange.items.length > 0 ? (
+                      <div className="space-y-3">
+                        {revisionDetails.descriptionChange.items.map((item, idx) => (
+                          <div
+                            key={idx}
+                            className="rounded-lg border border-white/10 bg-white/[0.02] p-3 space-y-2.5 [html.light_&]:bg-slate-50/70 [html.light_&]:border-slate-200"
+                          >
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div className="flex items-center gap-2">
+                                <span className="rounded bg-white/10 px-2 py-0.5 text-[10px] font-bold text-slate-300 [html.light_&]:bg-slate-200 [html.light_&]:text-slate-700">
+                                  Đoạn #{item.blockNumber}
+                                </span>
+                                {item.type === 'TEXT_CHANGE' && (
+                                  <span className="rounded-full bg-amber-500/15 border border-amber-500/30 px-2.5 py-0.5 text-[10px] font-bold text-amber-300 [html.light_&]:bg-amber-50 [html.light_&]:text-amber-800 [html.light_&]:border-amber-200">
+                                    Chỉnh sửa nội dung văn bản
+                                  </span>
+                                )}
+                                {item.type === 'FORMAT_CHANGE' && (
+                                  <span className="rounded-full bg-indigo-500/15 border border-indigo-500/30 px-2.5 py-0.5 text-[10px] font-bold text-indigo-300 [html.light_&]:bg-indigo-50 [html.light_&]:text-indigo-800 [html.light_&]:border-indigo-200">
+                                    Thay đổi định dạng trình bày: {item.formatSummary}
+                                  </span>
+                                )}
+                                {item.type === 'ADDED_BLOCK' && (
+                                  <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-[10px] font-bold text-emerald-300 [html.light_&]:bg-emerald-50 [html.light_&]:text-emerald-800 [html.light_&]:border-emerald-200">
+                                    Thêm đoạn nội dung mới ({item.newBlock.tagLabel})
+                                  </span>
+                                )}
+                                {item.type === 'REMOVED_BLOCK' && (
+                                  <span className="rounded-full bg-rose-500/15 border border-rose-500/30 px-2.5 py-0.5 text-[10px] font-bold text-rose-300 [html.light_&]:bg-rose-50 [html.light_&]:text-rose-800 [html.light_&]:border-rose-200">
+                                    Xóa đoạn nội dung ({item.oldBlock.tagLabel})
+                                  </span>
+                                )}
+                              </div>
+                              {item.type === 'TEXT_CHANGE' && item.formatSummary && (
+                                <span className="text-[11px] font-medium text-indigo-300 [html.light_&]:text-indigo-700">
+                                  Định dạng: {item.formatSummary}
+                                </span>
                               )}
+                            </div>
+
+                            {item.type === 'TEXT_CHANGE' && (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs leading-relaxed">
+                                <div className="rounded-lg border border-rose-500/20 bg-rose-500/[0.04] p-3 space-y-1.5 [html.light_&]:bg-rose-50/50 [html.light_&]:border-rose-200">
+                                  <div className="text-[10px] font-bold uppercase tracking-wider text-rose-300 [html.light_&]:text-rose-700">
+                                    Trước khi sửa ({item.oldBlock.tagLabel})
+                                  </div>
+                                  <div className="text-slate-300 [html.light_&]:text-slate-700 break-words">
+                                    {item.wordDiff.oldTokens.map((tok, tIdx) =>
+                                      tok.type === 'removed' ? (
+                                        <span
+                                          key={tIdx}
+                                          className="bg-rose-500/25 text-rose-200 line-through px-1 py-0.5 rounded font-semibold [html.light_&]:bg-rose-200/80 [html.light_&]:text-rose-900"
+                                        >
+                                          {tok.text}
+                                        </span>
+                                      ) : (
+                                        <span key={tIdx}>{tok.text}</span>
+                                      )
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/[0.04] p-3 space-y-1.5 [html.light_&]:bg-emerald-50/50 [html.light_&]:border-emerald-200">
+                                  <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-300 [html.light_&]:text-emerald-700">
+                                    Sau khi sửa ({item.newBlock.tagLabel})
+                                  </div>
+                                  <div className="text-slate-200 [html.light_&]:text-[#0D1B2A] break-words">
+                                    {item.wordDiff.newTokens.map((tok, tIdx) =>
+                                      tok.type === 'added' ? (
+                                        <span
+                                          key={tIdx}
+                                          className="bg-emerald-500/25 text-emerald-200 px-1 py-0.5 rounded font-bold border-b border-emerald-400/50 [html.light_&]:bg-emerald-200/80 [html.light_&]:text-emerald-950"
+                                        >
+                                          {tok.text}
+                                        </span>
+                                      ) : (
+                                        <span key={tIdx}>{tok.text}</span>
+                                      )
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {item.type === 'FORMAT_CHANGE' && (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs leading-relaxed">
+                                <div className="rounded-lg border border-white/10 bg-black/20 p-3 space-y-1.5 [html.light_&]:bg-white [html.light_&]:border-slate-200">
+                                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 [html.light_&]:text-slate-600">
+                                    Trước khi sửa — {item.oldBlock.tagLabel}
+                                  </div>
+                                  <div className="text-slate-300 [html.light_&]:text-slate-700">
+                                    {item.oldBlock.tag === 'li' ? `• ${item.oldBlock.text}` : item.oldBlock.text}
+                                  </div>
+                                </div>
+
+                                <div className="rounded-lg border border-indigo-500/25 bg-indigo-500/[0.05] p-3 space-y-1.5 [html.light_&]:bg-indigo-50/40 [html.light_&]:border-indigo-200">
+                                  <div className="text-[10px] font-bold uppercase tracking-wider text-indigo-300 [html.light_&]:text-indigo-700">
+                                    Sau khi sửa — {item.newBlock.tagLabel}
+                                  </div>
+                                  <div className="text-white font-medium [html.light_&]:text-[#0D1B2A] flex items-start gap-2">
+                                    {item.newBlock.tag === 'li' && (
+                                      <span className="text-emerald-400 font-black mt-0.5">•</span>
+                                    )}
+                                    <span>{item.newBlock.text}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {item.type === 'ADDED_BLOCK' && (
+                              <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/[0.05] p-3 text-xs text-emerald-200 [html.light_&]:bg-emerald-50 [html.light_&]:text-emerald-900 [html.light_&]:border-emerald-200">
+                                {item.newBlock.tag === 'li' ? `• ${item.newBlock.text}` : item.newBlock.text}
+                              </div>
+                            )}
+
+                            {item.type === 'REMOVED_BLOCK' && (
+                              <div className="rounded-lg border border-rose-500/25 bg-rose-500/[0.05] p-3 text-xs text-rose-200 line-through [html.light_&]:bg-rose-50 [html.light_&]:text-rose-900 [html.light_&]:border-rose-200">
+                                {item.oldBlock.tag === 'li' ? `• ${item.oldBlock.text}` : item.oldBlock.text}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3 text-xs text-slate-300 [html.light_&]:bg-slate-50 [html.light_&]:text-slate-700">
+                        Nội dung văn bản chính giữ nguyên, chỉ chuẩn hóa khoảng trắng hoặc định dạng HTML. Nhấn <strong>"So sánh toàn bộ mô tả"</strong> để đối chiếu trực tiếp.
+                      </div>
+                    )}
+
+                    {/* Expandable Full HTML Side-by-Side Comparison */}
+                    {showFullDescDiff && (
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-2 border-t border-white/10 [html.light_&]:border-slate-200">
+                        <div className="rounded-xl border border-white/10 bg-black/30 p-4 space-y-2 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                          <div className="text-xs font-bold uppercase tracking-wider text-rose-300 [html.light_&]:text-rose-700 border-b border-white/10 pb-2 [html.light_&]:border-slate-200">
+                            Bản mô tả hiện tại (Trước khi sửa)
+                          </div>
+                          <div
+                            className={`max-h-96 overflow-y-auto pr-2 prose prose-xs prose-invert max-w-none text-slate-300 break-words [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [html.light_&]:prose-neutral [html.light_&]:text-slate-700 ${customScrollbar}`}
+                            dangerouslySetInnerHTML={{ __html: revisionDetails.descriptionChange.oldHtml || '<em>Trống</em>' }}
+                          />
+                        </div>
+
+                        <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/15 p-4 space-y-2 [html.light_&]:bg-emerald-50/30 [html.light_&]:border-emerald-200">
+                          <div className="text-xs font-bold uppercase tracking-wider text-emerald-300 [html.light_&]:text-emerald-700 border-b border-emerald-500/20 pb-2 [html.light_&]:border-emerald-200">
+                            Bản mô tả đề xuất mới (Sau khi sửa)
+                          </div>
+                          <div
+                            className={`max-h-96 overflow-y-auto pr-2 prose prose-xs prose-invert max-w-none text-slate-200 break-words [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [html.light_&]:prose-neutral [html.light_&]:text-[#0D1B2A] ${customScrollbar}`}
+                            dangerouslySetInnerHTML={{ __html: revisionDetails.descriptionChange.newHtml || '<em>Trống</em>' }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 3. MEDIA CHANGES (THUMBNAIL / BANNER) */}
+                {revisionDetails?.mediaChanges && revisionDetails.mediaChanges.length > 0 && (
+                  <div className="rounded-xl border border-white/10 bg-black/25 p-4 space-y-3.5 [html.light_&]:bg-white [html.light_&]:border-slate-200">
+                    <div className="flex items-center gap-2 border-b border-white/10 pb-2.5 [html.light_&]:border-slate-200">
+                      <span className="grid size-7 place-items-center rounded-lg bg-purple-500/15 text-purple-300 border border-purple-500/25">
+                        <ImageIcon className="size-3.5" />
+                      </span>
+                      <h4 className="text-xs sm:text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">
+                        Thay đổi hình ảnh sự kiện ({revisionDetails.mediaChanges.length})
+                      </h4>
+                    </div>
+                    <div className="grid gap-4">
+                      {revisionDetails.mediaChanges.map((mc) => (
+                        <div key={mc.field} className="space-y-2">
+                          <p className="text-xs font-semibold text-slate-300 [html.light_&]:text-slate-700">{mc.label}:</p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="rounded-lg border border-white/10 bg-white/[0.02] p-2.5 space-y-2 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 [html.light_&]:text-slate-600 block">
+                                Ảnh hiện tại
+                              </span>
+                              {mc.oldUrl ? (
+                                <img src={mc.oldUrl} alt="Old media" className="h-36 w-full rounded-lg object-cover border border-white/10" />
+                              ) : (
+                                <div className="h-36 grid place-items-center text-xs text-slate-500 italic">Chưa có ảnh</div>
+                              )}
+                            </div>
+                            <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/[0.04] p-2.5 space-y-2 [html.light_&]:bg-emerald-50/40 [html.light_&]:border-emerald-200">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300 [html.light_&]:text-emerald-700 block">
+                                Ảnh đề xuất mới
+                              </span>
+                              {mc.newUrl ? (
+                                <img src={mc.newUrl} alt="New media" className="h-36 w-full rounded-lg object-cover border border-emerald-500/30" />
+                              ) : (
+                                <div className="h-36 grid place-items-center text-xs text-rose-400 italic">Đã gỡ ảnh</div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 4. TICKET CHANGES */}
+                {revisionDetails?.ticketChanges && revisionDetails.ticketChanges.length > 0 && (
+                  <div className="rounded-xl border border-white/10 bg-black/25 p-4 space-y-3 [html.light_&]:bg-white [html.light_&]:border-slate-200">
+                    <div className="flex items-center justify-between border-b border-white/10 pb-2.5 [html.light_&]:border-slate-200">
+                      <div className="flex items-center gap-2">
+                        <span className="grid size-7 place-items-center rounded-lg bg-amber-500/15 text-amber-400 border border-amber-500/25">
+                          <Ticket className="size-3.5" />
+                        </span>
+                        <h4 className="text-xs sm:text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">
+                          Thay đổi cơ cấu hạng vé ({revisionDetails.ticketChanges.length})
+                        </h4>
+                      </div>
+                    </div>
+                    <div className="grid gap-2.5">
+                      {revisionDetails.ticketChanges.map((tc, idx) => (
+                        <div key={tc.id || idx} className="rounded-lg border border-white/10 bg-white/[0.02] p-3 text-xs space-y-2 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-bold text-white [html.light_&]:text-[#0D1B2A] text-sm">{tc.name}</span>
+                              {tc.nameChanged && tc.oldName && (
+                                <span className="text-[11px] text-rose-300 line-through [html.light_&]:text-rose-700">
+                                  {tc.oldName}
+                                </span>
+                              )}
+                              {tc.sessionsAffected && tc.sessionsAffected.length > 0 && (
+                                <span className="rounded bg-indigo-500/15 px-2 py-0.5 text-[10px] font-medium text-indigo-300 border border-indigo-500/25 [html.light_&]:bg-indigo-50 [html.light_&]:text-indigo-700 [html.light_&]:border-indigo-200">
+                                  {tc.sessionsAffected.length > 2
+                                    ? `Áp dụng cho ${tc.sessionsAffected.length} phiên diễn`
+                                    : tc.sessionsAffected.join(', ')}
+                                </span>
+                              )}
+                            </div>
+                            <span className="rounded-full bg-amber-500/15 px-2.5 py-0.5 text-[10px] font-bold text-amber-300 border border-amber-500/25 [html.light_&]:bg-amber-50 [html.light_&]:text-amber-800 [html.light_&]:border-amber-200">
+                              {tc.typeLabel}
+                            </span>
+                          </div>
+                          {tc.priceChanged && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-slate-400 [html.light_&]:text-slate-600">Đơn giá vé:</span>
+                              <span className="text-rose-300 line-through [html.light_&]:text-rose-700">
+                                {tc.oldPrice.toLocaleString('vi-VN')} đ
+                              </span>
                               <span className="text-slate-400 font-bold">→</span>
-                              <strong className="text-white [html.light_&]:text-[#0D1B2A]">{String(gc.newValue)}</strong>
+                              <span className="text-emerald-400 font-bold text-sm [html.light_&]:text-emerald-700">
+                                {tc.newPrice.toLocaleString('vi-VN')} đ
+                              </span>
+                            </div>
+                          )}
+                          {tc.qtyChanged && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-slate-400 [html.light_&]:text-slate-600">Số lượng vé mở bán:</span>
+                              <span className="text-rose-300 line-through [html.light_&]:text-rose-700">
+                                {tc.oldQuantity.toLocaleString('vi-VN')} vé
+                              </span>
+                              <span className="text-slate-400 font-bold">→</span>
+                              <span className="text-emerald-300 [html.light_&]:text-emerald-700 font-bold">
+                                {tc.newQuantity.toLocaleString('vi-VN')} vé
+                              </span>
+                            </div>
+                          )}
+                          {tc.descChanged && (
+                            <div className="text-xs space-y-1 pt-1 border-t border-white/5 [html.light_&]:border-slate-200">
+                              <span className="text-slate-400 [html.light_&]:text-slate-600 block">Mô tả hạng vé:</span>
+                              <div className="flex flex-wrap items-center gap-2">
+                                {tc.oldDescription && (
+                                  <span className="text-rose-300 line-through [html.light_&]:text-rose-700">{tc.oldDescription}</span>
+                                )}
+                                <span className="text-slate-400 font-bold">→</span>
+                                <span className="text-emerald-300 font-medium [html.light_&]:text-emerald-700">{tc.newDescription || 'Đã xóa mô tả'}</span>
+                              </div>
+                            </div>
+                          )}
+                          {tc.isAdded && (
+                            <div className="text-xs text-slate-300 [html.light_&]:text-slate-700 flex items-center gap-2">
+                              <span>Giá mở bán: <strong className="text-emerald-400 [html.light_&]:text-emerald-700">{tc.newPrice.toLocaleString('vi-VN')} đ</strong></span>
+                              <span>•</span>
+                              <span>Số lượng: <strong className="text-white [html.light_&]:text-[#0D1B2A]">{tc.newQuantity.toLocaleString('vi-VN')} vé</strong></span>
+                            </div>
+                          )}
+                          {tc.isRemoved && (
+                            <div className="text-xs text-rose-300 [html.light_&]:text-rose-700">
+                              Đã xóa hạng vé này khỏi sự kiện (Giá cũ: {tc.oldPrice.toLocaleString('vi-VN')} đ • SL cũ: {tc.oldQuantity.toLocaleString('vi-VN')} vé)
                             </div>
                           )}
                         </div>
                       ))}
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
+
+                {/* 5. SESSION CHANGES (ONLY IF SESSIONS ACTUALLY CHANGED) */}
+                {revisionDetails?.sessionChanges && revisionDetails.sessionChanges.length > 0 && (
+                  <div className="rounded-xl border border-white/10 bg-black/25 p-4 space-y-3 [html.light_&]:bg-white [html.light_&]:border-slate-200">
+                    <div className="flex items-center gap-2 border-b border-white/10 pb-2.5 [html.light_&]:border-slate-200">
+                      <span className="grid size-7 place-items-center rounded-lg bg-indigo-500/15 text-indigo-300 border border-indigo-500/25">
+                        <Calendar className="size-3.5" />
+                      </span>
+                      <h4 className="text-xs sm:text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">
+                        Điều chỉnh lịch trình suất diễn ({revisionDetails.sessionChanges.length})
+                      </h4>
+                    </div>
+                    <div className="grid gap-2.5">
+                      {revisionDetails.sessionChanges.map((sess, idx) => (
+                        <div key={idx} className="rounded-lg border border-white/10 bg-white/[0.02] p-3 text-xs space-y-2 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-white [html.light_&]:text-[#0D1B2A] text-sm">{sess.name}</span>
+                              {sess.nameChanged && sess.oldName && (
+                                <span className="text-[11px] text-rose-300 line-through [html.light_&]:text-rose-700">
+                                  (Tên cũ: {sess.oldName})
+                                </span>
+                              )}
+                            </div>
+                            <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${
+                              sess.isRemoved
+                                ? 'bg-rose-500/15 text-rose-300 border-rose-500/30'
+                                : sess.isAdded
+                                  ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                                  : 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30'
+                            }`}>
+                              {sess.typeLabel}
+                            </span>
+                          </div>
+
+                          {sess.timeChanged && sess.oldStartTime && (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                              <div className="rounded bg-rose-500/[0.06] border border-rose-500/20 p-2 text-slate-300 [html.light_&]:bg-rose-50 [html.light_&]:text-slate-700">
+                                <span className="text-[10px] font-bold uppercase text-rose-300 [html.light_&]:text-rose-700 block">Thời gian cũ:</span>
+                                <span className="line-through">{formatDate(sess.oldStartTime)} — {formatDate(sess.oldEndTime)}</span>
+                              </div>
+                              <div className="rounded bg-emerald-500/[0.06] border border-emerald-500/25 p-2 text-white [html.light_&]:bg-emerald-50 [html.light_&]:text-[#0D1B2A]">
+                                <span className="text-[10px] font-bold uppercase text-emerald-300 [html.light_&]:text-emerald-700 block">Thời gian mới:</span>
+                                <strong className="text-emerald-300 [html.light_&]:text-emerald-800">{formatDate(sess.startTime)} — {formatDate(sess.endTime)}</strong>
+                              </div>
+                            </div>
+                          )}
+
+                          {sess.isAdded && sess.startTime && (
+                            <div className="text-slate-300 [html.light_&]:text-slate-600 flex flex-wrap items-center gap-3">
+                              <span>Bắt đầu: <strong className="text-emerald-300 [html.light_&]:text-emerald-700">{formatDate(sess.startTime)}</strong></span>
+                              <span>•</span>
+                              <span>Kết thúc: <strong className="text-emerald-300 [html.light_&]:text-emerald-700">{formatDate(sess.endTime)}</strong></span>
+                            </div>
+                          )}
+
+                          {sess.isRemoved && sess.oldStartTime && (
+                            <div className="text-rose-300/80 line-through [html.light_&]:text-rose-700">
+                              Lịch trình đã xóa: {formatDate(sess.oldStartTime)} — {formatDate(sess.oldEndTime)}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 6. GENERAL FIELDS & POLICIES CHANGES */}
+                {revisionDetails?.generalChanges && revisionDetails.generalChanges.length > 0 && (
+                  <div className="rounded-xl border border-white/10 bg-black/25 p-4 space-y-3 [html.light_&]:bg-white [html.light_&]:border-slate-200">
+                    <div className="flex items-center gap-2 border-b border-white/10 pb-2.5 [html.light_&]:border-slate-200">
+                      <span className="grid size-7 place-items-center rounded-lg bg-blue-500/15 text-blue-300 border border-blue-500/25">
+                        <Info className="size-3.5" />
+                      </span>
+                      <h4 className="text-xs sm:text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">
+                        Thông tin chung & Chính sách ({revisionDetails.generalChanges.length})
+                      </h4>
+                    </div>
+
+                    <div className="grid gap-3">
+                      {revisionDetails.generalChanges.map((gc) => (
+                        <div
+                          key={gc.field}
+                          className="rounded-lg border border-white/10 bg-white/[0.02] p-3 text-xs space-y-2 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200"
+                        >
+                          <div className="font-bold text-white [html.light_&]:text-[#0D1B2A] text-xs sm:text-sm">
+                            {gc.label}
+                          </div>
+
+                          {gc.kind === 'text' && gc.wordDiff ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 leading-relaxed">
+                              <div className="rounded border border-rose-500/20 bg-rose-500/[0.04] p-2.5 [html.light_&]:bg-rose-50/50 [html.light_&]:border-rose-200">
+                                <span className="text-[10px] font-bold uppercase text-rose-300 [html.light_&]:text-rose-700 block mb-1">
+                                  Trước khi sửa
+                                </span>
+                                <div className="text-slate-300 [html.light_&]:text-slate-700 break-words">
+                                  {gc.wordDiff.oldTokens.map((tok, i) =>
+                                    tok.type === 'removed' ? (
+                                      <span key={i} className="bg-rose-500/25 text-rose-200 line-through px-1 rounded [html.light_&]:bg-rose-200 [html.light_&]:text-rose-900">
+                                        {tok.text}
+                                      </span>
+                                    ) : (
+                                      <span key={i}>{tok.text}</span>
+                                    )
+                                  )}
+                                </div>
+                              </div>
+                              <div className="rounded border border-emerald-500/25 bg-emerald-500/[0.04] p-2.5 [html.light_&]:bg-emerald-50/50 [html.light_&]:border-emerald-200">
+                                <span className="text-[10px] font-bold uppercase text-emerald-300 [html.light_&]:text-emerald-700 block mb-1">
+                                  Sau khi sửa
+                                </span>
+                                <div className="text-white [html.light_&]:text-[#0D1B2A] break-words">
+                                  {gc.wordDiff.newTokens.map((tok, i) =>
+                                    tok.type === 'added' ? (
+                                      <span key={i} className="bg-emerald-500/25 text-emerald-200 font-bold px-1 rounded [html.light_&]:bg-emerald-200 [html.light_&]:text-emerald-950">
+                                        {tok.text}
+                                      </span>
+                                    ) : (
+                                      <span key={i}>{tok.text}</span>
+                                    )
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                              <div className="rounded border border-white/10 bg-black/20 p-2.5 [html.light_&]:bg-white [html.light_&]:border-slate-200">
+                                <span className="text-[10px] font-bold uppercase text-slate-400 [html.light_&]:text-slate-500 block mb-0.5">
+                                  Trước khi sửa:
+                                </span>
+                                <span className="text-slate-300 line-through [html.light_&]:text-slate-600">{String(gc.oldValue)}</span>
+                              </div>
+                              <div className="rounded border border-emerald-500/25 bg-emerald-500/[0.04] p-2.5 [html.light_&]:bg-emerald-50/50 [html.light_&]:border-emerald-200">
+                                <span className="text-[10px] font-bold uppercase text-emerald-300 [html.light_&]:text-emerald-700 block mb-0.5">
+                                  Sau khi sửa:
+                                </span>
+                                <strong className="text-emerald-300 [html.light_&]:text-emerald-800">{String(gc.newValue)}</strong>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Revision Note Input & Action Buttons */}
-                <div className="pt-2 border-t border-white/10 [html.light_&]:border-slate-200 flex flex-col sm:flex-row items-center gap-2.5">
+                <div className="pt-3 border-t border-white/10 [html.light_&]:border-slate-200 flex flex-col sm:flex-row items-center gap-2.5">
                   <input
                     type="text"
                     value={revisionNote}
@@ -2117,7 +3267,7 @@ export function AdminEventReviewDetailPage() {
                       type="button"
                       disabled={reviewRevisionMutation.isPending}
                       onClick={() => handleReviewRevision('REJECT')}
-                      className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 rounded-lg border border-rose-500/25 bg-rose-500/10 hover:bg-rose-500/15 px-3.5 py-2 text-xs font-medium text-rose-300 transition disabled:opacity-50 cursor-pointer"
+                      className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 rounded-lg border border-rose-500/25 bg-rose-500/10 hover:bg-rose-500/15 px-3.5 py-2 text-xs font-medium text-rose-300 transition disabled:opacity-50 cursor-pointer [html.light_&]:bg-rose-50 [html.light_&]:text-rose-700 [html.light_&]:border-rose-300"
                     >
                       <Ban className="size-3.5" />
                       <span>Từ chối sửa đổi</span>
@@ -2165,9 +3315,30 @@ export function AdminEventReviewDetailPage() {
                 {typeof event.title === 'string' ? (isEnglish ? (translatePhrase(event.title, 'en') || event.title) : event.title) : (isEnglish ? 'Event Details' : 'Chi tiết sự kiện')}
               </h2>
               {event.short_description && (
-                <p className="mb-8 text-base font-medium text-slate-400 [html.light_&]:text-slate-600">
+                <p className="mb-4 text-base font-medium text-slate-400 [html.light_&]:text-slate-600">
                   {typeof event.short_description === 'string' ? (isEnglish ? (translatePhrase(event.short_description, 'en') || event.short_description) : event.short_description) : ''}
                 </p>
+              )}
+
+              {/* Tags & Category */}
+              {(event.category_name || (Array.isArray(event.tags) && event.tags.length > 0)) && (
+                <div className="mb-6 flex flex-wrap items-center gap-2">
+                  {event.category_name && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-[#C99A47]/15 border border-[#C99A47]/30 px-3 py-1 text-xs font-bold text-[#E6C17A] [html.light_&]:bg-amber-50 [html.light_&]:text-amber-900 [html.light_&]:border-amber-300">
+                      {event.category_name}
+                    </span>
+                  )}
+                  {Array.isArray(event.tags) &&
+                    event.tags.map((tag, idx) => (
+                      <span
+                        key={`${tag}-${idx}`}
+                        className="inline-flex items-center gap-1 rounded-full bg-white/5 border border-white/10 px-2.5 py-1 text-xs font-medium text-slate-300 [html.light_&]:bg-slate-100 [html.light_&]:text-slate-700 [html.light_&]:border-slate-200"
+                      >
+                        <Tag className="size-3 text-[#C99A47]" />
+                        <span>#{tag}</span>
+                      </span>
+                    ))}
+                </div>
               )}
 
               <div className="mb-8 space-y-3.5">
