@@ -5499,7 +5499,11 @@ export function CreateEventPage() {
             <div className="flex items-start gap-3">
               <Icon name="error_outline" className="text-red-400 text-xl shrink-0 mt-0.5" />
               <div>
-                <p className="font-bold text-white">Chưa thể gửi duyệt sự kiện</p>
+                <p className="font-bold text-white">
+                  {currentStep === 5
+                    ? (isEnglish ? 'Cannot submit event for review' : 'Chưa thể gửi duyệt sự kiện')
+                    : (isEnglish ? `Unable to proceed from step ${currentStep}` : `Chưa thể hoàn tất bước ${currentStep}`)}
+                </p>
                 <p className="text-xs text-red-200 mt-0.5 leading-relaxed">{error}</p>
               </div>
             </div>
