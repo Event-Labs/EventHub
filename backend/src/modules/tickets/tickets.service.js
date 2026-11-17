@@ -477,7 +477,7 @@ class TicketsService {
     }
 
     if (!ticket.has_staff_access) {
-      throw new AppError('Staff không có quyền check-in vé này.', 403, ErrorCodes.AUTH_FORBIDDEN);
+      throw new AppError('Vé thuộc sự kiện khác hoặc nhân sự không có quyền check-in vé này.', 403, ErrorCodes.AUTH_FORBIDDEN);
     }
 
     assertCheckInOpen(ticket);
@@ -499,7 +499,7 @@ class TicketsService {
     }
 
     if (result.state === 'FORBIDDEN_ACTION' || result.state === 'FORBIDDEN') {
-      throw new AppError('Nhân viên không được phân công cho sự kiện này.', 403, ErrorCodes.FORBIDDEN_ACTION);
+      throw new AppError('Vé thuộc sự kiện khác hoặc nhân viên không được phân công cho sự kiện này.', 403, ErrorCodes.FORBIDDEN_ACTION);
     }
 
     if (result.state === 'MANUAL_CHECKIN_NOT_ALLOWED') {

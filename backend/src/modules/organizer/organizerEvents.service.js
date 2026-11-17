@@ -430,6 +430,37 @@ class OrganizerEventsService {
     return venue;
   }
 
+  async assertNoVenueOrSeatMapConflict({ venueId, seatMapId = null, startTime, endTime, excludeEventId = null }) {
+    if (!venueId || !startTime || !endTime) return;
+    const conflict = await organizerEventsRepository.findSessionResourceConflict({
+      venueId,
+      seatMapId: seatMapId || null,
+      startTime,
+      endTime,
+      excludeEventId,
+    });
+    if (!conflict) return;
+
+    if (conflict.seat_map_conflict && seatMapId) {
+      throw new AppError(
+        `Sơ đồ ghế đang được sử dụng bởi sự kiện "${conflict.event_title}" trong khung giờ trùng lặp.`,
+        400,
+        ErrorCodes.INVALID_INPUT,
+      );
+    }
+
+    throw new AppError(
+      `Địa điểm đang được sử dụng bởi sự kiện "${conflict.event_title}" trong khung giờ trùng lặp.`,
+      400,
+      ErrorCodes.INVALID_INPUT,
+    );
+  }
+
+  async getOccupiedSlots(userId, excludeEventId = null) {
+    const organizerId = await this.resolveOrganizerId(userId);
+    return organizerEventsRepository.findOccupiedSessionSlots(organizerId, excludeEventId);
+  }
+
   async getVenues(userId) {
     const organizerId = await this.resolveOrganizerId(userId);
     return organizerEventsRepository.findVenuesByOrganizer(organizerId);
@@ -694,6 +725,13 @@ class OrganizerEventsService {
         assertValidSessionTimes(session.start_time, session.end_time, isNewOrChangedStartTime, session.checkin_start_time);
         assertValidDirectSaleTimes(session.direct_sale_start_time, session.direct_sale_end_time);
         await this.assertVenueAccessible(organizerId, session.venue_id);
+        await this.assertNoVenueOrSeatMapConflict({
+          venueId: session.venue_id,
+          seatMapId: session.seat_map_id || null,
+          startTime: session.start_time,
+          endTime: session.end_time,
+          excludeEventId: eventId,
+        });
 
         const sessionData = {
           session_name: session.session_name,
@@ -782,6 +820,16 @@ class OrganizerEventsService {
     }
     if (!fullEvent.ticket_types?.length) {
       throw new AppError('Event must have at least one ticket type before submit', 400, ErrorCodes.INVALID_INPUT);
+    }
+
+    for (const session of fullEvent.sessions) {
+      await this.assertNoVenueOrSeatMapConflict({
+        venueId: session.venue_id,
+        seatMapId: session.seat_map_id || null,
+        startTime: session.start_time,
+        endTime: session.end_time,
+        excludeEventId: eventId,
+      });
     }
 
     // Business Rule: Thời điểm nộp duyệt sự kiện phải cách thời điểm bắt đầu sự kiện tối thiểu 72 giờ (Lead Time >= 72h)
@@ -930,6 +978,13 @@ class OrganizerEventsService {
 
     assertValidSessionTimes(payload.start_time, payload.end_time, true, payload.checkin_start_time);
     await this.assertVenueAccessible(organizerId, payload.venue_id);
+    await this.assertNoVenueOrSeatMapConflict({
+      venueId: payload.venue_id,
+      seatMapId: payload.seat_map_id || null,
+      startTime: payload.start_time,
+      endTime: payload.end_time,
+      excludeEventId: eventId,
+    });
 
     const session = await organizerEventsRepository.createSession(eventId, payload);
     await organizerEventsRepository.syncEventTimesFromSessions(eventId);
@@ -963,6 +1018,18 @@ class OrganizerEventsService {
       );
       assertValidSessionTimes(startTime, endTime, isChanged, checkinTime);
     }
+
+    const effectiveVenueId = payload.venue_id || session.venue_id;
+    const effectiveSeatMapId = payload.seat_map_id !== undefined ? payload.seat_map_id : session.seat_map_id;
+    const effectiveStartTime = payload.start_time || session.start_time;
+    const effectiveEndTime = payload.end_time || session.end_time;
+    await this.assertNoVenueOrSeatMapConflict({
+      venueId: effectiveVenueId,
+      seatMapId: effectiveSeatMapId || null,
+      startTime: effectiveStartTime,
+      endTime: effectiveEndTime,
+      excludeEventId: eventId,
+    });
 
     const updated = await organizerEventsRepository.updateSession(sessionId, eventId, payload);
     await organizerEventsRepository.syncEventTimesFromSessions(eventId);

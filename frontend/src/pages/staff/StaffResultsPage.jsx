@@ -14,12 +14,12 @@ const STATUS_CONFIG = {
     badgeTone: 'blue',
   },
   USED: {
-    tone: 'green',
-    icon: CheckCircle2,
-    title: 'Đã soát vé',
-    subtitle: 'Hệ thống đã ghi nhận vé này vào cổng.',
+    tone: 'red',
+    icon: XCircle,
+    title: 'Vé đã được dùng',
+    subtitle: 'Vé này đã được soát vào cổng trước đó, không thể sử dụng lại.',
     label: 'Đã soát vé',
-    badgeTone: 'green',
+    badgeTone: 'red',
   },
   CANCELLED: {
     tone: 'red',

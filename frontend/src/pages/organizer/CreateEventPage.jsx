@@ -4,6 +4,7 @@ import { Sparkles, Wand2, X as CloseIcon, Check, RefreshCw, Layers, Lock } from 
 import { fetchEventCategories } from '@/services/events.js'
 import {
   createOrganizerEvent,
+  fetchOccupiedSlots,
   fetchOrganizerEvent,
   fetchOrganizerVenues,
   submitOrganizerEvent,
@@ -191,6 +192,30 @@ function checkSessionsOverlap(sessions) {
   return null
 }
 
+function findOccupiedSlotConflict(session, occupiedSlots = [], { venueId = null, seatMapId = null } = {}) {
+  if (!session?.start_date || !session?.start_time || !session?.end_time || !Array.isArray(occupiedSlots) || !occupiedSlots.length) {
+    return null
+  }
+  const sStart = new Date(`${session.start_date}T${session.start_time}`).getTime()
+  const sEnd = new Date(`${session.start_date}T${session.end_time}`).getTime()
+  if (Number.isNaN(sStart) || Number.isNaN(sEnd) || sEnd <= sStart) return null
+
+  for (const slot of occupiedSlots) {
+    const slotStart = new Date(slot.start_time).getTime()
+    const slotEnd = new Date(slot.end_time).getTime()
+    if (Number.isNaN(slotStart) || Number.isNaN(slotEnd)) continue
+    if (!(sStart < slotEnd && sEnd > slotStart)) continue
+
+    if (venueId && String(slot.venue_id) === String(venueId)) {
+      return slot
+    }
+    if (seatMapId && slot.seat_map_id && String(slot.seat_map_id) === String(seatMapId)) {
+      return slot
+    }
+  }
+  return null
+}
+
 function calculateEventCompleteness(formData, isEnglish = false) {
   const titleValid = Boolean(formData.title?.trim())
   const categoryValid = Boolean(formData.category_id)
@@ -254,7 +279,7 @@ function calculateEventCompleteness(formData, isEnglish = false) {
   })
 
   const seatMapValid = hasSessions && formData.sessions.every((s) => {
-    if (s.seating_type === 'ASSIGNED') {
+    if (s.seating_type === 'ASSIGNED' || s.seating_type === 'ASSIGNED_SEATS') {
       return Boolean(s.seat_map_id)
     }
     return true
@@ -768,7 +793,7 @@ function Step1EventInfo({
 }
 
 
-function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
+function Step2ScheduleVenue({ formData, setFormData, venues, completeness, occupiedSlots = [] }) {
   const { isEnglish } = useLanguage()
   const todayStr = useMemo(() => {
     const d = new Date()
@@ -1169,12 +1194,29 @@ function Step2ScheduleVenue({ formData, setFormData, venues, completeness }) {
                             onChange={(e) => updateSession(key, 'venue_id', e.target.value)}
                           >
                             <option value="">Chọn địa điểm</option>
-                            {venues.map((v) => (
-                              <option key={v.id} value={v.id}>
-                                {v.name}{v.city ? ` (${v.city})` : ''}
-                              </option>
-                            ))}
+                            {venues.map((v) => {
+                              const conflict = findOccupiedSlotConflict(session, occupiedSlots, { venueId: v.id })
+                              return (
+                                <option key={v.id} value={v.id} disabled={Boolean(conflict)}>
+                                  {v.name}{v.city ? ` (${v.city})` : ''}
+                                  {conflict ? (isEnglish ? ` — Busy (${conflict.event_title})` : ` — Trùng lịch (${conflict.event_title})`) : ''}
+                                </option>
+                              )
+                            })}
                           </select>
+                          {(() => {
+                            const selectedVenueConflict = session.venue_id
+                              ? findOccupiedSlotConflict(session, occupiedSlots, { venueId: session.venue_id })
+                              : null
+                            if (!selectedVenueConflict) return null
+                            return (
+                              <p className="mt-1.5 text-xs text-red-400">
+                                {isEnglish
+                                  ? `This venue is occupied by "${selectedVenueConflict.event_title}" during this time slot. Please choose another venue or time.`
+                                  : `Địa điểm này đang được sự kiện "${selectedVenueConflict.event_title}" sử dụng trong khung giờ này. Vui lòng chọn địa điểm hoặc khung giờ khác.`}
+                              </p>
+                            )
+                          })()}
                         </div>
                       </div>
 
@@ -1489,7 +1531,7 @@ function RowSelectDropdown({ rows, onSelectRow }) {
   )
 }
 
-function SeatMapSelectDropdown({ value, options = [], onChange, placeholder = '-- Chọn sơ đồ --', loading = false }) {
+function SeatMapSelectDropdown({ value, options = [], onChange, placeholder = '-- Chọn sơ đồ --', loading = false, activeSession = null, occupiedSlots = [], isEnglish = false }) {
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef(null)
 
@@ -1553,18 +1595,23 @@ function SeatMapSelectDropdown({ value, options = [], onChange, placeholder = '-
           ) : (
             options.map((sm) => {
               const isSelected = String(sm.id) === String(value)
+              const conflict = findOccupiedSlotConflict(activeSession, occupiedSlots, { seatMapId: sm.id })
               return (
                 <button
                   key={sm.id}
                   type="button"
+                  disabled={Boolean(conflict)}
                   onClick={() => {
+                    if (conflict) return
                     onChange(sm.id)
                     setIsOpen(false)
                   }}
-                  className={`w-full text-left px-4 py-2.5 text-sm transition-all flex items-center justify-between cursor-pointer border-b border-white/5 last:border-b-0 ${
-                    isSelected
-                      ? 'bg-[#C99A47]/20 text-[#F3D382] font-semibold'
-                      : 'text-slate-200 hover:bg-[#C99A47]/15 hover:text-[#F3D382]'
+                  className={`w-full text-left px-4 py-2.5 text-sm transition-all flex items-center justify-between border-b border-white/5 last:border-b-0 ${
+                    conflict
+                      ? 'opacity-50 cursor-not-allowed text-slate-400'
+                      : isSelected
+                        ? 'bg-[#C99A47]/20 text-[#F3D382] font-semibold cursor-pointer'
+                        : 'text-slate-200 hover:bg-[#C99A47]/15 hover:text-[#F3D382] cursor-pointer'
                   }`}
                 >
                   <div className="flex flex-col gap-0.5">
@@ -1573,6 +1620,7 @@ function SeatMapSelectDropdown({ value, options = [], onChange, placeholder = '-
                     </span>
                     <span className="text-[11px] text-slate-400">
                       {sm.seat_count || 0} ghế • {sm.zone_count || 0} khu vực
+                      {conflict ? (isEnglish ? ` • Busy: ${conflict.event_title}` : ` • Trùng lịch: ${conflict.event_title}`) : ''}
                     </span>
                   </div>
                   {isSelected && (
@@ -1596,6 +1644,7 @@ function Step3TicketsSeats({
   organizerPlan = null,
   isEditMode = false,
   eventId = '',
+  occupiedSlots = [],
 }) {
   const { isEnglish } = useLanguage()
   const toast = useToast()
@@ -1649,9 +1698,12 @@ function Step3TicketsSeats({
   }
 
   const sessions = formData.sessions
-  const activeSession = sessions[activeTab]
+  const safeActiveTab = sessions.length > 0 ? Math.min(activeTab, sessions.length - 1) : 0
+  const activeSession = sessions[safeActiveTab]
   const sessionKey = activeSession ? activeSession.id || activeSession.clientKey : null
-  const seatingType = activeSession?.seating_type || 'GENERAL'
+  const seatingType = activeSession?.seating_type === 'ASSIGNED' || activeSession?.seating_type === 'ASSIGNED_SEATS'
+    ? 'ASSIGNED'
+    : 'GENERAL'
   const venue = venues.find((v) => v.id === activeSession?.venue_id)
 
   const handleSyncSessionConfig = () => {
@@ -1726,7 +1778,7 @@ function Step3TicketsSeats({
   }, [activeSession?.venue_id])
 
   useEffect(() => {
-    if (!activeSession?.seat_map_id) {
+    if (seatingType !== 'ASSIGNED' || !activeSession?.seat_map_id) {
       setLoadedSeatMap(null)
       return
     }
@@ -1811,9 +1863,12 @@ function Step3TicketsSeats({
   }, [activeSession?.seat_map_id, sessionKey])
 
   const updateActiveSession = (updates) => {
+    if (!sessionKey) return
     setFormData((p) => ({
       ...p,
-      sessions: p.sessions.map((s, i) => (i === activeTab ? { ...s, ...updates } : s)),
+      sessions: p.sessions.map((s) =>
+        String(s.id || s.clientKey) === String(sessionKey) ? { ...s, ...updates } : s
+      ),
     }))
   }
 
@@ -1830,39 +1885,43 @@ function Step3TicketsSeats({
       })
       return
     }
-    updateActiveSession({
-      seating_type: type,
-      seat_map_id: type === 'ASSIGNED' ? activeSession.seat_map_id : null,
-      zone_assignments: type === 'ASSIGNED' ? activeSession.zone_assignments || [] : [],
-    })
     if (type === 'GENERAL') {
       setLoadedSeatMap(null)
       setFormData((p) => {
-        const currentTickets = p.ticketTypes.filter((tt) => String(tt.session_key) === String(sessionKey))
-        if (currentTickets.length > 0) {
-          // Keep existing tickets, set is_seated to false without deleting their name/price/qty
-          return {
-            ...p,
-            ticketTypes: p.ticketTypes.map((tt) =>
-              String(tt.session_key) === String(sessionKey) ? { ...tt, is_seated: false } : tt
-            ),
-          }
-        }
+        const nextSessions = p.sessions.map((s) =>
+          String(s.id || s.clientKey) === String(sessionKey)
+            ? {
+                ...s,
+                seating_type: 'GENERAL',
+                seat_map_id: null,
+                zone_assignments: [],
+                disabled_seat_ids: [],
+              }
+            : s
+        )
+        const nextTickets = p.ticketTypes.map((tt) =>
+          String(tt.session_key) === String(sessionKey)
+            ? {
+                ...tt,
+                is_seated: false,
+                zone_id: null,
+                zone_ids: [],
+                standing_area_id: null,
+                standing_area_ids: [],
+              }
+            : tt
+        )
         return {
           ...p,
-          ticketTypes: [
-            ...p.ticketTypes,
-            {
-              clientKey: newClientKey(),
-              session_key: sessionKey,
-              name: '',
-              description: '',
-              price: '',
-              quantity: 1,
-              is_seated: false,
-            },
-          ],
+          sessions: nextSessions,
+          ticketTypes: nextTickets,
         }
+      })
+    } else {
+      updateActiveSession({
+        seating_type: 'ASSIGNED',
+        seat_map_id: activeSession?.seat_map_id || null,
+        zone_assignments: activeSession?.zone_assignments || [],
       })
     }
   }
@@ -1929,9 +1988,13 @@ function Step3TicketsSeats({
           }
         })
 
-        updateActiveSession({ seat_map_id: seatMapId, zone_assignments: zoneAssignments })
         return {
           ...p,
+          sessions: p.sessions.map((s) =>
+            String(s.id || s.clientKey) === String(sessionKey)
+              ? { ...s, seating_type: 'ASSIGNED', seat_map_id: seatMapId, zone_assignments: zoneAssignments }
+              : s
+          ),
           ticketTypes: [...otherTickets, ...resolvedTickets],
         }
       })
@@ -1974,6 +2037,14 @@ function Step3TicketsSeats({
     setFormData((p) => ({
       ...p,
       ticketTypes: p.ticketTypes.filter((tt) => String(tt.id || tt.clientKey) !== String(key)),
+    }))
+  }
+
+  const removeAllSessionTickets = () => {
+    if (!sessionKey) return
+    setFormData((p) => ({
+      ...p,
+      ticketTypes: p.ticketTypes.filter((tt) => String(tt.session_key) !== String(sessionKey)),
     }))
   }
 
@@ -2056,7 +2127,9 @@ function Step3TicketsSeats({
                   ? (sessionTitle.toLowerCase().startsWith('phiên') ? sessionTitle : `Phiên ${i + 1}: ${sessionTitle}`)
                   : `Phiên ${i + 1}`
 
-                const isActive = activeTab === i
+                const isActive = safeActiveTab === i
+                const sType = s.seating_type === 'ASSIGNED' || s.seating_type === 'ASSIGNED_SEATS' ? 'ASSIGNED' : 'GENERAL'
+                const missingMap = sType === 'ASSIGNED' && !s.seat_map_id
 
                 return (
                   <button
@@ -2066,7 +2139,9 @@ function Step3TicketsSeats({
                     className={`group relative flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all w-full cursor-pointer ${
                       isActive
                         ? 'border-[#C99A47] bg-[#C99A47]/15 text-white shadow-sm ring-1 ring-[#C99A47]/30'
-                        : 'border-white/10 bg-[#0d172e]/60 text-slate-300 hover:border-[#C99A47]/40 hover:bg-[#0d172e] hover:text-white'
+                        : missingMap
+                          ? 'border-rose-500/40 bg-rose-500/5 text-slate-200 hover:border-rose-400'
+                          : 'border-white/10 bg-[#0d172e]/60 text-slate-300 hover:border-[#C99A47]/40 hover:bg-[#0d172e] hover:text-white'
                     }`}
                   >
                     <span
@@ -2080,6 +2155,17 @@ function Step3TicketsSeats({
                     </span>
                     <span className="font-semibold text-sm text-left break-words flex-1">
                       {displayName}
+                    </span>
+                    <span
+                      className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold border ${
+                        missingMap
+                          ? 'border-rose-500/40 bg-rose-500/15 text-rose-300'
+                          : sType === 'ASSIGNED'
+                            ? 'border-[#C99A47]/40 bg-[#C99A47]/15 text-[#C99A47]'
+                            : 'border-white/15 bg-white/5 text-slate-300'
+                      }`}
+                    >
+                      {missingMap ? 'Chưa chọn sơ đồ' : sType === 'ASSIGNED' ? 'Có chỗ ngồi' : 'Không chỗ ngồi'}
                     </span>
                   </button>
                 )
@@ -2230,7 +2316,23 @@ function Step3TicketsSeats({
                 options={venueSeatMaps}
                 onChange={handleSeatMapSelect}
                 loading={loadingMaps}
+                activeSession={activeSession}
+                occupiedSlots={occupiedSlots}
+                isEnglish={isEnglish}
               />
+              {(() => {
+                const selectedMapConflict = activeSession?.seat_map_id
+                  ? findOccupiedSlotConflict(activeSession, occupiedSlots, { seatMapId: activeSession.seat_map_id })
+                  : null
+                if (!selectedMapConflict) return null
+                return (
+                  <p className="mt-2 text-xs text-red-400">
+                    {isEnglish
+                      ? `This seat map is occupied by "${selectedMapConflict.event_title}" during this time slot. Please choose another seat map or time.`
+                      : `Sơ đồ ghế này đang được sự kiện "${selectedMapConflict.event_title}" sử dụng trong khung giờ này. Vui lòng chọn sơ đồ hoặc khung giờ khác.`}
+                  </p>
+                )
+              })()}
               {loadingMaps && (
                 <p className="mt-2 text-sm text-muted">Đang tải sơ đồ...</p>
               )}
@@ -2561,6 +2663,17 @@ function Step3TicketsSeats({
                     />
                   </button>
                 )}
+                {sessionTickets.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={removeAllSessionTickets}
+                    title="Xóa tất cả loại vé của phiên này"
+                    className="inline-flex items-center gap-1 rounded-lg border border-rose-500/30 bg-rose-500/10 px-2.5 py-1.5 text-xs font-semibold text-rose-300 hover:bg-rose-500/20 hover:border-rose-400 transition cursor-pointer"
+                  >
+                    <Icon name="delete_sweep" className="text-[16px]" />
+                    <span>Xóa tất cả</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={addTicketType}
@@ -2685,19 +2798,17 @@ function Step3TicketsSeats({
 
                       {/* Right: Nút Xóa + Mũi tên thu gọn */}
                       <div className="flex items-center gap-2 shrink-0">
-                        {sessionTickets.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              removeTicket(key)
-                            }}
-                            className="p-1.5 rounded-lg text-muted hover:text-error hover:bg-error/10 transition cursor-pointer"
-                            title="Xóa loại vé này"
-                          >
-                            <Icon name="delete" className="text-[18px]" />
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            removeTicket(key)
+                          }}
+                          className="p-1.5 rounded-lg text-muted hover:text-error hover:bg-error/10 transition cursor-pointer"
+                          title="Xóa loại vé này"
+                        >
+                          <Icon name="delete" className="text-[18px]" />
+                        </button>
                         <span
                           className="p-1 text-subtle hover:text-[#C99A47] transition rounded-lg"
                           title={isCollapsed ? 'Mở rộng chỉnh sửa' : 'Thu gọn vé'}
@@ -4169,6 +4280,7 @@ export function CreateEventPage() {
   })
   const [categories, setCategories] = useState([])
   const [venues, setVenues] = useState([])
+  const [occupiedSlots, setOccupiedSlots] = useState([])
   const [tagInput, setTagInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [initialLoading, setInitialLoading] = useState(Boolean(routeEventId))
@@ -4264,12 +4376,15 @@ export function CreateEventPage() {
 
   useEffect(() => {
     setInitialLoading(true)
-    Promise.all([fetchEventCategories(), fetchOrganizerVenues()])
-      .then(([cats, vns]) => {
+    Promise.all([
+      fetchEventCategories(),
+      fetchOrganizerVenues(),
+      fetchOccupiedSlots(routeEventId || null).catch(() => []),
+    ])
+      .then(([cats, vns, slots]) => {
         setCategories(cats)
         setVenues(vns)
-
-
+        setOccupiedSlots(Array.isArray(slots) ? slots : [])
       })
       .catch((err) => {
         console.error(err)
@@ -4438,7 +4553,7 @@ export function CreateEventPage() {
         end_time: s.end_time || '',
         venue_id: defaultVenueId,
         seat_map_id: aiData.seat_map_id || null,
-        seating_type: aiData.seat_map_id ? (aiData.seating_type || 'ASSIGNED_SEATS') : 'GENERAL',
+        seating_type: aiData.seat_map_id ? (aiData.seating_type === 'ASSIGNED_SEATS' ? 'ASSIGNED' : (aiData.seating_type || 'ASSIGNED')) : 'GENERAL',
         zone_assignments: [],
         checkin_start_date: s.checkin_start_date || '',
         checkin_start_time: s.checkin_start_time || '',
@@ -4484,6 +4599,8 @@ export function CreateEventPage() {
       short_description: (aiData.short_description || prev.short_description || '').slice(0, 500),
       description: aiData.description || prev.description,
       additional_terms: aiData.additional_terms || prev.additional_terms,
+      thumbnail_url: aiData.thumbnail_url || prev.thumbnail_url,
+      banner_url: aiData.banner_url || prev.banner_url,
       tags: Array.isArray(aiData.tags) && aiData.tags.length > 0 ? aiData.tags : prev.tags,
       sessions: mappedSessions.length > 0 ? mappedSessions : prev.sessions,
       ticketTypes: mappedTicketTypes.length > 0 ? mappedTicketTypes : prev.ticketTypes,
@@ -4528,6 +4645,11 @@ export function CreateEventPage() {
           return `${sName}: Vui lòng nhập đầy đủ ngày diễn ra, giờ bắt đầu và giờ kết thúc.`
         }
         if (!s.venue_id) return `${sName}: Vui lòng chọn địa điểm tổ chức.`
+
+        const venueConflict = findOccupiedSlotConflict(s, occupiedSlots, { venueId: s.venue_id })
+        if (venueConflict) {
+          return `${sName}: Địa điểm đang được sử dụng bởi sự kiện "${venueConflict.event_title}" trong khung giờ trùng lặp.`
+        }
 
         const startTime = new Date(`${s.start_date}T${s.start_time}`)
         const endTime = new Date(`${s.start_date}T${s.end_time}`)
@@ -4626,10 +4748,16 @@ export function CreateEventPage() {
         const s = formData.sessions[i]
         const key = s.id || s.clientKey
         const sName = s.session_name?.trim() || (isEnglish ? `Session ${i + 1}` : `Phiên ${i + 1}`)
-        const seatingType = s.seating_type || 'GENERAL'
+        const seatingType = s.seating_type === 'ASSIGNED_SEATS' ? 'ASSIGNED' : (s.seating_type || 'GENERAL')
         if (seatingType === 'ASSIGNED') {
           if (!s.seat_map_id) {
             return isEnglish ? `${sName} is set to assigned seating but no seat map is selected.` : `${sName} được thiết lập có chỗ ngồi nhưng chưa chọn sơ đồ ghế.`
+          }
+          const seatMapConflict = findOccupiedSlotConflict(s, occupiedSlots, { seatMapId: s.seat_map_id })
+          if (seatMapConflict) {
+            return isEnglish
+              ? `${sName}: Seat map is already in use by event "${seatMapConflict.event_title}" during an overlapping time slot.`
+              : `${sName}: Sơ đồ ghế đang được sử dụng bởi sự kiện "${seatMapConflict.event_title}" trong khung giờ trùng lặp.`
           }
         }
         const tickets = formData.ticketTypes.filter((tt) => String(tt.session_key) === String(key))
@@ -5387,6 +5515,7 @@ export function CreateEventPage() {
               setFormData={setFormData}
               venues={venues}
               completeness={completeness}
+              occupiedSlots={occupiedSlots}
             />
           )}
           {currentStep === 3 && (
@@ -5398,6 +5527,7 @@ export function CreateEventPage() {
               organizerPlan={organizerPlan}
               isEditMode={isEditMode}
               eventId={routeEventId}
+              occupiedSlots={occupiedSlots}
             />
           )}
           {currentStep === 4 && (
@@ -5520,6 +5650,8 @@ export function CreateEventPage() {
         onClose={() => setIsAiDocModalOpen(false)}
         onApply={handleApplyAiDraft}
         venues={venues}
+        initialThumbnail={formData.thumbnail_url}
+        initialBanner={formData.banner_url}
         onVenuesUpdated={async () => {
           try {
             const vns = await fetchOrganizerVenues()

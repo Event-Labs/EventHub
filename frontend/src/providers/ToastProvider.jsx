@@ -178,10 +178,7 @@ function ToastItem({ toast, onDismiss }) {
   const displayMessage = useMemo(() => {
     if (!toast.message) return ''
     if (typeof toast.message !== 'string') return toast.message
-    if (language === 'en') {
-      return translatePhrase(toast.message, 'en')
-    }
-    return toast.message
+    return translatePhrase(toast.message, language)
   }, [toast.message, language])
 
   return (

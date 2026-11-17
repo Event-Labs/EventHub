@@ -5252,6 +5252,37 @@ export const VI_TO_EN = {
   "Vé chưa được thanh toán hoặc đơn hàng không hợp lệ.": "Ticket is unpaid or order is invalid.",
   "Vé đã hết hạn.": "Ticket has expired.",
   "lúc": "at",
+  "Địa điểm đang được sử dụng bởi sự kiện chưa kết thúc, không thể xóa.": "Venue is currently in use by an active event and cannot be deleted.",
+  "Vui lòng xác định tọa độ địa điểm từ địa chỉ": "Please resolve venue coordinates from the address",
+  "Tọa độ địa điểm không hợp lệ": "Venue coordinates are invalid",
+  "Chỉ được tải lên tối đa 4 ảnh minh chứng.": "You can upload up to 4 evidence images.",
+  "Vui lòng nhập tiêu đề khiếu nại.": "Please enter a complaint title.",
+  "Vui lòng nhập nội dung chi tiết khiếu nại.": "Please enter detailed complaint content.",
+  "Đã gửi khiếu nại lên Ban Quản trị EventHub thành công!": "Complaint submitted to EventHub Administration successfully!",
+  "Không thể gửi khiếu nại lúc này.": "Unable to submit complaint at this time.",
+  "Cập nhật trạng thái khiếu nại thành công.": "Complaint status updated successfully.",
+  "Không thể cập nhật trạng thái khiếu nại.": "Unable to update complaint status.",
+  "Vui lòng chọn file hình ảnh (PNG, JPG, WEBP)": "Please select an image file (PNG, JPG, WEBP)",
+  "Kích thước ảnh đại diện không được vượt quá 5MB": "Thumbnail image size must not exceed 5MB",
+  "Đã tải lên ảnh đại diện thành công!": "Thumbnail image uploaded successfully!",
+  "Không thể tải lên ảnh đại diện.": "Unable to upload thumbnail image.",
+  "Kích thước ảnh bìa không được vượt quá 5MB": "Cover image size must not exceed 5MB",
+  "Đã tải lên ảnh bìa thành công!": "Cover image uploaded successfully!",
+  "Không thể tải lên ảnh bìa.": "Unable to upload cover image.",
+  "Đã chọn tất cả": "Selected all",
+  "Đã cắt phần tử đã chọn (Ctrl+X)": "Cut selected elements (Ctrl+X)",
+  "Đã ẩn sân khấu": "Stage hidden",
+  "Vui lòng chọn một màu khu vực trước khi tô": "Please select a zone color before painting",
+  "Đã thêm FOH Kỹ thuật": "Added Technical FOH",
+  "Đã thêm Cổng vào": "Added Entrance Gate",
+  "Đã ẩn/xóa sân khấu (Delete/Backspace)": "Stage hidden/deleted (Delete/Backspace)",
+  "Đã xóa địa điểm.": "Venue deleted.",
+  "Không thể xóa địa điểm.": "Unable to delete venue.",
+  "Không có sự kiện nào cần quét lúc này.": "No events need scanning at this time.",
+  "Không thể thực hiện quét duyệt sự kiện.": "Unable to run event review scan.",
+  "Đã lưu sự kiện vào yêu thích.": "Event saved to favorites.",
+  "Đã bỏ sự kiện khỏi yêu thích.": "Event removed from favorites.",
+  "Không thể cập nhật yêu thích. Vui lòng thử lại.": "Unable to update favorites. Please try again.",
 }
 
 // Merge complete system event and venue translations
@@ -5552,6 +5583,8 @@ export function translateComposite(text, locale) {
   res = res.replace(/^Đã mở bán lại vé cho "(.*?)"\.?$/gi, 'Ticket sales resumed for "$1".')
   res = res.replace(/^Đã tạm dừng bán vé cho "(.*?)"\.?$/gi, 'Paused ticket sales for "$1".')
   res = res.replace(/^Đã xóa vĩnh viễn bản nháp "(.*?)"\.?$/gi, 'Permanently deleted draft "$1".')
+  res = res.replace(/^Đã sao chép IP gửi đi riêng:\s*(.*?)$/gi, 'Copied dedicated outbound IP: $1')
+  res = res.replace(/^Đã sao chép:\s*(.*?)\s*\(Ctrl\+C\)$/gi, 'Copied: $1 (Ctrl+C)')
   res = res.replace(/^Đã sao chép (.*?)!$/gi, 'Copied $1!')
   res = res.replace(/^Đã sao chép (.*?)$/gi, 'Copied $1')
   res = res.replace(/^Hoàn tiền vé thành công$/gi, 'Ticket Refund Successful')
@@ -5620,6 +5653,43 @@ export function translateComposite(text, locale) {
   res = res.replace(/\[Lưu ý mô tả\]/gi, '[Description note]')
   res = res.replace(/Tài liệu giả lập\s*\/\s*Dữ liệu kiểm thử không có giá trị pháp lý/gi, 'Mock document / test data with no legal validity')
   res = res.replace(/Bổ sung cảnh báo độ tuổi\s*\(12\+\/16\+\)\s*và lưu ý sức khỏe\/vật dụng cấm cho khán giả tham dự kịch ma\.?/gi, 'Add age rating warning (12+/16+) and health precautions/prohibited items for attendees of the horror play.')
+
+  // Additional dynamic toast patterns
+  res = res.replace(/^Ảnh "(.*?)" vượt quá 5MB\.?$/gi, 'Image "$1" exceeds 5MB.')
+  res = res.replace(/^Đã hoàn tất quét kiểm tra trước cho (.*?)\. Kết quả đã sẵn sàng để quản trị viên kiểm tra\.?$/gi, 'Completed pre-review scan for $1. Results are ready for admin review.')
+  res = res.replace(/^AI đã thẩm định (.*?):\s*Cần quản trị viên xem xét thêm\.?$/gi, 'AI evaluated $1: Needs further admin review.')
+  res = res.replace(/^Hạng vé "(.*?)" đang tạm dừng bán\. Vui lòng chọn ghế khác\.?$/gi, 'Ticket tier "$1" is currently paused. Please choose another seat.')
+  res = res.replace(/^Khu vực "(.*?)" đang tạm dừng bán\.?$/gi, 'Zone "$1" is currently paused.')
+  res = res.replace(/^Đã đính kèm (\d+) tệp thành công\.?$/gi, 'Successfully attached $1 file(s).')
+  res = res.replace(/^Đã xuất bản thành công "(.*?)"\.?$/gi, 'Successfully published "$1".')
+  res = res.replace(/^Sự kiện "(.*?)" đã được xuất bản thành công\.?$/gi, 'Event "$1" has been published successfully.')
+  res = res.replace(/^Đã hiển thị lại sự kiện "(.*?)"\.?$/gi, 'Event "$1" is visible again.')
+  res = res.replace(/^Đã mở hiển thị lại sự kiện "(.*?)"\.?$/gi, 'Event "$1" is visible again.')
+  res = res.replace(/^Đã ẩn sự kiện "(.*?)" khỏi tìm kiếm và trang chủ\.?$/gi, 'Hidden event "$1" from search and homepage.')
+  res = res.replace(/^Đã mở bán lại vé cho "(.*?)"\.?$/gi, 'Resumed ticket sales for "$1".')
+  res = res.replace(/^Đã tạm dừng bán vé cho "(.*?)"\.?$/gi, 'Paused ticket sales for "$1".')
+  res = res.replace(/^Đã hủy sự kiện "(.*?)"\.?$/gi, 'Cancelled event "$1".')
+  res = res.replace(/^Sự kiện "(.*?)" đã được hủy thành công\.?$/gi, 'Event "$1" has been cancelled successfully.')
+  res = res.replace(/^Đã gửi yêu cầu hủy sự kiện "(.*?)" lên Admin phê duyệt\.?$/gi, 'Cancellation request for "$1" sent for admin approval.')
+  res = res.replace(/^Đã hoàn tác yêu cầu hủy sự kiện "(.*?)"\. Sự kiện đã mở bán lại bình thường\.?$/gi, 'Withdrew cancellation request for "$1". Ticket sales resumed.')
+  res = res.replace(/^Đã hoàn tác yêu cầu hủy sự kiện "(.*?)"\.?$/gi, 'Withdrew cancellation request for "$1".')
+  res = res.replace(/^Đã xóa vĩnh viễn bản nháp "(.*?)"\.?$/gi, 'Permanently deleted draft "$1".')
+  res = res.replace(/^Đã xóa (\d+) phần tử$/gi, 'Deleted $1 element(s)')
+  res = res.replace(/^Đã nhân bản (\d+) phần tử \(Ctrl\+D\)$/gi, 'Duplicated $1 element(s) (Ctrl+D)')
+  res = res.replace(/^Đã dán (\d+) phần tử \(Ctrl\+V\)$/gi, 'Pasted $1 element(s) (Ctrl+V)')
+  res = res.replace(/^Đã thêm cụm (\d+) ghế \((\d+) hàng × (\d+) cột\)$/gi, 'Added block of $1 seats ($2 rows × $3 columns)')
+  res = res.replace(/^Đã tự động đánh lại số thứ tự cho toàn bộ (\d+) ghế \((.*?)\)!?$/gi, 'Auto-renumbered all $1 seats ($2)!')
+  res = res.replace(/^Đã căn thẳng hàng ngang (\d+) ghế$/gi, 'Horizontally aligned $1 seats')
+  res = res.replace(/^Đã căn thẳng hàng dọc (\d+) ghế$/gi, 'Vertically aligned $1 seats')
+  res = res.replace(/^Đã hít đều (\d+) ghế theo lưới chuẩn của khối$/gi, 'Snapped $1 seats evenly to block grid')
+  res = res.replace(/^Đã tự động căn thẳng hàng (\d+) ghế theo các trục!?$/gi, 'Auto-aligned $1 seats along axes!')
+  res = res.replace(/^Đã tự động căn thẳng hàng toàn bộ (\d+) ghế!?$/gi, 'Auto-aligned all $1 seats!')
+  res = res.replace(/^Đã thêm (.*?)$/gi, 'Added $1')
+  res = res.replace(/^Đã xóa (.*?)$/gi, 'Deleted $1')
+
+  res = res.replace(/^(.*?):\s*Địa điểm đang được sử dụng bởi sự kiện "(.*?)" trong khung giờ trùng lặp\.?$/gi, '$1: Venue is already in use by event "$2" during an overlapping time slot.')
+  res = res.replace(/^Địa điểm đang được sử dụng bởi sự kiện "(.*?)" trong khung giờ trùng lặp\.?$/gi, 'Venue is already in use by event "$1" during an overlapping time slot.')
+  res = res.replace(/^Sơ đồ ghế đang được sử dụng bởi sự kiện "(.*?)" trong khung giờ trùng lặp\.?$/gi, 'Seat map is already in use by event "$1" during an overlapping time slot.')
 
 return res
 }

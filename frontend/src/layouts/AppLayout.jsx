@@ -422,7 +422,7 @@ export function AppLayout() {
               <LanguageSwitcher theme="dark" />
               <button
                 type="button"
-                className="relative grid size-10 place-items-center rounded-full text-subtle hover:bg-panel-soft hover:text-[#E6C17A]"
+                className="relative grid size-10 min-h-[44px] min-w-[44px] place-items-center rounded-full text-subtle hover:bg-panel-soft hover:text-[#E6C17A] cursor-pointer"
                 onClick={() => {
                   setNotificationOpen((value) => !value)
                   setOpen(false)
@@ -438,7 +438,7 @@ export function AppLayout() {
                 )}
               </button>
               <button
-                className="grid size-10 place-items-center overflow-hidden rounded-full border border-[#C99A47]/40 bg-[#C99A47] text-[#081126] transition hover:border-[#E6C17A] hover:bg-white"
+                className="grid size-10 min-h-[44px] min-w-[44px] place-items-center overflow-hidden rounded-full border border-[#C99A47]/40 bg-[#C99A47] text-[#081126] transition hover:border-[#E6C17A] hover:bg-white cursor-pointer"
                 onClick={() => {
                   setOpen((value) => !value)
                   setNotificationOpen(false)

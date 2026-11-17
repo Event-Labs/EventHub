@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import {
+  AlertOctagon,
+  AlertTriangle,
   Camera,
   CameraOff,
   CheckCircle2,
@@ -13,6 +15,7 @@ import {
   ShieldAlert,
   TicketCheck,
   UserCheck,
+  XCircle,
 } from 'lucide-react'
 import { BrowserQRCodeReader } from '@zxing/browser'
 import {
@@ -54,21 +57,28 @@ function formatDateTime(value) {
   }).format(new Date(value))
 }
 
-function statusTone(status) {
-  if (status === 'USED') return 'border-success/40 bg-success/10 text-success'
-  if (status === 'VALID') return 'border-tertiary/40 bg-tertiary/10 text-tertiary'
-  return 'border-error/40 bg-error/10 text-error'
-}
-
 function isTicketCheckedIn(ticket) {
-  return ticket?.status === 'USED' || Boolean(ticket?.checkedInAt)
+  return ticket?.status === 'USED' || Boolean(ticket?.checkedInAt) || Boolean(ticket?.checked_in_at)
 }
 
-function ticketStatusLabel(ticket) {
-  if (isTicketCheckedIn(ticket)) return 'Đã soát vé'
-  if (ticket?.status === 'VALID') return 'Chưa soát vé'
-  if (ticket?.status === 'CANCELLED') return 'Đã hủy'
-  return 'Không rõ'
+function statusTone(status, ticket = null) {
+  if (status === 'USED' || (ticket && isTicketCheckedIn(ticket))) {
+    return 'border-error/50 bg-error/15 text-error font-extrabold'
+  }
+  if (status === 'VALID' && (!ticket || !isTicketCheckedIn(ticket))) {
+    return 'border-tertiary/40 bg-tertiary/10 text-tertiary font-bold'
+  }
+  return 'border-error/50 bg-error/15 text-error font-extrabold'
+}
+
+function ticketStatusLabel(ticket, isEnglish = false) {
+  if (isTicketCheckedIn(ticket)) return isEnglish ? 'Checked-in' : 'Đã soát vé'
+  if (ticket?.status === 'VALID') return isEnglish ? 'Not Checked-in' : 'Chưa soát vé'
+  if (ticket?.status === 'CANCELLED') return isEnglish ? 'Cancelled' : 'Đã hủy'
+  if (ticket?.status === 'REFUNDED') return isEnglish ? 'Refunded' : 'Đã hoàn tiền'
+  if (ticket?.status === 'REFUND_PENDING') return isEnglish ? 'Refund Pending' : 'Đang hoàn tiền'
+  if (ticket?.status === 'EXPIRED') return isEnglish ? 'Expired' : 'Đã hết hạn'
+  return isEnglish ? 'Invalid' : 'Không hợp lệ'
 }
 
 function canCheckInTicket(ticket) {
@@ -98,6 +108,33 @@ function playScanBeep() {
     oscillator.onended = () => context.close()
   } catch {
     // Browser audio policies can block this; scanning should continue silently.
+  }
+}
+
+function playErrorBeep() {
+  const AudioContext = window.AudioContext || window.webkitAudioContext
+  if (!AudioContext) return
+
+  try {
+    const context = new AudioContext()
+    const oscillator = context.createOscillator()
+    const gain = context.createGain()
+    const now = context.currentTime
+
+    oscillator.type = 'sawtooth'
+    oscillator.frequency.setValueAtTime(260, now)
+    oscillator.frequency.setValueAtTime(180, now + 0.12)
+    gain.gain.setValueAtTime(0.001, now)
+    gain.gain.exponentialRampToValueAtTime(0.2, now + 0.02)
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28)
+
+    oscillator.connect(gain)
+    gain.connect(context.destination)
+    oscillator.start(now)
+    oscillator.stop(now + 0.3)
+    oscillator.onended = () => context.close()
+  } catch {
+    // Browser audio policies
   }
 }
 
@@ -187,6 +224,7 @@ export function StaffQrCheckInPage() {
   const [scannedTicket, setScannedTicket] = useState(null)
   const [scannedQrValue, setScannedQrValue] = useState('')
   const [resultTicket, setResultTicket] = useState(null)
+  const [scanError, setScanError] = useState(null)
   const [recentTickets, setRecentTickets] = useState([])
   const [ticketPanelMessage, setTicketPanelMessage] = useState('')
   const [ticketNoticeCountdown, setTicketNoticeCountdown] = useState(0)
@@ -208,6 +246,7 @@ export function StaffQrCheckInPage() {
 
   const showSuccess = (ticket) => {
     setResultTicket(ticket)
+    setScanError(null)
     setRecentTickets((current) => [ticket, ...current.filter((item) => item.id !== ticket.id)].slice(0, 5))
   }
 
@@ -242,32 +281,100 @@ export function StaffQrCheckInPage() {
     setScannedTicket(null)
     setScannedQrValue('')
     setResultTicket(null)
+    setScanError(null)
     setTicketPanelMessage('')
     setTicketNoticeCountdown(0)
     setQrMessage('Đã đọc QR, đang kiểm tra vé...')
 
     try {
       const ticket = await verifyStaffTicketByQr({ qrCode: value })
+      const isAlreadyUsed = isTicketCheckedIn(ticket) || ticket.status === 'USED'
+      const isNotValid = ticket.status !== 'VALID' && !isAlreadyUsed
+
+      if (isAlreadyUsed) {
+        playErrorBeep()
+        setScannedTicket(ticket)
+        setScannedQrValue(value)
+        const checkedTime = ticket.checked_in_at || ticket.checkedInAt
+        setScanError({
+          type: 'USED',
+          title: 'Vé đã được dùng',
+          message: `Vé này đã được soát vào lúc ${formatDateTime(checkedTime)}${ticket.checked_in_by?.name ? ' bởi ' + ticket.checked_in_by.name : ''}. Không thể soát lại!`,
+        })
+        setQrMessage(`Vé đã dùng rồi! Đã soát lúc ${formatDateTime(checkedTime)}.`)
+        setCheckInState('error')
+        window.setTimeout(() => {
+          processingRef.current = false
+        }, 2000)
+        return
+      }
+
+      if (isNotValid) {
+        playErrorBeep()
+        setScannedTicket(ticket)
+        setScannedQrValue(value)
+        setScanError({
+          type: 'INVALID_STATUS',
+          title: 'Vé lỗi / Không hợp lệ',
+          message: ticket.status === 'CANCELLED'
+            ? 'Vé này đã bị hủy.'
+            : (ticket.status === 'REFUNDED'
+              ? 'Vé này đã được hoàn tiền.'
+              : 'Vé không hợp lệ để tham gia.'),
+        })
+        setQrMessage(`Vé không hợp lệ (${ticketStatusLabel(ticket, isEnglish)}).`)
+        setCheckInState('error')
+        window.setTimeout(() => {
+          processingRef.current = false
+        }, 2000)
+        return
+      }
+
       playScanBeep()
       setScannedTicket(ticket)
       setScannedQrValue(value)
+      setScanError(null)
       setTicketPanelMessage('')
       setTicketNoticeCountdown(0)
       setQrMessage('Đã tìm thấy vé. Kiểm tra thông tin rồi xác nhận soát vé.')
       setCheckInState('ready')
     } catch (error) {
-      const message = getApiMessage(error, 'Mã QR không hợp lệ hoặc vé không thể soát.')
-      if (message === 'Vé này chưa đến giờ tham gia.') {
+      playErrorBeep()
+      setScannedTicket(null)
+      setScannedQrValue('')
+      const rawMessage = getApiMessage(error, 'Mã QR không hợp lệ hoặc vé không thể soát.')
+
+      if (rawMessage === 'Vé này chưa đến giờ tham gia.') {
         setQrMessage('')
-        setTicketPanelMessage(message)
+        setScanError(null)
+        setTicketPanelMessage(rawMessage)
         setTicketNoticeCountdown(3)
-      } else {
-        setQrMessage(message)
-        window.setTimeout(() => {
-          processingRef.current = false
-        }, 1500)
+        setCheckInState('error')
+        return
       }
+
+      const isDifferentEvent =
+        error?.response?.status === 403 ||
+        rawMessage.toLowerCase().includes('sự kiện khác') ||
+        rawMessage.toLowerCase().includes('không có quyền') ||
+        rawMessage.toLowerCase().includes('không được phân công')
+
+      const errorTitle = isDifferentEvent ? 'Vé sự kiện khác' : 'Vé lỗi / Mã QR không hợp lệ'
+      const errorMsg = isDifferentEvent
+        ? 'Vé này thuộc sự kiện khác hoặc bạn không được phân công kiểm soát vé của sự kiện này.'
+        : rawMessage
+
+      setScanError({
+        type: isDifferentEvent ? 'DIFFERENT_EVENT' : 'INVALID_QR',
+        title: errorTitle,
+        message: errorMsg,
+      })
+      setQrMessage(errorMsg)
       setCheckInState('error')
+
+      window.setTimeout(() => {
+        processingRef.current = false
+      }, 2000)
     }
   }
 
@@ -284,10 +391,28 @@ export function StaffQrCheckInPage() {
       showSuccess(ticket)
       setScannedTicket(null)
       setScannedQrValue('')
+      setScanError(null)
       setQrMessage('Check-in thành công.')
       setCheckInState('success')
     } catch (error) {
-      setQrMessage(getApiMessage(error, 'Vé không thể soát.'))
+      playErrorBeep()
+      const rawMessage = getApiMessage(error, 'Vé không thể soát.')
+      const isUsed =
+        error?.response?.data?.code === 'ALREADY_CHECKED_IN' ||
+        rawMessage.toLowerCase().includes('đã được check-in') ||
+        rawMessage.toLowerCase().includes('đã được sử dụng')
+      const isDifferentEvent =
+        error?.response?.status === 403 ||
+        rawMessage.toLowerCase().includes('sự kiện khác') ||
+        rawMessage.toLowerCase().includes('không có quyền') ||
+        rawMessage.toLowerCase().includes('không được phân công')
+
+      setScanError({
+        type: isUsed ? 'USED' : isDifferentEvent ? 'DIFFERENT_EVENT' : 'ERROR',
+        title: isUsed ? 'Vé đã được dùng' : isDifferentEvent ? 'Vé sự kiện khác' : 'Lỗi soát vé',
+        message: rawMessage,
+      })
+      setQrMessage(rawMessage)
       setCheckInState('error')
       processingRef.current = false
     }
@@ -299,6 +424,7 @@ export function StaffQrCheckInPage() {
     setScannedTicket(null)
     setScannedQrValue('')
     setResultTicket(null)
+    setScanError(null)
     setTicketPanelMessage('')
     setTicketNoticeCountdown(0)
     setCheckInState('idle')
@@ -310,6 +436,7 @@ export function StaffQrCheckInPage() {
     lastQrRef.current = { ...lastQrRef.current, time: Date.now() }
     setTicketPanelMessage('')
     setTicketNoticeCountdown(0)
+    setScanError(null)
     setCheckInState('idle')
   }
 
@@ -385,6 +512,8 @@ export function StaffQrCheckInPage() {
 
   const normalizedResult = normalizeTicket(resultTicket)
   const normalizedScanned = normalizeTicket(scannedTicket)
+  const isError = checkInState === 'error' || Boolean(scanError)
+  const isSuccess = checkInState === 'success'
 
   return (
     <StaffPage
@@ -511,15 +640,63 @@ export function StaffQrCheckInPage() {
                 </div>
               </div>
             )}
-            <div className="pointer-events-none absolute inset-8 rounded-2xl border-2 border-primary/70 shadow-[0_0_0_999px_rgba(0,0,0,0.25)]" />
-            <div className="absolute bottom-5 left-5 right-5 rounded-xl border border-white/15 bg-black/65 px-4 py-3 text-sm">
+
+            {/* Viewfinder frame */}
+            <div
+              className={`pointer-events-none absolute inset-8 rounded-2xl border-2 transition-all duration-300 ${
+                isError
+                  ? 'border-error shadow-[0_0_0_999px_rgba(239,68,68,0.3)] ring-4 ring-error/50'
+                  : isSuccess
+                  ? 'border-success shadow-[0_0_0_999px_rgba(34,197,94,0.25)]'
+                  : 'border-primary/70 shadow-[0_0_0_999px_rgba(0,0,0,0.25)]'
+              }`}
+            />
+
+            {/* Top alert banner on camera if error */}
+            {isError && (
+              <div className="absolute top-5 left-5 right-5 flex items-center justify-center gap-2 rounded-xl border border-error/50 bg-error/95 px-4 py-2.5 text-white font-black text-xs sm:text-sm tracking-wide shadow-xl shadow-error/30 animate-pulse z-10">
+                <AlertOctagon className="size-5 shrink-0" />
+                <span>
+                  {scanError?.title ? scanError.title.toUpperCase() : 'VÉ CÓ VẤN ĐỀ - KHÔNG THỂ SOÁT VÉ'}
+                </span>
+              </div>
+            )}
+
+            {/* Bottom status bar */}
+            <div
+              className={`absolute bottom-5 left-5 right-5 rounded-xl border px-4 py-3 text-sm transition-all shadow-lg z-10 ${
+                isError
+                  ? 'border-error/80 bg-red-950/90 text-red-100 font-bold shadow-error/25'
+                  : isSuccess
+                  ? 'border-success/80 bg-emerald-950/90 text-emerald-100 font-bold'
+                  : 'border-white/15 bg-black/65 text-white'
+              }`}
+            >
               {checkInState === 'checking' ? (
-                <span className="flex items-center gap-2 text-primary">
+                <span className="flex items-center gap-2 text-primary font-bold">
                   <Loader2 className="size-4 animate-spin" />
                   Đang xử lý QR...
                 </span>
               ) : (
-                qrMessage || 'Đưa mã QR vào khung hình để bắt đầu.'
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    {isError && <XCircle className="size-5 shrink-0 text-error" />}
+                    {isSuccess && <CheckCircle2 className="size-5 shrink-0 text-success" />}
+                    <span className="truncate">
+                      {qrMessage || 'Đưa mã QR vào khung hình để bắt đầu.'}
+                    </span>
+                  </div>
+                  {isError && (
+                    <button
+                      type="button"
+                      onClick={resetQrScan}
+                      className="shrink-0 rounded-lg bg-error/30 hover:bg-error/50 px-2.5 py-1 text-xs font-bold text-white transition flex items-center gap-1 border border-error/40"
+                    >
+                      <RotateCcw className="size-3" />
+                      Quét lại
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -528,6 +705,8 @@ export function StaffQrCheckInPage() {
         <aside className="space-y-5">
           {normalizedResult ? (
             <ResultPanel ticket={normalizedResult} onClear={resetQrScan} />
+          ) : scanError && !normalizedScanned ? (
+            <ErrorPanel error={scanError} onClear={resetQrScan} />
           ) : (
             <SelectedTicketPanel
               ticket={normalizedScanned}
@@ -535,6 +714,7 @@ export function StaffQrCheckInPage() {
               checking={checkInState === 'checking'}
               onClear={resetQrScan}
               emptyMessage="Quét mã QR để xem thông tin vé trước khi xác nhận soát vé."
+              scanError={scanError}
             />
           )}
           <StaffPanel>
@@ -878,16 +1058,22 @@ function ManualSearchPanel({
           {state !== 'loading' && results.map((ticket) => {
             const normalized = normalizeTicket(ticket)
             const selected = selectedTicket?.id === ticket.id
+            const isUsed = isTicketCheckedIn(normalized)
 
             return (
               <button
                 key={ticket.id}
                 type="button"
                 onClick={() => onSelectTicket(ticket)}
-                className={`w-full rounded-xl border p-4 text-left transition ${selected
-                    ? 'border-primary bg-primary/10'
+                className={`w-full rounded-xl border p-4 text-left transition ${
+                  selected
+                    ? isUsed
+                      ? 'border-error bg-error/15'
+                      : 'border-primary bg-primary/10'
+                    : isUsed
+                    ? 'border-error/30 bg-error/[0.04] hover:border-error/60'
                     : 'border-border-soft/20 bg-panel-soft/30 hover:border-primary/50'
-                  }`}
+                }`}
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
@@ -900,8 +1086,8 @@ function ManualSearchPanel({
                     </p>
                     <p className="mt-1 text-xs text-subtle">{normalized.eventName}</p>
                   </div>
-                  <span className={`rounded-full border px-2.5 py-1 text-[11px] font-bold ${statusTone(normalized.status)}`}>
-                    {ticketStatusLabel(normalized)}
+                  <span className={`rounded-full border px-2.5 py-1 text-[11px] font-bold ${statusTone(normalized.status, normalized)}`}>
+                    {ticketStatusLabel(normalized, isEnglish)}
                   </span>
                 </div>
               </button>
@@ -930,6 +1116,7 @@ function ManualInput({ label, value, onChange, placeholder, disabled = false }) 
 }
 
 function ResultPanel({ ticket, onClear }) {
+  const { isEnglish } = useLanguage()
   if (!ticket) {
     return (
       <StaffPanel className="text-center overflow-hidden">
@@ -941,11 +1128,11 @@ function ResultPanel({ ticket, onClear }) {
   }
 
   return (
-    <StaffPanel className="overflow-hidden">
+    <StaffPanel className="overflow-hidden border border-success/40 bg-success/[0.03]">
       <div className="flex items-start gap-3 min-w-0">
         <CheckCircle2 className="mt-1 size-6 shrink-0 text-success" />
         <div className="min-w-0">
-          <p className="text-xs font-bold uppercase text-success">Soát vé thành công</p>
+          <p className="text-xs font-black uppercase text-success tracking-wide">Soát vé thành công</p>
           <h3 className="mt-1 text-lg sm:text-xl font-black font-mono tracking-wider text-[#E6C17A] drop-shadow-[0_1px_6px_rgba(201,154,71,0.35)] truncate">
             {ticket.ticketCode}
           </h3>
@@ -970,8 +1157,8 @@ function ResultPanel({ ticket, onClear }) {
         {!ticket.isDifferentAttendee && ticket.buyerPhone && (
           <InfoRow label="Số điện thoại" value={ticket.buyerPhone} />
         )}
-        <InfoRow label="Trạng thái" value={ticketStatusLabel(ticket)} strong />
-        <InfoRow label="Thời gian" value={formatDateTime(ticket.checkedInAt)} />
+        <InfoRow label="Trạng thái" value={ticketStatusLabel(ticket, isEnglish)} tone="success" />
+        <InfoRow label="Thời gian" value={formatDateTime(ticket.checkedInAt)} tone="success" />
         <InfoRow label="Check-in bởi" value={ticket.checkedInBy} />
       </div>
       {onClear && (
@@ -984,7 +1171,12 @@ function ResultPanel({ ticket, onClear }) {
   )
 }
 
-function SelectedTicketPanel({ ticket, onCheckIn, checking, onClear, emptyMessage }) {
+function SelectedTicketPanel({ ticket, onCheckIn, checking, onClear, emptyMessage, scanError }) {
+  const { isEnglish } = useLanguage()
+  const isCheckedIn = isTicketCheckedIn(ticket)
+  const isInvalid = ticket?.status && ticket.status !== 'VALID'
+  const hasProblem = isCheckedIn || isInvalid || Boolean(scanError)
+
   if (!ticket) {
     return (
       <StaffPanel className="overflow-hidden">
@@ -999,7 +1191,46 @@ function SelectedTicketPanel({ ticket, onCheckIn, checking, onClear, emptyMessag
   }
 
   return (
-    <StaffPanel className="overflow-hidden">
+    <StaffPanel
+      className={`overflow-hidden transition-all duration-300 ${
+        hasProblem ? 'border border-error/50 bg-error/[0.04] shadow-md shadow-error/10' : ''
+      }`}
+    >
+      {/* Alert banner if ticket is already checked in */}
+      {isCheckedIn && (
+        <div className="mb-4 rounded-xl border border-error/60 bg-error/20 p-3.5 text-left text-error shadow-sm">
+          <div className="flex items-start gap-2.5">
+            <XCircle className="size-5 shrink-0 mt-0.5 text-error" />
+            <div>
+              <p className="text-xs font-black uppercase tracking-wider text-error">
+                Cảnh báo: Vé đã được sử dụng!
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-red-200">
+                Vé này đã được soát vào lúc <b>{formatDateTime(ticket.checkedInAt)}</b>
+                {ticket.checkedInBy ? ` bởi ${ticket.checkedInBy}` : ''}. Không hợp lệ để vào cổng lại.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Alert banner if ticket is invalid and not checked in */}
+      {isInvalid && !isCheckedIn && (
+        <div className="mb-4 rounded-xl border border-error/60 bg-error/20 p-3.5 text-left text-error shadow-sm">
+          <div className="flex items-start gap-2.5">
+            <AlertTriangle className="size-5 shrink-0 mt-0.5 text-error" />
+            <div>
+              <p className="text-xs font-black uppercase tracking-wider text-error">
+                Cảnh báo: Vé không hợp lệ ({ticketStatusLabel(ticket, isEnglish)})
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-red-200">
+                {scanError?.message || 'Vé này ở trạng thái không thể soát vé. Vui lòng kiểm tra lại.'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-start justify-between gap-3 min-w-0">
         <div className="min-w-0">
           <p className="text-xs font-bold uppercase text-white tracking-wider">Vé đang chọn</p>
@@ -1007,8 +1238,13 @@ function SelectedTicketPanel({ ticket, onCheckIn, checking, onClear, emptyMessag
             {ticket.ticketCode}
           </h3>
         </div>
-        <span className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-bold ${statusTone(ticket.status)}`}>
-          {ticketStatusLabel(ticket)}
+        <span
+          className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wide ${statusTone(
+            ticket.status,
+            ticket,
+          )}`}
+        >
+          {ticketStatusLabel(ticket, isEnglish)}
         </span>
       </div>
       <div className="mt-4 space-y-3 text-sm">
@@ -1030,8 +1266,16 @@ function SelectedTicketPanel({ ticket, onCheckIn, checking, onClear, emptyMessag
         {!ticket.isDifferentAttendee && ticket.buyerPhone && (
           <InfoRow label="Số điện thoại" value={ticket.buyerPhone} />
         )}
-        <InfoRow label="Trạng thái vé" value={ticketStatusLabel(ticket)} strong={isTicketCheckedIn(ticket)} />
-        <InfoRow label="Thời gian soát vé" value={ticket.checkedInAt ? formatDateTime(ticket.checkedInAt) : 'Chưa soát vé'} />
+        <InfoRow
+          label="Trạng thái vé"
+          value={ticketStatusLabel(ticket, isEnglish)}
+          tone={isCheckedIn || isInvalid ? 'error' : 'tertiary'}
+        />
+        <InfoRow
+          label="Thời gian soát vé"
+          value={ticket.checkedInAt ? formatDateTime(ticket.checkedInAt) : 'Chưa soát vé'}
+          tone={isCheckedIn ? 'error' : 'default'}
+        />
       </div>
       <div className="mt-5 grid gap-2">
         {canCheckInTicket(ticket) && (
@@ -1039,6 +1283,11 @@ function SelectedTicketPanel({ ticket, onCheckIn, checking, onClear, emptyMessag
             {checking ? <Loader2 className="size-4 animate-spin" /> : <UserCheck className="size-4" />}
             Xác nhận soát vé
           </button>
+        )}
+        {hasProblem && !canCheckInTicket(ticket) && (
+          <div className="rounded-xl border border-error/40 bg-error/15 py-2.5 px-3 text-center text-xs font-black uppercase tracking-wider text-error">
+            {isCheckedIn ? 'Vé đã soát - Không thể check-in lại' : 'Vé không hợp lệ để check-in'}
+          </div>
         )}
         {onClear && (
           <button className="admin-secondary w-full" onClick={onClear} type="button" disabled={checking}>
@@ -1051,15 +1300,75 @@ function SelectedTicketPanel({ ticket, onCheckIn, checking, onClear, emptyMessag
   )
 }
 
-function InfoRow({ label, value, strong = false, breakAll = false }) {
+function ErrorPanel({ error, onClear }) {
+  const isDifferentEvent = error?.type === 'DIFFERENT_EVENT'
+  const isUsed = error?.type === 'USED'
+
+  return (
+    <StaffPanel className="overflow-hidden border border-error/50 bg-error/[0.06] p-6 text-center shadow-lg shadow-error/10">
+      <div className="mx-auto grid size-16 place-items-center rounded-2xl border border-error/50 bg-error/20 text-error shadow-[0_4px_20px_rgba(239,68,68,0.25)]">
+        {isDifferentEvent ? (
+          <AlertOctagon className="size-8 text-error" />
+        ) : (
+          <XCircle className="size-8 text-error" />
+        )}
+      </div>
+
+      <span className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-error/50 bg-error/20 px-3 py-1 text-xs font-black uppercase tracking-wider text-error">
+        {error?.title || 'Vé có vấn đề'}
+      </span>
+
+      <h3 className="mt-3 text-lg font-black text-white">
+        {isDifferentEvent
+          ? 'Vé không thuộc sự kiện của bạn'
+          : isUsed
+          ? 'Vé đã được sử dụng trước đó'
+          : 'Vé lỗi / Không thể soát'}
+      </h3>
+
+      <div className="mt-4 rounded-xl border border-error/40 bg-error/15 p-3.5 text-left text-sm text-red-100">
+        <p className="font-bold text-white flex items-center gap-1.5">
+          <AlertTriangle className="size-4 text-error shrink-0" />
+          Chi tiết lỗi:
+        </p>
+        <p className="mt-1.5 leading-relaxed text-xs text-red-200">
+          {error?.message || 'Mã QR không hợp lệ hoặc vé không đủ điều kiện để vào cổng.'}
+        </p>
+      </div>
+
+      <div className="mt-5">
+        <button
+          className="admin-secondary w-full border-error/40 text-white hover:bg-error/20 transition flex items-center justify-center gap-2"
+          onClick={onClear}
+          type="button"
+        >
+          <RotateCcw className="size-4" />
+          Quét vé khác
+        </button>
+      </div>
+    </StaffPanel>
+  )
+}
+
+function InfoRow({ label, value, strong = false, tone = 'default', breakAll = false }) {
   const isBreakAll = breakAll || label === 'Email'
+
+  let toneClass = 'font-semibold text-white'
+  if (tone === 'error') {
+    toneClass = 'font-black text-error'
+  } else if (tone === 'success' || strong) {
+    toneClass = 'font-extrabold text-success'
+  } else if (tone === 'tertiary') {
+    toneClass = 'font-bold text-tertiary'
+  }
+
   return (
     <div className="flex items-start justify-between gap-3 border-b border-border-soft/20 pb-2.5 last:border-0 last:pb-0 min-w-0">
       <span className="shrink-0 text-white/80 font-medium text-xs sm:text-sm">{label}</span>
       <span
         className={`min-w-0 flex-1 text-right leading-relaxed text-xs sm:text-sm ${
           isBreakAll ? 'break-all' : 'break-words'
-        } ${strong ? 'font-extrabold text-success' : 'font-semibold text-white'}`}
+        } ${toneClass}`}
       >
         {value}
       </span>

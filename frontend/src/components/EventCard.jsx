@@ -68,6 +68,11 @@ function normalizeEvent(event, isEnglish = false) {
   const rawTitle = event.title || ''
   const rawSubtitle = typeof (event.subtitle || event.short_description) === 'string' ? (event.subtitle || event.short_description) : ''
   const rawLocation = formatLocation(event, isEnglish)
+  const isEnded =
+    event.status === 'COMPLETED' ||
+    event.sales_status === 'ENDED' ||
+    Boolean(event.end_time && new Date(event.end_time).getTime() < Date.now())
+
   return {
     id: event.slug || event.id,
     title: isEnglish ? translateEventTitle(rawTitle, true) : rawTitle,
@@ -80,6 +85,7 @@ function normalizeEvent(event, isEnglish = false) {
     location: isEnglish ? translatePhrase(rawLocation, 'en') : rawLocation,
     priceLabel: formatPrice(event, isEnglish),
     isFavorited: Boolean(event.is_favorited),
+    isEnded,
   }
 }
 
@@ -125,11 +131,21 @@ export function EventCard({
           className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
         />
         <div className="event-card-gradient absolute inset-0" />
-        {showCategoryBadge && (
-          <span className="absolute left-4 top-4 z-20 max-w-[calc(100%-5.75rem)] truncate rounded-full border border-[#C99A47]/70 bg-black/60 px-3 py-1 text-xs font-bold uppercase backdrop-blur-md shadow-[0_0_12px_rgba(201,154,71,0.5)]" style={{ color: '#E6C17A' }}>
-            {item.category}
-          </span>
-        )}
+        <div className="absolute left-4 top-4 z-20 flex flex-wrap items-center gap-1.5 max-w-[calc(100%-5.75rem)]">
+          {showCategoryBadge && (
+            <span
+              className="truncate rounded-full border border-[#C99A47]/70 bg-black/60 px-3 py-1 text-xs font-bold uppercase backdrop-blur-md shadow-[0_0_12px_rgba(201,154,71,0.5)]"
+              style={{ color: '#E6C17A' }}
+            >
+              {item.category}
+            </span>
+          )}
+          {item.isEnded && (
+            <span className="truncate rounded-full border border-purple-500/60 bg-black/75 px-2.5 py-1 text-xs font-bold uppercase backdrop-blur-md text-purple-300 shadow-[0_0_10px_rgba(168,85,247,0.4)]">
+              {isEnglish ? 'Ended' : 'Đã kết thúc'}
+            </span>
+          )}
+        </div>
         {onFavoriteToggle && (
           <button
             type="button"

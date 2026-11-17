@@ -141,7 +141,7 @@ export function MyTicketsPage() {
   return (
     <div className="force-dark mx-auto max-w-7xl px-3.5 sm:px-6 lg:px-8 pt-4 sm:pt-8 pb-8 sm:pb-12">
       {/* Header & Filter Bar aligned to the right */}
-      <div className="flex flex-col gap-2.5 sm:gap-6 lg:flex-row lg:items-end lg:justify-between">
+      <div className="flex flex-col gap-2.5 sm:gap-6 lg:flex-row lg:items-end lg:justify-between w-full min-w-0 max-w-full">
         <SectionHeader
           title={isEnglish ? 'My Tickets' : 'Thông tin Vé'}
           description={
@@ -151,7 +151,7 @@ export function MyTicketsPage() {
           }
         />
 
-        <div className="flex w-full sm:w-auto overflow-x-auto rounded-2xl sm:rounded-full glass-panel p-1.5 border-white/10 shadow-inner self-start lg:self-end scrollbar-hide no-scrollbar gap-1.5">
+        <div className="flex w-full max-w-full sm:w-auto sm:max-w-full overflow-x-auto rounded-2xl sm:rounded-full glass-panel p-1.5 border-white/10 shadow-inner self-start lg:self-end scrollbar-hide no-scrollbar gap-1.5">
           {filters.map((item) => (
             <button
               key={item.value}
@@ -160,7 +160,7 @@ export function MyTicketsPage() {
                 setStatus(item.value)
                 setPage(1)
               }}
-              className={`shrink-0 whitespace-nowrap rounded-full px-3.5 sm:px-4 py-1.5 sm:py-2 text-xs font-semibold transition-all ${status === item.value
+              className={`shrink-0 whitespace-nowrap rounded-full px-3.5 sm:px-4 py-2 sm:py-2 min-h-[38px] text-xs font-semibold transition-all ${status === item.value
                 ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] font-bold shadow-md shadow-[#C99A47]/30'
                 : 'text-slate-400 hover:bg-white/5 hover:text-white border border-transparent'
                 }`}
@@ -238,7 +238,7 @@ export function MyTicketsPage() {
               type="button"
               onClick={() => handlePageChange(Math.max(1, page - 1))}
               disabled={page === 1}
-              className="grid size-10 place-items-center rounded-full border border-white/20 bg-slate-800 text-white transition-all hover:border-[#E6C17A] hover:bg-[#C99A47]/20 hover:text-[#E6C17A] hover:shadow-[0_0_12px_rgba(201,154,71,0.35)] disabled:cursor-not-allowed disabled:opacity-25 disabled:hover:border-white/20 disabled:hover:bg-slate-800 disabled:hover:text-white disabled:hover:shadow-none"
+              className="grid size-11 min-h-[44px] min-w-[44px] place-items-center rounded-full border border-white/20 bg-slate-800 text-white transition-all hover:border-[#E6C17A] hover:bg-[#C99A47]/20 hover:text-[#E6C17A] hover:shadow-[0_0_12px_rgba(201,154,71,0.35)] disabled:cursor-not-allowed disabled:opacity-25 disabled:hover:border-white/20 disabled:hover:bg-slate-800 disabled:hover:text-white disabled:hover:shadow-none"
               aria-label={isEnglish ? 'Previous page' : 'Trang trước'}
             >
               <ChevronLeft className="size-5" />
@@ -248,7 +248,7 @@ export function MyTicketsPage() {
                 return (
                   <span
                     key={item}
-                    className="grid size-10 place-items-center text-sm font-black text-slate-500 select-none"
+                    className="grid size-11 min-h-[44px] min-w-[44px] place-items-center text-sm font-black text-slate-500 select-none"
                     aria-hidden="true"
                   >
                     ...
@@ -262,7 +262,7 @@ export function MyTicketsPage() {
                   key={pageNumber}
                   type="button"
                   onClick={() => handlePageChange(pageNumber)}
-                  className={`size-10 rounded-full text-sm font-extrabold transition-all cursor-pointer ${page === pageNumber
+                  className={`size-11 min-h-[44px] min-w-[44px] rounded-full text-sm font-extrabold transition-all cursor-pointer ${page === pageNumber
                     ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] font-black shadow-[0_0_18px_rgba(201,154,71,0.6)] scale-105'
                     : 'border border-white/20 bg-slate-800 text-white hover:border-[#E6C17A] hover:bg-[#C99A47]/20 hover:text-[#E6C17A] hover:shadow-[0_0_12px_rgba(201,154,71,0.35)]'
                     }`}
@@ -277,7 +277,7 @@ export function MyTicketsPage() {
               type="button"
               onClick={() => handlePageChange(Math.min(totalPages, page + 1))}
               disabled={page === totalPages}
-              className="grid size-10 place-items-center rounded-full border border-white/20 bg-slate-800 text-white transition-all hover:border-[#E6C17A] hover:bg-[#C99A47]/20 hover:text-[#E6C17A] hover:shadow-[0_0_12px_rgba(201,154,71,0.35)] disabled:cursor-not-allowed disabled:opacity-25 disabled:hover:border-white/20 disabled:hover:bg-slate-800 disabled:hover:text-white disabled:hover:shadow-none"
+              className="grid size-11 min-h-[44px] min-w-[44px] place-items-center rounded-full border border-white/20 bg-slate-800 text-white transition-all hover:border-[#E6C17A] hover:bg-[#C99A47]/20 hover:text-[#E6C17A] hover:shadow-[0_0_12px_rgba(201,154,71,0.35)] disabled:cursor-not-allowed disabled:opacity-25 disabled:hover:border-white/20 disabled:hover:bg-slate-800 disabled:hover:text-white disabled:hover:shadow-none"
               aria-label={isEnglish ? 'Next page' : 'Trang sau'}
             >
               <ChevronRight className="size-5" />

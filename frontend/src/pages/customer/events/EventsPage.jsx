@@ -29,12 +29,13 @@ function readFilters(searchParams) {
 }
 
 function buildQuery(filters) {
+  const hasKeyword = Boolean(filters.keyword && String(filters.keyword).trim())
   return Object.fromEntries(
     Object.entries({
       ...filters,
-      upcoming_only: true,
+      upcoming_only: !hasKeyword ? true : undefined,
       limit: 9,
-    }).filter(([, value]) => value),
+    }).filter(([, value]) => value !== '' && value !== null && value !== undefined && value !== false),
   )
 }
 
@@ -170,7 +171,7 @@ export function EventsPage() {
             <input
               value={draft.keyword}
               onChange={(event) => setDraft({ ...draft, keyword: event.target.value })}
-              placeholder={isEnglish ? 'Search events, categories, venues...' : 'Tìm kiếm sự kiện, danh mục, địa điểm...'}
+              placeholder={isEnglish ? 'Search events, categories, venues, tags...' : 'Tìm kiếm sự kiện, danh mục, địa điểm, tags...'}
               className="h-11 sm:h-12 w-full rounded-full border border-white/15 bg-[#0d172e] py-2.5 pl-12 pr-5 text-sm font-normal text-white placeholder:text-white/40 outline-none transition focus:border-[#C99A47] focus:ring-2 focus:ring-[#C99A47]/20 shadow-inner"
             />
           </div>
@@ -178,7 +179,7 @@ export function EventsPage() {
           <div className="flex items-center gap-2 shrink-0">
             <button
               type="submit"
-              className="btn-gold-primary inline-flex h-11 sm:h-12 flex-1 sm:flex-none items-center justify-center gap-2 rounded-full px-6 sm:px-8 text-xs sm:text-sm font-extrabold shadow-lg shadow-[#C99A47]/30 transition-all hover:brightness-110 active:scale-95 cursor-pointer shrink-0"
+              className="btn-gold-primary inline-flex h-11 sm:h-12 flex-1 sm:flex-none items-center justify-center rounded-full px-6 sm:px-8 text-xs sm:text-sm font-extrabold shadow-lg shadow-[#C99A47]/30 transition-all hover:brightness-110 active:scale-95 cursor-pointer shrink-0"
               style={{
                 backgroundColor: '#C99A47',
                 backgroundImage: 'linear-gradient(135deg, #C99A47, #E6C17A)',
@@ -189,7 +190,6 @@ export function EventsPage() {
                 WebkitTransform: 'translateZ(0)',
               }}
             >
-              <Search className="size-4 shrink-0 stroke-[2.5] text-[#0D1B2A]" />
               <span className="font-extrabold text-[#0D1B2A]">{isEnglish ? 'Search' : 'Tìm kiếm'}</span>
             </button>
 
@@ -344,7 +344,11 @@ export function EventsPage() {
           <StatePanel message={isEnglish ? 'Failed to load events. Please try again.' : 'Không thể tải sự kiện. Vui lòng thử lại.'} tone="error" />
         )}
         {!eventsQuery.isLoading && !eventsQuery.isError && events.length === 0 && (
-          <StatePanel message={isEnglish ? 'No events match the current filters.' : 'Không có sự kiện phù hợp với bộ lọc hiện tại.'} />
+          <div className="py-16 text-center">
+            <p className="text-base sm:text-lg italic text-slate-400">
+              {isEnglish ? 'No matching events found' : 'Không có sự kiện nào phù hợp'}
+            </p>
+          </div>
         )}
 
         <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">

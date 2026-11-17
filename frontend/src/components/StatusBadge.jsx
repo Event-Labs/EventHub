@@ -103,11 +103,11 @@ export const STATUS_CONFIG_MAP = {
   // ─── Check-In / Tickets ──────────────────────────────────
   VALID: { label: 'Hợp lệ', tone: 'green' },
   INVALID: { label: 'Không hợp lệ', tone: 'red' },
-  ALREADY: { label: 'Đã soát vé', tone: 'orange' },
-  ALREADY_CHECKED_IN: { label: 'Đã check-in trước đó', tone: 'orange' },
+  ALREADY: { label: 'Đã soát vé', tone: 'red' },
+  ALREADY_CHECKED_IN: { label: 'Đã check-in trước đó', tone: 'red' },
   CHECKED_IN: { label: 'Đã check-in', tone: 'green' },
   SUCCESS: { label: 'Thành công', tone: 'green' },
-  USED: { label: 'Đã sử dụng', tone: 'gray' },
+  USED: { label: 'Đã sử dụng', tone: 'red' },
 
   // ─── Promos / Subscriptions ──────────────────────────────
   DISABLED: { label: 'Đã tắt', tone: 'gray' },

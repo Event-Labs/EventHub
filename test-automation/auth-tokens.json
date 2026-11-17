@@ -1,0 +1,54 @@
+{
+  "ADMIN": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4ZDE3OWJkMy03OWMxLTQwMzQtOWRjOC05ODQ5MjYwNzAyMjUiLCJyb2xlcyI6WyJBRE1JTiJdLCJpYXQiOjE3OTQ2NTA4MjAsImV4cCI6MTc5NTI1NTYyMH0.V_MT1hpn32Ifl4qe5sN-J9CO066QHFyFx54NMrcYcyI",
+    "user": {
+      "id": "8d179bd3-79c1-4034-9dc8-984926070225",
+      "email": "nguheodet@gmail.com",
+      "full_name": "Bui Tuan Khanh",
+      "avatar_url": "https://res.cloudinary.com/dookztwec/image/upload/v1780906540/eventhub/users/avatar/osmab711wwioszpacbyh.jpg",
+      "roles": [
+        "admin"
+      ],
+      "role": "admin"
+    }
+  },
+  "ORGANIZER": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5MmY5Nzc3OC1hOGI3LTQyZGMtOTg5MS1iZTZlZDNhOGMxMDAiLCJyb2xlcyI6WyJPUkdBTklaRVIiXSwiaWF0IjoxNzk0NjUwODIwLCJleHAiOjE3OTUyNTU2MjB9.XE6-4NF-NbrGDWbHjbDght1lrFyI6a7sBRnRnc5F_9I",
+    "user": {
+      "id": "92f97778-a8b7-42dc-9891-be6ed3a8c100",
+      "email": "TBD.company@gmail.com",
+      "full_name": "Công Ty TNHH Sân Khấu - Nghệ Thuật Thái Dương",
+      "avatar_url": null,
+      "roles": [
+        "organizer"
+      ],
+      "role": "organizer"
+    }
+  },
+  "STAFF": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJjMzk3ZjczOC1lMzQxLTQwMGEtYmQ5Ni0wOWFmNWJiY2M1YzUiLCJyb2xlcyI6WyJTVEFGRiJdLCJpYXQiOjE3OTQ2NTA4MjAsImV4cCI6MTc5NTI1NTYyMH0.2s9HbK1H3BqZvuwZvZ14EA-2t72ijRLwxQZAhUg0Bqw",
+    "user": {
+      "id": "c397f738-e341-400a-bd96-09af5bbcc5c5",
+      "email": "staff@example.com",
+      "full_name": "K6 Test Staff",
+      "avatar_url": null,
+      "roles": [
+        "staff"
+      ],
+      "role": "staff"
+    }
+  },
+  "CUSTOMER": {
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxYTI0NDJjYS05OTZjLTQ5MTItYjI1My1lMDJkMzg1YjI2MGEiLCJyb2xlcyI6WyJDVVNUT01FUiJdLCJpYXQiOjE3OTQ2NTA4MjAsImV4cCI6MTc5NTI1NTYyMH0.76aSy_KY996zROxc_CuboR0K9YH_K4RhFL5NRPJPA9k",
+    "user": {
+      "id": "1a2442ca-996c-4912-b253-e02d385b260a",
+      "email": "de180491trannguyenminhduy@gmail.com",
+      "full_name": "Duy",
+      "avatar_url": "https://lh3.googleusercontent.com/a/ACg8ocIZqaBmSmGvwVwVjjlokYHaIFuiKv6hbzxC06UCtW4UwxYgzQ=s96-c",
+      "roles": [
+        "customer"
+      ],
+      "role": "customer"
+    }
+  }
+}

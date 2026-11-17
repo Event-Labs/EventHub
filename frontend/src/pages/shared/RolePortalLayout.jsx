@@ -330,7 +330,7 @@ export function RolePortalLayout({
           <button
             type="button"
             onClick={() => setMobileMenuOpen(false)}
-            className={`grid size-9 place-items-center rounded-xl transition ${
+            className={`grid size-10 min-h-[44px] min-w-[44px] sm:size-9 place-items-center rounded-xl transition ${
               theme === 'light' ? 'hover:bg-[#C99A47]/20 text-[#1B365D]' : 'hover:bg-white/10 text-white'
             }`}
             aria-label={isVietnamese ? 'Đóng menu' : 'Close menu'}
@@ -612,7 +612,7 @@ function PortalTopBar({ user, avatar, roleLabel, profileTo, theme, onToggleTheme
         <button
           type="button"
           onClick={onOpenMobileMenu}
-          className={`grid size-9 sm:size-10 shrink-0 place-items-center rounded-xl lg:hidden transition ${
+          className={`grid size-10 min-h-[44px] min-w-[44px] shrink-0 place-items-center rounded-xl lg:hidden transition ${
             isLight ? 'text-[#1B365D] hover:bg-[#C99A47]/15' : 'text-white hover:bg-white/10'
           }`}
           aria-label={isVietnamese ? 'Mở menu điều hướng' : 'Open navigation menu'}
@@ -826,7 +826,7 @@ function PortalNotificationBell({ theme }) {
         type="button"
         title={t('nav.notifications')}
         onClick={() => setNotificationOpen((prev) => !prev)}
-        className="relative grid size-8 sm:size-8.5 place-items-center rounded-full text-subtle transition hover:bg-panel-soft hover:text-content"
+        className="relative grid size-9 sm:size-8.5 min-h-[40px] min-w-[40px] sm:min-h-0 sm:min-w-0 place-items-center rounded-full text-subtle transition hover:bg-panel-soft hover:text-content"
         aria-label={t('nav.notifications')}
         aria-expanded={notificationOpen}
       >
@@ -960,7 +960,7 @@ function TopBarIconButton({ icon: Icon, label, onClick, theme }) {
       type="button"
       title={label}
       onClick={onClick}
-      className={`relative grid size-8 sm:size-8.5 place-items-center rounded-full transition ${isLight
+      className={`relative grid size-9 sm:size-8.5 min-h-[40px] min-w-[40px] sm:min-h-0 sm:min-w-0 place-items-center rounded-full transition ${isLight
         ? 'text-[#1B365D] hover:bg-[#C99A47]/20 hover:text-[#0D1B2A]'
         : 'text-subtle hover:bg-panel-soft hover:text-content'
         }`}

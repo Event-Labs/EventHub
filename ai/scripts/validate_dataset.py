@@ -114,7 +114,9 @@ def validate_record(rec, idx=0):
                 errors.append(f"[{sid}] session #{s_idx} start_time ({s_st}) >= end_time ({s_et})")
                 
     # Tickets
-    tickets = out.get("ticket_types") or out.get("tickets")
+    tickets = out.get("ticket_types")
+    if tickets is None and "tickets" in out:
+        tickets = out.get("tickets")
     if not isinstance(tickets, list):
         errors.append(f"[{sid}] tickets / ticket_types phải là array, nhận: {type(tickets)}")
     else:

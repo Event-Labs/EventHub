@@ -51,7 +51,7 @@ export function LanguageSwitcher({ theme = 'dark', className = '' }) {
           isLight
             ? 'border-[#C99A47]/45 bg-white/85 text-[#0D1B2A] hover:border-[#C99A47] hover:bg-white hover:shadow-[0_0_12px_rgba(201,154,71,0.25)]'
             : 'border-[#C99A47]/50 bg-[#081126]/85 text-white hover:border-[#E6C17A] hover:bg-[#0c1a3b] hover:text-[#E6C17A] hover:shadow-[0_0_16px_rgba(201,154,71,0.3)]'
-        } ${className || 'h-9 sm:h-10'}`}
+        } ${className || 'h-10 min-h-[40px] sm:min-h-[44px]'}`}
       >
         <Globe
           className={`size-4 sm:size-4.5 shrink-0 transition-transform duration-300 group-hover:rotate-45 ${

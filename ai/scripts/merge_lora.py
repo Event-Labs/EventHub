@@ -1,3 +1,4 @@
+import argparse
 import os
 import sys
 import torch
@@ -20,7 +21,7 @@ def merge_lora(
         print(f"Error: LoRA directory {lora_dir} not found!")
         sys.exit(1)
 
-    print("1. Loading base model...")
+    print("1. Loading base model in FP16...")
     base_model = AutoModelForCausalLM.from_pretrained(
         base_model_name,
         torch_dtype=torch.float16,
@@ -36,15 +37,20 @@ def merge_lora(
     merged_model = model.merge_and_unload()
 
     print(f"4. Saving merged model to {output_dir}...")
-    merged_model.save_pretrained(output_dir)
+    merged_model.save_pretrained(output_dir, safe_serialization=True)
     tokenizer.save_pretrained(output_dir)
     print("=" * 60)
     print("Success! Model weights merged successfully.")
-    print("Next step: Convert to GGUF using llama.cpp:")
-    print("python llama.cpp/convert_hf_to_gguf.py ./merged_qwen3_extractor --outtype q8_0 --outfile ./qwen3-event-extractor-2.gguf")
-    print("Then import to Ollama:")
-    print("ollama create qwen3-event-extractor-2 -f Modelfile.extractor")
+    print("Next steps (Convert to GGUF FP16 -> Quantize Q4_K_M & Q8_0):")
+    print(f"1) python llama.cpp/convert_hf_to_gguf.py {output_dir} --outtype f16 --outfile ./eventhub-extractor-v4-f16.gguf")
+    print("2) ./llama.cpp/build/bin/llama-quantize ./eventhub-extractor-v4-f16.gguf ./eventhub-extractor-v4-Q4_K_M.gguf Q4_K_M")
+    print("3) ./llama.cpp/build/bin/llama-quantize ./eventhub-extractor-v4-f16.gguf ./eventhub-extractor-v4-Q8_0.gguf Q8_0")
     print("=" * 60)
 
 if __name__ == "__main__":
-    merge_lora()
+    parser = argparse.ArgumentParser(description="Merge LoRA adapter into Qwen3-4B base model.")
+    parser.add_argument("--base-model", type=str, default="Qwen/Qwen3-4B", help="HuggingFace base model ID")
+    parser.add_argument("--lora-dir", type=str, default="/content/drive/MyDrive/EventHub_AI/adapters/eventhub_qwen_v4", help="Path to trained LoRA adapter")
+    parser.add_argument("--output-dir", type=str, default="./merged_qwen3_v4", help="Path to save merged FP16 HuggingFace model")
+    args = parser.parse_args()
+    merge_lora(base_model_name=args.base_model, lora_dir=args.lora_dir, output_dir=args.output_dir)

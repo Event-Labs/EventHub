@@ -65,6 +65,15 @@ class OrganizerEventsController {
     }
   };
 
+  getOccupiedSlots = async (req, res, next) => {
+    try {
+      const data = await organizerEventsService.getOccupiedSlots(req.user.sub, req.query.excludeEventId || null);
+      res.status(200).json(ApiResponse.success(data, 'Occupied slots fetched successfully'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
   listEvents = async (req, res, next) => {
     try {
       const data = await organizerEventsService.listEvents(req.user.sub);

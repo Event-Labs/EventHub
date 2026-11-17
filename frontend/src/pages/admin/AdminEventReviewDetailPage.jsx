@@ -344,6 +344,7 @@ function SuggestionCard({ suggestion, onClick }) {
 }
 
 function ContentSpellingAuditCard({ contentReview, event, onClick }) {
+  const { isEnglish } = useLanguage()
   // Fallback to client-side evaluation if contentReview is absent or incomplete
   const fallbackReview = useMemo(() => {
     if (!event) return null
@@ -471,16 +472,17 @@ function ContentSpellingAuditCard({ contentReview, event, onClick }) {
       : 'border-[#263751] bg-[#101D32] [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200'
 
   return (
-    <div className={`rounded-2xl border ${overallTone} p-4 space-y-3.5 shadow-sm`}>
-      <div className="flex items-center justify-between border-b border-[#263751] pb-2.5 [html.light_&]:border-slate-200">
-        <span className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">
-          <FileText className="size-4 text-white [html.light_&]:text-[#0D1B2A]" />
-          Kiểm duyệt Mô tả & Nội dung sự kiện
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-slate-100 [html.light_&]:text-[#0D1B2A]">
+          <FileText className="size-3.5 text-white [html.light_&]:text-[#0D1B2A]" />
+          {isEnglish ? 'Description & Content Audit' : 'Kiểm duyệt Mô tả & Nội dung sự kiện'}
         </span>
         {getHeaderBadge()}
       </div>
 
-      {/* Description Audit Section */}
+      <div className={`rounded-2xl border ${overallTone} p-4 space-y-3.5 shadow-sm`}>
+        {/* Description Audit Section */}
       <div className="space-y-1.5 pl-1">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 text-xs font-bold text-slate-100 [html.light_&]:text-[#0D1B2A]">
@@ -568,11 +570,13 @@ function ContentSpellingAuditCard({ contentReview, event, onClick }) {
           </div>
         </div>
       )}
+      </div>
     </div>
   )
 }
 
 function DocumentModerationAuditCard({ documentReview, documentAnalysis, onPreviewDoc, onClick }) {
+  const { isEnglish } = useLanguage()
   const items = Array.isArray(documentReview?.items) ? documentReview.items : []
   const docAnalysisList = Array.isArray(documentAnalysis) ? documentAnalysis : []
 
@@ -605,10 +609,10 @@ function DocumentModerationAuditCard({ documentReview, documentAnalysis, onPrevi
   }
 
   return (
-    <div className="rounded-2xl border border-[#263751] bg-[#101D32] p-4 space-y-3.5 shadow-sm [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
-      <div className="flex items-center justify-between border-b border-[#263751] pb-2.5 [html.light_&]:border-slate-200">
-        <span className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">
-          <FileCheck className="size-4 text-white [html.light_&]:text-[#0D1B2A]" />
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-slate-100 [html.light_&]:text-[#0D1B2A]">
+          <FileCheck className="size-3.5 text-white [html.light_&]:text-[#0D1B2A]" />
           Kiểm duyệt Tài liệu Giấy phép ({items.length || docAnalysisList.length} tệp)
         </span>
         <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${overallVerdict === 'VIOLATION'
@@ -621,7 +625,7 @@ function DocumentModerationAuditCard({ documentReview, documentAnalysis, onPrevi
         </span>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-2">
         {items.map((doc, idx) => {
           const matchingAnalysis = docAnalysisList.find(a => (doc.url && a.url === doc.url) || (doc.fileName && a.fileName === doc.fileName) || (a.source && a.source.includes(String(idx + 1))))
           const extractedText = matchingAnalysis?.extractedText || null
@@ -841,6 +845,7 @@ function VisualCoTOcrSection({ ocrReasoning, extractedTexts }) {
 }
 
 function ImageModerationAuditCard({ imageReview, visionAnalysis, event, onClick }) {
+  const { isEnglish } = useLanguage()
   // Strictly filter out any PERMIT items to never mix documents with images
   const items = Array.isArray(imageReview?.items) ? imageReview.items.filter(it => !it.source?.startsWith('PERMIT')) : []
   const visionItems = Array.isArray(visionAnalysis) ? visionAnalysis.filter(v => !v.source?.startsWith('PERMIT')) : []
@@ -859,9 +864,9 @@ function ImageModerationAuditCard({ imageReview, visionAnalysis, event, onClick 
   }
 
   const getThumbnailUrl = (src, url) => {
-    if (url) return url
-    if (src === 'MAIN_POSTER') return event?.poster_url || null
-    if (src === 'COVER_BANNER') return event?.banner_url || null
+    if (url && typeof url === 'string' && url.trim()) return url.trim()
+    if (src === 'MAIN_POSTER') return event?.thumbnail_url || event?.poster_url || event?.image || event?.thumbnail || null
+    if (src === 'COVER_BANNER') return event?.banner_url || event?.cover_url || event?.banner || null
     return null
   }
 
@@ -881,10 +886,10 @@ function ImageModerationAuditCard({ imageReview, visionAnalysis, event, onClick 
   }
 
   return (
-    <div className="rounded-2xl border border-[#263751] bg-[#101D32] p-4 space-y-3.5 shadow-sm [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
-      <div className="flex items-center justify-between border-b border-[#263751] pb-2.5 [html.light_&]:border-slate-200">
-        <span className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">
-          <ImageIcon className="size-4 text-white [html.light_&]:text-[#0D1B2A]" />
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-slate-100 [html.light_&]:text-[#0D1B2A]">
+          <ImageIcon className="size-3.5 text-white [html.light_&]:text-[#0D1B2A]" />
           Kiểm duyệt Hình ảnh ({items.length || visionItems.length} ảnh)
         </span>
         <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${overallVerdict === 'VIOLATION'
@@ -899,7 +904,7 @@ function ImageModerationAuditCard({ imageReview, visionAnalysis, event, onClick 
 
       {/* Render structured items from image_review.items */}
       {items.length > 0 ? (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {items.map((img, idx) => {
             const thumbUrl = getThumbnailUrl(img.source, img.url)
             return (
@@ -911,12 +916,19 @@ function ImageModerationAuditCard({ imageReview, visionAnalysis, event, onClick 
                         src={thumbUrl}
                         alt=""
                         className="size-11 rounded-lg object-cover border border-[#263751] shrink-0 [html.light_&]:border-slate-200"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                          const fallback = e.currentTarget.parentElement?.querySelector('.img-fallback-icon');
+                          if (fallback) fallback.style.display = 'grid';
+                        }}
                       />
-                    ) : (
-                      <div className="size-11 rounded-lg bg-[#081126] border border-[#263751] grid place-items-center text-slate-400 shrink-0 [html.light_&]:bg-slate-100 [html.light_&]:border-slate-200">
-                        <ImageIcon className="size-5 text-[#A78BFA]" />
-                      </div>
-                    )}
+                    ) : null}
+                    <div
+                      className="img-fallback-icon size-11 rounded-lg bg-[#081126] border border-[#263751] grid place-items-center text-slate-400 shrink-0 [html.light_&]:bg-slate-100 [html.light_&]:border-slate-200"
+                      style={{ display: thumbUrl ? 'none' : 'grid' }}
+                    >
+                      <ImageIcon className="size-5 text-[#A78BFA]" />
+                    </div>
                     <div className="min-w-0">
                       <span className="font-bold text-slate-100 block truncate [html.light_&]:text-[#0D1B2A]">{getSourceLabel(img.source)}</span>
                       <span className="text-[11px] text-slate-400 [html.light_&]:text-slate-500">Hình ảnh sự kiện</span>
@@ -978,7 +990,7 @@ function ImageModerationAuditCard({ imageReview, visionAnalysis, event, onClick 
           ))}
         </div>
       ) : (
-        <div className="space-y-2 text-xs text-slate-300">
+        <div className="rounded-xl border border-[#263751] bg-[#1A2940] p-3.5 space-y-2 text-xs text-slate-300 [html.light_&]:bg-white [html.light_&]:border-slate-200">
           {imageReview?.poster_analysis && <div><strong>Poster:</strong> {imageReview.poster_analysis}</div>}
           {imageReview?.banner_analysis && <div><strong>Banner:</strong> {imageReview.banner_analysis}</div>}
         </div>
@@ -2851,7 +2863,7 @@ export function AdminEventReviewDetailPage() {
 
                 {/* Empty State: AI Review Not Run Yet */}
                 {!aiData && !isScanningThisEvent && (
-                  <div className="my-6 rounded-2xl border border-[#263751] bg-[#101D32] p-8 text-center backdrop-blur-sm [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                  <div className="my-6 py-6 px-4 text-center">
                     <div className="mx-auto mb-3 grid size-12 place-items-center rounded-2xl bg-[#A78BFA]/15 text-[#A78BFA] border border-[#A78BFA]/30">
                       <Bot className="size-6" />
                     </div>
@@ -2910,15 +2922,15 @@ export function AdminEventReviewDetailPage() {
                             </div>
                           </div>
                         ) : (
-                          <div className="flex items-center gap-2 rounded-xl border border-[#10B981]/30 bg-[#10B981]/10 px-3 py-2.5 text-xs text-[#10B981] font-medium">
-                            <ShieldCheck className="size-4 text-[#10B981] shrink-0" />
-                            <span>{isEnglish ? 'No critical policy violations detected (0 red flags)' : 'Không phát hiện vi phạm chính sách nghiêm trọng (0 lỗi đỏ)'}</span>
+                          <div className="flex items-center gap-2.5 rounded-xl border border-[#10B981]/30 bg-[#10B981]/10 px-3.5 py-3 text-sm text-[#10B981] font-semibold">
+                            <ShieldCheck className="size-5 text-[#10B981] shrink-0" />
+                            <span>{isEnglish ? 'No critical policy violations detected' : 'Không phát hiện vi phạm chính sách nghiêm trọng'}</span>
                           </div>
                         )}
 
                         {/* 🟡 WARNINGS / CAUTIONS */}
                         {aiData.warnings && aiData.warnings.length > 0 && (
-                          <div className="space-y-2">
+                          <div className="space-y-2 border-t border-white/10 pt-4 [html.light_&]:border-slate-200">
                             <div className="flex items-center justify-between">
                               <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-[#F59E0B]">
                                 <AlertTriangle className="size-3.5 text-[#F59E0B]" />
@@ -2935,36 +2947,42 @@ export function AdminEventReviewDetailPage() {
 
                         {/* 📝 SOÁT LỖI TIÊU ĐỀ, MÔ TẢ & CHÍNH TẢ */}
                         {aiData.content_review && (
-                          <ContentSpellingAuditCard
-                            contentReview={aiData.content_review}
-                            event={event}
-                            onClick={handleWarningClick}
-                          />
+                          <div className="border-t border-white/10 pt-4 [html.light_&]:border-slate-200">
+                            <ContentSpellingAuditCard
+                              contentReview={aiData.content_review}
+                              event={event}
+                              onClick={handleWarningClick}
+                            />
+                          </div>
                         )}
 
                         {/* 📄 KIỂM DUYỆT TÀI LIỆU GIẤY PHÉP */}
                         {(aiData.document_review || aiData.document_analysis) && (
-                          <DocumentModerationAuditCard
-                            documentReview={aiData.document_review}
-                            documentAnalysis={aiData.document_analysis}
-                            onPreviewDoc={setPreviewDoc}
-                            onClick={handleWarningClick}
-                          />
+                          <div className="border-t border-white/10 pt-4 [html.light_&]:border-slate-200">
+                            <DocumentModerationAuditCard
+                              documentReview={aiData.document_review}
+                              documentAnalysis={aiData.document_analysis}
+                              onPreviewDoc={setPreviewDoc}
+                              onClick={handleWarningClick}
+                            />
+                          </div>
                         )}
 
                         {/* 🖼️ KIỂM DUYỆT HÌNH ẢNH & OCR */}
                         {(aiData.image_review || aiData.vision_analysis) && (
-                          <ImageModerationAuditCard
-                            imageReview={aiData.image_review}
-                            visionAnalysis={aiData.vision_analysis}
-                            event={event}
-                            onClick={handleWarningClick}
-                          />
+                          <div className="border-t border-white/10 pt-4 [html.light_&]:border-slate-200">
+                            <ImageModerationAuditCard
+                              imageReview={aiData.image_review}
+                              visionAnalysis={aiData.vision_analysis}
+                              event={event}
+                              onClick={handleWarningClick}
+                            />
+                          </div>
                         )}
 
                         {/* 🟢 COMPLIANT CHECKS */}
                         {aiData.compliant_checks && aiData.compliant_checks.length > 0 && (
-                          <div className="space-y-2">
+                          <div className="space-y-2 border-t border-white/10 pt-4 [html.light_&]:border-slate-200">
                             <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-[#10B981]">
                               <CheckCircle2 className="size-3.5 text-[#10B981]" />
                               {isEnglish ? 'Compliant criteria' : 'Tiêu chí đạt chuẩn'} ({aiData.compliant_checks.length})
@@ -2979,7 +2997,7 @@ export function AdminEventReviewDetailPage() {
 
                         {/* 💡 SUGGESTIONS */}
                         {aiData.suggestions && aiData.suggestions.length > 0 && (
-                          <div className="space-y-2.5 pt-1">
+                          <div className="space-y-2.5 pt-4 border-t border-white/10 [html.light_&]:border-slate-200">
                             <div className="flex items-center justify-between">
                               <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-[#E8B85D]">
                                 <Sparkles className="size-3.5 text-[#E8B85D]" />
@@ -3290,11 +3308,11 @@ function DocumentPreviewModal({ doc, onClose }) {
         {/* Modal Header */}
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-3.5 bg-slate-900/95 backdrop-blur-md">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-indigo-500/20 text-indigo-400 ring-1 ring-indigo-500/30">
+            <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#C99A47]/20 text-[#E6C17A] ring-1 ring-[#C99A47]/40">
               {isPdf ? (
                 <FileText className="size-5" />
               ) : isDocx ? (
-                <FileCheck className="size-5 text-blue-400" />
+                <FileCheck className="size-5" />
               ) : isImage ? (
                 <ImageIcon className="size-5" />
               ) : (
@@ -3306,7 +3324,7 @@ function DocumentPreviewModal({ doc, onClose }) {
                 {doc.name}
               </h3>
               <div className="flex items-center gap-2 text-xs text-slate-400">
-                <span className="uppercase font-semibold text-indigo-300">
+                <span className="uppercase font-semibold text-[#E6C17A]">
                   {isPdf ? 'Tài liệu PDF' : isDocx ? 'Tài liệu Word (DOCX)' : isImage ? 'Hình ảnh / Scan' : 'Tài liệu đính kèm'}
                 </span>
                 {doc.size && (
@@ -3315,46 +3333,45 @@ function DocumentPreviewModal({ doc, onClose }) {
                     <span>{formatFileSize(doc.size)}</span>
                   </>
                 )}
-                {(isPdf || isDocx) && (
-                  <>
-                    <span>•</span>
-                    <span className="text-emerald-400 flex items-center gap-1 font-medium">
-                      <Sparkles className="size-3" />
-                      AI Đọc & Kiểm duyệt được
-                    </span>
-                  </>
-                )}
               </div>
             </div>
           </div>
 
           {/* Modal Header Tabs & Actions */}
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1 shrink-0">
             {(isPdf || isDocx) && (
-              <div className="flex rounded-xl bg-slate-800/80 p-0.5 border border-white/5 mr-1">
+              <div className="flex items-center gap-1 mr-1">
                 <button
                   type="button"
                   onClick={() => setActiveTab('preview')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${activeTab === 'preview'
-                    ? 'bg-indigo-600 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-slate-200'
-                    }`}
+                  className={`grid size-9 place-items-center rounded-xl transition cursor-pointer ${
+                    activeTab === 'preview'
+                      ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] font-black shadow-md shadow-[#C99A47]/30'
+                      : 'text-slate-400 hover:text-white hover:bg-white/5'
+                  }`}
+                  title="Xem trực tiếp"
+                  aria-label="Xem trực tiếp"
                 >
-                  <Eye className="size-3.5" />
-                  <span>Xem trực tiếp</span>
+                  <Eye className="size-4" />
                 </button>
                 <button
                   type="button"
                   onClick={() => setActiveTab('ai_text')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${activeTab === 'ai_text'
-                    ? 'bg-indigo-600 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-slate-200'
-                    }`}
+                  className={`relative grid size-9 place-items-center rounded-xl transition cursor-pointer ${
+                    activeTab === 'ai_text'
+                      ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] font-black shadow-md shadow-[#C99A47]/30'
+                      : 'text-slate-400 hover:text-white hover:bg-white/5'
+                  }`}
+                  title="Văn bản AI trích xuất"
+                  aria-label="Văn bản AI trích xuất"
                 >
-                  <Sparkles className="size-3.5" />
-                  <span>Văn bản AI trích xuất</span>
+                  <Sparkles className="size-4" />
                   {extractedText && (
-                    <span className="ml-0.5 size-1.5 rounded-full bg-emerald-400" />
+                    <span
+                      className={`absolute top-1.5 right-1.5 size-1.5 rounded-full ${
+                        activeTab === 'ai_text' ? 'bg-[#0D1B2A]' : 'bg-emerald-400'
+                      }`}
+                    />
                   )}
                 </button>
               </div>
@@ -3365,11 +3382,11 @@ function DocumentPreviewModal({ doc, onClose }) {
                 href={doc.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hidden sm:flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold text-slate-200 hover:bg-white/10 hover:text-white transition"
+                className="grid size-9 place-items-center rounded-xl text-slate-400 hover:text-[#E6C17A] hover:bg-white/5 transition"
                 title="Mở trong tab mới"
+                aria-label="Mở trong tab mới"
               >
-                <span>Mở tab mới</span>
-                <ExternalLink className="size-3.5" />
+                <ExternalLink className="size-4" />
               </a>
             )}
             {doc.url && (
@@ -3378,18 +3395,19 @@ function DocumentPreviewModal({ doc, onClose }) {
                 download={doc.name}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hidden sm:flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-bold text-slate-200 hover:bg-white/10 hover:text-white transition"
+                className="grid size-9 place-items-center rounded-xl text-slate-400 hover:text-[#E6C17A] hover:bg-white/5 transition"
                 title="Tải về máy"
+                aria-label="Tải về máy"
               >
-                <Download className="size-3.5" />
-                <span>Tải về</span>
+                <Download className="size-4" />
               </a>
             )}
             <button
               type="button"
               onClick={onClose}
-              className="grid size-9 place-items-center rounded-xl bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white transition"
+              className="grid size-9 place-items-center rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition cursor-pointer"
               title="Đóng (Esc)"
+              aria-label="Đóng"
             >
               <X className="size-5" />
             </button>
@@ -3432,15 +3450,8 @@ function DocumentPreviewModal({ doc, onClose }) {
                         className="w-full flex-1 border-0 bg-slate-950"
                         title={doc.name}
                       />
-                      <div className="flex items-center justify-between px-4 py-2 bg-slate-900 border-t border-white/10 text-xs text-slate-400">
+                      <div className="flex items-center px-4 py-2 bg-slate-900 border-t border-white/10 text-xs text-slate-400">
                         <span>Đang hiển thị qua Google Docs Viewer.</span>
-                        <button
-                          type="button"
-                          onClick={() => setActiveTab('ai_text')}
-                          className="text-indigo-400 hover:text-indigo-300 font-bold underline"
-                        >
-                          Bấm đây để xem toàn bộ văn bản AI trích xuất
-                        </button>
                       </div>
                     </div>
                   ) : (
