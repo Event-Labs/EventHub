@@ -79,7 +79,10 @@ class AiImageReviewService {
     logger.info(`[AiImageReview] Bắt đầu quét ảnh sự kiện: ${eventId} ("${eventData.title || ''}")`);
 
     const categoryName = await this._resolveEventCategory(eventData);
-    const imageSources = collectAllEventImages(eventData);
+    // CHỈ kiểm duyệt hình ảnh thực tế (Poster, Banner, ảnh mô tả), tách biệt tài liệu giấy phép
+    const imageSources = collectAllEventImages(eventData).filter(
+      (item) => !item.source || !item.source.startsWith('PERMIT')
+    );
 
     // Trường hợp 1: Sự kiện không có bất kỳ hình ảnh nào
     if (imageSources.length === 0) {
@@ -102,11 +105,18 @@ class AiImageReviewService {
       return cleanResult;
     }
 
-    // Trường hợp 2: Tải và chuyển hóa các ảnh sang Base64
+    // Trường hợp 2: Tải và chuyển hóa các ảnh sang Base64 (ưu tiên 2 ảnh quan trọng nhất: Poster & Banner)
     const validImages = [];
     const processedSources = [];
 
-    for (const sourceItem of imageSources) {
+    // Ưu tiên MAIN_POSTER và COVER_BANNER lên trước
+    const prioritizedSources = [...imageSources].sort((a, b) => {
+      const aScore = a.source === 'MAIN_POSTER' ? 2 : a.source === 'COVER_BANNER' ? 1 : 0;
+      const bScore = b.source === 'MAIN_POSTER' ? 2 : b.source === 'COVER_BANNER' ? 1 : 0;
+      return bScore - aScore;
+    }).slice(0, 2);
+
+    for (const sourceItem of prioritizedSources) {
       const b64 = await fetchImageAsBase64(sourceItem.url);
       if (b64) {
         validImages.push(b64);
@@ -156,6 +166,7 @@ class AiImageReviewService {
         fallbackModel: visionFallbackModel,
         temperature: 0.1,
         max_tokens: 1500,
+        num_ctx: Number(process.env.OLLAMA_NUM_CTX || 8192),
         images: validImages,
         timeoutMs: ollamaClient.OLLAMA_VISION_TIMEOUT,
       });
@@ -178,6 +189,7 @@ class AiImageReviewService {
             ...detail,
             source_index: detail?.source_index ?? idx + 1,
             source_name: detail?.source_name || processedSources[idx]?.source || `IMAGE_${idx + 1}`,
+            url: processedSources[idx]?.url || '',
             visual_description: String(detail?.visual_description || '').trim(),
             extracted_text: String(detail?.extracted_text || detail?.ocr_text || '').trim(),
             is_event_poster_or_relevant_banner: normalizedRel,

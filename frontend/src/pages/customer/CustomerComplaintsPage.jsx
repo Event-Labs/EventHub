@@ -467,28 +467,19 @@ export function CustomerComplaintsPage() {
           {/* Action Buttons (outside form card) */}
           <div className="flex flex-wrap items-center justify-end gap-3.5 pt-1">
             <button
-              type="button"
-              onClick={handleResetForm}
-              disabled={submitting}
-              className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 px-7 py-3 text-sm font-bold text-slate-300 hover:bg-white/10 hover:text-white active:scale-95 transition cursor-pointer"
-            >
-              {isEnglish ? 'Clear' : 'Làm mới'}
-            </button>
-
-            <button
               type="submit"
               form="complaint-form"
               disabled={submitting || !title.trim() || !description.trim()}
-              className="inline-flex items-center justify-center gap-2 rounded-full px-8 py-3 text-sm font-bold shadow-lg shadow-amber-500/20 hover:brightness-110 active:scale-95 transition disabled:opacity-50 cursor-pointer"
+              className="btn-gold-primary inline-flex items-center justify-center gap-2 rounded-full px-8 py-3.5 text-[15px] font-extrabold shadow-lg shadow-[#C99A47]/30 transition-all hover:brightness-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               style={{
                 background: 'linear-gradient(135deg, #C99A47, #E6C17A)',
-                color: '#081126',
+                color: '#0D1B2A',
               }}
             >
               {submitting && (
-                <Loader2 className="size-4 animate-spin text-[#081126]" />
+                <Loader2 className="size-4 animate-spin text-[#0D1B2A]" />
               )}
-              <span className="text-[#081126]">
+              <span className="font-extrabold text-[#0D1B2A]">
                 {submitting
                   ? isEnglish
                     ? 'Submitting...'
@@ -507,14 +498,14 @@ export function CustomerComplaintsPage() {
             {/* Header of Sidebar */}
             <div className="flex items-center justify-between pb-3.5 border-b border-white/10 mb-4">
               <div className="flex items-center gap-2.5">
-                <History className="size-4.5 text-amber-400" />
+                <History className="size-4.5 text-[#E6C17A]" />
                 <h3 className="font-bold text-base text-white">
                   {isEnglish ? 'Complaint History' : 'Lịch sử khiếu nại'}
                 </h3>
               </div>
               <span
-                className="rounded-full bg-white/10 border border-white/15 px-2.5 py-0.5 text-xs font-bold"
-                style={{ color: '#fcd34d' }}
+                className="rounded-full bg-[#C99A47]/15 border border-[#C99A47]/30 px-2.5 py-0.5 text-xs font-bold text-[#E6C17A]"
+                style={{ color: '#E6C17A' }}
               >
                 {complaints.length}
               </span>
@@ -523,7 +514,7 @@ export function CustomerComplaintsPage() {
             {/* Content of Sidebar */}
             {complaintsQuery.isLoading ? (
               <div className="py-8 text-center space-y-2">
-                <Loader2 className="size-5 animate-spin mx-auto text-amber-400" />
+                <Loader2 className="size-5 animate-spin mx-auto text-[#E6C17A]" />
                 <p className="text-xs text-slate-400">
                   {isEnglish ? 'Loading history...' : 'Đang tải lịch sử...'}
                 </p>
