@@ -49,10 +49,19 @@ const financialSummarySchema = z.object({
     }),
 });
 
+const checkinHistoryQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(10),
+  result: z.enum(['OK', 'ALL']).optional().default('OK'),
+  source: z.enum(['ALL', 'STAFF', 'IOT']).optional().default('ALL'),
+  gate_id: z.string().uuid().optional(),
+});
+
 module.exports = {
   listOrdersSchema,
   orderIdParamSchema,
   eventIdParamSchema,
   listAttendeesSchema,
   financialSummarySchema,
+  checkinHistoryQuerySchema,
 };

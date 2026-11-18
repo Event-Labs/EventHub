@@ -1,4 +1,5 @@
 const db = require('../../infrastructure/database/db.client');
+const { DEVICE_ONLINE_THRESHOLD_SEC } = require('../iot/iot.utils');
 
 // ---------------------------------------------------------------------------
 // Helpers – Invitation stored inside `notifications` table
@@ -55,6 +56,7 @@ function parseInvitation(row) {
     invited_user_name: row.invited_user_name || null,
     invited_email: meta.invited_email || null,
     staff_role: meta.staff_role || null,
+    gate_id: meta.gate_id || null,
     gate: meta.gate || null,
     zone: meta.zone || null,
     session_ids: sessionIds,
@@ -129,7 +131,9 @@ class OperationsRepository {
         e.start_time,
         e.end_time,
         COALESCE(staff_count_summary.staff_count, 0)::int AS staff_count,
-        COALESCE(session_summary.sessions, '[]'::json) AS sessions
+        COALESCE(session_summary.sessions, '[]'::json) AS sessions,
+        COALESCE(gate_summary.gates, '[]'::json) AS gates,
+        COALESCE(device_summary.devices, '[]'::json) AS devices
       FROM events e
       LEFT JOIN LATERAL (
         SELECT COUNT(DISTINCT es.staff_id)::int AS staff_count
@@ -150,14 +154,277 @@ class OperationsRepository {
         FROM event_sessions sess
         WHERE sess.event_id = e.id
       ) session_summary ON true
+      LEFT JOIN LATERAL (
+        SELECT json_agg(
+          json_build_object(
+            'id', eg.id,
+            'event_id', eg.event_id,
+            'name', eg.name,
+            'description', eg.description,
+            'sort_order', eg.sort_order,
+            'staff_count', (
+              SELECT COUNT(*)::int
+              FROM event_staffs es2
+              WHERE es2.event_id = eg.event_id
+                AND (es2.gate_id = eg.id OR (es2.gate_id IS NULL AND LOWER(TRIM(COALESCE(es2.gate, ''))) = LOWER(TRIM(eg.name))))
+            ),
+            'device_count', (
+              SELECT COUNT(*)::int
+              FROM checkin_devices cd2
+              WHERE cd2.assigned_event_id = eg.event_id
+                AND cd2.status IN ('ACTIVE', 'DISABLED')
+                AND (cd2.assigned_gate_id = eg.id OR (cd2.assigned_gate_id IS NULL AND LOWER(TRIM(COALESCE(cd2.assigned_gate, ''))) = LOWER(TRIM(eg.name))))
+            )
+          )
+          ORDER BY eg.sort_order ASC, eg.created_at ASC
+        ) AS gates
+        FROM event_gates eg
+        WHERE eg.event_id = e.id
+      ) gate_summary ON true
+      LEFT JOIN LATERAL (
+        SELECT json_agg(
+          json_build_object(
+            'id', d.id,
+            'name', d.name,
+            'mac_address', d.mac_address,
+            'hardware', d.hardware,
+            'status', d.status,
+            'assigned_event_id', d.assigned_event_id,
+            'assigned_gate_id', d.assigned_gate_id,
+            'assigned_gate', COALESCE(deg.name, d.assigned_gate),
+            'auto_confirm', d.auto_confirm,
+            'last_seen_at', d.last_seen_at,
+            'is_online', (d.status = 'ACTIVE' AND d.last_seen_at IS NOT NULL AND d.last_seen_at >= now() - ($2::int * interval '1 second'))
+          )
+          ORDER BY d.created_at ASC
+        ) AS devices
+        FROM checkin_devices d
+        LEFT JOIN event_gates deg ON deg.id = d.assigned_gate_id
+        WHERE d.assigned_event_id = e.id
+          AND d.status IN ('ACTIVE', 'DISABLED')
+      ) device_summary ON true
       WHERE e.organizer_id = $1
         AND e.deleted_at IS NULL
       ORDER BY e.start_time DESC
       LIMIT 200
       `,
-      [organizerId],
+      [organizerId, DEVICE_ONLINE_THRESHOLD_SEC],
     );
     return rows;
+  }
+
+  async listEventGates(eventId) {
+    const { rows } = await db.query(
+      `
+      SELECT
+        eg.id,
+        eg.event_id,
+        eg.name,
+        eg.description,
+        eg.sort_order,
+        eg.created_at,
+        eg.updated_at,
+        (
+          SELECT COUNT(*)::int
+          FROM event_staffs es
+          WHERE es.event_id = eg.event_id
+            AND (es.gate_id = eg.id OR (es.gate_id IS NULL AND LOWER(TRIM(COALESCE(es.gate, ''))) = LOWER(TRIM(eg.name))))
+        ) AS staff_count,
+        (
+          SELECT COUNT(*)::int
+          FROM checkin_devices cd
+          WHERE cd.assigned_event_id = eg.event_id
+            AND cd.status IN ('ACTIVE', 'DISABLED')
+            AND (cd.assigned_gate_id = eg.id OR (cd.assigned_gate_id IS NULL AND LOWER(TRIM(COALESCE(cd.assigned_gate, ''))) = LOWER(TRIM(eg.name))))
+        ) AS device_count
+      FROM event_gates eg
+      WHERE eg.event_id = $1
+      ORDER BY eg.sort_order ASC, eg.created_at ASC
+      `,
+      [eventId],
+    );
+    return rows;
+  }
+
+  async findEventGateById(eventId, gateId) {
+    const { rows } = await db.query(
+      `
+      SELECT id, event_id, name, description, sort_order, created_at, updated_at
+      FROM event_gates
+      WHERE event_id = $1 AND id = $2
+      LIMIT 1
+      `,
+      [eventId, gateId],
+    );
+    return rows[0] || null;
+  }
+
+  async findEventGateByName(eventId, name) {
+    const trimmed = String(name || '').trim();
+    if (!trimmed) return null;
+    const { rows } = await db.query(
+      `
+      SELECT id, event_id, name, description, sort_order, created_at, updated_at
+      FROM event_gates
+      WHERE event_id = $1 AND LOWER(TRIM(name)) = LOWER(TRIM($2))
+      LIMIT 1
+      `,
+      [eventId, trimmed],
+    );
+    return rows[0] || null;
+  }
+
+  async createEventGate(eventId, { name, description = null }) {
+    const { rows } = await db.query(
+      `
+      INSERT INTO event_gates (event_id, name, description, sort_order)
+      VALUES (
+        $1,
+        $2,
+        $3,
+        COALESCE((SELECT MAX(sort_order) + 1 FROM event_gates WHERE event_id = $1), 0)
+      )
+      RETURNING id, event_id, name, description, sort_order, created_at, updated_at
+      `,
+      [eventId, name.trim(), description ? description.trim() : null],
+    );
+    return { ...rows[0], staff_count: 0, device_count: 0 };
+  }
+
+  async updateEventGate(eventId, gateId, { name, description, sortOrder }) {
+    const client = await db.getClient();
+    try {
+      await client.query('BEGIN');
+
+      const existingRes = await client.query(
+        'SELECT id, event_id, name, description, sort_order FROM event_gates WHERE event_id = $1 AND id = $2 FOR UPDATE',
+        [eventId, gateId],
+      );
+      const existing = existingRes.rows[0];
+      if (!existing) {
+        await client.query('ROLLBACK');
+        return null;
+      }
+
+      const nextName = name !== undefined ? name.trim() : existing.name;
+      const nextDesc = description !== undefined ? (description ? description.trim() : null) : existing.description;
+      const nextSort = sortOrder !== undefined ? sortOrder : existing.sort_order;
+
+      const { rows } = await client.query(
+        `
+        UPDATE event_gates
+        SET name = $3,
+            description = $4,
+            sort_order = $5,
+            updated_at = NOW()
+        WHERE event_id = $1 AND id = $2
+        RETURNING id, event_id, name, description, sort_order, created_at, updated_at
+        `,
+        [eventId, gateId, nextName, nextDesc, nextSort],
+      );
+
+      if (nextName !== existing.name) {
+        await client.query(
+          `UPDATE event_staffs SET gate = $2 WHERE event_id = $1 AND gate_id = $3`,
+          [eventId, nextName, gateId],
+        );
+        await client.query(
+          `
+          UPDATE checkin_devices
+          SET assigned_gate = $2,
+              config_version = config_version + 1,
+              updated_at = NOW()
+          WHERE assigned_event_id = $1 AND assigned_gate_id = $3
+          `,
+          [eventId, nextName, gateId],
+        );
+      }
+
+      await client.query('COMMIT');
+      return rows[0];
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async deleteEventGate(eventId, gateId) {
+    const client = await db.getClient();
+    try {
+      await client.query('BEGIN');
+
+      await client.query(
+        `UPDATE event_staffs SET gate_id = NULL, gate = NULL WHERE event_id = $1 AND gate_id = $2`,
+        [eventId, gateId],
+      );
+
+      await client.query(
+        `
+        UPDATE checkin_devices
+        SET assigned_gate_id = NULL,
+            assigned_gate = NULL,
+            config_version = config_version + 1,
+            updated_at = NOW()
+        WHERE assigned_event_id = $1 AND assigned_gate_id = $2
+        `,
+        [eventId, gateId],
+      );
+
+      const { rowCount } = await client.query(
+        `DELETE FROM event_gates WHERE event_id = $1 AND id = $2`,
+        [eventId, gateId],
+      );
+
+      await client.query('COMMIT');
+      return rowCount > 0;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async findEventDevice(eventId, deviceId) {
+    const { rows } = await db.query(
+      `
+      SELECT
+        d.id,
+        d.name,
+        d.mac_address,
+        d.status,
+        d.assigned_event_id,
+        d.assigned_gate_id,
+        COALESCE(eg.name, d.assigned_gate) AS assigned_gate,
+        d.auto_confirm,
+        d.config_version,
+        d.last_seen_at
+      FROM checkin_devices d
+      LEFT JOIN event_gates eg ON eg.id = d.assigned_gate_id
+      WHERE d.id = $1 AND d.assigned_event_id = $2
+      LIMIT 1
+      `,
+      [deviceId, eventId],
+    );
+    return rows[0] || null;
+  }
+
+  async updateEventDeviceGate(eventId, deviceId, { gateId, gateName }) {
+    const { rows } = await db.query(
+      `
+      UPDATE checkin_devices
+      SET assigned_gate_id = $3,
+          assigned_gate = $4,
+          config_version = config_version + 1,
+          updated_at = NOW()
+      WHERE id = $1 AND assigned_event_id = $2
+      RETURNING id, name, mac_address, status, assigned_event_id, assigned_gate_id, assigned_gate, auto_confirm, config_version, last_seen_at
+      `,
+      [deviceId, eventId, gateId || null, gateName || null],
+    );
+    return rows[0] || null;
   }
 
   async findEventSessions(eventId, sessionIds = null) {
@@ -327,7 +594,23 @@ class OperationsRepository {
 
   async findEventStaffAssignment(eventId, staffId) {
     const { rows } = await db.query(
-      'SELECT id, event_id, staff_id, staff_role, gate, zone, session_ids, assigned_by, assigned_at FROM event_staffs WHERE event_id = $1 AND staff_id = $2 LIMIT 1',
+      `
+      SELECT
+        es.id,
+        es.event_id,
+        es.staff_id,
+        es.staff_role,
+        es.gate_id,
+        COALESCE(eg.name, es.gate) AS gate,
+        es.zone,
+        es.session_ids,
+        es.assigned_by,
+        es.assigned_at
+      FROM event_staffs es
+      LEFT JOIN event_gates eg ON eg.id = es.gate_id
+      WHERE es.event_id = $1 AND es.staff_id = $2
+      LIMIT 1
+      `,
       [eventId, staffId],
     );
     return rows[0];
@@ -422,33 +705,41 @@ class OperationsRepository {
     return rows.map(r => r.event_id);
   }
 
-  async assignStaff({ eventId, staffId, staffRole, gate, zone, sessionIds, assignedBy }) {
+  async assignStaff({ eventId, staffId, staffRole, gateId, gate, zone, sessionIds, assignedBy }) {
     const formattedSessionIds = sessionIds && sessionIds.length > 0 ? JSON.stringify(sessionIds) : null;
     const { rows } = await db.query(
       `
-      INSERT INTO event_staffs (event_id, staff_id, staff_role, gate, zone, session_ids, assigned_by)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      INSERT INTO event_staffs (event_id, staff_id, staff_role, gate_id, gate, zone, session_ids, assigned_by)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       ON CONFLICT (event_id, staff_id)
       DO UPDATE SET
         staff_role  = EXCLUDED.staff_role,
+        gate_id     = EXCLUDED.gate_id,
         gate        = EXCLUDED.gate,
         zone        = EXCLUDED.zone,
         session_ids = EXCLUDED.session_ids,
         assigned_by = EXCLUDED.assigned_by,
         assigned_at = now()
-      RETURNING id, event_id, staff_id, staff_role, gate, zone, session_ids, assigned_by, assigned_at
+      RETURNING id, event_id, staff_id, staff_role, gate_id, gate, zone, session_ids, assigned_by, assigned_at
       `,
-      [eventId, staffId, staffRole || null, gate || null, zone || null, formattedSessionIds, assignedBy],
+      [eventId, staffId, staffRole || null, gateId || null, gate || null, zone || null, formattedSessionIds, assignedBy],
     );
     return rows[0];
   }
 
-  async updateStaffAssignment(eventId, staffId, { staffRole, gate, zone, sessionIds }) {
+  async updateStaffAssignment(eventId, staffId, { staffRole, gateId, gate, zone, sessionIds }) {
     const formattedSessionIds = sessionIds !== undefined
       ? (sessionIds && sessionIds.length > 0 ? JSON.stringify(sessionIds) : null)
       : undefined;
 
-    const params = [eventId, staffId, staffRole, gate !== undefined ? gate : null, zone !== undefined ? zone : null];
+    const params = [
+      eventId,
+      staffId,
+      staffRole,
+      gateId !== undefined ? gateId : null,
+      gate !== undefined ? gate : null,
+      zone !== undefined ? zone : null,
+    ];
     let sessionUpdate = '';
     if (formattedSessionIds !== undefined) {
       params.push(formattedSessionIds);
@@ -460,11 +751,12 @@ class OperationsRepository {
       UPDATE event_staffs
       SET
         staff_role = COALESCE($3, staff_role),
-        gate = $4,
-        zone = $5
+        gate_id = $4,
+        gate = $5,
+        zone = $6
         ${sessionUpdate}
       WHERE event_id = $1 AND staff_id = $2
-      RETURNING id, event_id, staff_id, staff_role, gate, zone, session_ids, assigned_by, assigned_at
+      RETURNING id, event_id, staff_id, staff_role, gate_id, gate, zone, session_ids, assigned_by, assigned_at
       `,
       params,
     );
@@ -475,13 +767,14 @@ class OperationsRepository {
    * Creates a staff invitation as a notification row.
    * Returns a normalised invitation object.
    */
-  async createStaffInvitation({ eventId, organizerId, invitedUserId, email, staffRole, gate, zone, sessionIds, sessionName, invitedBy }) {
+  async createStaffInvitation({ eventId, organizerId, invitedUserId, email, staffRole, gateId, gate, zone, sessionIds, sessionName, invitedBy }) {
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
     const meta = JSON.stringify({
       status: 'PENDING',
       organizer_id: organizerId,
       invited_email: email.toLowerCase(),
       staff_role: staffRole || null,
+      gate_id: gateId || null,
       gate: gate || null,
       zone: zone || null,
       session_ids: sessionIds && sessionIds.length > 0 ? sessionIds : null,
@@ -615,7 +908,7 @@ class OperationsRepository {
    *   3. Insert into event_staffs (with staff_role, gate, and zone)
    * All in one transaction.
    */
-  async acceptInvitation({ invitationId, userId, staffRole, gate, zone, acceptedBy }) {
+  async acceptInvitation({ invitationId, userId, staffRole, gateId, gate, zone, acceptedBy }) {
     const client = await db.getClient();
     try {
       await client.query('BEGIN');
@@ -655,25 +948,51 @@ class OperationsRepository {
         [userId],
       );
 
+      // Resolve gate if still present in event_gates
+      let resolvedGateId = gateId || meta.gate_id || null;
+      let resolvedGateName = gate || meta.gate || null;
+      if (resolvedGateId) {
+        const gateCheck = await client.query(
+          `SELECT id, name FROM event_gates WHERE id = $1 AND event_id = $2 LIMIT 1`,
+          [resolvedGateId, notif.event_id],
+        );
+        if (gateCheck.rows[0]) {
+          resolvedGateId = gateCheck.rows[0].id;
+          resolvedGateName = gateCheck.rows[0].name;
+        } else {
+          resolvedGateId = null;
+        }
+      } else if (resolvedGateName) {
+        const gateCheck = await client.query(
+          `SELECT id, name FROM event_gates WHERE event_id = $1 AND LOWER(TRIM(name)) = LOWER(TRIM($2)) LIMIT 1`,
+          [notif.event_id, resolvedGateName],
+        );
+        if (gateCheck.rows[0]) {
+          resolvedGateId = gateCheck.rows[0].id;
+          resolvedGateName = gateCheck.rows[0].name;
+        }
+      }
+
       // Assign to event
       const sessionIds = meta.session_ids || (meta.session_id ? [meta.session_id] : null);
       const formattedSessionIds = sessionIds && sessionIds.length > 0 ? JSON.stringify(sessionIds) : null;
 
       const assignmentResult = await client.query(
         `
-        INSERT INTO event_staffs (event_id, staff_id, staff_role, gate, zone, session_ids, assigned_by)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        INSERT INTO event_staffs (event_id, staff_id, staff_role, gate_id, gate, zone, session_ids, assigned_by)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         ON CONFLICT (event_id, staff_id)
         DO UPDATE SET
           staff_role  = EXCLUDED.staff_role,
+          gate_id     = EXCLUDED.gate_id,
           gate        = EXCLUDED.gate,
           zone        = EXCLUDED.zone,
           session_ids = EXCLUDED.session_ids,
           assigned_by = EXCLUDED.assigned_by,
           assigned_at = now()
-        RETURNING id, event_id, staff_id, staff_role, gate, zone, session_ids, assigned_by, assigned_at
+        RETURNING id, event_id, staff_id, staff_role, gate_id, gate, zone, session_ids, assigned_by, assigned_at
         `,
-        [notif.event_id, userId, staffRole || meta.staff_role || null, gate || meta.gate || null, zone || meta.zone || null, formattedSessionIds, acceptedBy],
+        [notif.event_id, userId, staffRole || meta.staff_role || null, resolvedGateId, resolvedGateName, zone || meta.zone || null, formattedSessionIds, acceptedBy],
       );
 
       await client.query('COMMIT');
@@ -761,7 +1080,8 @@ class OperationsRepository {
         u.email        AS staff_email,
         u.phone        AS staff_phone,
         es.staff_role,
-        es.gate,
+        es.gate_id,
+        COALESCE(eg.name, es.gate) AS gate,
         es.zone,
         es.session_ids,
         COALESCE(staff_sessions.sessions, '[]'::json) AS assigned_sessions,
@@ -770,6 +1090,7 @@ class OperationsRepository {
       FROM event_staffs es
       JOIN events e   ON e.id = es.event_id
       JOIN users  u   ON u.id = es.staff_id
+      LEFT JOIN event_gates eg ON eg.id = es.gate_id
       LEFT JOIN users assigner ON assigner.id = es.assigned_by
       LEFT JOIN LATERAL (
         SELECT json_agg(
@@ -809,7 +1130,8 @@ class OperationsRepository {
         e.start_time,
         e.end_time,
         es.staff_role,
-        es.gate,
+        es.gate_id,
+        COALESCE(eg.name, es.gate) AS gate,
         es.zone,
         es.session_ids,
         es.assigned_at,
@@ -823,6 +1145,7 @@ class OperationsRepository {
         COALESCE(checkin_summary.total_valid, 0)::int AS total_valid
       FROM event_staffs es
       JOIN events e ON e.id = es.event_id
+      LEFT JOIN event_gates eg ON eg.id = es.gate_id
       LEFT JOIN LATERAL (
         SELECT MIN(COALESCE(sess.checkin_start_time, sess.start_time)) AS checkin_start_time
         FROM event_sessions sess
@@ -886,7 +1209,8 @@ class OperationsRepository {
         e.start_time,
         e.end_time,
         es.staff_role,
-        es.gate,
+        es.gate_id,
+        COALESCE(eg.name, es.gate) AS gate,
         es.zone,
         es.session_ids,
         es.assigned_at,
@@ -899,6 +1223,7 @@ class OperationsRepository {
         COALESCE(session_summary.sessions, '[]'::json) AS sessions
       FROM event_staffs es
       JOIN events e ON e.id = es.event_id
+      LEFT JOIN event_gates eg ON eg.id = es.gate_id
       LEFT JOIN LATERAL (
         SELECT v.name AS venue_name, v.address_line, v.ward, v.district, v.city
         FROM event_sessions sess
@@ -1005,6 +1330,8 @@ class OperationsRepository {
           COALESCE(t.checkin_method, 'MANUAL') AS method,
           t.checked_in_at,
           COALESCE(checker.full_name, dev.name, dev.mac_address) AS checked_in_by_name,
+          CASE WHEN t.checked_in_device_id IS NOT NULL THEN 'IOT' ELSE 'STAFF' END AS checkin_source,
+          COALESCE(checked_gate.name, t.checked_in_gate, dev_gate.name, dev.assigned_gate, checker_gate.name, checker_es.gate) AS checked_in_gate,
           e.id AS event_id,
           e.title AS event_title
         FROM tickets t
@@ -1012,11 +1339,15 @@ class OperationsRepository {
         JOIN orders o ON o.id = oi.order_id
         JOIN ticket_types tt ON tt.id = t.ticket_type_id
         LEFT JOIN users checker ON checker.id = t.checked_in_by
+        LEFT JOIN event_staffs checker_es ON checker_es.event_id = t.event_id AND checker_es.staff_id = t.checked_in_by
+        LEFT JOIN event_gates checker_gate ON checker_gate.id = checker_es.gate_id
         LEFT JOIN checkin_devices dev ON dev.id = t.checked_in_device_id
+        LEFT JOIN event_gates dev_gate ON dev_gate.id = dev.assigned_gate_id
+        LEFT JOIN event_gates checked_gate ON checked_gate.id = t.checked_in_gate_id
         ${scope}
           AND t.status = 'USED'
         ORDER BY t.checked_in_at DESC NULLS LAST
-        LIMIT 10
+        LIMIT 20
         `,
         params,
       ),
@@ -1044,11 +1375,13 @@ class OperationsRepository {
               u.email,
               u.avatar_url,
               es.staff_role,
-              es.gate,
+              es.gate_id,
+              COALESCE(eg.name, es.gate) AS gate,
               es.zone,
               es.assigned_at
             FROM event_staffs es
             JOIN users u ON u.id = es.staff_id
+            LEFT JOIN event_gates eg ON eg.id = es.gate_id
             WHERE es.event_id = $1
             ORDER BY es.assigned_at ASC
             `,
@@ -1066,13 +1399,292 @@ class OperationsRepository {
     };
   }
 
+  async getStaffGateCheckInHistory(
+    staffId,
+    { eventId = null, page = 1, limit = 10, result = 'OK', source = 'ALL' } = {},
+  ) {
+    const safePage = Math.max(1, Number(page) || 1);
+    const safeLimit = Math.max(1, Math.min(100, Number(limit) || 10));
+    const offset = (safePage - 1) * safeLimit;
+    const includeAllScans = String(result || 'OK').toUpperCase() === 'ALL';
+    const normalizedSource = ['STAFF', 'IOT'].includes(String(source || 'ALL').toUpperCase())
+      ? String(source).toUpperCase()
+      : 'ALL';
+
+    const assignmentsRes = await db.query(
+      `
+      SELECT
+        es.event_id,
+        e.title AS event_title,
+        es.staff_role,
+        es.gate_id,
+        COALESCE(eg.name, es.gate) AS gate,
+        es.zone,
+        COALESCE(dev_summary.shared_devices, '[]'::json) AS shared_devices
+      FROM event_staffs es
+      JOIN events e ON e.id = es.event_id
+      LEFT JOIN event_gates eg ON eg.id = es.gate_id
+      LEFT JOIN LATERAL (
+        SELECT json_agg(
+          json_build_object(
+            'id', d.id,
+            'name', COALESCE(d.name, d.mac_address),
+            'mac_address', d.mac_address,
+            'status', d.status,
+            'assigned_gate_id', d.assigned_gate_id,
+            'assigned_gate', COALESCE(deg.name, d.assigned_gate),
+            'is_online', (d.status = 'ACTIVE' AND d.last_seen_at IS NOT NULL AND d.last_seen_at >= now() - ($3::int * interval '1 second'))
+          )
+          ORDER BY d.created_at ASC
+        ) AS shared_devices
+        FROM checkin_devices d
+        LEFT JOIN event_gates deg ON deg.id = d.assigned_gate_id
+        WHERE d.assigned_event_id = es.event_id
+          AND d.status IN ('ACTIVE', 'DISABLED')
+          AND (
+            (es.gate_id IS NULL AND NULLIF(TRIM(COALESCE(es.gate, '')), '') IS NULL)
+            OR (es.gate_id IS NOT NULL AND d.assigned_gate_id = es.gate_id)
+            OR (
+              NULLIF(TRIM(COALESCE(eg.name, es.gate, '')), '') IS NOT NULL
+              AND LOWER(TRIM(COALESCE(deg.name, d.assigned_gate, ''))) = LOWER(TRIM(COALESCE(eg.name, es.gate, '')))
+            )
+          )
+      ) dev_summary ON true
+      WHERE es.staff_id = $1
+        AND e.deleted_at IS NULL
+        AND (
+          e.status = 'PUBLISHED'
+          OR (e.status = 'COMPLETED' AND e.approval_status = 'APPROVED')
+        )
+        AND COALESCE(e.end_time, e.start_time) >= now()
+        AND ($2::uuid IS NULL OR e.id = $2::uuid)
+      ORDER BY e.start_time ASC
+      `,
+      [staffId, eventId || null, DEVICE_ONLINE_THRESHOLD_SEC],
+    );
+
+    const assignments = assignmentsRes.rows;
+    if (assignments.length === 0) {
+      return {
+        assignments: [],
+        items: [],
+        counts: { all: 0, staff: 0, iot: 0 },
+        pagination: {
+          page: safePage,
+          limit: safeLimit,
+          total: 0,
+          total_pages: 1,
+          has_more: false,
+        },
+      };
+    }
+
+    const combinedCte = `
+      WITH my_scope AS (
+        SELECT
+          es.event_id,
+          es.gate_id,
+          NULLIF(TRIM(COALESCE(eg.name, es.gate, '')), '') AS gate_name
+        FROM event_staffs es
+        JOIN events e ON e.id = es.event_id
+        LEFT JOIN event_gates eg ON eg.id = es.gate_id
+        WHERE es.staff_id = $1
+          AND e.deleted_at IS NULL
+          AND (
+            e.status = 'PUBLISHED'
+            OR (e.status = 'COMPLETED' AND e.approval_status = 'APPROVED')
+          )
+          AND COALESCE(e.end_time, e.start_time) >= now()
+          AND ($2::uuid IS NULL OR e.id = $2::uuid)
+      ),
+      ticket_history AS (
+        SELECT
+          t.id,
+          t.id AS ticket_id,
+          t.ticket_code,
+          COALESCE(t.attendee_name, o.buyer_name, 'Không rõ') AS attendee_name,
+          COALESCE(t.attendee_email, o.buyer_email) AS attendee_email,
+          tt.name AS ticket_type_name,
+          CASE
+            WHEN s.row_label IS NOT NULL OR s.seat_number IS NOT NULL
+              THEN CONCAT(COALESCE(s.row_label, ''), COALESCE(s.seat_number::text, ''))
+            ELSE NULL
+          END AS seat_label,
+          e.id AS event_id,
+          e.title AS event_title,
+          COALESCE(t.checkin_method, 'MANUAL') AS method,
+          CASE WHEN t.checked_in_device_id IS NOT NULL THEN 'IOT' ELSE 'STAFF' END AS source,
+          COALESCE(t.checked_in_device_id, t.checked_in_by) AS actor_id,
+          COALESCE(dev.name, dev.mac_address, checker.full_name, checker.email, 'Không rõ') AS actor_name,
+          (t.checked_in_by = $1 AND t.checked_in_device_id IS NULL) AS is_self,
+          COALESCE(t.checked_in_gate_id, dev.assigned_gate_id, checker_es.gate_id) AS gate_id,
+          COALESCE(t_gate.name, t.checked_in_gate, dev_gate.name, dev.assigned_gate, checker_gate.name, checker_es.gate) AS gate_name,
+          'OK'::varchar AS result,
+          NULL::varchar AS result_message,
+          t.checked_in_at
+        FROM tickets t
+        JOIN my_scope ms ON ms.event_id = t.event_id
+        JOIN events e ON e.id = t.event_id
+        JOIN order_items oi ON oi.id = t.order_item_id
+        JOIN orders o ON o.id = oi.order_id
+        JOIN ticket_types tt ON tt.id = t.ticket_type_id
+        LEFT JOIN session_seats ss ON ss.id = COALESCE(t.session_seat_id, oi.session_seat_id)
+        LEFT JOIN seats s ON s.id = ss.seat_id
+        LEFT JOIN users checker ON checker.id = t.checked_in_by
+        LEFT JOIN event_staffs checker_es ON checker_es.event_id = t.event_id AND checker_es.staff_id = t.checked_in_by
+        LEFT JOIN event_gates checker_gate ON checker_gate.id = checker_es.gate_id
+        LEFT JOIN checkin_devices dev ON dev.id = t.checked_in_device_id
+        LEFT JOIN event_gates dev_gate ON dev_gate.id = dev.assigned_gate_id
+        LEFT JOIN event_gates t_gate ON t_gate.id = t.checked_in_gate_id
+        WHERE t.status = 'USED'
+          AND (
+            (ms.gate_id IS NULL AND ms.gate_name IS NULL)
+            OR (
+              ms.gate_id IS NOT NULL
+              AND COALESCE(t.checked_in_gate_id, dev.assigned_gate_id, checker_es.gate_id) = ms.gate_id
+            )
+            OR (
+              ms.gate_name IS NOT NULL
+              AND LOWER(TRIM(COALESCE(t_gate.name, t.checked_in_gate, dev_gate.name, dev.assigned_gate, checker_gate.name, checker_es.gate, ''))) = LOWER(TRIM(ms.gate_name))
+            )
+          )
+      ),
+      scan_logs AS (
+        SELECT
+          l.id,
+          l.ticket_id,
+          COALESCE(l.ticket_code, t.ticket_code, l.qr_code_raw) AS ticket_code,
+          COALESCE(l.attendee_name, t.attendee_name, o.buyer_name, 'Không rõ') AS attendee_name,
+          COALESCE(t.attendee_email, o.buyer_email) AS attendee_email,
+          tt.name AS ticket_type_name,
+          CASE
+            WHEN s.row_label IS NOT NULL OR s.seat_number IS NOT NULL
+              THEN CONCAT(COALESCE(s.row_label, ''), COALESCE(s.seat_number::text, ''))
+            ELSE NULL
+          END AS seat_label,
+          e.id AS event_id,
+          e.title AS event_title,
+          CASE
+            WHEN l.device_id IS NOT NULL THEN 'ESP32_QR'::varchar
+            WHEN UPPER(COALESCE(l.action, '')) = 'MANUAL' THEN 'MANUAL'::varchar
+            ELSE 'QR'::varchar
+          END AS method,
+          CASE
+            WHEN l.source = 'STAFF' OR (l.device_id IS NULL AND l.staff_id IS NOT NULL) THEN 'STAFF'::text
+            ELSE 'IOT'::text
+          END AS source,
+          COALESCE(l.device_id, l.staff_id) AS actor_id,
+          CASE
+            WHEN l.source = 'STAFF' OR (l.device_id IS NULL AND l.staff_id IS NOT NULL)
+              THEN COALESCE(staff_u.full_name, staff_u.email, 'Nhân viên')
+            ELSE COALESCE(dev.name, dev.mac_address, 'Thiết bị IoT')
+          END AS actor_name,
+          (l.staff_id = $1 AND l.device_id IS NULL) AS is_self,
+          COALESCE(l.gate_id, dev.assigned_gate_id, log_es.gate_id) AS gate_id,
+          COALESCE(l_gate.name, l.gate_name, dev_gate.name, dev.assigned_gate, log_es_gate.name, log_es.gate) AS gate_name,
+          l.result::varchar AS result,
+          l.message::varchar AS result_message,
+          l.scanned_at AS checked_in_at
+        FROM checkin_device_logs l
+        LEFT JOIN checkin_devices dev ON dev.id = l.device_id
+        LEFT JOIN users staff_u ON staff_u.id = l.staff_id
+        JOIN my_scope ms ON ms.event_id = COALESCE(l.event_id, dev.assigned_event_id)
+        LEFT JOIN events e ON e.id = COALESCE(l.event_id, dev.assigned_event_id)
+        LEFT JOIN event_staffs log_es ON log_es.event_id = COALESCE(l.event_id, dev.assigned_event_id) AND log_es.staff_id = l.staff_id
+        LEFT JOIN event_gates log_es_gate ON log_es_gate.id = log_es.gate_id
+        LEFT JOIN event_gates dev_gate ON dev_gate.id = dev.assigned_gate_id
+        LEFT JOIN event_gates l_gate ON l_gate.id = l.gate_id
+        LEFT JOIN tickets t ON t.id = l.ticket_id
+        LEFT JOIN ticket_types tt ON tt.id = t.ticket_type_id
+        LEFT JOIN order_items oi ON oi.id = t.order_item_id
+        LEFT JOIN orders o ON o.id = oi.order_id
+        LEFT JOIN session_seats ss ON ss.id = COALESCE(t.session_seat_id, oi.session_seat_id)
+        LEFT JOIN seats s ON s.id = ss.seat_id
+        WHERE (${includeAllScans ? 'true' : "l.result = 'OK'"})
+          AND (
+            (ms.gate_id IS NULL AND ms.gate_name IS NULL)
+            OR (
+              ms.gate_id IS NOT NULL
+              AND COALESCE(l.gate_id, dev.assigned_gate_id, log_es.gate_id) = ms.gate_id
+            )
+            OR (
+              ms.gate_name IS NOT NULL
+              AND LOWER(TRIM(COALESCE(l_gate.name, l.gate_name, dev_gate.name, dev.assigned_gate, log_es_gate.name, log_es.gate, ''))) = LOWER(TRIM(ms.gate_name))
+            )
+          )
+          AND (
+            ${includeAllScans ? "l.result <> 'OK' OR " : ''}NOT EXISTS (
+              SELECT 1
+              FROM ticket_history th
+              WHERE (l.ticket_id IS NOT NULL AND th.ticket_id = l.ticket_id)
+                 OR (l.ticket_id IS NULL AND l.ticket_code IS NOT NULL AND th.ticket_code = l.ticket_code)
+            )
+          )
+      ),
+      combined AS (
+        SELECT * FROM ticket_history
+        UNION ALL
+        SELECT * FROM scan_logs
+      )
+    `;
+
+    const [countsRes, historyRes] = await Promise.all([
+      db.query(
+        `
+        ${combinedCte}
+        SELECT
+          COUNT(*)::int AS all_count,
+          COUNT(*) FILTER (WHERE combined.source <> 'IOT')::int AS staff_count,
+          COUNT(*) FILTER (WHERE combined.source = 'IOT')::int AS iot_count
+        FROM combined
+        `,
+        [staffId, eventId || null],
+      ),
+      db.query(
+        `
+        ${combinedCte}
+        SELECT *
+        FROM combined
+        WHERE ($3::text = 'ALL' OR combined.source = $3::text)
+        ORDER BY combined.checked_in_at DESC NULLS LAST
+        LIMIT $4 OFFSET $5
+        `,
+        [staffId, eventId || null, normalizedSource, safeLimit, offset],
+      ),
+    ]);
+
+    const countsRow = countsRes.rows[0] || { all_count: 0, staff_count: 0, iot_count: 0 };
+    const total = normalizedSource === 'STAFF'
+      ? countsRow.staff_count
+      : (normalizedSource === 'IOT' ? countsRow.iot_count : countsRow.all_count);
+    const totalPages = Math.max(1, Math.ceil(total / safeLimit));
+
+    return {
+      assignments,
+      items: historyRes.rows,
+      counts: {
+        all: countsRow.all_count,
+        staff: countsRow.staff_count,
+        iot: countsRow.iot_count,
+      },
+      pagination: {
+        page: safePage,
+        limit: safeLimit,
+        total,
+        total_pages: totalPages,
+        has_more: safePage * safeLimit < total,
+      },
+    };
+  }
+
   async getStaffOverview(staffId) {
     const { rows } = await db.query(
       `
       WITH assigned_events AS (
-        SELECT e.id, e.title, e.slug, e.thumbnail_url, e.banner_url, e.status, e.start_time, e.end_time, es.staff_role, es.gate, es.zone
+        SELECT e.id, e.title, e.slug, e.thumbnail_url, e.banner_url, e.status, e.start_time, e.end_time, es.staff_role, es.gate_id, COALESCE(eg.name, es.gate) AS gate, es.zone
         FROM event_staffs es
         JOIN events e ON e.id = es.event_id
+        LEFT JOIN event_gates eg ON eg.id = es.gate_id
         WHERE es.staff_id = $1
           AND e.deleted_at IS NULL
           AND (

@@ -8,6 +8,15 @@ const mockOperationsRepository = {
   updateStaffAssignment: jest.fn(),
   findEventSessions: jest.fn(),
   findStaffScheduleConflict: jest.fn(),
+  listEventGates: jest.fn(),
+  findEventGateById: jest.fn(),
+  findEventGateByName: jest.fn(),
+  createEventGate: jest.fn(),
+  updateEventGate: jest.fn(),
+  deleteEventGate: jest.fn(),
+  findEventDevice: jest.fn(),
+  updateEventDeviceGate: jest.fn(),
+  getStaffGateCheckInHistory: jest.fn(),
 };
 
 jest.mock('./operations.repository', () => mockOperationsRepository);
@@ -224,6 +233,127 @@ describe('operationsService', () => {
 
       await expect(operationsService.deleteStaffInvitation('owner-1', 'invalid-id')).rejects.toMatchObject({
         statusCode: 404,
+      });
+    });
+  });
+
+  describe('event gates & shared IoT/staff gate assignment', () => {
+    it('creates a new gate for an organizer event and rejects duplicate names', async () => {
+      const organizer = { id: 'organizer-1', user_id: 'owner-1' };
+      const event = { id: 'event-1', title: 'Event' };
+      jest.spyOn(operationsService, 'getOrganizerContext').mockResolvedValue(organizer);
+      jest.spyOn(operationsService, 'resolveOrganizerEvent').mockResolvedValue(event);
+      jest.spyOn(operationsService, 'assertEventStaffManageable').mockImplementation();
+
+      mockOperationsRepository.findEventGateByName.mockResolvedValueOnce(null);
+      mockOperationsRepository.createEventGate.mockResolvedValueOnce({
+        id: 'gate-1',
+        event_id: 'event-1',
+        name: 'Cổng A',
+        staff_count: 0,
+        device_count: 0,
+      });
+
+      const created = await operationsService.createEventGate('owner-1', 'event-1', { name: 'Cổng A' });
+      expect(created).toMatchObject({ id: 'gate-1', name: 'Cổng A' });
+
+      mockOperationsRepository.findEventGateByName.mockResolvedValueOnce({ id: 'gate-1', name: 'Cổng A' });
+      await expect(
+        operationsService.createEventGate('owner-1', 'event-1', { name: 'cổng a' }),
+      ).rejects.toMatchObject({ statusCode: 409 });
+    });
+
+    it('resolves gate_id from DB when updating staff assignment and rejects invalid gate_id', async () => {
+      const organizer = { id: 'organizer-1', user_id: 'owner-1' };
+      const event = { id: 'event-1', title: 'Event' };
+      const existing = { id: 'assign-1', event_id: 'event-1', staff_id: 'staff-1', staff_role: 'Check-in', gate: null, gate_id: null, zone: null };
+
+      jest.spyOn(operationsService, 'getOrganizerContext').mockResolvedValue(organizer);
+      jest.spyOn(operationsService, 'resolveOrganizerEvent').mockResolvedValue(event);
+      jest.spyOn(operationsService, 'assertEventStaffManageable').mockImplementation();
+      mockOperationsRepository.findEventStaffAssignment.mockResolvedValue(existing);
+      mockOperationsRepository.findEventGateById.mockResolvedValueOnce({ id: 'gate-1', event_id: 'event-1', name: 'Cổng VIP' });
+      mockOperationsRepository.updateStaffAssignment.mockResolvedValueOnce({
+        ...existing,
+        gate_id: 'gate-1',
+        gate: 'Cổng VIP',
+      });
+
+      const updated = await operationsService.updateStaffAssignment('owner-1', {
+        eventId: 'event-1',
+        staffId: 'staff-1',
+        gateId: 'gate-1',
+      });
+
+      expect(updated.gate_id).toBe('gate-1');
+      expect(mockOperationsRepository.updateStaffAssignment).toHaveBeenCalledWith('event-1', 'staff-1', expect.objectContaining({
+        gateId: 'gate-1',
+        gate: 'Cổng VIP',
+      }));
+
+      mockOperationsRepository.findEventGateById.mockResolvedValueOnce(null);
+      await expect(
+        operationsService.updateStaffAssignment('owner-1', {
+          eventId: 'event-1',
+          staffId: 'staff-1',
+          gateId: 'wrong-gate',
+        }),
+      ).rejects.toMatchObject({ statusCode: 400 });
+    });
+
+    it('assigns an event DB gate to an IoT device via updateOrganizerEventDeviceGate', async () => {
+      const organizer = { id: 'organizer-1', user_id: 'owner-1' };
+      const event = { id: 'event-1', title: 'Event' };
+      jest.spyOn(operationsService, 'getOrganizerContext').mockResolvedValue(organizer);
+      jest.spyOn(operationsService, 'resolveOrganizerEvent').mockResolvedValue(event);
+      jest.spyOn(operationsService, 'assertEventStaffManageable').mockImplementation();
+
+      mockOperationsRepository.findEventDevice.mockResolvedValue({
+        id: 'dev-1',
+        assigned_event_id: 'event-1',
+        status: 'ACTIVE',
+      });
+      mockOperationsRepository.findEventGateById.mockResolvedValue({
+        id: 'gate-1',
+        event_id: 'event-1',
+        name: 'Cổng A',
+      });
+      mockOperationsRepository.updateEventDeviceGate.mockResolvedValue({
+        id: 'dev-1',
+        assigned_gate_id: 'gate-1',
+        assigned_gate: 'Cổng A',
+      });
+
+      const res = await operationsService.updateOrganizerEventDeviceGate('owner-1', 'event-1', 'dev-1', 'gate-1');
+      expect(res).toMatchObject({ assigned_gate_id: 'gate-1', assigned_gate: 'Cổng A' });
+      expect(mockOperationsRepository.updateEventDeviceGate).toHaveBeenCalledWith('event-1', 'dev-1', {
+        gateId: 'gate-1',
+        gateName: 'Cổng A',
+      });
+    });
+
+    it('returns shared staff + IoT gate check-in history', async () => {
+      const mockHistory = {
+        assignments: [{ event_id: 'event-1', gate_id: 'gate-1', gate: 'Cổng A', shared_devices: [{ id: 'dev-1', name: 'ESP32 Cổng A' }] }],
+        items: [
+          { id: 't-1', source: 'IOT', actor_name: 'ESP32 Cổng A', gate_name: 'Cổng A' },
+          { id: 't-2', source: 'STAFF', actor_name: 'Staff A', gate_name: 'Cổng A' },
+        ],
+      };
+      mockOperationsRepository.getStaffGateCheckInHistory.mockResolvedValue(mockHistory);
+
+      const res = await operationsService.getStaffGateCheckInHistory('staff-1', { limit: 25 });
+      expect(res).toEqual(mockHistory);
+      expect(mockOperationsRepository.getStaffGateCheckInHistory).toHaveBeenCalledWith('staff-1', {
+        eventId: null,
+        limit: 25,
+      });
+
+      await operationsService.getStaffGateCheckInHistory('staff-1', { limit: 50, result: 'ALL' });
+      expect(mockOperationsRepository.getStaffGateCheckInHistory).toHaveBeenCalledWith('staff-1', {
+        eventId: null,
+        limit: 50,
+        result: 'ALL',
       });
     });
   });

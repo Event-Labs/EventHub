@@ -14,6 +14,8 @@ const DEVICE_WITH_EVENT_SELECT = `
     d.pending_secret_plain,
     d.pending_secret_expires_at,
     d.assigned_event_id,
+    d.assigned_gate_id,
+    COALESCE(eg.name, d.assigned_gate) AS assigned_gate,
     d.auto_confirm,
     d.config_version,
     d.firmware_version,
@@ -28,6 +30,7 @@ const DEVICE_WITH_EVENT_SELECT = `
     e.title AS event_name
   FROM checkin_devices d
   LEFT JOIN events e ON e.id = d.assigned_event_id AND e.deleted_at IS NULL
+  LEFT JOIN event_gates eg ON eg.id = d.assigned_gate_id
 `;
 
 class IotRepository {
@@ -104,6 +107,14 @@ class IotRepository {
           WHEN checkin_devices.status = 'REVOKED' THEN NULL
           ELSE checkin_devices.assigned_event_id
         END,
+        assigned_gate_id = CASE
+          WHEN checkin_devices.status = 'REVOKED' THEN NULL
+          ELSE checkin_devices.assigned_gate_id
+        END,
+        assigned_gate = CASE
+          WHEN checkin_devices.status = 'REVOKED' THEN NULL
+          ELSE checkin_devices.assigned_gate
+        END,
         auto_confirm = CASE
           WHEN checkin_devices.status = 'REVOKED' THEN false
           ELSE checkin_devices.auto_confirm
@@ -135,10 +146,12 @@ class IotRepository {
         `
         SELECT
           d.*,
+          COALESCE(eg.name, d.assigned_gate) AS assigned_gate,
           e.slug AS event_code,
           e.title AS event_name
         FROM checkin_devices d
         LEFT JOIN events e ON e.id = d.assigned_event_id AND e.deleted_at IS NULL
+        LEFT JOIN event_gates eg ON eg.id = d.assigned_gate_id
         WHERE d.id = $1
         FOR UPDATE OF d
         `,
@@ -332,6 +345,8 @@ class IotRepository {
     success,
     message,
     attendeeName,
+    gateId = null,
+    gateName = null,
   }) {
     const { rows } = await db.query(
       `
@@ -345,9 +360,11 @@ class IotRepository {
         result,
         success,
         message,
-        attendee_name
+        attendee_name,
+        gate_id,
+        gate_name
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       RETURNING id, scanned_at
       `,
       [
@@ -361,6 +378,8 @@ class IotRepository {
         Boolean(success),
         message || null,
         attendeeName || null,
+        gateId || null,
+        gateName || null,
       ],
     );
     return rows[0];
@@ -368,12 +387,215 @@ class IotRepository {
 
   async queryDeviceHistory(
     deviceId,
-    { page = 1, limit = 20, result = 'ALL', search = '', eventId = '' } = {},
+    {
+      page = 1,
+      limit = 20,
+      result = 'ALL',
+      source = 'ALL',
+      search = '',
+      eventId = '',
+      includeSharedGate = false,
+      assignedEventId = null,
+      assignedGateId = null,
+      assignedGate = null,
+    } = {},
   ) {
+    const safeLimit = Math.max(1, Math.min(100, Number(limit) || 20));
+    const safePage = Math.max(1, Number(page) || 1);
+    const offset = (safePage - 1) * safeLimit;
+    const normalizedResult = String(result || 'ALL').trim().toUpperCase();
+    const normalizedSource = ['STAFF', 'IOT'].includes(String(source || 'ALL').trim().toUpperCase())
+      ? String(source).trim().toUpperCase()
+      : 'ALL';
+    const trimmedSearch = String(search || '').trim();
+
+    const useSharedGate = Boolean(
+      includeSharedGate
+      && assignedEventId
+      && (assignedGateId || (assignedGate && String(assignedGate).trim())),
+    );
+
+    if (useSharedGate) {
+      const params = [
+        deviceId,
+        assignedEventId,
+        assignedGateId || null,
+        assignedGate ? String(assignedGate).trim() : null,
+      ];
+      const conditions = [];
+
+      if (normalizedResult === 'SUCCESS') {
+        conditions.push('combined.success = true');
+      } else if (normalizedResult === 'FAILED') {
+        conditions.push('combined.success = false');
+      } else if (normalizedResult && normalizedResult !== 'ALL') {
+        params.push(normalizedResult);
+        conditions.push(`combined.result = $${params.length}`);
+      }
+
+      if (eventId) {
+        params.push(eventId);
+        conditions.push(`combined.event_id = $${params.length}`);
+      }
+
+      if (normalizedSource !== 'ALL') {
+        params.push(normalizedSource);
+        conditions.push(`combined.source = $${params.length}`);
+      }
+
+      if (trimmedSearch) {
+        params.push(`%${trimmedSearch}%`);
+        const p = `$${params.length}`;
+        conditions.push(
+          `(COALESCE(combined.ticket_code, '') ILIKE ${p} OR COALESCE(combined.attendee_name, '') ILIKE ${p} OR COALESCE(combined.qr_code_raw, '') ILIKE ${p} OR COALESCE(combined.message, '') ILIKE ${p} OR COALESCE(combined.actor_name, '') ILIKE ${p})`,
+        );
+      }
+
+      const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+      const combinedCte = `
+        WITH combined AS (
+          SELECT
+            l.id,
+            l.device_id,
+            CASE
+              WHEN l.source = 'STAFF' OR (l.device_id IS NULL AND l.staff_id IS NOT NULL) THEN 'STAFF'::text
+              ELSE 'IOT'::text
+            END AS source,
+            CASE
+              WHEN l.source = 'STAFF' OR (l.device_id IS NULL AND l.staff_id IS NOT NULL)
+                THEN COALESCE(staff_u.full_name, staff_u.email, 'Staff')
+              ELSE COALESCE(dev.name, dev.mac_address)
+            END AS actor_name,
+            COALESCE(lg.name, l.gate_name, deg.name, dev.assigned_gate, log_es_gate.name, log_es.gate) AS gate_name,
+            COALESCE(l.event_id, dev.assigned_event_id) AS event_id,
+            l.ticket_id,
+            COALESCE(l.ticket_code, t.ticket_code, l.qr_code_raw) AS ticket_code,
+            l.qr_code_raw,
+            l.action,
+            l.result,
+            l.success,
+            l.message,
+            COALESCE(l.attendee_name, t.attendee_name, o.buyer_name) AS attendee_name,
+            COALESCE(t.attendee_email, o.buyer_email) AS attendee_email,
+            tt.name AS ticket_type_name,
+            CASE
+              WHEN s.row_label IS NOT NULL OR s.seat_number IS NOT NULL
+                THEN CONCAT(COALESCE(s.row_label, ''), COALESCE(s.seat_number::text, ''))
+              ELSE NULL
+            END AS seat_label,
+            e.title AS event_title,
+            e.slug AS event_code,
+            l.scanned_at
+          FROM checkin_device_logs l
+          LEFT JOIN checkin_devices dev ON dev.id = l.device_id
+          LEFT JOIN users staff_u ON staff_u.id = l.staff_id
+          LEFT JOIN event_staffs log_es ON log_es.event_id = COALESCE(l.event_id, dev.assigned_event_id) AND log_es.staff_id = l.staff_id
+          LEFT JOIN event_gates log_es_gate ON log_es_gate.id = log_es.gate_id
+          LEFT JOIN event_gates deg ON deg.id = dev.assigned_gate_id
+          LEFT JOIN event_gates lg ON lg.id = l.gate_id
+          LEFT JOIN events e ON e.id = COALESCE(l.event_id, dev.assigned_event_id)
+          LEFT JOIN tickets t ON t.id = l.ticket_id
+          LEFT JOIN ticket_types tt ON tt.id = t.ticket_type_id
+          LEFT JOIN order_items oi ON oi.id = t.order_item_id
+          LEFT JOIN orders o ON o.id = oi.order_id
+          LEFT JOIN session_seats ss ON ss.id = COALESCE(t.session_seat_id, oi.session_seat_id)
+          LEFT JOIN seats s ON s.id = ss.seat_id
+          WHERE l.device_id = $1
+             OR (
+               COALESCE(l.event_id, dev.assigned_event_id) = $2::uuid
+               AND (
+                 ($3::uuid IS NOT NULL AND COALESCE(l.gate_id, dev.assigned_gate_id, log_es.gate_id) = $3::uuid)
+                 OR ($4::text IS NOT NULL AND LOWER(TRIM(COALESCE(lg.name, l.gate_name, deg.name, dev.assigned_gate, log_es_gate.name, log_es.gate, ''))) = LOWER(TRIM($4::text)))
+               )
+             )
+
+          UNION ALL
+
+          SELECT
+            t.id,
+            NULL::uuid AS device_id,
+            'STAFF'::text AS source,
+            COALESCE(u.full_name, u.email, 'Staff') AS actor_name,
+            COALESCE(tg.name, t.checked_in_gate, esg.name, es.gate) AS gate_name,
+            t.event_id,
+            t.id AS ticket_id,
+            t.ticket_code,
+            NULL::varchar AS qr_code_raw,
+            LOWER(COALESCE(t.checkin_method, 'QR')) AS action,
+            'OK'::varchar AS result,
+            true AS success,
+            ('Staff check-in: ' || COALESCE(u.full_name, u.email, 'Staff'))::varchar AS message,
+            COALESCE(t.attendee_name, o.buyer_name) AS attendee_name,
+            COALESCE(t.attendee_email, o.buyer_email) AS attendee_email,
+            tt.name AS ticket_type_name,
+            CASE
+              WHEN s.row_label IS NOT NULL OR s.seat_number IS NOT NULL
+                THEN CONCAT(COALESCE(s.row_label, ''), COALESCE(s.seat_number::text, ''))
+              ELSE NULL
+            END AS seat_label,
+            e.title AS event_title,
+            e.slug AS event_code,
+            COALESCE(t.checked_in_at, t.created_at) AS scanned_at
+          FROM tickets t
+          JOIN events e ON e.id = t.event_id
+          LEFT JOIN users u ON u.id = t.checked_in_by
+          LEFT JOIN event_staffs es ON es.event_id = t.event_id AND es.staff_id = t.checked_in_by
+          LEFT JOIN event_gates esg ON esg.id = es.gate_id
+          LEFT JOIN event_gates tg ON tg.id = t.checked_in_gate_id
+          LEFT JOIN ticket_types tt ON tt.id = t.ticket_type_id
+          LEFT JOIN order_items oi ON oi.id = t.order_item_id
+          LEFT JOIN orders o ON o.id = oi.order_id
+          LEFT JOIN session_seats ss ON ss.id = COALESCE(t.session_seat_id, oi.session_seat_id)
+          LEFT JOIN seats s ON s.id = ss.seat_id
+          WHERE t.event_id = $2::uuid
+            AND t.status = 'USED'
+            AND t.checked_in_by IS NOT NULL
+            AND t.checked_in_device_id IS NULL
+            AND (
+              ($3::uuid IS NOT NULL AND COALESCE(t.checked_in_gate_id, es.gate_id) = $3::uuid)
+              OR ($4::text IS NOT NULL AND LOWER(TRIM(COALESCE(tg.name, t.checked_in_gate, esg.name, es.gate, ''))) = LOWER(TRIM($4::text)))
+            )
+            AND NOT EXISTS (
+              SELECT 1
+              FROM checkin_device_logs cl
+              WHERE cl.ticket_id = t.id
+                AND cl.result = 'OK'
+                AND (cl.source = 'STAFF' OR cl.staff_id IS NOT NULL)
+            )
+        )
+      `;
+
+      const countQuery = `${combinedCte} SELECT COUNT(*)::int AS total FROM combined ${whereClause}`;
+      const listParams = [...params, safeLimit, offset];
+      const limitIdx = params.length + 1;
+      const offsetIdx = params.length + 2;
+      const listQuery = `
+        ${combinedCte}
+        SELECT *
+        FROM combined
+        ${whereClause}
+        ORDER BY combined.scanned_at DESC NULLS LAST
+        LIMIT $${limitIdx} OFFSET $${offsetIdx}
+      `;
+
+      const [countRes, listRes] = await Promise.all([
+        db.query(countQuery, params),
+        db.query(listQuery, listParams),
+      ]);
+
+      const total = countRes.rows[0]?.total || 0;
+      return {
+        items: listRes.rows,
+        total,
+        page: safePage,
+        limit: safeLimit,
+        total_pages: Math.max(1, Math.ceil(total / safeLimit)),
+      };
+    }
+
     const conditions = ['l.device_id = $1'];
     const params = [deviceId];
 
-    const normalizedResult = String(result || 'ALL').trim().toUpperCase();
     if (normalizedResult === 'SUCCESS') {
       conditions.push('l.success = true');
     } else if (normalizedResult === 'FAILED') {
@@ -388,7 +610,6 @@ class IotRepository {
       conditions.push(`l.event_id = $${params.length}`);
     }
 
-    const trimmedSearch = String(search || '').trim();
     if (trimmedSearch) {
       params.push(`%${trimmedSearch}%`);
       const p = `$${params.length}`;
@@ -398,9 +619,6 @@ class IotRepository {
     }
 
     const whereClause = `WHERE ${conditions.join(' AND ')}`;
-    const safeLimit = Math.max(1, Math.min(100, Number(limit) || 20));
-    const safePage = Math.max(1, Number(page) || 1);
-    const offset = (safePage - 1) * safeLimit;
 
     const countQuery = `
       SELECT COUNT(*)::int AS total
@@ -419,6 +637,9 @@ class IotRepository {
       SELECT
         l.id,
         l.device_id,
+        'IOT'::text AS source,
+        COALESCE(dev.name, dev.mac_address) AS actor_name,
+        COALESCE(lg.name, l.gate_name, deg.name, dev.assigned_gate) AS gate_name,
         l.event_id,
         l.ticket_id,
         COALESCE(l.ticket_code, t.ticket_code) AS ticket_code,
@@ -430,15 +651,25 @@ class IotRepository {
         COALESCE(l.attendee_name, t.attendee_name, o.buyer_name) AS attendee_name,
         COALESCE(t.attendee_email, o.buyer_email) AS attendee_email,
         tt.name AS ticket_type_name,
+        CASE
+          WHEN s.row_label IS NOT NULL OR s.seat_number IS NOT NULL
+            THEN CONCAT(COALESCE(s.row_label, ''), COALESCE(s.seat_number::text, ''))
+          ELSE NULL
+        END AS seat_label,
         e.title AS event_title,
         e.slug AS event_code,
         l.scanned_at
       FROM checkin_device_logs l
+      LEFT JOIN checkin_devices dev ON dev.id = l.device_id
+      LEFT JOIN event_gates deg ON deg.id = dev.assigned_gate_id
+      LEFT JOIN event_gates lg ON lg.id = l.gate_id
       LEFT JOIN events e ON e.id = l.event_id
       LEFT JOIN tickets t ON t.id = l.ticket_id
       LEFT JOIN ticket_types tt ON tt.id = t.ticket_type_id
       LEFT JOIN order_items oi ON oi.id = t.order_item_id
       LEFT JOIN orders o ON o.id = oi.order_id
+      LEFT JOIN session_seats ss ON ss.id = COALESCE(t.session_seat_id, oi.session_seat_id)
+      LEFT JOIN seats s ON s.id = ss.seat_id
       ${whereClause}
       ORDER BY l.scanned_at DESC
       LIMIT $${limitIdx} OFFSET $${offsetIdx}
@@ -459,7 +690,84 @@ class IotRepository {
     };
   }
 
-  async getDeviceHistoryStats(deviceId) {
+  async getDeviceHistoryStats(
+    deviceId,
+    {
+      includeSharedGate = false,
+      assignedEventId = null,
+      assignedGateId = null,
+      assignedGate = null,
+    } = {},
+  ) {
+    const useSharedGate = Boolean(
+      includeSharedGate
+      && assignedEventId
+      && (assignedGateId || (assignedGate && String(assignedGate).trim())),
+    );
+
+    if (useSharedGate) {
+      const { rows } = await db.query(
+        `
+        WITH combined AS (
+          SELECT l.result, l.success
+          FROM checkin_device_logs l
+          LEFT JOIN checkin_devices dev ON dev.id = l.device_id
+          LEFT JOIN event_staffs log_es ON log_es.event_id = COALESCE(l.event_id, dev.assigned_event_id) AND log_es.staff_id = l.staff_id
+          LEFT JOIN event_gates log_es_gate ON log_es_gate.id = log_es.gate_id
+          LEFT JOIN event_gates deg ON deg.id = dev.assigned_gate_id
+          LEFT JOIN event_gates lg ON lg.id = l.gate_id
+          WHERE l.device_id = $1
+             OR (
+               COALESCE(l.event_id, dev.assigned_event_id) = $2::uuid
+               AND (
+                 ($3::uuid IS NOT NULL AND COALESCE(l.gate_id, dev.assigned_gate_id, log_es.gate_id) = $3::uuid)
+                 OR ($4::text IS NOT NULL AND LOWER(TRIM(COALESCE(lg.name, l.gate_name, deg.name, dev.assigned_gate, log_es_gate.name, log_es.gate, ''))) = LOWER(TRIM($4::text)))
+               )
+             )
+          UNION ALL
+          SELECT 'OK'::varchar AS result, true AS success
+          FROM tickets t
+          LEFT JOIN event_staffs es ON es.event_id = t.event_id AND es.staff_id = t.checked_in_by
+          LEFT JOIN event_gates esg ON esg.id = es.gate_id
+          LEFT JOIN event_gates tg ON tg.id = t.checked_in_gate_id
+          WHERE t.event_id = $2::uuid
+            AND t.status = 'USED'
+            AND t.checked_in_by IS NOT NULL
+            AND t.checked_in_device_id IS NULL
+            AND (
+              ($3::uuid IS NOT NULL AND COALESCE(t.checked_in_gate_id, es.gate_id) = $3::uuid)
+              OR ($4::text IS NOT NULL AND LOWER(TRIM(COALESCE(tg.name, t.checked_in_gate, esg.name, es.gate, ''))) = LOWER(TRIM($4::text)))
+            )
+            AND NOT EXISTS (
+              SELECT 1
+              FROM checkin_device_logs cl
+              WHERE cl.ticket_id = t.id
+                AND cl.result = 'OK'
+                AND (cl.source = 'STAFF' OR cl.staff_id IS NOT NULL)
+            )
+        )
+        SELECT
+          COUNT(*)::int AS total_scans,
+          COUNT(*) FILTER (WHERE result = 'OK')::int AS ok_count,
+          COUNT(*) FILTER (WHERE result = 'VERIFIED')::int AS verified_count,
+          COUNT(*) FILTER (WHERE success = false)::int AS failed_count
+        FROM combined
+        `,
+        [
+          deviceId,
+          assignedEventId,
+          assignedGateId || null,
+          assignedGate ? String(assignedGate).trim() : null,
+        ],
+      );
+      return rows[0] || {
+        total_scans: 0,
+        ok_count: 0,
+        verified_count: 0,
+        failed_count: 0,
+      };
+    }
+
     const { rows } = await db.query(
       `
       SELECT

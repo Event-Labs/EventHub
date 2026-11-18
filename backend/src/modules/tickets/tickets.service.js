@@ -150,13 +150,24 @@ function buildStaffTicketPayload(row) {
     buyer_email: row.buyer_email || null,
     buyer_phone: row.buyer_phone || null,
     checked_in_at: row.checked_in_at,
+    checkin_method: row.checkin_method || null,
+    checked_in_gate_id: row.checked_in_gate_id || null,
+    checked_in_gate: row.checked_in_gate || null,
     checked_in_by: row.checked_in_by_id
       ? {
           id: row.checked_in_by_id,
           name: row.checked_in_by_name,
           email: row.checked_in_by_email,
+          source: 'STAFF',
         }
-      : null,
+      : row.checked_in_device_id
+        ? {
+            id: row.checked_in_device_id,
+            name: row.checked_in_device_name || row.checked_in_device_mac || 'Thiết bị IoT',
+            email: null,
+            source: 'IOT',
+          }
+        : null,
     event: {
       id: row.event_id,
       title: row.event_title,
@@ -325,8 +336,34 @@ function buildDownloadSvg(ticket) {
   return buildUniversalTicketSvg(ticket, qrUrl);
 }
 
-function mapDeviceCheckInState(state, ticket = null) {
+function buildDeviceTicketDetails(ticket, device = null) {
+  if (!ticket) return {};
+  const seatLabel = [ticket.row_label, ticket.seat_number].filter(Boolean).join('') || null;
+  const buyerName = ticket.attendee_name || ticket.buyer_name || null;
+  const buyerEmail = ticket.attendee_email || ticket.buyer_email || null;
+  const buyerPhone = ticket.buyer_phone || null;
+  const checkedInBy =
+    ticket.checked_in_by_name
+    || ticket.checked_in_by_email
+    || (ticket.checked_in_device_id
+      ? (device?.id === ticket.checked_in_device_id && device?.name ? device.name : 'Thiết bị IoT')
+      : null);
+
+  const details = {};
+  if (ticket.event_title) details.event_name = ticket.event_title;
+  if (buyerName) details.buyer_name = buyerName;
+  if (buyerEmail) details.buyer_email = buyerEmail;
+  if (buyerPhone) details.buyer_phone = buyerPhone;
+  if (ticket.ticket_type_name) details.ticket_type_name = ticket.ticket_type_name;
+  if (seatLabel) details.seat_label = seatLabel;
+  if (ticket.checked_in_at) details.checked_in_at = ticket.checked_in_at;
+  if (checkedInBy) details.checked_in_by = checkedInBy;
+  return details;
+}
+
+function mapDeviceCheckInState(state, ticket = null, device = null) {
   const ticketCode = ticket?.ticket_code || null;
+  const details = buildDeviceTicketDetails(ticket, device);
 
   switch (state) {
     case 'NOT_FOUND':
@@ -337,6 +374,7 @@ function mapDeviceCheckInState(state, ticket = null) {
         success: false,
         result: 'WRONG_EVENT',
         ticket_code: ticketCode,
+        ...details,
         message: 'Ve khong thuoc su kien nay',
       };
     case 'ALREADY_CHECKED_IN':
@@ -345,6 +383,7 @@ function mapDeviceCheckInState(state, ticket = null) {
         success: false,
         result: 'USED',
         ticket_code: ticketCode,
+        ...details,
         message: 'Ve da duoc su dung',
       };
     case 'SESSION_CANCELLED':
@@ -353,6 +392,7 @@ function mapDeviceCheckInState(state, ticket = null) {
         success: false,
         result: 'CANCELLED',
         ticket_code: ticketCode,
+        ...details,
         message: 'Su kien hoac suat dien da bi huy',
       };
     case 'TICKET_REFUND_IN_PROGRESS':
@@ -361,6 +401,7 @@ function mapDeviceCheckInState(state, ticket = null) {
         success: false,
         result: 'REFUND_IN_PROGRESS',
         ticket_code: ticketCode,
+        ...details,
         message: 'Ve dang xu ly hoan tien',
       };
     case 'INVALID_ORDER':
@@ -369,6 +410,7 @@ function mapDeviceCheckInState(state, ticket = null) {
         success: false,
         result: 'INVALID_ORDER',
         ticket_code: ticketCode,
+        ...details,
         message: 'Ve chua thanh toan',
       };
     case 'CHECKIN_NOT_OPEN':
@@ -377,6 +419,7 @@ function mapDeviceCheckInState(state, ticket = null) {
         success: false,
         result: 'NOT_OPEN',
         ticket_code: ticketCode,
+        ...details,
         message: 'Chua den gio check-in',
       };
     case 'EXPIRED':
@@ -385,6 +428,7 @@ function mapDeviceCheckInState(state, ticket = null) {
         success: false,
         result: 'EXPIRED',
         ticket_code: ticketCode,
+        ...details,
         message: 'Ve da het han',
       };
     case 'TICKET_NOT_VALID':
@@ -395,6 +439,7 @@ function mapDeviceCheckInState(state, ticket = null) {
         success: false,
         result: 'INVALID',
         ticket_code: ticketCode,
+        ...details,
         message: 'Ve khong hop le',
       };
   }
@@ -465,44 +510,241 @@ class TicketsService {
     return buildStaffTicketPayload(ticket);
   }
 
-  async staffVerifyTicketByQr(staffId, payload = {}) {
+  async recordStaffScanLog(
+    staffId,
+    {
+      ticket = null,
+      eventId = null,
+      ticketCode = null,
+      qrCodeRaw = null,
+      action = 'verify',
+      result,
+      success = false,
+      message = null,
+      forceAssignedEvent = false,
+    } = {},
+  ) {
+    if (!staffId || !result) return;
+    try {
+      const preferredEventId = forceAssignedEvent
+        ? (eventId || null)
+        : (eventId || (ticket?.has_staff_access === false ? null : ticket?.event_id) || null);
+
+      let gateId = ticket?.checked_in_gate_id || ticket?.staff_gate_id || null;
+      let gateName = ticket?.checked_in_gate || ticket?.staff_gate_name || null;
+      let resolvedEventId = forceAssignedEvent ? null : preferredEventId;
+
+      if (!resolvedEventId || (!gateId && !gateName)) {
+        const ctx = await ticketsRepository.findStaffActiveGateContext(staffId, preferredEventId);
+        if (ctx) {
+          if (!resolvedEventId) resolvedEventId = ctx.event_id;
+          if (!gateId) gateId = ctx.gate_id || null;
+          if (!gateName) gateName = ctx.gate_name || null;
+        }
+      }
+
+      if (!resolvedEventId && ticket?.event_id && !forceAssignedEvent) {
+        resolvedEventId = ticket.event_id;
+      }
+
+      await ticketsRepository.insertStaffScanLog({
+        staffId,
+        eventId: resolvedEventId,
+        ticketId: ticket?.id || null,
+        ticketCode: ticket?.ticket_code || ticketCode || null,
+        qrCodeRaw: qrCodeRaw || null,
+        action,
+        result,
+        success,
+        message,
+        attendeeName: ticket?.attendee_name || ticket?.buyer_name || null,
+        gateId,
+        gateName,
+      });
+    } catch (logErr) {
+      // Never block Staff check-in/verify response because of audit log persistence failure
+      console.error('[TicketsService] Failed to persist staff scan log:', logErr.message);
+    }
+  }
+
+  async staffVerifyTicketByQr(staffId, payload = {}, { skipLog = false } = {}) {
     const qrPayload = extractQrTicketPayload(payload);
+    const qrCodeRaw = qrPayload.raw || qrPayload.ticketRef || null;
+
     if (!qrPayload.ticketRef) {
+      await this.recordStaffScanLog(staffId, {
+        qrCodeRaw,
+        action: 'verify',
+        result: 'INVALID_QR',
+        success: false,
+        message: 'QR không hợp lệ.',
+      });
       throw new AppError('QR không hợp lệ.', 400, ErrorCodes.INVALID_INPUT);
     }
 
     const ticket = await ticketsRepository.findTicketAccessForStaff(qrPayload.ticketRef, staffId);
     if (!ticket) {
+      await this.recordStaffScanLog(staffId, {
+        ticketCode: qrPayload.ticketRef,
+        qrCodeRaw,
+        action: 'verify',
+        result: 'NOT_FOUND',
+        success: false,
+        message: 'Không tìm thấy vé.',
+      });
       throw new AppError('Không tìm thấy vé.', 404, ErrorCodes.RESOURCE_NOT_FOUND);
     }
 
     if (!ticket.has_staff_access) {
+      await this.recordStaffScanLog(staffId, {
+        ticket,
+        qrCodeRaw,
+        action: 'verify',
+        result: 'WRONG_EVENT',
+        success: false,
+        message: 'Vé thuộc sự kiện khác hoặc nhân sự không có quyền check-in vé này.',
+        forceAssignedEvent: true,
+      });
       throw new AppError('Vé thuộc sự kiện khác hoặc nhân sự không có quyền check-in vé này.', 403, ErrorCodes.AUTH_FORBIDDEN);
     }
 
-    assertCheckInOpen(ticket);
-    assertQrMatchesTicket(qrPayload, ticket);
+    try {
+      assertCheckInOpen(ticket);
+    } catch (err) {
+      await this.recordStaffScanLog(staffId, {
+        ticket,
+        qrCodeRaw,
+        action: 'verify',
+        result: 'NOT_OPEN',
+        success: false,
+        message: err.message,
+      });
+      throw err;
+    }
 
-    return buildStaffTicketPayload(ticket);
+    try {
+      assertQrMatchesTicket(qrPayload, ticket);
+    } catch (err) {
+      await this.recordStaffScanLog(staffId, {
+        ticket,
+        qrCodeRaw,
+        action: 'verify',
+        result: 'INVALID_QR',
+        success: false,
+        message: err.message,
+      });
+      throw err;
+    }
+
+    const staffTicketPayload = buildStaffTicketPayload(ticket);
+    if (!skipLog) {
+      const status = staffTicketPayload.status;
+      if (status === 'USED') {
+        await this.recordStaffScanLog(staffId, {
+          ticket,
+          qrCodeRaw,
+          action: 'verify',
+          result: 'USED',
+          success: false,
+          message: 'Vé đã được sử dụng.',
+        });
+      } else if (status === 'CANCELLED') {
+        await this.recordStaffScanLog(staffId, {
+          ticket,
+          qrCodeRaw,
+          action: 'verify',
+          result: 'CANCELLED',
+          success: false,
+          message: invalidTicketMessage(status),
+        });
+      } else if (['REFUND_REQUESTED', 'REFUND_PENDING', 'REFUNDED'].includes(status)) {
+        await this.recordStaffScanLog(staffId, {
+          ticket,
+          qrCodeRaw,
+          action: 'verify',
+          result: 'REFUND_IN_PROGRESS',
+          success: false,
+          message: invalidTicketMessage(status),
+        });
+      } else if (status === 'EXPIRED') {
+        await this.recordStaffScanLog(staffId, {
+          ticket,
+          qrCodeRaw,
+          action: 'verify',
+          result: 'EXPIRED',
+          success: false,
+          message: 'Vé đã hết hạn.',
+        });
+      } else if (status !== 'VALID') {
+        await this.recordStaffScanLog(staffId, {
+          ticket,
+          qrCodeRaw,
+          action: 'verify',
+          result: 'INVALID',
+          success: false,
+          message: invalidTicketMessage(status),
+        });
+      } else {
+        await this.recordStaffScanLog(staffId, {
+          ticket,
+          qrCodeRaw,
+          action: 'verify',
+          result: 'VERIFIED',
+          success: true,
+          message: 'Vé hợp lệ',
+        });
+      }
+    }
+
+    return staffTicketPayload;
   }
 
   async staffCheckInByQr(staffId, payload = {}) {
-    const ticket = await this.staffVerifyTicketByQr(staffId, payload);
-    return this.staffCheckInTicket(staffId, ticket.id, 'QR');
+    const qrPayload = extractQrTicketPayload(payload);
+    const ticket = await this.staffVerifyTicketByQr(staffId, payload, { skipLog: true });
+    return this.staffCheckInTicket(staffId, ticket.id, 'QR', {
+      qrCodeRaw: qrPayload.raw || qrPayload.ticketRef || null,
+    });
   }
 
-  async staffCheckInTicket(staffId, ticketId, method = 'MANUAL') {
+  async staffCheckInTicket(staffId, ticketId, method = 'MANUAL', { qrCodeRaw = null } = {}) {
     const result = await ticketsRepository.checkInTicket(ticketId, staffId, method);
+    const action = String(method || 'MANUAL').toLowerCase();
 
     if (result.state === 'NOT_FOUND') {
+      await this.recordStaffScanLog(staffId, {
+        ticketCode: ticketId,
+        qrCodeRaw,
+        action,
+        result: 'NOT_FOUND',
+        success: false,
+        message: 'Không tìm thấy vé.',
+      });
       throw new AppError('Không tìm thấy vé.', 404, ErrorCodes.RESOURCE_NOT_FOUND);
     }
 
     if (result.state === 'FORBIDDEN_ACTION' || result.state === 'FORBIDDEN') {
+      await this.recordStaffScanLog(staffId, {
+        ticket: result.ticket || null,
+        qrCodeRaw,
+        action,
+        result: 'WRONG_EVENT',
+        success: false,
+        message: 'Vé thuộc sự kiện khác hoặc nhân viên không được phân công cho sự kiện này.',
+        forceAssignedEvent: true,
+      });
       throw new AppError('Vé thuộc sự kiện khác hoặc nhân viên không được phân công cho sự kiện này.', 403, ErrorCodes.FORBIDDEN_ACTION);
     }
 
     if (result.state === 'MANUAL_CHECKIN_NOT_ALLOWED') {
+      await this.recordStaffScanLog(staffId, {
+        ticket: result.ticket || null,
+        qrCodeRaw,
+        action,
+        result: 'FORBIDDEN',
+        success: false,
+        message: 'Gói dịch vụ của sự kiện này không hỗ trợ tính năng check-in thủ công.',
+      });
       throw new AppError(
         'Gói dịch vụ của sự kiện này không hỗ trợ tính năng check-in thủ công. Vui lòng quét mã QR hoặc liên hệ Ban tổ chức nâng cấp gói.',
         403,
@@ -511,33 +753,100 @@ class TicketsService {
     }
 
     if (result.state === 'SESSION_CANCELLED') {
+      await this.recordStaffScanLog(staffId, {
+        ticket: result.ticket || null,
+        qrCodeRaw,
+        action,
+        result: 'CANCELLED',
+        success: false,
+        message: 'Sự kiện hoặc suất diễn đã bị hủy.',
+      });
       throw new AppError('Sự kiện hoặc suất diễn đã bị hủy.', 400, ErrorCodes.SESSION_CANCELLED);
     }
 
     if (result.state === 'TICKET_REFUND_IN_PROGRESS') {
+      await this.recordStaffScanLog(staffId, {
+        ticket: result.ticket || null,
+        qrCodeRaw,
+        action,
+        result: 'REFUND_IN_PROGRESS',
+        success: false,
+        message: 'Vé đang trong tiến trình hoàn tiền, không được phép check-in.',
+      });
       throw new AppError('Vé đang trong tiến trình hoàn tiền, không được phép check-in.', 400, ErrorCodes.TICKET_REFUND_IN_PROGRESS);
     }
 
     if (result.state === 'ALREADY_CHECKED_IN') {
       const checkedTime = result.ticket?.checked_in_at ? new Date(result.ticket.checked_in_at).toLocaleTimeString('vi-VN') : '';
-      throw new AppError(`Vé đã được check-in trước đó${checkedTime ? ' lúc ' + checkedTime : ''}.`, 400, ErrorCodes.ALREADY_CHECKED_IN);
+      const msg = `Vé đã được check-in trước đó${checkedTime ? ' lúc ' + checkedTime : ''}.`;
+      await this.recordStaffScanLog(staffId, {
+        ticket: result.ticket || null,
+        qrCodeRaw,
+        action,
+        result: 'USED',
+        success: false,
+        message: msg,
+      });
+      throw new AppError(msg, 400, ErrorCodes.ALREADY_CHECKED_IN);
     }
 
     if (result.state === 'TICKET_NOT_VALID' || result.state === 'INVALID_STATUS') {
-      throw new AppError(invalidTicketMessage(result.ticket?.status), 400, ErrorCodes.TICKET_NOT_VALID);
+      const msg = invalidTicketMessage(result.ticket?.status);
+      await this.recordStaffScanLog(staffId, {
+        ticket: result.ticket || null,
+        qrCodeRaw,
+        action,
+        result: result.ticket?.status === 'CANCELLED' ? 'CANCELLED' : 'INVALID',
+        success: false,
+        message: msg,
+      });
+      throw new AppError(msg, 400, ErrorCodes.TICKET_NOT_VALID);
     }
 
     if (result.state === 'INVALID_ORDER') {
+      await this.recordStaffScanLog(staffId, {
+        ticket: result.ticket || null,
+        qrCodeRaw,
+        action,
+        result: 'INVALID_ORDER',
+        success: false,
+        message: 'Vé chưa được thanh toán hoặc đơn hàng không hợp lệ.',
+      });
       throw new AppError('Vé chưa được thanh toán hoặc đơn hàng không hợp lệ.', 400, ErrorCodes.INVALID_INPUT);
     }
 
     if (result.state === 'CHECKIN_NOT_OPEN') {
+      await this.recordStaffScanLog(staffId, {
+        ticket: result.ticket || null,
+        qrCodeRaw,
+        action,
+        result: 'NOT_OPEN',
+        success: false,
+        message: 'Vé này chưa đến giờ tham gia.',
+      });
       throw new AppError('Vé này chưa đến giờ tham gia.', 400, ErrorCodes.INVALID_INPUT);
     }
 
     if (result.state === 'EXPIRED') {
+      await this.recordStaffScanLog(staffId, {
+        ticket: result.ticket || null,
+        qrCodeRaw,
+        action,
+        result: 'EXPIRED',
+        success: false,
+        message: 'Vé đã hết hạn.',
+      });
       throw new AppError('Vé đã hết hạn.', 400, ErrorCodes.TICKET_NOT_VALID);
     }
+
+    await this.recordStaffScanLog(staffId, {
+      ticket: result.ticket || null,
+      qrCodeRaw,
+      action,
+      result: 'OK',
+      success: true,
+      message: 'Check-in thành công',
+    });
 
     return buildStaffTicketPayload(result.ticket);
   }
@@ -583,7 +892,7 @@ class TicketsService {
       ticket.event_id !== device.assigned_event_id
       || (qrPayload.eventId && qrPayload.eventId !== device.assigned_event_id)
     ) {
-      return withLogMeta(mapDeviceCheckInState('WRONG_EVENT', ticket), ticket);
+      return withLogMeta(mapDeviceCheckInState('WRONG_EVENT', ticket, device), ticket);
     }
 
     if (
@@ -595,13 +904,14 @@ class TicketsService {
         success: false,
         result: 'INVALID_QR',
         ticket_code: ticket.ticket_code,
+        ...buildDeviceTicketDetails(ticket, device),
         message: 'QR khong khop thong tin ve',
       }, ticket);
     }
 
     const invalidState = ticketsRepository.validateTicketCheckInState(ticket);
     if (invalidState) {
-      return withLogMeta(mapDeviceCheckInState(invalidState, ticket), ticket);
+      return withLogMeta(mapDeviceCheckInState(invalidState, ticket, device), ticket);
     }
 
     const normalizedAction = action === 'auto'
@@ -615,32 +925,45 @@ class TicketsService {
         result: 'VERIFIED',
         ticket_code: ticket.ticket_code,
         event_code: ticket.event_slug,
+        ...buildDeviceTicketDetails(ticket, device),
         message: 'Ve hop le',
       }, ticket);
     }
 
-    const checkInResult = await ticketsRepository.checkInTicketByDevice(
-      ticket.id,
-      device.id,
-      device.assigned_event_id,
-    );
+    const checkInResult = device.assigned_gate_id || device.assigned_gate
+      ? await ticketsRepository.checkInTicketByDevice(
+          ticket.id,
+          device.id,
+          device.assigned_event_id,
+          {
+            gateId: device.assigned_gate_id || null,
+            gateName: device.assigned_gate || null,
+          },
+        )
+      : await ticketsRepository.checkInTicketByDevice(
+          ticket.id,
+          device.id,
+          device.assigned_event_id,
+        );
 
     if (checkInResult.state !== 'CHECKED_IN') {
+      const mergedFailureTicket = { ...ticket, ...(checkInResult.ticket || {}) };
       return withLogMeta(
-        mapDeviceCheckInState(checkInResult.state, checkInResult.ticket || ticket),
-        checkInResult.ticket || ticket,
+        mapDeviceCheckInState(checkInResult.state, mergedFailureTicket, device),
+        mergedFailureTicket,
       );
     }
 
-    const checkedInTicket = checkInResult.ticket || ticket;
+    const mergedCheckedInTicket = { ...ticket, ...(checkInResult.ticket || {}) };
     return withLogMeta({
       httpStatus: 200,
       success: true,
       result: 'OK',
-      ticket_code: checkedInTicket.ticket_code,
-      event_code: checkedInTicket.event_slug,
+      ticket_code: mergedCheckedInTicket.ticket_code,
+      event_code: mergedCheckedInTicket.event_slug,
+      ...buildDeviceTicketDetails(mergedCheckedInTicket, device),
       message: 'Check-in thanh cong',
-    }, { ...ticket, ...checkedInTicket });
+    }, mergedCheckedInTicket);
   }
 
   cancelFreeTicket = async (userId, ticketId, reason) => {

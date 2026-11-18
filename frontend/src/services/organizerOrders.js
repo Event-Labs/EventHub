@@ -42,6 +42,15 @@ export async function fetchCheckinStats(eventId) {
 }
 
 /**
+ * @param {string} eventId
+ * @param {object} params - { page?, limit?, result?: 'OK'|'ALL', source?: 'ALL'|'STAFF'|'IOT', gate_id? }
+ */
+export async function fetchEventCheckinHistory(eventId, params = {}) {
+  const response = await http.get(`/organizer/orders/events/${eventId}/checkin-history`, { params })
+  return response.data.data
+}
+
+/**
  * @param {object} params - { eventId?, dateFrom?, dateTo? }
  */
 export async function fetchRevenueStats(params = {}) {

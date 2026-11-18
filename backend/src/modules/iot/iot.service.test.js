@@ -552,6 +552,68 @@ describe('IoT Check-in Device Flow', () => {
         }),
       );
     });
+
+    it('includes full database ticket details (event, buyer, ticket type, seat, checked_in_at) on OK and USED', async () => {
+      const autoDevice = { ...activeDevice, name: 'Cong A1', auto_confirm: true, config_version: 4 };
+      const fullTicketRow = {
+        id: 'ticket-2',
+        ticket_code: 'EH-77DE4EF8C3',
+        event_id: autoDevice.assigned_event_id,
+        event_slug: 'tech-2026',
+        event_title: 'Tech Summit 2026',
+        status: 'VALID',
+        attendee_name: 'Bui Tuan Khanh',
+        attendee_email: 'khanh@example.com',
+        buyer_name: 'Bui Tuan Khanh',
+        buyer_email: 'khanh@example.com',
+        buyer_phone: '0912345678',
+        ticket_type_name: 'VIP Khu vuc 1',
+        row_label: 'B',
+        seat_number: '14',
+        checked_in_at: '2026-11-18T14:25:00.000Z',
+        checked_in_device_id: autoDevice.id,
+      };
+
+      mockTicketsRepository.findTicketByRef.mockResolvedValue(fullTicketRow);
+      mockTicketsRepository.validateTicketCheckInState.mockReturnValue(null);
+      mockTicketsRepository.checkInTicketByDevice.mockResolvedValue({
+        state: 'CHECKED_IN',
+        ticket: fullTicketRow,
+      });
+
+      const okRes = await iotService.scanTicket(autoDevice, { qr_code: 'EH-77DE4EF8C3', action: 'auto' });
+      expect(okRes.httpStatus).toBe(200);
+      expect(okRes.body).toMatchObject({
+        success: true,
+        result: 'OK',
+        ticket_code: 'EH-77DE4EF8C3',
+        event_name: 'Tech Summit 2026',
+        buyer_name: 'Bui Tuan Khanh',
+        buyer_email: 'khanh@example.com',
+        buyer_phone: '0912345678',
+        ticket_type_name: 'VIP Khu vuc 1',
+        seat_label: 'B14',
+        checked_in_at: '2026-11-18T14:25:00.000Z',
+        checked_in_by: autoDevice.name,
+      });
+
+      mockTicketsRepository.validateTicketCheckInState.mockReturnValue('ALREADY_CHECKED_IN');
+      const usedRes = await iotService.scanTicket(autoDevice, { qr_code: 'EH-77DE4EF8C3', action: 'auto' });
+      expect(usedRes.httpStatus).toBe(409);
+      expect(usedRes.body).toMatchObject({
+        success: false,
+        result: 'USED',
+        ticket_code: 'EH-77DE4EF8C3',
+        event_name: 'Tech Summit 2026',
+        buyer_name: 'Bui Tuan Khanh',
+        buyer_email: 'khanh@example.com',
+        buyer_phone: '0912345678',
+        ticket_type_name: 'VIP Khu vuc 1',
+        seat_label: 'B14',
+        checked_in_at: '2026-11-18T14:25:00.000Z',
+        checked_in_by: autoDevice.name,
+      });
+    });
   });
 
   describe('getDeviceHistory', () => {
@@ -637,6 +699,66 @@ describe('IoT Check-in Device Flow', () => {
             scanned_at: '2026-11-12T16:50:00.000Z',
           },
         ],
+      });
+    });
+
+    it('includes shared gate staff check-ins when IoT device is assigned to a gate', async () => {
+      const gatedDevice = {
+        ...activeDevice,
+        assigned_gate_id: '44444444-4444-4444-8444-444444444444',
+        assigned_gate: 'Cổng A',
+      };
+      mockIotRepository.queryDeviceHistory.mockResolvedValue({
+        items: [
+          {
+            id: 'ticket-staff-1',
+            source: 'STAFF',
+            actor_name: 'Nguyen Staff',
+            gate_name: 'Cổng A',
+            ticket_code: 'TCK-STAFF-1',
+            attendee_name: 'Khach Hang B',
+            event_id: gatedDevice.assigned_event_id,
+            event_code: 'tech-2026',
+            event_title: 'Tech Summit 2026',
+            action: 'qr',
+            result: 'OK',
+            success: true,
+            message: 'Staff check-in: Nguyen Staff',
+            scanned_at: '2026-11-18T15:00:00.000Z',
+          },
+        ],
+        total: 1,
+        page: 1,
+        limit: 10,
+        total_pages: 1,
+      });
+      mockIotRepository.getDeviceHistoryStats.mockResolvedValue({
+        total_scans: 1,
+        ok_count: 1,
+        verified_count: 0,
+        failed_count: 0,
+      });
+
+      const res = await iotService.getDeviceHistory(gatedDevice, { page: 1, limit: 10, result: 'ALL' });
+
+      expect(mockIotRepository.queryDeviceHistory).toHaveBeenCalledWith(gatedDevice.id, {
+        page: 1,
+        limit: 10,
+        result: 'ALL',
+        eventId: '',
+        includeSharedGate: true,
+        assignedEventId: gatedDevice.assigned_event_id,
+        assignedGateId: gatedDevice.assigned_gate_id,
+        assignedGate: 'Cổng A',
+      });
+      expect(res.httpStatus).toBe(200);
+      expect(res.body.shared_gate_history).toBe(true);
+      expect(res.body.gate_name).toBe('Cổng A');
+      expect(res.body.items[0]).toMatchObject({
+        source: 'STAFF',
+        actor_name: 'Nguyen Staff',
+        gate_name: 'Cổng A',
+        ticket_code: 'TCK-STAFF-1',
       });
     });
   });

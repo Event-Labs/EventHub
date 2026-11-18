@@ -544,6 +544,12 @@ class OrganizerOrdersService {
     return organizerOrdersRepository.getCheckinStats(organizerId, eventId);
   }
 
+  async getCheckinHistory(userId, eventId, filters = {}) {
+    const organizerId = await this._resolveOrganizerId(userId);
+    await this._assertOwnsEvent(organizerId, eventId);
+    return organizerOrdersRepository.getCheckinHistory(eventId, filters);
+  }
+
   async getRevenueStats(userId, filters = {}) {
     const organizerId = await this._resolveOrganizerId(userId);
     if (filters.eventId) {
