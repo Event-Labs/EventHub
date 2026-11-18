@@ -325,8 +325,34 @@ function buildDownloadSvg(ticket) {
   return buildUniversalTicketSvg(ticket, qrUrl);
 }
 
-function mapDeviceCheckInState(state, ticket = null) {
+function buildDeviceTicketDetails(ticket, device = null) {
+  if (!ticket) return {};
+  const seatLabel = [ticket.row_label, ticket.seat_number].filter(Boolean).join('') || null;
+  const buyerName = ticket.attendee_name || ticket.buyer_name || null;
+  const buyerEmail = ticket.attendee_email || ticket.buyer_email || null;
+  const buyerPhone = ticket.buyer_phone || null;
+  const checkedInBy =
+    ticket.checked_in_by_name
+    || ticket.checked_in_by_email
+    || (ticket.checked_in_device_id
+      ? (device?.id === ticket.checked_in_device_id && device?.name ? device.name : 'Thiết bị IoT')
+      : null);
+
+  const details = {};
+  if (ticket.event_title) details.event_name = ticket.event_title;
+  if (buyerName) details.buyer_name = buyerName;
+  if (buyerEmail) details.buyer_email = buyerEmail;
+  if (buyerPhone) details.buyer_phone = buyerPhone;
+  if (ticket.ticket_type_name) details.ticket_type_name = ticket.ticket_type_name;
+  if (seatLabel) details.seat_label = seatLabel;
+  if (ticket.checked_in_at) details.checked_in_at = ticket.checked_in_at;
+  if (checkedInBy) details.checked_in_by = checkedInBy;
+  return details;
+}
+
+function mapDeviceCheckInState(state, ticket = null, device = null) {
   const ticketCode = ticket?.ticket_code || null;
+  const details = buildDeviceTicketDetails(ticket, device);
 
   switch (state) {
     case 'NOT_FOUND':
@@ -337,6 +363,7 @@ function mapDeviceCheckInState(state, ticket = null) {
         success: false,
         result: 'WRONG_EVENT',
         ticket_code: ticketCode,
+        ...details,
         message: 'Ve khong thuoc su kien nay',
       };
     case 'ALREADY_CHECKED_IN':
@@ -345,6 +372,7 @@ function mapDeviceCheckInState(state, ticket = null) {
         success: false,
         result: 'USED',
         ticket_code: ticketCode,
+        ...details,
         message: 'Ve da duoc su dung',
       };
     case 'SESSION_CANCELLED':
@@ -353,6 +381,7 @@ function mapDeviceCheckInState(state, ticket = null) {
         success: false,
         result: 'CANCELLED',
         ticket_code: ticketCode,
+        ...details,
         message: 'Su kien hoac suat dien da bi huy',
       };
     case 'TICKET_REFUND_IN_PROGRESS':
@@ -361,6 +390,7 @@ function mapDeviceCheckInState(state, ticket = null) {
         success: false,
         result: 'REFUND_IN_PROGRESS',
         ticket_code: ticketCode,
+        ...details,
         message: 'Ve dang xu ly hoan tien',
       };
     case 'INVALID_ORDER':
@@ -369,6 +399,7 @@ function mapDeviceCheckInState(state, ticket = null) {
         success: false,
         result: 'INVALID_ORDER',
         ticket_code: ticketCode,
+        ...details,
         message: 'Ve chua thanh toan',
       };
     case 'CHECKIN_NOT_OPEN':
@@ -377,6 +408,7 @@ function mapDeviceCheckInState(state, ticket = null) {
         success: false,
         result: 'NOT_OPEN',
         ticket_code: ticketCode,
+        ...details,
         message: 'Chua den gio check-in',
       };
     case 'EXPIRED':
@@ -385,6 +417,7 @@ function mapDeviceCheckInState(state, ticket = null) {
         success: false,
         result: 'EXPIRED',
         ticket_code: ticketCode,
+        ...details,
         message: 'Ve da het han',
       };
     case 'TICKET_NOT_VALID':
@@ -395,6 +428,7 @@ function mapDeviceCheckInState(state, ticket = null) {
         success: false,
         result: 'INVALID',
         ticket_code: ticketCode,
+        ...details,
         message: 'Ve khong hop le',
       };
   }
@@ -583,7 +617,7 @@ class TicketsService {
       ticket.event_id !== device.assigned_event_id
       || (qrPayload.eventId && qrPayload.eventId !== device.assigned_event_id)
     ) {
-      return withLogMeta(mapDeviceCheckInState('WRONG_EVENT', ticket), ticket);
+      return withLogMeta(mapDeviceCheckInState('WRONG_EVENT', ticket, device), ticket);
     }
 
     if (
@@ -595,13 +629,14 @@ class TicketsService {
         success: false,
         result: 'INVALID_QR',
         ticket_code: ticket.ticket_code,
+        ...buildDeviceTicketDetails(ticket, device),
         message: 'QR khong khop thong tin ve',
       }, ticket);
     }
 
     const invalidState = ticketsRepository.validateTicketCheckInState(ticket);
     if (invalidState) {
-      return withLogMeta(mapDeviceCheckInState(invalidState, ticket), ticket);
+      return withLogMeta(mapDeviceCheckInState(invalidState, ticket, device), ticket);
     }
 
     const normalizedAction = action === 'auto'
@@ -615,6 +650,7 @@ class TicketsService {
         result: 'VERIFIED',
         ticket_code: ticket.ticket_code,
         event_code: ticket.event_slug,
+        ...buildDeviceTicketDetails(ticket, device),
         message: 'Ve hop le',
       }, ticket);
     }
@@ -626,21 +662,23 @@ class TicketsService {
     );
 
     if (checkInResult.state !== 'CHECKED_IN') {
+      const mergedFailureTicket = { ...ticket, ...(checkInResult.ticket || {}) };
       return withLogMeta(
-        mapDeviceCheckInState(checkInResult.state, checkInResult.ticket || ticket),
-        checkInResult.ticket || ticket,
+        mapDeviceCheckInState(checkInResult.state, mergedFailureTicket, device),
+        mergedFailureTicket,
       );
     }
 
-    const checkedInTicket = checkInResult.ticket || ticket;
+    const mergedCheckedInTicket = { ...ticket, ...(checkInResult.ticket || {}) };
     return withLogMeta({
       httpStatus: 200,
       success: true,
       result: 'OK',
-      ticket_code: checkedInTicket.ticket_code,
-      event_code: checkedInTicket.event_slug,
+      ticket_code: mergedCheckedInTicket.ticket_code,
+      event_code: mergedCheckedInTicket.event_slug,
+      ...buildDeviceTicketDetails(mergedCheckedInTicket, device),
       message: 'Check-in thanh cong',
-    }, { ...ticket, ...checkedInTicket });
+    }, mergedCheckedInTicket);
   }
 
   cancelFreeTicket = async (userId, ticketId, reason) => {
