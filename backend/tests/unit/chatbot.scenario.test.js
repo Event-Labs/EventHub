@@ -401,5 +401,103 @@ describe('EventHub AI Chatbot Multi-Scenario Test Matrix', () => {
       expect(cleanLang).toContain('Dạ Eve đã giúp bạn dừng đặt vé.');
       expect(cleanLang).toContain('Bạn có muốn xem sự kiện khác không?');
     });
+
+    test('Kịch bản 12: Cập nhật thông tin người tham gia vào đề xuất đặt vé đang chờ (không mở lại sơ đồ ghế)', async () => {
+      const history = [];
+
+      // Turn 1: Khách đã có đề xuất giữ vé A13 cho sự kiện yêu cầu thông tin người tham gia
+      const initialProposal = {
+        eventId: mockPorscheEvent.id,
+        eventSlug: mockPorscheEvent.slug,
+        eventTitle: mockPorscheEvent.title,
+        quantity: 1,
+        seats: [{ id: 'seat-a13', label: 'A13', row_label: 'A', seat_number: 13, price: 50000 }],
+        selectedSeatIds: ['seat-a13'],
+        items: [{ ticket_type_id: 'tt-porsche-1', quantity: 1, sessionSeatIds: ['seat-a13'] }],
+        totalAmount: 50000,
+        requireAttendeeInfo: true,
+        attendees: [],
+        isAttendeesComplete: false,
+        holdExpiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString()
+      };
+
+      const proposalTag = `[ACTION:BOOKING_PROPOSAL:${encodeURIComponent(JSON.stringify(initialProposal))}]`;
+      history.push({ role: 'user', content: 'đặt giúp tôi 1 vé sự kiện porsche' });
+      history.push({
+        role: 'assistant',
+        content: `Dạ Eve đã tạo Đề Xuất Đặt Vé cho sự kiện Porsche với ghế [A13]. Bạn vui lòng bổ sung thông tin 1 người tham gia nhé!\n\n${proposalTag}`
+      });
+
+      // Turn 2: Khách nhập thông tin người tham dự trong chat
+      const attendeeInput = 'Nguyễn Tiến Đạt\nndat29112004@gmail.com';
+      const res = await aiAssistantService.chat('user-1', attendeeInput, history);
+
+      expect(res.role).toBe('assistant');
+      expect(res.content).toContain('cập nhật đầy đủ thông tin người tham gia');
+      expect(res.content).toContain('Nguyễn Tiến Đạt');
+      expect(res.content).toContain('ndat29112004@gmail.com');
+      expect(res.content).toContain('A13');
+      expect(res.content).toContain('[ACTION:BOOKING_PROPOSAL:');
+      expect(res.content).not.toContain('chọn ghế trên sơ đồ');
+      expect(res.content).not.toContain('[ACTION:BOOKING:');
+
+      // Decode the generated proposal to verify attendees and completeness
+      const actionMatch = res.content.match(/\[ACTION:BOOKING_PROPOSAL:([^\]]+)\]/i);
+      expect(actionMatch).not.toBeNull();
+      const updatedProp = JSON.parse(decodeURIComponent(actionMatch[1]));
+      expect(updatedProp.isAttendeesComplete).toBe(true);
+      expect(updatedProp.attendees).toHaveLength(1);
+      expect(updatedProp.attendees[0].name).toBe('Nguyễn Tiến Đạt');
+      expect(updatedProp.attendees[0].email).toBe('ndat29112004@gmail.com');
+      expect(updatedProp.seats[0].label).toBe('A13');
+    });
+
+    test('Kịch bản 13: Bổ sung thông tin người tham gia với tên 1 từ dạng "Tên, email" (VD: "Đạt, ndat29112004@gmail.com")', async () => {
+      const history = [];
+
+      const initialProposal = {
+        eventId: mockPorscheEvent.id,
+        eventSlug: mockPorscheEvent.slug,
+        eventTitle: mockPorscheEvent.title,
+        quantity: 2,
+        seats: [
+          { id: 'seat-a13', label: 'A13', row_label: 'A', seat_number: 13, price: 50000 },
+          { id: 'seat-a14', label: 'A14', row_label: 'A', seat_number: 14, price: 50000 }
+        ],
+        selectedSeatIds: ['seat-a13', 'seat-a14'],
+        items: [{ ticket_type_id: 'tt-porsche-1', quantity: 2, sessionSeatIds: ['seat-a13', 'seat-a14'] }],
+        totalAmount: 100000,
+        requireAttendeeInfo: true,
+        attendees: [{ name: 'CIMS', email: 'cimscinema@gmail.com' }],
+        isAttendeesComplete: false,
+        holdExpiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString()
+      };
+
+      const proposalTag = `[ACTION:BOOKING_PROPOSAL:${encodeURIComponent(JSON.stringify(initialProposal))}]`;
+      history.push({ role: 'user', content: 'đặt giúp tôi 2 vé sự kiện porsche' });
+      history.push({
+        role: 'assistant',
+        content: `Dạ Eve đã tạo đề xuất. Cần bổ sung thông tin 1 người tham gia còn lại!\n\n${proposalTag}`
+      });
+
+      // User sends single-word name with comma (like in image 2)
+      const attendeeInput = 'Đạt, ndat29112004@gmail.com';
+      const res = await aiAssistantService.chat('user-1', attendeeInput, history);
+
+      expect(res.role).toBe('assistant');
+      expect(res.content).toContain('cập nhật đầy đủ thông tin người tham gia');
+      expect(res.content).toContain('Đạt');
+      expect(res.content).toContain('ndat29112004@gmail.com');
+      expect(res.content).toContain('[ACTION:BOOKING_PROPOSAL:');
+
+      const actionMatch = res.content.match(/\[ACTION:BOOKING_PROPOSAL:([^\]]+)\]/i);
+      expect(actionMatch).not.toBeNull();
+      const updatedProp = JSON.parse(decodeURIComponent(actionMatch[1]));
+      expect(updatedProp.isAttendeesComplete).toBe(true);
+      expect(updatedProp.attendees).toHaveLength(2);
+      expect(updatedProp.attendees[0].name).toBe('CIMS');
+      expect(updatedProp.attendees[1].name).toBe('Đạt');
+      expect(updatedProp.attendees[1].email).toBe('ndat29112004@gmail.com');
+    });
   });
 });

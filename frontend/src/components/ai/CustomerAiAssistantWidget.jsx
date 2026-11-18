@@ -228,13 +228,21 @@ function ActionMessage({ content, navigate, setInput, onSendMessage, sessionLoca
       const attendees = {};
       let runningSlotsLength = 0;
       items.forEach(item => {
+        const seatIds = item.sessionSeatIds || item.session_seat_ids || [];
+        const tId = item.ticketType?.id || item.ticket_type_id;
         for (let i = 0; i < item.quantity; i++) {
-          const slotId = `${item.ticketType.id}-${i}-${runningSlotsLength}`;
+          const sessionSeatId = seatIds[i] || null;
+          const primarySlotId = `${tId}-${sessionSeatId || i}-${runningSlotsLength}`;
+          const fallbackSlotId = `${tId}-${i}-${runningSlotsLength}`;
           const slotAttendee = attendeeList[runningSlotsLength] || {};
-          attendees[slotId] = {
-            name: slotAttendee.name || '',
-            email: slotAttendee.email || ''
+          const attName = slotAttendee.name || (runningSlotsLength === 0 ? buyerName : '') || '';
+          const attEmail = slotAttendee.email || (runningSlotsLength === 0 ? buyerEmail : '') || '';
+          const entry = {
+            name: attName,
+            email: attEmail
           };
+          attendees[primarySlotId] = entry;
+          attendees[fallbackSlotId] = entry;
           runningSlotsLength++;
         }
       });
@@ -258,8 +266,8 @@ function ActionMessage({ content, navigate, setInput, onSendMessage, sessionLoca
         },
         attendees,
         prefilledAttendees: Array.from({ length: totalQuantity }, (_, idx) => ({
-          name: attendeeList[idx]?.name || '',
-          email: attendeeList[idx]?.email || '',
+          name: attendeeList[idx]?.name || (idx === 0 ? buyerName : '') || '',
+          email: attendeeList[idx]?.email || (idx === 0 ? buyerEmail : '') || '',
         })),
         items,
       };
@@ -302,14 +310,40 @@ function ActionMessage({ content, navigate, setInput, onSendMessage, sessionLoca
       const attendeeList = proposal.attendees || [];
       const totalQuantity = proposal.quantity || 1;
 
-      (proposal.items || []).forEach(item => {
+      const normalizedItems = (proposal.items || []).map(item => {
+        const tId = item.ticketType?.id || item.ticket_type_id;
+        const tName = item.ticketType?.name || item.ticketTypeName || item.name || 'Vé';
+        const seatIds = item.sessionSeatIds || item.session_seat_ids || (proposal.selectedSeatIds || []);
+        return {
+          ...item,
+          ticket_type_id: tId,
+          sessionSeatIds: seatIds,
+          session_seat_ids: seatIds,
+          ticketType: {
+            id: tId,
+            name: tName,
+            price: item.ticketType?.price || item.price || 0,
+            is_seated: item.ticketType?.is_seated ?? Boolean(proposal.hasSeatMap)
+          }
+        };
+      });
+
+      normalizedItems.forEach(item => {
+        const seatIds = item.sessionSeatIds || item.session_seat_ids || (proposal.selectedSeatIds || []);
+        const tId = item.ticketType?.id || item.ticket_type_id;
         for (let i = 0; i < item.quantity; i++) {
-          const slotId = `${item.ticketType?.id || item.ticket_type_id}-${i}-${runningSlotsLength}`;
+          const sessionSeatId = seatIds[i] || null;
+          const primarySlotId = `${tId}-${sessionSeatId || i}-${runningSlotsLength}`;
+          const fallbackSlotId = `${tId}-${i}-${runningSlotsLength}`;
           const slotAttendee = attendeeList[runningSlotsLength] || {};
-          attendees[slotId] = {
-            name: slotAttendee.name || (!proposal.requireAttendeeInfo ? proposal.buyer?.name : ''),
-            email: slotAttendee.email || (!proposal.requireAttendeeInfo ? proposal.buyer?.email : '')
+          const attName = slotAttendee.name || (runningSlotsLength === 0 ? proposal.buyer?.name : '') || (!proposal.requireAttendeeInfo ? proposal.buyer?.name : '') || '';
+          const attEmail = slotAttendee.email || (runningSlotsLength === 0 ? proposal.buyer?.email : '') || (!proposal.requireAttendeeInfo ? proposal.buyer?.email : '') || '';
+          const entry = {
+            name: attName,
+            email: attEmail
           };
+          attendees[primarySlotId] = entry;
+          attendees[fallbackSlotId] = entry;
           runningSlotsLength++;
         }
       });
@@ -335,11 +369,11 @@ function ActionMessage({ content, navigate, setInput, onSendMessage, sessionLoca
         buyer: proposal.buyer || {},
         attendees,
         prefilledAttendees: Array.from({ length: totalQuantity }, (_, idx) => ({
-          name: attendeeList[idx]?.name || '',
-          email: attendeeList[idx]?.email || ''
+          name: attendeeList[idx]?.name || (idx === 0 ? proposal.buyer?.name : '') || (!proposal.requireAttendeeInfo ? proposal.buyer?.name : '') || '',
+          email: attendeeList[idx]?.email || (idx === 0 ? proposal.buyer?.email : '') || (!proposal.requireAttendeeInfo ? proposal.buyer?.email : '') || ''
         })),
         selectedSeatIds: proposal.selectedSeatIds || [],
-        items: proposal.items || [],
+        items: normalizedItems,
         holdExpiresAt: proposal.holdExpiresAt || new Date(Date.now() + 15 * 60 * 1000).toISOString(),
         hold_expires_at: proposal.holdExpiresAt || new Date(Date.now() + 15 * 60 * 1000).toISOString(),
         hasSeatMap: proposal.hasSeatMap
@@ -350,7 +384,7 @@ function ActionMessage({ content, navigate, setInput, onSendMessage, sessionLoca
       } catch (e) {
         console.warn('Could not save draft to sessionStorage', e);
       }
-      saveBookingDraft(cart);
+      saveBookingDraft(cart, 'ai-assistant');
 
       if (proposal.requireAttendeeInfo && !proposal.isAttendeesComplete) {
         navigate('/booking/attendees', { state: { cart } });
@@ -588,16 +622,35 @@ function ActionMessage({ content, navigate, setInput, onSendMessage, sessionLoca
                       : 'bg-amber-950/30 border-amber-500/30 text-amber-300'
                   }`}>
                     {isComplete ? (
-                      <div>
-                        {isEnglish 
-                          ? `Attendee details completed (${attendeeCount}/${proposal.quantity} people)` 
-                          : `Đã đủ thông tin người tham gia (${attendeeCount}/${proposal.quantity} người)`}
+                      <div className="space-y-1">
+                        <div className="font-semibold text-emerald-400">
+                          {isEnglish 
+                            ? `Attendee details completed (${attendeeCount}/${proposal.quantity} people)` 
+                            : `Đã đủ thông tin người tham gia (${attendeeCount}/${proposal.quantity} người)`}
+                        </div>
+                        {(proposal.attendees || []).map((att, attIdx) => (
+                          <div key={attIdx} className="text-slate-300 text-[10px]">
+                            • {att.name} ({att.email})
+                          </div>
+                        ))}
                       </div>
                     ) : (
-                      <div>
-                        {isEnglish 
-                          ? `Need info for ${proposal.quantity - attendeeCount} remaining attendee(s) (message Eve in chat)` 
-                          : `Cần bổ sung thông tin ${proposal.quantity - attendeeCount} người tham gia còn lại (nhắn Eve trong chat)`}
+                      <div className="space-y-1">
+                        <div>
+                          {isEnglish 
+                            ? `Need info for ${proposal.quantity - attendeeCount} remaining attendee(s) (message Eve in chat)` 
+                            : `Cần bổ sung thông tin ${proposal.quantity - attendeeCount} người tham gia còn lại (nhắn Eve trong chat)`}
+                        </div>
+                        {(proposal.attendees || []).length > 0 && (
+                          <div className="mt-1 pt-1 border-t border-amber-500/20 text-slate-300 text-[10px]">
+                            <span className="text-amber-400/90 font-medium">{isEnglish ? 'Recorded:' : 'Đã ghi nhận:'}</span>
+                            {(proposal.attendees || []).map((att, attIdx) => (
+                              <div key={attIdx} className="ml-1 text-slate-300">
+                                • {att.name} ({att.email})
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
