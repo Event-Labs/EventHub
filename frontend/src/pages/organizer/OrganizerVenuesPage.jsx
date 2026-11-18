@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { Armchair, Building2, ExternalLink, Eye, Layers, MapPin, Pencil, Search, Trash2, X } from 'lucide-react'
@@ -752,6 +752,7 @@ function VenueCard({ venue, onDetail, onEdit, onDelete }) {
 
 export function OrganizerVenuesPage() {
   const toast = useToast()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [venues, setVenues] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -760,7 +761,6 @@ export function OrganizerVenuesPage() {
   const [editVenue, setEditVenue] = useState(null)
   const [detailVenue, setDetailVenue] = useState(null)
   const [venueToDelete, setVenueToDelete] = useState(null)
-  const [message, setMessage] = useState('')
 
   const loadVenues = useCallback(async () => {
     setLoading(true)
@@ -769,17 +769,25 @@ export function OrganizerVenuesPage() {
       setVenues(data)
     } catch (err) {
       console.error(err)
-      const message = 'Không thể tải danh sách địa điểm.'
-      setMessage(message)
-      toast.error(message)
+      toast.error('Không thể tải danh sách địa điểm.')
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [toast])
 
   useEffect(() => {
     loadVenues()
   }, [loadVenues])
+
+  useEffect(() => {
+    if (searchParams.get('action') === 'create') {
+      setEditVenue(null)
+      setModalOpen(true)
+      const nextParams = new URLSearchParams(searchParams)
+      nextParams.delete('action')
+      setSearchParams(nextParams, { replace: true })
+    }
+  }, [searchParams, setSearchParams])
 
   const filtered = venues.filter((v) => {
     const q = search.toLowerCase()
@@ -811,14 +819,14 @@ export function OrganizerVenuesPage() {
     setVenueToDelete(null)
     try {
       await deleteVenue(venue.id)
-      setMessage('Đã xóa địa điểm.')
       toast.success('Đã xóa địa điểm.')
       loadVenues()
+      try {
+        localStorage.setItem('eventhub_venues_last_updated', Date.now().toString())
+      } catch (e) {}
     } catch (err) {
       console.error(err)
-      const message = getApiMessage(err, 'Không thể xóa địa điểm.')
-      setMessage(message)
-      toast.error(message)
+      toast.error(getApiMessage(err, 'Không thể xóa địa điểm.'))
     }
   }
 
@@ -840,8 +848,6 @@ export function OrganizerVenuesPage() {
           />
         </div>
       </div>
-
-      {message && <p className="mb-4 text-sm text-subtle font-semibold">{message}</p>}
 
       {loading ? (
         <div className="flex justify-center py-16">
@@ -885,9 +891,11 @@ export function OrganizerVenuesPage() {
         onClose={() => setModalOpen(false)}
         onSaved={() => {
           const message = editVenue ? 'Đã cập nhật địa điểm.' : 'Đã tạo địa điểm mới.'
-          setMessage(message)
           toast.success(message)
           loadVenues()
+          try {
+            localStorage.setItem('eventhub_venues_last_updated', Date.now().toString())
+          } catch (e) {}
         }}
       />
 
