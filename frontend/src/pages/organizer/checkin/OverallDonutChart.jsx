@@ -66,6 +66,7 @@ export function OverallDonutChart({ overall }) {
               paddingAngle={total > 0 && checkedIn > 0 && notCheckedIn > 0 ? 4 : 0}
               dataKey="value"
               stroke="none"
+              isAnimationActive={false}
             >
               {chartData.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={entry.color} />

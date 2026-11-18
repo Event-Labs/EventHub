@@ -401,127 +401,98 @@ class OrganizerOrdersRepository {
    * - Recent check-ins (last 20)
    */
   async getCheckinStats(organizerId, eventId) {
-    // Verify ownership via JOIN
-    const overallRes = await db.query(
-      `
-      SELECT
-        COUNT(t.id)::int                                          AS total_tickets,
-        COUNT(t.id) FILTER (WHERE t.status = 'USED')::int        AS checked_in,
-        COUNT(t.id) FILTER (WHERE t.status = 'VALID')::int       AS valid,
-        COUNT(t.id) FILTER (WHERE t.status = 'CANCELLED')::int   AS cancelled
-      FROM tickets t
-      JOIN events e ON e.id = t.event_id
-      WHERE e.id = $1
-        AND e.organizer_id = $2
-        AND e.deleted_at IS NULL
-        AND EXISTS (
-          SELECT 1 FROM orders o
-          JOIN order_items oi ON oi.order_id = o.id
-          WHERE oi.id = t.order_item_id AND o.status IN ('PAID', 'CONFIRMED')
-        )
-      `,
-      [eventId, organizerId],
-    );
+    // Note: Event ownership is already asserted by organizerOrders.service.js
+    // Execute all 5 stats queries in parallel for high throughput and minimal latency
+    const [overallRes, bySessionRes, byTicketTypeRes, recentRes, timelineRes] = await Promise.all([
+      db.query(
+        `
+        SELECT
+          COUNT(t.id)::int                                          AS total_tickets,
+          COUNT(t.id) FILTER (WHERE t.status = 'USED')::int        AS checked_in,
+          COUNT(t.id) FILTER (WHERE t.status = 'VALID')::int       AS valid,
+          COUNT(t.id) FILTER (WHERE t.status = 'CANCELLED')::int   AS cancelled
+        FROM tickets t
+        WHERE t.event_id = $1
+          AND t.status IN ('USED', 'VALID')
+        `,
+        [eventId],
+      ),
 
-    const bySessionRes = await db.query(
-      `
-      SELECT
-        es.id                                                         AS session_id,
-        COALESCE(es.session_name, TO_CHAR(es.start_time AT TIME ZONE 'Asia/Ho_Chi_Minh', 'DD/MM HH24:MI')) AS session_name,
-        es.start_time,
-        es.end_time,
-        v.name                                                        AS venue_name,
-        COUNT(t.id)::int                                              AS total_tickets,
-        COUNT(t.id) FILTER (WHERE t.status = 'USED')::int            AS checked_in,
-        COUNT(t.id) FILTER (WHERE t.status = 'VALID')::int           AS valid
-      FROM event_sessions es
-      JOIN events e ON e.id = es.event_id
-      JOIN venues v ON v.id = es.venue_id
-      LEFT JOIN tickets t ON t.event_session_id = es.id
-        AND EXISTS (
-          SELECT 1 FROM orders o
-          JOIN order_items oi ON oi.order_id = o.id
-          WHERE oi.id = t.order_item_id AND o.status IN ('PAID', 'CONFIRMED')
-        )
-      WHERE es.event_id = $1
-        AND e.organizer_id = $2
-      GROUP BY es.id, es.session_name, es.start_time, es.end_time, v.name
-      ORDER BY es.start_time ASC
-      `,
-      [eventId, organizerId],
-    );
+      db.query(
+        `
+        SELECT
+          es.id                                                         AS session_id,
+          COALESCE(es.session_name, TO_CHAR(es.start_time AT TIME ZONE 'Asia/Ho_Chi_Minh', 'DD/MM HH24:MI')) AS session_name,
+          es.start_time,
+          es.end_time,
+          v.name                                                        AS venue_name,
+          COUNT(t.id)::int                                              AS total_tickets,
+          COUNT(t.id) FILTER (WHERE t.status = 'USED')::int            AS checked_in,
+          COUNT(t.id) FILTER (WHERE t.status = 'VALID')::int           AS valid
+        FROM event_sessions es
+        JOIN venues v ON v.id = es.venue_id
+        LEFT JOIN tickets t ON t.event_session_id = es.id AND t.status IN ('USED', 'VALID')
+        WHERE es.event_id = $1
+        GROUP BY es.id, es.session_name, es.start_time, es.end_time, v.name
+        ORDER BY es.start_time ASC
+        `,
+        [eventId],
+      ),
 
-    const byTicketTypeRes = await db.query(
-      `
-      SELECT
-        tt.id                                                         AS ticket_type_id,
-        tt.name                                                       AS ticket_type_name,
-        tt.price,
-        COUNT(t.id)::int                                              AS total_tickets,
-        COUNT(t.id) FILTER (WHERE t.status = 'USED')::int            AS checked_in,
-        COUNT(t.id) FILTER (WHERE t.status = 'VALID')::int           AS valid
-      FROM ticket_types tt
-      JOIN event_sessions es ON es.id = tt.event_session_id
-      LEFT JOIN tickets t ON t.ticket_type_id = tt.id
-        AND EXISTS (
-          SELECT 1 FROM orders o
-          JOIN order_items oi ON oi.order_id = o.id
-          WHERE oi.id = t.order_item_id AND o.status IN ('PAID', 'CONFIRMED')
-        )
-      WHERE es.event_id = $1
-      GROUP BY tt.id, tt.name, tt.price
-      ORDER BY tt.price ASC
-      `,
-      [eventId],
-    );
+      db.query(
+        `
+        SELECT
+          tt.id                                                         AS ticket_type_id,
+          tt.name                                                       AS ticket_type_name,
+          tt.price,
+          COUNT(t.id)::int                                              AS total_tickets,
+          COUNT(t.id) FILTER (WHERE t.status = 'USED')::int            AS checked_in,
+          COUNT(t.id) FILTER (WHERE t.status = 'VALID')::int           AS valid
+        FROM ticket_types tt
+        JOIN event_sessions es ON es.id = tt.event_session_id
+        LEFT JOIN tickets t ON t.ticket_type_id = tt.id AND t.status IN ('USED', 'VALID')
+        WHERE es.event_id = $1
+        GROUP BY tt.id, tt.name, tt.price
+        ORDER BY tt.price ASC
+        `,
+        [eventId],
+      ),
 
-    const recentRes = await db.query(
-      `
-      SELECT
-        t.ticket_code,
-        t.attendee_name,
-        t.attendee_email,
-        t.checked_in_at,
-        tt.name AS ticket_type_name,
-        es.session_name
-      FROM tickets t
-      JOIN ticket_types tt ON tt.id = t.ticket_type_id
-      JOIN event_sessions es ON es.id = t.event_session_id
-      JOIN events e ON e.id = t.event_id
-      WHERE t.event_id = $1
-        AND e.organizer_id = $2
-        AND t.status = 'USED'
-        AND t.checked_in_at IS NOT NULL
-        AND EXISTS (
-          SELECT 1 FROM orders o
-          JOIN order_items oi ON oi.order_id = o.id
-          WHERE oi.id = t.order_item_id AND o.status IN ('PAID', 'CONFIRMED')
-        )
-      ORDER BY t.checked_in_at DESC
-      LIMIT 20
-      `,
-      [eventId, organizerId],
-    );
+      db.query(
+        `
+        SELECT
+          t.ticket_code,
+          t.attendee_name,
+          t.attendee_email,
+          t.checked_in_at,
+          tt.name AS ticket_type_name,
+          es.session_name
+        FROM tickets t
+        JOIN ticket_types tt ON tt.id = t.ticket_type_id
+        JOIN event_sessions es ON es.id = t.event_session_id
+        WHERE t.event_id = $1
+          AND t.status = 'USED'
+          AND t.checked_in_at IS NOT NULL
+        ORDER BY t.checked_in_at DESC
+        LIMIT 20
+        `,
+        [eventId],
+      ),
 
-    const timelineRes = await db.query(
-      `
-      SELECT
-        t.checked_in_at
-      FROM tickets t
-      JOIN events e ON e.id = t.event_id
-      WHERE t.event_id = $1
-        AND e.organizer_id = $2
-        AND t.status = 'USED'
-        AND t.checked_in_at IS NOT NULL
-        AND EXISTS (
-          SELECT 1 FROM orders o
-          JOIN order_items oi ON oi.order_id = o.id
-          WHERE oi.id = t.order_item_id AND o.status IN ('PAID', 'CONFIRMED')
-        )
-      ORDER BY t.checked_in_at ASC
-      `,
-      [eventId, organizerId],
-    );
+      db.query(
+        `
+        SELECT
+          t.checked_in_at
+        FROM tickets t
+        WHERE t.event_id = $1
+          AND t.status = 'USED'
+          AND t.checked_in_at IS NOT NULL
+        ORDER BY t.checked_in_at ASC
+        LIMIT 3000
+        `,
+        [eventId],
+      ),
+    ]);
 
     const overall = overallRes.rows[0] ?? { total_tickets: 0, checked_in: 0, valid: 0, cancelled: 0 };
     return {
