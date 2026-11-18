@@ -49,17 +49,19 @@ export function CheckinTrendLineChart({ timeline = [] }) {
   const { isEnglish } = useLanguage()
   const [timeRange, setTimeRange] = useState('ALL') // '30m' | '60m' | 'ALL'
 
-  // Process timeline timestamps into 5-minute interval buckets
+  // Process timeline timestamps into adaptive, high-performance interval buckets
   const chartData = useMemo(() => {
     if (!timeline || timeline.length === 0) return []
 
-    // Parse all valid timestamps and sort
-    const validTimestamps = timeline
-      .map((t) => new Date(t).getTime())
-      .filter((t) => !isNaN(t))
-      .sort((a, b) => a - b)
+    // Parse all valid timestamps into fast numeric array
+    const validTimestamps = []
+    for (let i = 0; i < timeline.length; i++) {
+      const t = new Date(timeline[i]).getTime()
+      if (!isNaN(t)) validTimestamps.push(t)
+    }
 
     if (validTimestamps.length === 0) return []
+    validTimestamps.sort((a, b) => a - b)
 
     const now = Date.now()
     let filtered = validTimestamps
@@ -74,41 +76,64 @@ export function CheckinTrendLineChart({ timeline = [] }) {
 
     if (filtered.length === 0) return []
 
-    // Bucket into 5-minute intervals (300,000 ms)
-    const BUCKET_MS = 5 * 60 * 1000
     const firstTime = filtered[0]
-    const lastTime = Math.max(filtered[filtered.length - 1], firstTime + BUCKET_MS)
+    const lastTime = Math.max(filtered[filtered.length - 1], firstTime + 60_000)
+    const spanMs = lastTime - firstTime
 
-    const startBucket = Math.floor(firstTime / BUCKET_MS) * BUCKET_MS
-    const endBucket = Math.ceil(lastTime / BUCKET_MS) * BUCKET_MS
+    // Dynamically choose bucket size so we NEVER create excessive SVG points (target 20-40 points max)
+    let bucketMs = 5 * 60 * 1000 // default 5m
+    if (timeRange === '30m') {
+      bucketMs = 1 * 60 * 1000 // 1m buckets (30 points)
+    } else if (timeRange === '60m') {
+      bucketMs = 2 * 60 * 1000 // 2m buckets (30 points)
+    } else {
+      // ALL time range: adaptive scaling based on total time span
+      if (spanMs <= 2 * 3600 * 1000) {
+        bucketMs = 5 * 60 * 1000 // 5m buckets (up to 24 points)
+      } else if (spanMs <= 8 * 3600 * 1000) {
+        bucketMs = 15 * 60 * 1000 // 15m buckets (up to 32 points)
+      } else if (spanMs <= 24 * 3600 * 1000) {
+        bucketMs = 30 * 60 * 1000 // 30m buckets (up to 48 points)
+      } else if (spanMs <= 7 * 86400 * 1000) {
+        bucketMs = 2 * 3600 * 1000 // 2h buckets
+      } else {
+        bucketMs = Math.max(6 * 3600 * 1000, Math.ceil(spanMs / 30)) // at most ~30-40 buckets
+      }
+    }
 
-    // Count checkins in each bucket
+    const startBucket = Math.floor(firstTime / bucketMs) * bucketMs
+    const endBucket = Math.ceil(lastTime / bucketMs) * bucketMs
+
+    // Count checkins in each bucket with a safety cap
     const bucketCounts = new Map()
-    for (let b = startBucket; b <= endBucket; b += BUCKET_MS) {
+    for (let b = startBucket; b <= endBucket; b += bucketMs) {
       bucketCounts.set(b, 0)
     }
 
     filtered.forEach((t) => {
-      const b = Math.floor(t / BUCKET_MS) * BUCKET_MS
-      bucketCounts.set(b, (bucketCounts.get(b) || 0) + 1)
+      const b = Math.floor(t / bucketMs) * bucketMs
+      if (bucketCounts.has(b)) {
+        bucketCounts.set(b, bucketCounts.get(b) + 1)
+      }
     })
 
     // Compute cumulative sum
     let cumulative = 0
-    // If filtered is subset of all, find cumulative before window
     if (timeRange !== 'ALL') {
       const windowStart = timeRange === '30m' ? now - 30 * 60 * 1000 : now - 60 * 60 * 1000
       cumulative = validTimestamps.filter((t) => t < windowStart).length
     }
 
     const points = []
+    const isMultiDay = spanMs > 24 * 3600 * 1000
+
     bucketCounts.forEach((count, bTime) => {
       cumulative += count
       const date = new Date(bTime)
-      const label = date.toLocaleTimeString('vi-VN', {
-        hour: '2-digit',
-        minute: '2-digit',
-      })
+      const label = isMultiDay
+        ? date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) + ' ' + date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+        : date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+
       points.push({
         time: label,
         rawTime: bTime,
@@ -218,8 +243,9 @@ export function CheckinTrendLineChart({ timeline = [] }) {
                 name={isEnglish ? 'Cumulative Check-ins' : 'Tổng check-in tích lũy'}
                 stroke="#06B6D4"
                 strokeWidth={3}
-                dot={{ r: 3, fill: '#06B6D4' }}
+                dot={chartData.length <= 25 ? { r: 3, fill: '#06B6D4' } : false}
                 activeDot={{ r: 6, stroke: '#FFFFFF', strokeWidth: 2 }}
+                isAnimationActive={false}
               />
               <Line
                 type="monotone"
@@ -228,7 +254,8 @@ export function CheckinTrendLineChart({ timeline = [] }) {
                 stroke="#A855F7"
                 strokeWidth={2}
                 strokeDasharray="4 4"
-                dot={{ r: 2.5, fill: '#A855F7' }}
+                dot={chartData.length <= 25 ? { r: 2.5, fill: '#A855F7' } : false}
+                isAnimationActive={false}
               />
             </LineChart>
           </ResponsiveContainer>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   BarChart3,
@@ -50,6 +50,7 @@ export function OrganizerCheckinDashboardPage() {
   const [connectionStatus, setConnectionStatus] = useState('connected') // 'connected' | 'reconnecting' | 'error'
   const [error, setError] = useState('')
   const [lastRefresh, setLastRefresh] = useState(null)
+  const isFetchingRef = useRef(false)
 
   // 1. Load active events list for organizer
   useEffect(() => {
@@ -73,12 +74,13 @@ export function OrganizerCheckinDashboardPage() {
       .finally(() => setEventsLoading(false))
   }, [initialEventId])
 
-  // 2. Fetch stats function (with background poll support)
+  // 2. Fetch stats function (with background poll support & overlap lock)
   const loadStats = useCallback(
     async (isManual = false) => {
-      if (!selectedEventId) return
+      if (!selectedEventId || isFetchingRef.current) return
 
-      if (isManual || !stats) {
+      isFetchingRef.current = true
+      if (isManual) {
         setIsRefreshing(true)
       }
 
@@ -90,15 +92,14 @@ export function OrganizerCheckinDashboardPage() {
         setError('')
       } catch (err) {
         setConnectionStatus('reconnecting')
-        if (!stats) {
-          setError(err.response?.data?.message || 'Không thể tải dữ liệu check-in.')
-        }
+        setError((prev) => prev || err.response?.data?.message || 'Không thể tải dữ liệu check-in.')
       } finally {
+        isFetchingRef.current = false
         setIsRefreshing(false)
         setInitialLoading(false)
       }
     },
-    [selectedEventId, stats]
+    [selectedEventId]
   )
 
   // 3. Reset and load on event change
@@ -108,14 +109,16 @@ export function OrganizerCheckinDashboardPage() {
     setInitialLoading(true)
     setError('')
     loadStats(true)
-  }, [selectedEventId])
+  }, [selectedEventId, loadStats])
 
-  // 4. Polling timer every 5 seconds for Real-time Analytics
+  // 4. Polling timer every 6 seconds for Real-time Analytics (paused if tab is hidden)
   useEffect(() => {
     if (!selectedEventId) return
     const timer = setInterval(() => {
-      loadStats(false)
-    }, 5_000)
+      if (typeof document === 'undefined' || document.visibilityState === 'visible') {
+        loadStats(false)
+      }
+    }, 6_000)
 
     return () => clearInterval(timer)
   }, [selectedEventId, loadStats])

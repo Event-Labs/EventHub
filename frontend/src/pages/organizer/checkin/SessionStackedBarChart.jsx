@@ -187,6 +187,7 @@ export function SessionStackedBarChart({ data = [] }) {
                   stackId="sessionStack"
                   radius={[0, 0, 0, 0]}
                   barSize={20}
+                  isAnimationActive={false}
                 />
                 <Bar
                   dataKey="valid"
@@ -195,6 +196,7 @@ export function SessionStackedBarChart({ data = [] }) {
                   stackId="sessionStack"
                   radius={[0, 4, 4, 0]}
                   barSize={20}
+                  isAnimationActive={false}
                 />
               </BarChart>
             </ResponsiveContainer>

@@ -202,6 +202,33 @@ function normalizeSeatingRules(raw) {
   }
 }
 
+function isLightColor(color) {
+  if (!color || typeof color !== 'string') return false
+  const clean = color.replace('#', '').trim().toLowerCase()
+  if (['fff', 'ffffff', 'white', 'f8fafc', 'f1f5f9', 'e2e8f0', 'cbd5e1'].includes(clean)) return true
+  if (clean.length < 3) return false
+  let r, g, b
+  if (clean.length === 3) {
+    r = parseInt(clean[0] + clean[0], 16)
+    g = parseInt(clean[1] + clean[1], 16)
+    b = parseInt(clean[2] + clean[2], 16)
+  } else {
+    r = parseInt(clean.substring(0, 2), 16)
+    g = parseInt(clean.substring(2, 4), 16)
+    b = parseInt(clean.substring(4, 6), 16)
+  }
+  if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) return false
+  const yiq = (r * 299 + g * 587 + b * 114) / 1000
+  return yiq >= 140
+}
+
+function resolveDarkCanvasBg(canvasBg) {
+  if (!canvasBg || isLightColor(canvasBg)) {
+    return '#0F172A'
+  }
+  return canvasBg
+}
+
 function buildSeatLayout(seats, seatMap) {
   const positioned = (seats || []).filter((seat) => Number.isFinite(Number(seat.x_position)) && Number.isFinite(Number(seat.y_position)))
   if (!positioned.length) return null
@@ -269,7 +296,7 @@ function buildSeatLayout(seats, seatMap) {
       h: Number(area.h),
       rotation: Number(area.rotation || 0),
     })),
-    canvasBg: config.canvasBg || '#0F172A',
+    canvasBg: resolveDarkCanvasBg(config.canvasBg || config.canvas_theme || seatMap?.canvas_bg),
   }
 }
 
@@ -1500,29 +1527,62 @@ export function BookingReviewPage() {
 
   const availablePromos = promosQuery.data || []
 
-  const handleApplyPromo = (rawCode) => {
+  useEffect(() => {
+    if (promosQuery.isSuccess && promoCode) {
+      const found = availablePromos.find((p) => String(p.code).trim().toUpperCase() === String(promoCode).trim().toUpperCase())
+      if (found) {
+        if (!selectedPromo) setSelectedPromo(found)
+      } else {
+        setPromoCode('')
+        setSelectedPromo(null)
+        setPromoInput('')
+      }
+    }
+  }, [promosQuery.isSuccess, availablePromos, promoCode, selectedPromo])
+
+  const handleApplyPromo = async (rawCode) => {
     const code = (rawCode ?? promoInput).trim().toUpperCase()
     if (!code) {
-      toast.error('Vui lòng nhập mã khuyến mãi.')
+      toast.error(isEnglish ? 'Please enter a promo code.' : 'Vui lòng nhập mã khuyến mãi.')
       return
     }
-    const found = availablePromos.find((p) => String(p.code).toUpperCase() === code)
+
+    let promos = availablePromos
+    if (promosQuery.isLoading) {
+      try {
+        const res = await promosQuery.refetch()
+        promos = res.data || []
+      } catch (err) {
+        // fallback
+      }
+    }
+
+    const found = promos.find((p) => String(p.code).trim().toUpperCase() === code)
     const subtotal = cartTotal(cart)
 
     if (found) {
       if (!isPromoUsable(found, subtotal)) {
-        toast.error(`Đơn hàng cần tối thiểu ${formatPrice(found.min_order_value || 0)} để áp dụng mã này.`)
+        toast.error(
+          isEnglish
+            ? `Order requires a minimum of ${formatPrice(found.min_order_value || 0, isEnglish)} to apply this code.`
+            : `Đơn hàng cần tối thiểu ${formatPrice(found.min_order_value || 0)} để áp dụng mã này.`
+        )
         return
       }
       setPromoCode(found.code)
       setSelectedPromo(found)
       setPromoInput(found.code)
-      toast.success(`Đã áp dụng mã giảm giá ${found.code}!`)
+      toast.success(
+        isEnglish
+          ? `Promo code ${found.code} applied successfully!`
+          : `Áp dụng mã khuyến mãi ${found.code} thành công!`
+      )
     } else {
-      setPromoCode(code)
-      setSelectedPromo(null)
-      setPromoInput(code)
-      toast.info(`Đã lưu mã khuyến mãi: ${code}. Hệ thống sẽ đối soát khi thanh toán.`)
+      toast.error(
+        isEnglish
+          ? 'Promo code is invalid or unavailable.'
+          : 'Mã khuyến mãi không khả dụng hoặc không chính xác.'
+      )
     }
   }
 
@@ -2610,7 +2670,11 @@ function OrderCard({
         </div>
       ) : null}
 
-      <Line label={isEnglish ? `Total ${(cart?.items || []).reduce((sum, item) => sum + item.quantity, 0)} tickets` : `Tổng cộng ${(cart?.items || []).reduce((sum, item) => sum + item.quantity, 0)} vé`} value={formatPrice(cartTotal(cart), isEnglish)} large />
+      <Line
+        label={isEnglish ? `Total ${(cart?.items || []).reduce((sum, item) => sum + item.quantity, 0)} tickets` : `Tổng cộng ${(cart?.items || []).reduce((sum, item) => sum + item.quantity, 0)} vé`}
+        value={formatPrice(cartTotal(cart), isEnglish)}
+        large={promoDiscount(cart) <= 0}
+      />
       {promoDiscount(cart) > 0 && (
         <Line label={isEnglish ? 'Discount' : 'Giảm giá'} value={`-${formatPrice(promoDiscount(cart), isEnglish)}`} tone="discount" />
       )}
@@ -2807,6 +2871,8 @@ function isPromoUsable(promo, subtotal) {
 }
 
 function OrganizerVoucherModal({ promoCode, setPromoCode, selectedPromo, setSelectedPromo, setPromoInput, cart, onClose }) {
+  const { isEnglish } = useLanguage()
+  const toast = useToast()
   const subtotal = cartTotal(cart)
   const promosQuery = useQuery({
     queryKey: ['available-event-promos', cart?.eventId],
@@ -2843,6 +2909,11 @@ function OrganizerVoucherModal({ promoCode, setPromoCode, selectedPromo, setSele
       setPromoCode(tempSelected.code)
       setSelectedPromo(tempSelected)
       setPromoInput?.(tempSelected.code)
+      toast.success(
+        isEnglish
+          ? `Promo code ${tempSelected.code} applied successfully!`
+          : `Áp dụng mã khuyến mãi ${tempSelected.code} thành công!`
+      )
     } else {
       setPromoCode('')
       setSelectedPromo(null)
@@ -3214,6 +3285,8 @@ function stageShapeStyle(shape) {
 function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat, onSelectStandingArea, seatZoom, colsCount, seatMap, invalidSeatId, pausedTicketTypeIds }) {
   const { isEnglish } = useLanguage()
   const metrics = seatMapMetrics(seats, seatMap)
+  const rawCanvasBg = metrics?.canvasBg || seatMap?.config?.canvasBg
+  const canvasBg = resolveDarkCanvasBg(rawCanvasBg)
   const renderSeat = (seat, style = {}) => {
     const selected = selectedSeatIds.includes(seat.session_seat_id)
     const mappedTicketTypeIds = seat.ticket_type_ids || []
@@ -3326,7 +3399,7 @@ function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat, onSe
       style={{
         width: metrics.width * seatZoom,
         height: metrics.height * seatZoom,
-        backgroundColor: metrics.canvasBg,
+        backgroundColor: canvasBg,
         backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.08) 1px, transparent 1px)',
         backgroundSize: `${20 * seatZoom}px ${20 * seatZoom}px`,
       }}

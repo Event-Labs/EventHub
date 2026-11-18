@@ -165,6 +165,7 @@ export function TicketTypeStackedBarChart({ data = [] }) {
                   stackId="ticketStack"
                   radius={[0, 0, 0, 0]}
                   barSize={20}
+                  isAnimationActive={false}
                 />
                 <Bar
                   dataKey="valid"
@@ -173,6 +174,7 @@ export function TicketTypeStackedBarChart({ data = [] }) {
                   stackId="ticketStack"
                   radius={[0, 4, 4, 0]}
                   barSize={20}
+                  isAnimationActive={false}
                 />
               </BarChart>
             </ResponsiveContainer>
