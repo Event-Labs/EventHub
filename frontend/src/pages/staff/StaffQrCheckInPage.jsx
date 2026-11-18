@@ -228,7 +228,10 @@ export function StaffQrCheckInPage() {
   const controlsRef = useRef(null)
   const readerRef = useRef(null)
   const processingRef = useRef(false)
-  const lastQrRef = useRef({ value: '', time: 0 })
+  const lastQrRef = useRef({ value: '', time: 0, cooldownMs: 2500 })
+  const activeReadyQrRef = useRef('')
+  const noticeOpenRef = useRef(false)
+  const inspectTicketFromQrRef = useRef(null)
 
   const [cameraState, setCameraState] = useState('idle')
   const [cameraMessage, setCameraMessage] = useState('Camera chưa bật.')
@@ -269,6 +272,8 @@ export function StaffQrCheckInPage() {
     controlsRef.current?.stop()
     controlsRef.current = null
     processingRef.current = false
+    activeReadyQrRef.current = ''
+    noticeOpenRef.current = false
 
     if (videoRef.current) {
       videoRef.current.srcObject = null
@@ -282,16 +287,26 @@ export function StaffQrCheckInPage() {
     const value = String(rawValue || '').trim()
     const now = Date.now()
 
+    if (!value || processingRef.current || noticeOpenRef.current) {
+      return
+    }
+
+    // Ignore duplicate frames of the exact ticket currently waiting for confirmation
+    if (activeReadyQrRef.current && activeReadyQrRef.current === value) {
+      return
+    }
+
+    // Cooldown applies ONLY to the same QR code; any different QR scans immediately
     if (
-      !value ||
-      processingRef.current ||
-      (lastQrRef.current.value === value && now - lastQrRef.current.time < 2500)
+      lastQrRef.current.value === value &&
+      now - lastQrRef.current.time < (lastQrRef.current.cooldownMs || 2500)
     ) {
       return
     }
 
     processingRef.current = true
-    lastQrRef.current = { value, time: now }
+    activeReadyQrRef.current = ''
+    lastQrRef.current = { value, time: now, cooldownMs: 2500 }
     setCheckInState('checking')
     setScannedTicket(null)
     setScannedQrValue('')
@@ -316,11 +331,9 @@ export function StaffQrCheckInPage() {
           title: 'Vé đã được dùng',
           message: `Vé này đã được soát vào lúc ${formatDateTime(checkedTime)}${ticket.checked_in_by?.name ? ' bởi ' + ticket.checked_in_by.name : ''}. Không thể soát lại!`,
         })
-        setQrMessage(`Vé đã dùng rồi! Đã soát lúc ${formatDateTime(checkedTime)}.`)
+        setQrMessage(`Vé đã dùng rồi! Đưa mã QR khác vào khung hình để tiếp tục.`)
         setCheckInState('error')
-        window.setTimeout(() => {
-          processingRef.current = false
-        }, 2000)
+        lastQrRef.current = { value, time: Date.now(), cooldownMs: 2500 }
         return
       }
 
@@ -337,21 +350,20 @@ export function StaffQrCheckInPage() {
               ? 'Vé này đã được hoàn tiền.'
               : 'Vé không hợp lệ để tham gia.'),
         })
-        setQrMessage(`Vé không hợp lệ (${ticketStatusLabel(ticket, isEnglish)}).`)
+        setQrMessage(`Vé không hợp lệ (${ticketStatusLabel(ticket, isEnglish)}). Đưa mã QR khác vào khung hình.`)
         setCheckInState('error')
-        window.setTimeout(() => {
-          processingRef.current = false
-        }, 2000)
+        lastQrRef.current = { value, time: Date.now(), cooldownMs: 2500 }
         return
       }
 
       playScanBeep()
+      activeReadyQrRef.current = value
       setScannedTicket(ticket)
       setScannedQrValue(value)
       setScanError(null)
       setTicketPanelMessage('')
       setTicketNoticeCountdown(0)
-      setQrMessage('Đã tìm thấy vé. Kiểm tra thông tin rồi xác nhận soát vé.')
+      setQrMessage('Đã tìm thấy vé. Xác nhận soát vé hoặc đưa mã QR khác vào khung hình.')
       setCheckInState('ready')
     } catch (error) {
       playErrorBeep()
@@ -360,11 +372,13 @@ export function StaffQrCheckInPage() {
       const rawMessage = getApiMessage(error, 'Mã QR không hợp lệ hoặc vé không thể soát.')
 
       if (rawMessage === 'Vé này chưa đến giờ tham gia.') {
+        noticeOpenRef.current = true
         setQrMessage('')
         setScanError(null)
         setTicketPanelMessage(rawMessage)
         setTicketNoticeCountdown(3)
         setCheckInState('error')
+        lastQrRef.current = { value, time: Date.now(), cooldownMs: 3000 }
         return
       }
 
@@ -386,18 +400,20 @@ export function StaffQrCheckInPage() {
       })
       setQrMessage(errorMsg)
       setCheckInState('error')
-
-      window.setTimeout(() => {
-        processingRef.current = false
-      }, 2000)
+      lastQrRef.current = { value, time: Date.now(), cooldownMs: 2500 }
     } finally {
+      processingRef.current = false
       setHistoryRefreshKey((v) => v + 1)
     }
   }
 
-  const confirmQrCheckIn = async () => {
-    if (!scannedTicket?.id) return
+  inspectTicketFromQrRef.current = inspectTicketFromQr
 
+  const confirmQrCheckIn = async () => {
+    if (!scannedTicket?.id || processingRef.current) return
+
+    const confirmedQr = scannedQrValue || scannedTicket.qr_code || scannedTicket.ticket_code || ''
+    processingRef.current = true
     setCheckInState('checking')
     setQrMessage('Đang xác nhận soát vé...')
 
@@ -406,10 +422,12 @@ export function StaffQrCheckInPage() {
         ? await checkInTicketByQr({ qrCode: scannedQrValue })
         : await checkInStaffTicket(scannedTicket.id)
       showSuccess(ticket)
+      activeReadyQrRef.current = ''
+      lastQrRef.current = { value: confirmedQr, time: Date.now(), cooldownMs: 3500 }
       setScannedTicket(null)
       setScannedQrValue('')
       setScanError(null)
-      setQrMessage('Check-in thành công.')
+      setQrMessage('Check-in thành công! Đưa mã QR tiếp theo vào khung hình.')
       setCheckInState('success')
     } catch (error) {
       playErrorBeep()
@@ -424,6 +442,8 @@ export function StaffQrCheckInPage() {
         rawMessage.toLowerCase().includes('không có quyền') ||
         rawMessage.toLowerCase().includes('không được phân công')
 
+      activeReadyQrRef.current = ''
+      lastQrRef.current = { value: confirmedQr, time: Date.now(), cooldownMs: 2500 }
       setScanError({
         type: isUsed ? 'USED' : isDifferentEvent ? 'DIFFERENT_EVENT' : 'ERROR',
         title: isUsed ? 'Vé đã được dùng' : isDifferentEvent ? 'Vé sự kiện khác' : 'Lỗi soát vé',
@@ -431,14 +451,17 @@ export function StaffQrCheckInPage() {
       })
       setQrMessage(rawMessage)
       setCheckInState('error')
-      processingRef.current = false
       setHistoryRefreshKey((v) => v + 1)
+    } finally {
+      processingRef.current = false
     }
   }
 
   const resetQrScan = () => {
     processingRef.current = false
-    lastQrRef.current = { value: '', time: 0 }
+    activeReadyQrRef.current = ''
+    noticeOpenRef.current = false
+    lastQrRef.current = { value: '', time: 0, cooldownMs: 2500 }
     setScannedTicket(null)
     setScannedQrValue('')
     setResultTicket(null)
@@ -451,7 +474,8 @@ export function StaffQrCheckInPage() {
 
   const dismissTicketNotice = () => {
     processingRef.current = false
-    lastQrRef.current = { ...lastQrRef.current, time: Date.now() }
+    noticeOpenRef.current = false
+    lastQrRef.current = { ...lastQrRef.current, time: Date.now(), cooldownMs: 2500 }
     setTicketPanelMessage('')
     setTicketNoticeCountdown(0)
     setScanError(null)
@@ -463,7 +487,8 @@ export function StaffQrCheckInPage() {
 
     const timerId = window.setTimeout(() => {
       processingRef.current = false
-      lastQrRef.current = { ...lastQrRef.current, time: Date.now() }
+      noticeOpenRef.current = false
+      lastQrRef.current = { ...lastQrRef.current, time: Date.now(), cooldownMs: 2500 }
       setTicketPanelMessage('')
       setTicketNoticeCountdown(0)
       setCheckInState('idle')
@@ -502,7 +527,7 @@ export function StaffQrCheckInPage() {
         (result) => {
           const value = result?.getText?.()
           if (value) {
-            inspectTicketFromQr(value)
+            inspectTicketFromQrRef.current?.(value)
           }
         },
       )
@@ -704,16 +729,6 @@ export function StaffQrCheckInPage() {
                       {qrMessage || 'Đưa mã QR vào khung hình để bắt đầu.'}
                     </span>
                   </div>
-                  {isError && (
-                    <button
-                      type="button"
-                      onClick={resetQrScan}
-                      className="shrink-0 rounded-lg bg-error/30 hover:bg-error/50 px-2.5 py-1 text-xs font-bold text-white transition flex items-center gap-1 border border-error/40"
-                    >
-                      <RotateCcw className="size-3" />
-                      Quét lại
-                    </button>
-                  )}
                 </div>
               )}
             </div>
@@ -723,13 +738,13 @@ export function StaffQrCheckInPage() {
             {normalizedResult ? (
               <ResultPanel
                 ticket={normalizedResult}
-                onClear={resetQrScan}
+                continuousHint
                 className="h-full flex flex-col justify-between"
               />
             ) : scanError && !normalizedScanned ? (
               <ErrorPanel
                 error={scanError}
-                onClear={resetQrScan}
+                continuousHint
                 className="h-full flex flex-col justify-center"
               />
             ) : (
@@ -737,9 +752,9 @@ export function StaffQrCheckInPage() {
                 ticket={normalizedScanned}
                 onCheckIn={confirmQrCheckIn}
                 checking={checkInState === 'checking'}
-                onClear={resetQrScan}
                 emptyMessage="Quét mã QR để xem thông tin vé trước khi xác nhận soát vé."
                 scanError={scanError}
+                continuousHint
                 className="h-full flex flex-col justify-between"
               />
             )}
@@ -1133,7 +1148,7 @@ function ManualInput({ label, value, onChange, placeholder, disabled = false }) 
   )
 }
 
-function ResultPanel({ ticket, onClear, className = '' }) {
+function ResultPanel({ ticket, onClear, continuousHint = false, className = '' }) {
   const { isEnglish } = useLanguage()
   if (!ticket) {
     return (
@@ -1182,17 +1197,21 @@ function ResultPanel({ ticket, onClear, className = '' }) {
           {ticket.checkedInGate && <InfoRow label="Cổng" value={ticket.checkedInGate} />}
         </div>
       </div>
-      {onClear && (
+      {onClear ? (
         <button className="admin-secondary mt-5 w-full" onClick={onClear} type="button">
           <RotateCcw className="size-4" />
           Quét vé khác
         </button>
-      )}
+      ) : continuousHint ? (
+        <div className="mt-5 rounded-xl border border-success/25 bg-success/10 px-3.5 py-2.5 text-center text-xs font-semibold text-emerald-200">
+          Camera đang quét liên tục — đưa mã QR tiếp theo vào khung hình.
+        </div>
+      ) : null}
     </StaffPanel>
   )
 }
 
-function SelectedTicketPanel({ ticket, onCheckIn, checking, onClear, emptyMessage, scanError, className = '' }) {
+function SelectedTicketPanel({ ticket, onCheckIn, checking, onClear, emptyMessage, scanError, continuousHint = false, className = '' }) {
   const { isEnglish } = useLanguage()
   const isCheckedIn = isTicketCheckedIn(ticket)
   const isInvalid = ticket?.status && ticket.status !== 'VALID'
@@ -1315,18 +1334,22 @@ function SelectedTicketPanel({ ticket, onCheckIn, checking, onClear, emptyMessag
             {isCheckedIn ? 'Vé đã soát - Không thể check-in lại' : 'Vé không hợp lệ để check-in'}
           </div>
         )}
-        {onClear && (
+        {onClear ? (
           <button className="admin-secondary w-full" onClick={onClear} type="button" disabled={checking}>
             <RotateCcw className="size-4" />
             Quét vé khác
           </button>
-        )}
+        ) : continuousHint ? (
+          <p className="text-center text-[11px] font-medium text-white/65">
+            Đưa mã QR khác vào khung hình để chuyển vé tự động.
+          </p>
+        ) : null}
       </div>
     </StaffPanel>
   )
 }
 
-function ErrorPanel({ error, onClear, className = '' }) {
+function ErrorPanel({ error, onClear, continuousHint = false, className = '' }) {
   const isDifferentEvent = error?.type === 'DIFFERENT_EVENT'
   const isUsed = error?.type === 'USED'
 
@@ -1362,16 +1385,22 @@ function ErrorPanel({ error, onClear, className = '' }) {
         </p>
       </div>
 
-      <div className="mt-5">
-        <button
-          className="admin-secondary w-full border-error/40 text-white hover:bg-error/20 transition flex items-center justify-center gap-2"
-          onClick={onClear}
-          type="button"
-        >
-          <RotateCcw className="size-4" />
-          Quét vé khác
-        </button>
-      </div>
+      {onClear ? (
+        <div className="mt-5">
+          <button
+            className="admin-secondary w-full border-error/40 text-white hover:bg-error/20 transition flex items-center justify-center gap-2"
+            onClick={onClear}
+            type="button"
+          >
+            <RotateCcw className="size-4" />
+            Quét vé khác
+          </button>
+        </div>
+      ) : continuousHint ? (
+        <p className="mt-5 rounded-xl border border-white/15 bg-black/25 px-3.5 py-2.5 text-xs font-semibold text-white/80">
+          Camera đang quét liên tục — đưa mã QR khác vào khung hình để kiểm tra ngay.
+        </p>
+      ) : null}
     </StaffPanel>
   )
 }
