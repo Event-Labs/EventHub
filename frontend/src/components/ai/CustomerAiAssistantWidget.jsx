@@ -22,6 +22,35 @@ function stripIcons(text) {
     .trim();
 }
 
+function stripLinks(text) {
+  if (!text || typeof text !== 'string') return text;
+  return text
+    .replace(/(?:[•\-\*]\s*)?(?:\*\*)?(?:Xem chi tiết|Chi tiết|View details|Details)(?: & sơ đồ vé)?(?:\*\*)?:\s*(?:https?:\/\/[^\s\)]+|\/events\/[^\s\)]+)/gi, '')
+    .replace(/\[([^\]]+)\]\((?:https?:\/\/[^\s)]+|\/events\/[^\s)]+)\)/gi, '$1')
+    .replace(/\/events\/[a-zA-Z0-9_\-]+/gi, '')
+    .replace(/https?:\/\/[^\s\)]+/gi, '')
+    .replace(/^[•\-\*]\s*(?:\*\*)?(?:Xem chi tiết|Chi tiết|View details|Details)(?:\*\*)?:?\s*$/gmi, '')
+    .replace(/(?:\s+(?:hoặc|hay|và|or|and)\s*)+$/gmi, '')
+    .replace(/^\s*(?:hoặc|hay|và|or|and)\s+/gmi, '')
+    .replace(/\s+(?:hoặc|hay|và|or|and)\s+(?=[.,!?;:\n]|$)/gmi, '')
+    .replace(/[ \t]+$/gm, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function stripMixedEnglishInVietnamese(text, isEn = false) {
+  if (!text || typeof text !== 'string' || isEn) return text;
+  return text
+    .replace(/(?:Now,?\s*)?let(?:'s|s)\s*see\s*what\s*other\s*events\s*are\s*available(?:\s*for\s*you)?!?[ \t]*/gi, '')
+    .replace(/(?:Here\s*(?:are|is)\s*(?:some|the)\s*(?:featured\s*)?events(?:\s*currently)?(?:\s*available)?(?:\s*on\s*EventHub)?(?:\s*for\s*you)?(?:\s*to\s*explore)?:?[ \t]*)/gi, '')
+    .replace(/(?:Would\s*you\s*like\s*(?:Eve\s*)?to\s*help\s*you\s*(?:book\s*tickets|with\s*anything|find\s*events)[^?\n]*\??[ \t]*)/gi, '')
+    .replace(/(?:Let\s*me\s*know\s*if\s*you\s*(?:have\s*any\s*questions|need\s*any\s*help)[^.\n]*\.?[ \t]*)/gi, '')
+    .replace(/(?:Sure(?:ly)?,?\s*I\s*can\s*help\s*you(?:\s*with\s*that)?[.!]?[ \t]*)/gi, '')
+    .replace(/[ \t]+$/gm, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 const getAutoLocale = () =>
   ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
    (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
@@ -409,7 +438,7 @@ function ActionMessage({ content, navigate, setInput, onSendMessage, sessionLoca
         if (part.type === 'text') {
           return (
             <div key={i} data-no-translate className="ai-message-text prose prose-sm prose-invert max-w-none prose-p:leading-relaxed prose-pre:bg-black/30">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{stripIcons(part.text)}</ReactMarkdown>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{stripMixedEnglishInVietnamese(stripLinks(stripIcons(part.text)), isEnglish)}</ReactMarkdown>
             </div>
           );
         }
