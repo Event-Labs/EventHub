@@ -20,7 +20,7 @@ class AiFinancialService {
     const { system, user } = buildPrompt(financialData);
 
     // Prefer fast, dedicated EventHub model (eve-agent) on CPU, or user-configured model
-    const targetModel = process.env.FINANCIAL_AI_MODEL || 'eve-agent';
+    const targetModel = process.env.FINANCIAL_AI_MODEL || 'qwen3:8b';
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
       controller.abort();

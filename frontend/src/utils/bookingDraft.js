@@ -98,7 +98,7 @@ export function readBookingDraft(targetEventId = null) {
   }
 }
 
-export function saveBookingDraft(cart) {
+export function saveBookingDraft(cart, source = 'booking-flow') {
   if (typeof window === 'undefined' || !cart) return
   try {
     const raw = JSON.stringify(cart)
@@ -127,6 +127,9 @@ export function saveBookingDraft(cart) {
     }
 
     window.localStorage.setItem(BOOKING_DRAFT_KEY, raw)
+    try {
+      window.dispatchEvent(new CustomEvent('eventhub-booking-draft-updated', { detail: { cart, source } }))
+    } catch { }
   } catch { }
 }
 

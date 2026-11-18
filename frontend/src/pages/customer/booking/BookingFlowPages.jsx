@@ -491,6 +491,14 @@ export function BookingSeatsPage() {
   const navigate = useNavigate()
   const toast = useToast()
   const [cart, setCart] = useState(() => initialCartFromLocation(location))
+
+  useEffect(() => {
+    const updated = initialCartFromLocation(location)
+    if (updated) {
+      setCart(updated)
+    }
+  }, [location.key, location.state])
+
   const seatMapViewportRef = useRef(null)
   const session = cart?.selectedSession || cart?.items?.[0]?.session
 
@@ -644,14 +652,15 @@ export function BookingSeatsPage() {
       if (!seat) return
       const mappedTicketTypeIds = seat.ticket_type_ids || []
       const ticketType = mappedTicketTypeIds.length
-        ? ticketTypes.find((type) => mappedTicketTypeIds.some((id) => String(id) === String(type.id)))
-        : ticketTypes.find((type) => type.is_seated !== false) || ticketTypes[0]
+        ? (ticketTypes.find((type) => mappedTicketTypeIds.some((id) => String(id) === String(type.id))) || ticketTypes[0])
+        : (ticketTypes.find((type) => type.is_seated !== false) || ticketTypes[0])
 
       if (ticketType) {
         if (!groups[ticketType.id]) {
           groups[ticketType.id] = {
             ticketType: {
               ...ticketType,
+              is_seated: true,
               color: seat.zone?.color || seat.seat_type?.color || ticketTypeColor(ticketType, colorByTicketTypeId),
             },
             sessionSeatIds: [],
@@ -678,7 +687,10 @@ export function BookingSeatsPage() {
 
   const seatedItems = hasSeatMap ? buildDisplayItems(selectedSeatIds) : []
   const unseatedItems = (cart?.items || []).filter(
-    (item) => (!hasSeatMap || item.ticketType?.is_seated === false) && Number(item.quantity || 0) > 0,
+    (item) =>
+      (!item.sessionSeatIds || item.sessionSeatIds.length === 0) &&
+      (!hasSeatMap || item.ticketType?.is_seated === false) &&
+      Number(item.quantity || 0) > 0,
   )
   const displayItems = [...seatedItems, ...unseatedItems]
   const displayTicketTypes = selectableTicketTypes.map((ticketType) => ({
@@ -700,16 +712,27 @@ export function BookingSeatsPage() {
     cart?.require_attendee_info
   )
 
-  const displayCart = cart ? {
-    ...cart,
-    selectedSession: session,
-    selectedSeatIds: hasSeatMap ? selectedSeatIds : [],
-    availableTicketTypes: displayTicketTypes,
-    items: displayItems,
+  const displayCart = useMemo(() => {
+    if (!cart) return null
+    return {
+      ...cart,
+      selectedSession: session,
+      selectedSeatIds: hasSeatMap ? selectedSeatIds : [],
+      availableTicketTypes: displayTicketTypes,
+      items: displayItems,
+      hasSeatMap,
+      requireAttendeeInfo: eventRequireAttendeeInfo,
+      require_attendee_info: eventRequireAttendeeInfo,
+    }
+  }, [
+    cart,
+    session,
     hasSeatMap,
-    requireAttendeeInfo: eventRequireAttendeeInfo,
-    require_attendee_info: eventRequireAttendeeInfo,
-  } : cart
+    selectedSeatIds,
+    displayTicketTypes,
+    displayItems,
+    eventRequireAttendeeInfo,
+  ])
 
   useEffect(() => {
     if (!displayCart || !session) return
@@ -718,7 +741,7 @@ export function BookingSeatsPage() {
       currentStep: 1,
       currentPath: '/booking/seats',
     }
-    saveBookingDraft(cartWithStep)
+    saveBookingDraft(cartWithStep, 'booking-flow')
   }, [displayCart, session])
 
   const effectiveBuyer = useMemo(() => ({
@@ -1132,6 +1155,35 @@ export function BookingAttendeesPage() {
   const toast = useToast()
   const [cart, setCart] = useState(() => initialCartFromLocation(location))
 
+  useEffect(() => {
+    const updated = initialCartFromLocation(location)
+    if (updated) {
+      setCart(updated)
+    }
+  }, [location.key, location.state])
+
+  useEffect(() => {
+    const handleDraftUpdate = (event) => {
+      if (event?.detail?.source !== 'ai-assistant') return
+      const draft = readBookingDraft(cart?.eventId)
+      if (draft) {
+        setCart(draft)
+        if (draft.buyer) {
+          setBuyer((prev) => ({
+            name: draft.buyer.name || prev.name,
+            email: draft.buyer.email || prev.email,
+            phone: draft.buyer.phone || prev.phone,
+          }))
+        }
+        if (draft.attendees) {
+          setAttendees((prev) => ({ ...prev, ...draft.attendees }))
+        }
+      }
+    }
+    window.addEventListener('eventhub-booking-draft-updated', handleDraftUpdate)
+    return () => window.removeEventListener('eventhub-booking-draft-updated', handleDraftUpdate)
+  }, [cart?.eventId])
+
   const { data: eventDetail } = useQuery({
     queryKey: ['booking-attendees-event-detail', cart?.eventId],
     queryFn: () => fetchEventDetail(cart.eventId),
@@ -1287,7 +1339,7 @@ export function BookingAttendeesPage() {
     if (!cart.holdExpiresAt) {
       setCart(updatedCart)
     }
-    saveBookingDraft(updatedCart)
+    saveBookingDraft(updatedCart, 'booking-flow')
   }, [buyer, attendees, collectAttendees, cart])
 
   if (!cart?.items?.length) {
@@ -1471,6 +1523,29 @@ export function BookingReviewPage() {
   const expiredHandledRef = useRef(false)
 
   useEffect(() => {
+    const updated = initialCartFromLocation(location)
+    if (updated) {
+      setCart(updated)
+      if (updated.promoCode) setPromoCode(updated.promoCode)
+      if (updated.promo) setSelectedPromo(updated.promo)
+    }
+  }, [location.key, location.state])
+
+  useEffect(() => {
+    const handleDraftUpdate = (event) => {
+      if (event?.detail?.source !== 'ai-assistant') return
+      const draft = readBookingDraft(cart?.eventId)
+      if (draft) {
+        setCart(draft)
+        if (draft.promoCode) setPromoCode(draft.promoCode)
+        if (draft.promo) setSelectedPromo(draft.promo)
+      }
+    }
+    window.addEventListener('eventhub-booking-draft-updated', handleDraftUpdate)
+    return () => window.removeEventListener('eventhub-booking-draft-updated', handleDraftUpdate)
+  }, [cart?.eventId])
+
+  useEffect(() => {
     if (!cart?.items?.length && !expiredHandledRef.current) {
       expiredHandledRef.current = true
       clearBookingDraft(cart?.eventId)
@@ -1513,7 +1588,7 @@ export function BookingReviewPage() {
       currentStep: 3,
       currentPath: '/booking/review',
     }
-    saveBookingDraft(updatedCart)
+    saveBookingDraft(updatedCart, 'booking-flow')
   }, [cart?.eventId, cart?.items?.length])
 
   const promosQuery = useQuery({
@@ -1804,13 +1879,21 @@ export function BookingReviewPage() {
             <h2 className="mb-4 font-display text-xl font-bold text-white">{collectAttendees ? 'Người tham gia' : 'Người mua'}</h2>
             {collectAttendees ? (
               <div className="grid gap-3 md:grid-cols-2">
-                {expandAttendeeSlots(cart).map((slot, index) => (
-                  <div key={slot.id} className="rounded-md border border-border-soft bg-surface p-3">
-                    <p className="text-xs font-bold uppercase text-primary">{'Vé'} {index + 1}</p>
-                    <p className="mt-1 font-semibold text-white">{cart.attendees?.[slot.id]?.name || 'Chưa nhập'}</p>
-                    <p className="text-sm text-muted">{cart.attendees?.[slot.id]?.email || 'Chưa nhập'}</p>
-                  </div>
-                ))}
+                {expandAttendeeSlots(cart).map((slot, index) => {
+                  const attendeeData = cart?.attendees?.[slot.id] ||
+                    cart?.prefilledAttendees?.[index] ||
+                    (Array.isArray(cart?.attendees) ? cart.attendees[index] : null) ||
+                    Object.values(cart?.attendees || {})[index] || {};
+                  const attendeeName = (attendeeData.name || (index === 0 ? cart.buyer?.name : '') || '').trim()
+                  const attendeeEmail = (attendeeData.email || (index === 0 ? cart.buyer?.email : '') || '').trim()
+                  return (
+                    <div key={slot.id} className="rounded-md border border-border-soft bg-surface p-3">
+                      <p className="text-xs font-bold uppercase text-primary">{'Vé'} {index + 1}</p>
+                      <p className="mt-1 font-semibold text-white">{attendeeName || 'Chưa nhập'}</p>
+                      <p className="text-sm text-muted">{attendeeEmail || 'Chưa nhập'}</p>
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <div className="rounded-md border border-border-soft bg-surface p-3">
@@ -2010,6 +2093,14 @@ export function BookingPaymentPage() {
   const [searchParams] = useSearchParams()
   const existingOrderId = searchParams.get('orderId')
   const [cart, setCart] = useState(() => initialCartFromLocation(location))
+
+  useEffect(() => {
+    const updated = initialCartFromLocation(location)
+    if (updated) {
+      setCart(updated)
+    }
+  }, [location.key, location.state])
+
   const [checkout, setCheckout] = useState(location.state?.checkout || null)
   const checkoutStartedRef = useRef(Boolean(location.state?.checkout || existingOrderId))
   const paymentSuccessHandledRef = useRef(false)
@@ -2397,7 +2488,7 @@ function BookingShell({ step, cart, children }) {
         currentStep: prevStep,
         currentPath: previousPath,
       }
-      saveBookingDraft(updatedCart)
+      saveBookingDraft(updatedCart, 'booking-flow')
       navigate(previousPath, { state: { cart: updatedCart } })
       return
     }
@@ -3291,8 +3382,8 @@ function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat, onSe
     const selected = selectedSeatIds.includes(seat.session_seat_id)
     const mappedTicketTypeIds = seat.ticket_type_ids || []
     const ticketType = mappedTicketTypeIds.length
-      ? ticketTypes.find((type) => mappedTicketTypeIds.some((id) => String(id) === String(type.id)))
-      : ticketTypes.find((type) => type.is_seated !== false) || ticketTypes[0]
+      ? (ticketTypes.find((type) => mappedTicketTypeIds.some((id) => String(id) === String(type.id))) || ticketTypes[0])
+      : (ticketTypes.find((type) => type.is_seated !== false) || ticketTypes[0])
 
     const isTicketTypePaused = Boolean(
       (ticketType && pausedTicketTypeIds?.has(String(ticketType.id))) ||
@@ -3540,7 +3631,10 @@ function expandAttendeeSlots(cart) {
 
 function buildAttendeesPayload(cart) {
   return expandAttendeeSlots(cart).map((slot, index) => {
-    const attendee = cart.attendees?.[slot.id]
+    const attendee = cart?.attendees?.[slot.id] ||
+      cart?.prefilledAttendees?.[index] ||
+      (Array.isArray(cart?.attendees) ? cart.attendees[index] : null) ||
+      Object.values(cart?.attendees || {})[index];
     const name = (attendee?.name || (index === 0 ? cart.buyer?.name : '') || cart.buyer?.name || '').trim()
     const email = (attendee?.email || (index === 0 ? cart.buyer?.email : '') || cart.buyer?.email || '').trim()
     return {

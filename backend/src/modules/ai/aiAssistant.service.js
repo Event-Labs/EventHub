@@ -136,7 +136,7 @@ function stripLinks(text) {
   if (!text || typeof text !== 'string') return text;
   return text
     // Remove "Xem chi tiết & sơ đồ vé: /events/..." or "Chi tiết: /events/..." with or without bullets and bold
-    .replace(/(?:[•\-\*]\s*)?(?:\*\*)?(?:Xem chi tiết|Chi tiết|View details|Details)(?: & sơ đồ vé)?(?:\*\*)?:\s*(?:https?:\/\/[^\s\)]+|\/events\/[^\s\)]+)/gi, '')
+    .replace(/(?:[•\-\*]\s*)?(?:\*\*)?(?:Xem chi tiết|Chi tiết|Xem thêm|Đường dẫn|Link|View details|Details)(?: & sơ đồ vé)?(?:\*\*)?:\s*(?:https?:\/\/[^\s\)]+|\/events\/[^\s\)]+)/gi, '')
     // Replace markdown links [Label](url) with just Label
     .replace(/\[([^\]]+)\]\((?:https?:\/\/[^\s)]+|\/events\/[^\s)]+)\)/gi, '$1')
     // Remove raw /events/... paths
@@ -144,16 +144,31 @@ function stripLinks(text) {
     // Remove raw http/https links
     .replace(/https?:\/\/[^\s\)]+/gi, '')
     // Clean up empty bullet points or dangling labels left behind
-    .replace(/^[•\-\*]\s*(?:\*\*)?(?:Xem chi tiết|Chi tiết|View details|Details)(?:\*\*)?:?\s*$/gmi, '')
+    .replace(/^[•\-\*]\s*(?:\*\*)?(?:Xem chi tiết|Chi tiết|Xem thêm|Đường dẫn|Link|View details|Details)(?:\*\*)?:?\s*$/gmi, '')
+    // Clean up inline dangling labels
+    .replace(/(?:\b|\s)(?:Xem chi tiết|Chi tiết|Xem thêm|Đường dẫn|Link|View details|Details):\s*/gi, ' ')
     // Clean up dangling conjunctions (e.g. "hoặc", "hay", "và", "or") left between or at the end of stripped URLs
     .replace(/(?:\s+(?:hoặc|hay|và|or|and)\s*)+$/gmi, '')
     .replace(/^\s*(?:hoặc|hay|và|or|and)\s+/gmi, '')
     .replace(/\s+(?:hoặc|hay|và|or|and)\s+(?=[.,!?;:\n]|$)/gmi, '')
     // Clean up trailing whitespace per line
     .replace(/[ \t]+$/gm, '')
+    // Clean up multiple spaces
+    .replace(/[ \t]{2,}/g, ' ')
     // Clean up excessive blank lines
     .replace(/\n{3,}/g, '\n\n')
     .trim();
+}
+
+function sanitizeAssistantResponse(content, isEn = false) {
+  if (!content || typeof content !== 'string') return content;
+  let text = scrubTechnicalJargon(content);
+  text = stripIcons(text);
+  text = stripLinks(text);
+  if (!isEn) {
+    text = stripMixedEnglishInVietnamese(text);
+  }
+  return text;
 }
 
 function stripMixedEnglishInVietnamese(text) {
@@ -540,7 +555,7 @@ function getDirectFaqAnswer(message) {
 
   // Zero-Amount / Free ticket checkout FAQ
   if (/(?:ve\s*0\s*(?:d|dong)|mien\s*phi|ve\s*free|su\s*kien\s*mien\s*phi)\b.*?\b(?:dat(?:\s*ve)?|thanh\s*toan|nhan\s*ve|nhu\s*the\s*nao|the\s*nao|lam\s*sao|ra\s*sao)/i.test(norm) ||
-      /^(?:dat\s*ve|mua\s*ve)\s*(?:mien\s*phi|0\s*dong|free)/i.test(norm)) {
+    /^(?:dat\s*ve|mua\s*ve)\s*(?:mien\s*phi|0\s*dong|free)/i.test(norm)) {
     return `Đối với các sự kiện hoặc hạng vé **Miễn phí (0 đồng)** trên EventHub:
 
 🎁 **Quy trình nhận vé miễn phí cực kỳ nhanh chóng:**
@@ -552,7 +567,7 @@ function getDirectFaqAnswer(message) {
 
   // Single Seat Left Rule Explanation
   if (/(?:tai\s*sao|vi\s*sao|sao)\b.*?\b(?:khong\s*cho\s*chon|khong\s*duoc\s*chon|khong\s*cho\s*phep|khong\s*dat\s*duoc|khong\s*cho\s*de)\b.*?\b(?:1\s*ghe|mot\s*ghe|ghe\s*le|ghe\s*trong|ghe\s*don)/i.test(norm) ||
-      /(?:de\s*lai\s*1\s*ghe\s*trong|de\s*le\s*1\s*ghe|chong\s*de\s*trong\s*1\s*ghe)/i.test(norm)) {
+    /(?:de\s*lai\s*1\s*ghe\s*trong|de\s*le\s*1\s*ghe|chong\s*de\s*trong\s*1\s*ghe)/i.test(norm)) {
     return `Hệ thống EventHub áp dụng quy tắc thông minh **"Chống để trống 1 ghế đơn lẻ"** (Disallow Single Seat Left):
 
 🚫 **Lý do áp dụng:**
@@ -564,8 +579,8 @@ function getDirectFaqAnswer(message) {
 
   // Platform overview
   if ((/(eventhub|nen tang eventhub|ung dung eventhub|he thong eventhub)/i.test(norm) &&
-      /(la gi|gioi thieu|la ai|thong tin|tinh nang|chuc nang|lam duoc gi|hoat dong the nao|co gi|co nhung)/i.test(norm)) ||
-      /^(eventhub la gi|gioi thieu eventhub|ve eventhub|thong tin ve eventhub)\b/i.test(norm)) {
+    /(la gi|gioi thieu|la ai|thong tin|tinh nang|chuc nang|lam duoc gi|hoat dong the nao|co gi|co nhung)/i.test(norm)) ||
+    /^(eventhub la gi|gioi thieu eventhub|ve eventhub|thong tin ve eventhub)\b/i.test(norm)) {
     return `**EventHub** là nền tảng quản lý và phân phối vé sự kiện trực tuyến hàng đầu tại Việt Nam, mang đến giải pháp toàn diện cho cả Người tham dự và Ban tổ chức:
 
 🌟 **Dành cho khán giả:**
@@ -603,8 +618,8 @@ Eve luôn sẵn sàng đồng hành cùng bạn để tìm kiếm sự kiện ho
   // General Terms, Policies & Seating Guidelines
   if (
     (/(dieu khoan|chinh sach|quy dinh|luat)\b.*?\b(he thong|eventhub|chung|chu y|can biet|noi bat|quan trong|nhung gi|co gi)/i.test(norm) ||
-     /(he thong|eventhub)\b.*?\b(dieu khoan|chinh sach|quy dinh)/i.test(norm) ||
-     /^(dieu khoan|chinh sach|quy dinh cua eventhub|chinh sach cua he thong)\b/i.test(norm)) &&
+      /(he thong|eventhub)\b.*?\b(dieu khoan|chinh sach|quy dinh)/i.test(norm) ||
+      /^(dieu khoan|chinh sach|quy dinh cua eventhub|chinh sach cua he thong)\b/i.test(norm)) &&
     !/(hoan|tra|huy|refund)\s*(ve|tien)/i.test(norm) &&
     !/(dat|mua|book|so do|lay)\s*(ve|ghe|\d+)/i.test(norm)
   ) {
@@ -696,8 +711,8 @@ Hóa đơn điện tử hợp lệ (e-Invoice) sẽ được Ban tổ chức ph�
 
   // Payment methods & bank errors
   if ((/(vnpay|vietqr|sepay|the tin dung|visa|mastercard)/i.test(norm) && /(thanh toan|nhu the nao|co duoc khong|ho tro|loi)/i.test(norm)) ||
-      /(tru tien|bi tru tien|da tru tien)\b.*?\b(chua nhan|chua co|khong co|chua thay)\b.*?\bve/i.test(norm) ||
-      /(thanh toan that bai|loi thanh toan|giao dich loi|chuyen khoan nhung khong co ve)/i.test(norm)) {
+    /(tru tien|bi tru tien|da tru tien)\b.*?\b(chua nhan|chua co|khong co|chua thay)\b.*?\bve/i.test(norm) ||
+    /(thanh toan that bai|loi thanh toan|giao dich loi|chuyen khoan nhung khong co ve)/i.test(norm)) {
     return `EventHub hỗ trợ đa dạng các phương thức thanh toán bảo mật và tiện lợi:
 
 💳 **Các cổng thanh toán hỗ trợ:**
@@ -774,8 +789,8 @@ Eve luôn sẵn sàng đồng hành và hỗ trợ bạn bảo vệ tài khoản
   // Cheapest ticket inquiries / Where to buy tickets cheapest
   if (
     (/(dat|mua|book|san|tim)\s*(?:ve)?\b.*?\b(?:o\s*dau)?\s*(?:re\s*nhat|gia\s*re|tiet\s*kiem\s*nhat)/i.test(norm) ||
-     /(ve|su\s*kien|show)\b.*?\b(re\s*nhat|gia\s*thap\s*nhat|re\s*nhat\s*hien\s*nay)/i.test(norm) ||
-     /^(?:vay\s+)?(?:o\s*dau\s*re\s*nhat|dat ve o dau re nhat|mua ve o dau re nhat|ve nao re nhat|su kien nao re nhat|ve su kien re nhat|mua ve o dau re)\b/i.test(norm))
+      /(ve|su\s*kien|show)\b.*?\b(re\s*nhat|gia\s*thap\s*nhat|re\s*nhat\s*hien\s*nay)/i.test(norm) ||
+      /^(?:vay\s+)?(?:o\s*dau\s*re\s*nhat|dat ve o dau re nhat|mua ve o dau re nhat|ve nao re nhat|su kien nao re nhat|ve su kien re nhat|mua ve o dau re)\b/i.test(norm))
   ) {
     return `Dạ Eve xin chia sẻ thông tin về giá vé và các sự kiện có mức giá ưu đãi, tiết kiệm nhất trên EventHub nhé! 🥰
 
@@ -799,8 +814,8 @@ Bạn đang quan tâm đến thể loại sự kiện nào (âm nhạc, nghệ t
   // Most expensive ticket inquiries / Highest price events
   if (
     (/(dat\s*nhat|gia\s*cao\s*nhat|ve\s*cao\s*nhat|dat\s*tien\s*nhat|gia\s*khung|vip\s*nhat)/i.test(norm) ||
-     /^(?:vay\s+)?(?:o\s*dau|ve\s*nao|su\s*kien\s*nao|show\s*nao)\s+(?:dat\s*nhat|gia\s*cao\s*nhat)\b/i.test(norm) ||
-     /^(?:vay\s+)?o\s*dau\s*dat\s*nhat\b/i.test(norm))
+      /^(?:vay\s+)?(?:o\s*dau|ve\s*nao|su\s*kien\s*nao|show\s*nao)\s+(?:dat\s*nhat|gia\s*cao\s*nhat)\b/i.test(norm) ||
+      /^(?:vay\s+)?o\s*dau\s*dat\s*nhat\b/i.test(norm))
   ) {
     return `Dạ Eve xin chia sẻ với bạn về các hạng vé cao cấp và sự kiện có mức giá cao nhất trên EventHub nhé! 💎✨
 
@@ -1006,14 +1021,14 @@ function isSystemFaqQuery(message) {
   const isGeneralSystemTopic = /(?:giam\s*gia|voucher|ma\s*giam|khuyen\s*mai|chiet\s*khau|bot\s*khong|co\s*bot|co\s*giam|mac\s*qua|dat\s*qua|tai\s*tro|sponsor|hop\s*tac|thue\s*loa|thue\s*thiet\s*bi|hoan\s*ve|tra\s*ve|huy\s*ve|doi\s*ve|quy\s*tac|ghe\s*lien\s*ke|le\s*ghe|thanh\s*toan|vnpay|vietqr|hoa\s*don|vat)/i.test(norm);
   if (!isGeneralSystemTopic) {
     if (/(?:su\s*kien|show|vo\s*kich|concert|workshop|dem\s*nhac|chuong\s*trinh)\s+(?:nay|do|do\s*a|nay\s*a)\b/i.test(norm) ||
-        /\b(?:cua\s+su\s*kien|cua\s+show|ve\s*nay|cho\s+su\s*kien|o\s*day|tai\s*day)\b/i.test(norm)) {
+      /\b(?:cua\s+su\s*kien|cua\s+show|ve\s*nay|cho\s+su\s*kien|o\s*day|tai\s*day)\b/i.test(norm)) {
       return false;
     }
   }
 
   // Platform identity / what is EventHub
   if (/(eventhub|nen tang eventhub|ung dung eventhub|he thong eventhub)/i.test(norm) &&
-      /(la gi|gioi thieu|la ai|thong tin|tinh nang|chuc nang|lam duoc gi|hoat dong the nao|co gi|co nhung)/i.test(norm)) {
+    /(la gi|gioi thieu|la ai|thong tin|tinh nang|chuc nang|lam duoc gi|hoat dong the nao|co gi|co nhung)/i.test(norm)) {
     return true;
   }
   if (/^(eventhub la gi|gioi thieu eventhub|ve eventhub|thong tin ve eventhub)\b/i.test(norm)) {
@@ -1022,9 +1037,9 @@ function isSystemFaqQuery(message) {
 
   // Refund / cancellation policies
   if (/(chinh sach|quy dinh|dieu khoan)\s*(hoan|tra|huy|refund|doi|ve)/i.test(norm) ||
-      /(hoan ve|tra ve|huy ve|refund)\s*(nhu the nao|co duoc khong|quy dinh|chinh sach|dieu kien|phi)/i.test(norm) ||
-      /(huy ve|hoan ve|tra ve)\b.*?\b(tien|nhan lai|duoc khong)/i.test(norm) ||
-      /(?:su\s*kien\s*(?:bi\s*)?(?:huy|hoan|tam\s*dung)|huy\s*show|hoan\s*show|show\s*bi\s*huy)/i.test(norm)) {
+    /(hoan ve|tra ve|huy ve|refund)\s*(nhu the nao|co duoc khong|quy dinh|chinh sach|dieu kien|phi)/i.test(norm) ||
+    /(huy ve|hoan ve|tra ve)\b.*?\b(tien|nhan lai|duoc khong)/i.test(norm) ||
+    /(?:su\s*kien\s*(?:bi\s*)?(?:huy|hoan|tam\s*dung)|huy\s*show|hoan\s*show|show\s*bi\s*huy)/i.test(norm)) {
     return true;
   }
 
@@ -1060,13 +1075,13 @@ function isSystemFaqQuery(message) {
 
   // Free ticket checkout (Vé 0đ)
   if (/(?:ve\s*0\s*(?:d|dong)|mien\s*phi|ve\s*free|su\s*kien\s*mien\s*phi)\b.*?\b(?:dat(?:\s*ve)?|thanh\s*toan|nhan\s*ve|nhu\s*the\s*nao|the\s*nao|lam\s*sao|ra\s*sao)/i.test(norm) ||
-      /^(?:dat\s*ve|mua\s*ve)\s*(?:mien\s*phi|0\s*dong|free)/i.test(norm)) {
+    /^(?:dat\s*ve|mua\s*ve)\s*(?:mien\s*phi|0\s*dong|free)/i.test(norm)) {
     return true;
   }
 
   // Single seat left rule
   if (/(?:tai\s*sao|vi\s*sao|sao)\b.*?\b(?:khong\s*cho\s*chon|khong\s*duoc\s*chon|khong\s*cho\s*phep|khong\s*dat\s*duoc|khong\s*cho\s*de)\b.*?\b(?:1\s*ghe|mot\s*ghe|ghe\s*le|ghe\s*trong|ghe\s*don)/i.test(norm) ||
-      /(?:de\s*lai\s*1\s*ghe\s*trong|de\s*le\s*1\s*ghe|chong\s*de\s*trong\s*1\s*ghe)/i.test(norm)) {
+    /(?:de\s*lai\s*1\s*ghe\s*trong|de\s*le\s*1\s*ghe|chong\s*de\s*trong\s*1\s*ghe)/i.test(norm)) {
     return true;
   }
 
@@ -1082,8 +1097,8 @@ function isSystemFaqQuery(message) {
 
   // Payment methods / transaction errors
   if ((/(vnpay|vietqr|sepay|the tin dung|visa|mastercard)/i.test(norm) && /(thanh toan|nhu the nao|co duoc khong|ho tro|loi)/i.test(norm)) ||
-      /(tru tien|bi tru tien|da tru tien)\b.*?\b(chua nhan|chua co|khong co|chua thay)\b.*?\bve/i.test(norm) ||
-      /(thanh toan that bai|loi thanh toan|giao dich loi|chuyen khoan nhung khong co ve)/i.test(norm)) {
+    /(tru tien|bi tru tien|da tru tien)\b.*?\b(chua nhan|chua co|khong co|chua thay)\b.*?\bve/i.test(norm) ||
+    /(thanh toan that bai|loi thanh toan|giao dich loi|chuyen khoan nhung khong co ve)/i.test(norm)) {
     return true;
   }
 
@@ -1583,7 +1598,8 @@ function findLastBookingProposal(cleanHistory, allEventTickets = []) {
         quantity: totalQty,
         seats: t0?.seats || [],
         tickets,
-        totalAmount: msg.action.data.total_amount || msg.action.data.totalAmount
+        totalAmount: msg.action.data.total_amount || msg.action.data.totalAmount,
+        fullProposal: msg.action.data
       };
     }
 
@@ -1597,8 +1613,8 @@ function findLastBookingProposal(cleanHistory, allEventTickets = []) {
           const data = JSON.parse(decoded);
           const seats = data.seats || [];
           const s0 = seats[0];
-          const ticketTypeId = s0?.ticketTypeId || s0?.ticket_type_id || data.items?.[0]?.ticket_type_id || data.items?.[0]?.ticketTypeId || null;
-          const ticketTypeName = s0?.ticketTypeName || s0?.ticket_type_name || data.items?.[0]?.ticketType?.name || null;
+          const ticketTypeId = data.ticket_type_id || data.ticketTypeId || s0?.ticketTypeId || s0?.ticket_type_id || data.items?.[0]?.ticket_type_id || data.items?.[0]?.ticketTypeId || null;
+          const ticketTypeName = data.ticketTypeName || data.ticket_type_name || s0?.ticketTypeName || s0?.ticket_type_name || data.items?.[0]?.ticketType?.name || null;
           const qty = data.quantity || seats.length || (data.items?.reduce((s, it) => s + (it.quantity || 0), 0)) || 1;
           const seatLabels = seats.map(s => (typeof s === 'string' ? s : (s?.label || ''))).filter(Boolean);
 
@@ -1606,9 +1622,11 @@ function findLastBookingProposal(cleanHistory, allEventTickets = []) {
             event_slug: data.eventId || data.event_slug || null,
             ticket_type_id: ticketTypeId,
             ticket_type_name: ticketTypeName,
+            session: data.session || null,
             quantity: qty,
             seats: seatLabels,
-            totalAmount: data.totalAmount
+            totalAmount: data.totalAmount,
+            fullProposal: data
           };
         } catch (e) {
           logger.warn(`[findLastBookingProposal] Error parsing action proposal: ${e.message}`);
@@ -1665,8 +1683,8 @@ function extractAttendeesFromText(text, userProfile = null) {
     const m = line.match(emailRegex);
     if (m && m.length === 1) {
       if (/(?:email|mail).*(?:chung|tat\s*ca|cho\s*ca|\d+\s*nguoi)/i.test(lNorm) ||
-          /(?:chung|tat\s*ca|cho\s*ca|\d+\s*nguoi).*(?:email|mail)/i.test(lNorm) ||
-          /(?:dung\s*chung|ghi\s*chung|gui\s*(?:het\s*)?(?:ve\s*)?|chung\s*(?:1\s*)?)\s*(?:email|mail)/i.test(lNorm)) {
+        /(?:chung|tat\s*ca|cho\s*ca|\d+\s*nguoi).*(?:email|mail)/i.test(lNorm) ||
+        /(?:dung\s*chung|ghi\s*chung|gui\s*(?:het\s*)?(?:ve\s*)?|chung\s*(?:1\s*)?)\s*(?:email|mail)/i.test(lNorm)) {
         sharedEmail = m[0].trim();
         break;
       }
@@ -1714,9 +1732,9 @@ function extractAttendeesFromText(text, userProfile = null) {
     const chatWordsRegex = /\b(muon|mua|ve|suat|cho|ghe|tim|kiem|hoi|xem|co|khong|gi|nao|sao|bao\s*nhieu|the\s*nao|su\s*kien|show|kich|hat|nhac|ca\s*si|ca\s*nhac|rap|vnd|alo|chao|xin\s*chao|eve|tro\s*ly|ad|admin|nhe|da|vang|ok|duoc|cam\s*on|thank|thanks|lien\s*he|sdt|so\s*dien\s*thoai|email|mail|thong\s*tin|dia\s*chi|thoi\s*gian|linh\s*vuc|the\s*loai|danh\s*sach|chi\s*tiet|ngoai\s*truyen|san\s*khau|idecaf|theater|theatre|concert|festival|workshop|(?:dat\s*ve|dat\s*cho|dat\s*hang|nguoi\s*dat)|(?:tien\s*ve|tong\s*tien|chuyen\s*tien|thanh\s*tien|bao\s*nhieu\s*tien|gia\s*tien|hoan\s*tien)|(?:gia\s*ve|gia\s*tien|muc\s*gia|bao\s*gia|ha\s*gia|tang\s*gia|bang\s*gia)|(?:dong\s*tien|dong\s*gia|\d+\s*dong)|(?:thang\s*\d+|thang\s*sau|thang\s*nay|thang\s*toi|thang\s*truoc)|(?:ban\s*ve|ban\s*oi|nguoi\s*ban))\b/i;
     if (chatWordsRegex.test(lNorm)) return false;
 
-    // Names in VN or INT are 2 to 5 words
+    // Names in VN or INT are 1 to 5 words (e.g. single-word first name "Đạt" or full name "Nguyễn Văn A")
     const words = candidate.split(/\s+/).filter(Boolean);
-    if (words.length < 2 || words.length > 5) return false;
+    if (words.length < 1 || words.length > 5) return false;
     if (words.some(w => /^\d+$/.test(w))) return false;
 
     return true;
@@ -2086,18 +2104,18 @@ function findMatchingPublishedEvent(queryOrMessage, eventsList, options = {}) {
 
   // Security guardrails, system FAQs, out-of-scope queries, greetings, and continuations MUST NEVER match events!
   if (isJailbreakAttempt(queryOrMessage) ||
-      isSystemFaqQuery(queryOrMessage) ||
-      isOutOfScopeQuery(queryOrMessage) ||
-      isPureGreeting(queryOrMessage) ||
-      isBookingContinuationIntent(queryOrMessage) ||
-      /(?:taylor\s*swift|blackpink|coldplay|bts|bruno\s*mars|ed\s*sheeran|bieber|ariana\s*grande)\b/i.test(normalizeText(queryOrMessage))) {
+    isSystemFaqQuery(queryOrMessage) ||
+    isOutOfScopeQuery(queryOrMessage) ||
+    isPureGreeting(queryOrMessage) ||
+    isBookingContinuationIntent(queryOrMessage) ||
+    /(?:taylor\s*swift|blackpink|coldplay|bts|bruno\s*mars|ed\s*sheeran|bieber|ariana\s*grande)\b/i.test(normalizeText(queryOrMessage))) {
     return null;
   }
 
   // If query is inquiring about an organizer or asking for a list of events from an organizer, DO NOT match a single event!
   const normQueryCheck = normalizeText(queryOrMessage);
   if (/(?:ban\s*to\s*chuc|nha\s*to\s*chuc|organizer|don\s*vi\s*to\s*chuc|doan\s*kich)\b/i.test(normQueryCheck) &&
-      /(?:co\s*(?:nhung|cac)?\s*(?:su\s*kien|show|kich|chuong\s*trinh|ve|gi)|danh\s*sach|dang\s*co\s*gi|to\s*chuc)/i.test(normQueryCheck)) {
+    /(?:co\s*(?:nhung|cac)?\s*(?:su\s*kien|show|kich|chuong\s*trinh|ve|gi)|danh\s*sach|dang\s*co\s*gi|to\s*chuc)/i.test(normQueryCheck)) {
     return null;
   }
 
@@ -2626,7 +2644,7 @@ class AiAssistantService {
     try {
       // Helper to safely extract args (Qwen3 sometimes wraps them in JSON Schema objects)
       const getArg = (arg) => (arg && typeof arg === 'object' && arg.value !== undefined) ? arg.value : arg;
-      
+
       if (name === 'searchEvents') {
         const rawQuery = getArg(args.query);
         let queryArg = typeof rawQuery === 'string' ? rawQuery.trim() : '';
@@ -2755,7 +2773,7 @@ class AiAssistantService {
           instruction: `Eve hãy dùng giọng điệu thân thiện, hào hứng gửi khách danh sách ${events.length} sự kiện sắp tới có trên hệ thống EventHub: [${events.map(e => `"${e.title}" (${e.start}, từ ${e.price})`).join('; ')}]. Sau đó hỏi khách muốn xem chi tiết hay đặt vé sự kiện nào. TUYỆT ĐỐI không chép lại câu nhắc lệnh này và không gọi thêm tool nào khác!`
         };
       }
-      
+
       if (name === 'getEventDetails') {
         let identifier = getArg(args.eventId) || getArg(args.identifier);
         const publishedList = await getPublishedEventsCache();
@@ -2921,11 +2939,11 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
           currentMessage,
           ...history.filter(m => m.role === 'user').map(m => m.content || '')
         ].join('\n');
-        
+
         const userChatPhone = extractPhoneNumber(userMessages);
 
-        const profilePhone = (userProfile?.phone && userProfile.phone.replace(/\D/g, '').length >= 9) 
-          ? userProfile.phone.trim() 
+        const profilePhone = (userProfile?.phone && userProfile.phone.replace(/\D/g, '').length >= 9)
+          ? userProfile.phone.trim()
           : '';
 
         let validPhone = profilePhone || userChatPhone;
@@ -2958,8 +2976,8 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
             const sessionNumMatch = String(sessionId || '').match(/\d+/);
             const sessionIdx = sessionNumMatch ? parseInt(sessionNumMatch[0], 10) - 1 : -1;
 
-            let matchedSession = detail.sessions?.find(s => 
-              String(s.id) === String(sessionId) || 
+            let matchedSession = detail.sessions?.find(s =>
+              String(s.id) === String(sessionId) ||
               (s.session_name && s.session_name.toLowerCase().includes(String(sessionId).toLowerCase()))
             );
 
@@ -2994,8 +3012,8 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
               } else {
                 // Fallback: match by argument or first ticket type
                 const normTicketArg = String(ticketTypeId || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-                let matchedTicket = detail.ticket_types.find(t => 
-                  String(t.id) === String(ticketTypeId) || 
+                let matchedTicket = detail.ticket_types.find(t =>
+                  String(t.id) === String(ticketTypeId) ||
                   (normTicketArg && t.name && t.name.toLowerCase().replace(/[^a-z0-9]/g, '').includes(normTicketArg)) ||
                   (normTicketArg && t.name && normTicketArg.includes(t.name.toLowerCase().replace(/[^a-z0-9]/g, '')))
                 );
@@ -3076,11 +3094,17 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
           /(?:ghế\s*khác|ghe\s*khac|vị\s*trí\s*khác|vi\s*tri\s*khac|chỗ\s*khác|cho\s*khac)/i.test(normCurrent)
         ) && !isChangeRowRequest;
 
+        const isQuantityAdjustmentRequest = (
+          /(?:thêm|them|bớt|bot|tăng|tang|giảm|giam|nữa|nua|more|add|reduce|remove)\s*(?:\d+|một|hai|ba|bốn|năm|sau|bay|tam|chin|muoi)?\s*(?:vé|ve|ghế|ghe|chỗ|cho|tickets?|seats?)?/i.test(currentMessage) ||
+          /(?:them|bot|tang|giam|nua|more|add|reduce|remove)\s*(?:\d+|mot|hai|ba|bon|nam|sau|bay|tam|chin|muoi)?\s*(?:ve|ghe|cho|tickets?|seats?)?/i.test(normCurrent)
+        );
+
         const isSeatAdjustmentRequest = (
           /(?:lệch|lech|bị\s*lệch|bi\s*lech|chính\s*giữa|chinh\s*giua|ở\s*giữa|o\s*giua|giữa\s*hàng|giua\s*hang|đổi\s*ghế|doi\s*ghe|đổi\s*hàng|doi\s*hang|đổi\s*sang|doi\s*sang|chuyển\s*sang|chuyen\s*sang|chọn\s*lại|chon\s*lai|hàng\s*khác|hang\s*khac|sang\s*hang|sang\s*hàng|đổi\s*vé|doi\s*ve|đổi\s*loại|doi\s*loai|chuyển\s*loại|chuyen\s*loai|ghế\s*khác|ghe\s*khac|vị\s*trí\s*khác|vi\s*tri\s*khac|chỗ\s*khác|cho\s*khac)/i.test(currentMessage) ||
           /(?:lech|bi\s*lech|chinh\s*giua|o\s*giua|giua\s*hang|doi\s*ghe|doi\s*hang|doi\s*sang|chuyen\s*sang|chon\s*lai|hang\s*khac|sang\s*hang|doi\s*ve|doi\s*loai|chuyen\s*loai|ghe\s*khac|vi\s*tri\s*khac|cho\s*khac)/i.test(normCurrent) ||
           isChangeRowRequest ||
-          isChangeSameRowSeats
+          isChangeSameRowSeats ||
+          isQuantityAdjustmentRequest
         );
 
         const userMessages = [
@@ -3148,6 +3172,11 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
 
         let eventId = detail.slug || detail.id;
         const sessions = detail.sessions || [];
+        const allEventTickets = detail.ticket_types || [];
+        const lastProp = findLastBookingProposal(history, allEventTickets);
+        const prevPropQty = lastProp?.quantity || null;
+        const lastPropFirstSeat = typeof lastProp?.seats?.[0] === 'string' ? lastProp?.seats?.[0] : (lastProp?.seats?.[0]?.label || '');
+        const lastPropRow = lastPropFirstSeat ? lastPropFirstSeat.charAt(0).toUpperCase() : null;
 
         // Match session
         let matchedSession = null;
@@ -3162,6 +3191,9 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
             matchedSession = sessions[sIdx];
           }
         }
+        if (!matchedSession && lastProp?.session?.id) {
+          matchedSession = sessions.find(s => String(s.id) === String(lastProp.session.id)) || null;
+        }
         if (!matchedSession) {
           matchedSession = sessions[0] || null;
         }
@@ -3172,7 +3204,6 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
           detail.ticket_types?.some(t => t.is_seated === true)
         );
 
-        const allEventTickets = detail.ticket_types || [];
         let requestedTickets = [];
         const rawTickets = args.tickets || (args.parsedTickets || null);
         if (Array.isArray(rawTickets) && rawTickets.length > 0) {
@@ -3193,11 +3224,6 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
             }
           }
         }
-
-        const lastProp = findLastBookingProposal(history, allEventTickets);
-        const prevPropQty = lastProp?.quantity || null;
-        const lastPropFirstSeat = typeof lastProp?.seats?.[0] === 'string' ? lastProp?.seats?.[0] : (lastProp?.seats?.[0]?.label || '');
-        const lastPropRow = lastPropFirstSeat ? lastPropFirstSeat.charAt(0).toUpperCase() : null;
 
         if (specificSeats.length === 0) {
           specificSeats = extractSpecificSeats(currentMessage, preferredRow || lastPropRow);
@@ -3223,6 +3249,8 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
         }
         if (isChangeRowRequest) {
           preferredRow = '';
+        } else if (!preferredRow && lastPropRow) {
+          preferredRow = lastPropRow;
         }
 
         const parsedQFromCurrent = parseQuantityFromText(currentMessage, prevPropQty);
@@ -3276,8 +3304,8 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
           // Do not inherit row from previous zone when switching zones
           const rowInCurrent = currentMessage.match(/(?:hàng\s*(?:ghế\s*)?|dãy\s*(?:ghế\s*)?|row\s*)([a-zA-Z\d]+)/i);
           preferredRow = rowInCurrent ? rowInCurrent[1] : '';
-        } else if (!wantsDifferentTierInTool && (isChangeRowRequest || isSeatAdjustmentRequest) && !ticketTypeId && lastProp?.ticket_type_id) {
-          // Preserve previous tier when user is adjusting seats or changing rows
+        } else if (!wantsDifferentTierInTool && !ticketTypeId && lastProp?.ticket_type_id) {
+          // Preserve previous tier whenever modifying an existing proposal unless user explicitly requested a different tier
           const prevMatched = allEventTickets.find(t => String(t.id) === String(lastProp.ticket_type_id));
           if (prevMatched) {
             ticketTypeId = prevMatched.id;
@@ -3308,7 +3336,13 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
         }
 
         const requireAttendeeInfo = Boolean(detail.require_attendee_info);
-        const collectedAttendees = extractAttendeesFromText(userMessages, userProfile);
+        let collectedAttendees = extractAttendeesFromText(userMessages, userProfile);
+        if (requireAttendeeInfo && collectedAttendees.length === 0 && userProfile?.email) {
+          collectedAttendees.push({
+            name: userProfile.full_name || 'Khách hàng',
+            email: userProfile.email.trim()
+          });
+        }
         const isAttendeesComplete = !requireAttendeeInfo || (collectedAttendees.length >= quantity);
 
         // Resolve ticket tier / cheapest preference:
@@ -3336,10 +3370,21 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
               }
             }
           }
-          // If still no ticket tier specified, default to the cheapest tier!
+          // If still no ticket tier specified, default to the cheapest tier suitable for seat map!
           if (!ticketTypeId) {
-            const sortedByPrice = [...allEventTickets].sort((a, b) => Number(a.price) - Number(b.price));
+            const candidateTiers = allEventTickets.filter(t => {
+              if (matchedSession?.id && t.event_session_id && String(t.event_session_id) !== String(matchedSession.id)) {
+                return false;
+              }
+              if (hasSeatMap && t.is_seated === false) {
+                return false;
+              }
+              return true;
+            });
+            const validPool = candidateTiers.length > 0 ? candidateTiers : allEventTickets;
+            const sortedByPrice = [...validPool].sort((a, b) => Number(a.price) - Number(b.price));
             ticketTypeId = sortedByPrice[0]?.id;
+            ticketTypeName = sortedByPrice[0]?.name;
           }
         }
 
@@ -3456,10 +3501,16 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
             holdExpiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
           }
 
+          const primaryAllocItem = allocResultItems?.[0];
+          const primaryTicketId = ticketTypeId || primaryAllocItem?.ticket_type_id || primaryAllocItem?.ticketType?.id || null;
+          const primaryTicketObj = allEventTickets.find(t => String(t.id) === String(primaryTicketId));
+
           proposalData = {
             eventId: detail.id,
             eventSlug: detail.slug,
             eventTitle: detail.title,
+            ticket_type_id: primaryTicketId,
+            ticketTypeName: primaryTicketObj?.name || ticketTypeName || '',
             eventStartTime: matchedSession.start_time || detail.start_time,
             eventEndTime: matchedSession.end_time || detail.end_time,
             session: {
@@ -3576,8 +3627,8 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
         const actionTag = `[ACTION:BOOKING_PROPOSAL:${encodeURIComponent(JSON.stringify(proposalData))}]`;
         if (context) context.lastGeneratedActionTag = actionTag;
 
-        const seatSummary = proposalData.seats.length > 0 
-          ? proposalData.seats.map(s => s.label).join(', ') 
+        const seatSummary = proposalData.seats.length > 0
+          ? proposalData.seats.map(s => s.label).join(', ')
           : proposalData.items.map(it => `${it.quantity} vé ${it.ticketType?.name || ''} (${Number(it.ticketType?.price || 0).toLocaleString('vi-VN')}đ)`).join(', ');
 
         const labelType = proposalData.seats.length > 0 ? 'các vị trí ghế' : 'các loại vé';
@@ -3615,9 +3666,9 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
         : (messageOrPayload?.history || []);
       const cleanHistory = Array.isArray(rawHistory)
         ? rawHistory.filter(m => m && typeof m === 'object' && typeof m.role === 'string').map(m => ({
-            role: m.role,
-            content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content || '')
-          }))
+          role: m.role,
+          content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content || '')
+        }))
         : [];
 
       // 0. Instant Pure Greeting Fast-path:
@@ -3755,50 +3806,50 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
         ...cleanHistory.filter(m => m.role === 'user').map(m => m.content || '')
       ].join('\n');
 
-    const userChatPhone = extractPhoneNumber(allUserMessages);
+      const userChatPhone = extractPhoneNumber(allUserMessages);
 
-    let userProfile = null;
-    if (userId) {
-      try {
-        userProfile = await userService.getProfile(userId);
-      } catch (err) {
-        logger.warn(`[AiAssistant] Could not load user profile for ${userId}: ${err.message}`);
+      let userProfile = null;
+      if (userId) {
+        try {
+          userProfile = await userService.getProfile(userId);
+        } catch (err) {
+          logger.warn(`[AiAssistant] Could not load user profile for ${userId}: ${err.message}`);
+        }
       }
-    }
 
-    const profilePhone = (userProfile?.phone && userProfile.phone.replace(/\D/g, '').length >= 9)
-      ? userProfile.phone.trim()
-      : '';
+      const profilePhone = (userProfile?.phone && userProfile.phone.replace(/\D/g, '').length >= 9)
+        ? userProfile.phone.trim()
+        : '';
 
-    let effectivePhone = profilePhone || userChatPhone;
+      let effectivePhone = profilePhone || userChatPhone;
 
-    // Auto-save phone to user in DB if user provided it in chat and user account didn't have one
-    if (userId && userChatPhone && !profilePhone) {
-      try {
-        await authRepository.updateUser(userId, { phone: userChatPhone });
-        if (userProfile) userProfile.phone = userChatPhone;
-        logger.info(`[AiAssistant] Auto-saved extracted phone ${userChatPhone} to user profile ${userId}`);
-      } catch (err) {
-        logger.warn(`[AiAssistant] Could not auto-save phone to user: ${err.message}`);
+      // Auto-save phone to user in DB if user provided it in chat and user account didn't have one
+      if (userId && userChatPhone && !profilePhone) {
+        try {
+          await authRepository.updateUser(userId, { phone: userChatPhone });
+          if (userProfile) userProfile.phone = userChatPhone;
+          logger.info(`[AiAssistant] Auto-saved extracted phone ${userChatPhone} to user profile ${userId}`);
+        } catch (err) {
+          logger.warn(`[AiAssistant] Could not auto-save phone to user: ${err.message}`);
+        }
       }
-    }
 
-    let dynamicSystemPrompt = SYSTEM_PROMPT;
-    if (clientContext?.locale === 'en') {
-      dynamicSystemPrompt = `CRITICAL MANDATORY INSTRUCTION:
+      let dynamicSystemPrompt = SYSTEM_PROMPT;
+      if (clientContext?.locale === 'en') {
+        dynamicSystemPrompt = `CRITICAL MANDATORY INSTRUCTION:
 - The customer interface language is ENGLISH (locale: en).
 - Every single word of your response MUST be in natural, polite, and helpful ENGLISH.
 - NEVER speak Vietnamese, nor use Vietnamese conversational particles (such as "Dạ", "nè", "nhé", "nha", "ạ", "chốt kèo", "múc vé", "vào việc").
 - Never output Vietnamese prompt examples, Vietnamese system directives, or refusal sentences in Vietnamese.
 - Even if event titles in the database are Vietnamese, converse with the customer 100% IN ENGLISH.\n\n` + dynamicSystemPrompt;
 
-      dynamicSystemPrompt = dynamicSystemPrompt.replace(
-        /- BẮT BUỘC 100% TIẾNG VIỆT:[\s\S]*?thay vì tiếng Trung\./,
-        '- MANDATORY 100% ENGLISH: The user has selected English interface mode (locale: en). Every single word of your reply MUST be in natural, polite, helpful English. NEVER output Vietnamese words, phrases, or Vietnamese prompt examples. Maintain the same friendly Eve personality.'
-      );
-      dynamicSystemPrompt = dynamicSystemPrompt.replace(
-        /BỘ VÍ DỤ ỨNG XỬ LINH HOẠT & THẤU CẢM CỦA EVE[\s\S]*?QUY TẮC CỐT LÕI - GIAO TIẾP TỰ NHIÊN, LINH HOẠT & BẢO MẬT:/,
-        `EVE'S BEHAVIORAL EXAMPLES & GUIDELINES (ENGLISH):
+        dynamicSystemPrompt = dynamicSystemPrompt.replace(
+          /- BẮT BUỘC 100% TIẾNG VIỆT:[\s\S]*?thay vì tiếng Trung\./,
+          '- MANDATORY 100% ENGLISH: The user has selected English interface mode (locale: en). Every single word of your reply MUST be in natural, polite, helpful English. NEVER output Vietnamese words, phrases, or Vietnamese prompt examples. Maintain the same friendly Eve personality.'
+        );
+        dynamicSystemPrompt = dynamicSystemPrompt.replace(
+          /BỘ VÍ DỤ ỨNG XỬ LINH HOẠT & THẤU CẢM CỦA EVE[\s\S]*?QUY TẮC CỐT LÕI - GIAO TIẾP TỰ NHIÊN, LINH HOẠT & BẢO MẬT:/,
+          `EVE'S BEHAVIORAL EXAMPLES & GUIDELINES (ENGLISH):
 - EXAMPLE 1: Customer asks by mood / emotion (feeling down, stressed, want to chill):
   Express sincere warmth and empathy: Suggest soothing acoustic live shows or an oil pastel/pottery workshop to recharge.
 - EXAMPLE 2: Customer looks for family, kids, or date ideas:
@@ -3811,392 +3862,394 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
   Be proactive and cheerful: Introduce 2-3 top featured events on EventHub and ask about their tastes.
 
 CORE RULES - NATURAL COMMUNICATION & SECURITY (ENGLISH):`
-      );
-    }
-    if (userId) {
-      dynamicSystemPrompt = dynamicSystemPrompt.replace(
-        '- Nếu người dùng chưa đăng nhập, hãy khuyên họ đăng nhập.',
-        '- Người dùng hiện đã đăng nhập, bạn không cần khuyên họ đăng nhập nữa.'
-      );
-      if (userProfile) {
-        const hasPhone = Boolean(effectivePhone);
-        dynamicSystemPrompt += `\n\nTHÔNG TIN TÀI KHOẢN KHÁCH HÀNG ĐANG CHAT:
+        );
+      }
+      if (userId) {
+        dynamicSystemPrompt = dynamicSystemPrompt.replace(
+          '- Nếu người dùng chưa đăng nhập, hãy khuyên họ đăng nhập.',
+          '- Người dùng hiện đã đăng nhập, bạn không cần khuyên họ đăng nhập nữa.'
+        );
+        if (userProfile) {
+          const hasPhone = Boolean(effectivePhone);
+          dynamicSystemPrompt += `\n\nTHÔNG TIN TÀI KHOẢN KHÁCH HÀNG ĐANG CHAT:
 - Họ và tên: ${userProfile.full_name || 'Khách hàng'} (Tự động lấy làm người mua vé)
 - Email: ${userProfile.email || 'Chưa cập nhật'} (Tự động lấy làm người mua vé)
 - Số điện thoại liên hệ: ${hasPhone ? `${effectivePhone} (ĐÃ CÓ SỐ ĐIỆN THOẠI, TUYỆT ĐỐI KHÔNG ĐƯỢC HỎI LẠI SỐ ĐIỆN THOẠI NỮA!)` : 'Chưa cập nhật (BẮT BUỘC HỎI KHÁCH CUNG CẤP SĐT KHI ĐẶT VÉ)'}`;
+        }
+      } else {
+        dynamicSystemPrompt = dynamicSystemPrompt.replace(
+          '- Nếu người dùng chưa đăng nhập, hãy khuyên họ đăng nhập.',
+          '- Người dùng chưa đăng nhập, bạn phải yêu cầu họ đăng nhập trước khi đặt vé.'
+        );
       }
-    } else {
-      dynamicSystemPrompt = dynamicSystemPrompt.replace(
-        '- Nếu người dùng chưa đăng nhập, hãy khuyên họ đăng nhập.',
-        '- Người dùng chưa đăng nhập, bạn phải yêu cầu họ đăng nhập trước khi đặt vé.'
-      );
-    }
 
-    const isOutOfScope = isOutOfScopeQuery(message);
-    if (isOutOfScope) {
-      dynamicSystemPrompt += clientContext?.locale === 'en'
-        ? `\n\n[SPECIAL INSTRUCTION FOR CURRENT TURN]: The customer asked an off-topic question: "${message}".
+      const isOutOfScope = isOutOfScopeQuery(message);
+      if (isOutOfScope) {
+        dynamicSystemPrompt += clientContext?.locale === 'en'
+          ? `\n\n[SPECIAL INSTRUCTION FOR CURRENT TURN]: The customer asked an off-topic question: "${message}".
 1. STRICTLY DO NOT ANSWER the off-topic inquiry (do NOT solve math calculations, do NOT recommend meal menus, do NOT look up external time/weather, do NOT order physical goods).
 2. POLITELY REFUSE & EXPLICITLY EMPHASIZE EVENTHUB SCOPE: Politely decline to answer in a charming, natural tone, and CLEARLY EMPHASIZE that you are Eve, an AI assistant dedicated solely to the EventHub platform, and can only assist with event discovery, schedules, ticket prices, seat maps, ticket booking, and EventHub policies.
 3. Smoothly pivot to proposing exciting events, concerts, or workshops on EventHub.
 4. Strictly do NOT use robotic canned repetition. Strictly NO emojis, NO mixed English in Vietnamese.`
-        : `\n\n[CHỈ DẪN QUAN TRỌNG CHO LƯỢT NÀY]: Khách hàng vừa hỏi một câu ngoài phạm vi sự kiện: "${message}".
+          : `\n\n[CHỈ DẪN QUAN TRỌNG CHO LƯỢT NÀY]: Khách hàng vừa hỏi một câu ngoài phạm vi sự kiện: "${message}".
 1. TUYỆT ĐỐI KHÔNG TRẢ LỜI HOẶC GIẢI ĐÁP NỘI DUNG CÂU HỎI ĐÓ (KHÔNG tính toán phép tính ra kết quả, KHÔNG gợi ý thực đơn món ăn, KHÔNG tra cứu ngày giờ thời tiết đời thường, KHÔNG nhận đặt mua hàng hóa ngoài vé sự kiện).
 2. TỪ CHỐI KHÉO LÉO & BẮT BUỘC NHẤN MẠNH PHẠM VI EVENTHUB: Lịch sự từ chối trả lời một cách tự nhiên, duyên dáng, và PHẢI NÊU RÕ RÀNG bạn là Eve, Trợ lý AI chuyên trách của nền tảng EventHub nên chỉ có thể hỗ trợ tìm kiếm sự kiện, xem lịch diễn, tra cứu giá vé, sơ đồ ghế và đặt vé trên EventHub.
 3. Duyên dáng gợi mở khách có muốn khám phá các sự kiện âm nhạc, kịch nghệ, triển lãm hay workshop nghệ thuật trên EventHub không.
 4. Tự nhiên linh hoạt theo ngữ cảnh câu hỏi, TUYỆT ĐỐI KHÔNG dùng một câu rập khuôn lặp lại. TUYỆT ĐỐI KHÔNG dùng icon emoji. 100% TIẾNG VIỆT CHUẨN.`;
-    }
+      }
 
-    // Pre-flight Grounding Optimization:
-    // Check if the user is asking about or wanting to book a specific named event in EventHub:
-    const eventChangeInfo = detectEventChangeIntent(message);
+      // Pre-flight Grounding Optimization:
+      // Check if the user is asking about or wanting to book a specific named event in EventHub:
+      const eventChangeInfo = detectEventChangeIntent(message);
 
-    // Look back in cleanHistory to find the previous active event:
-    // IMPORTANT: Scan user messages first, ignoring greetings, FAQs, jailbreaks, continuations
-    let previousActiveEvent = null;
-    if (cleanHistory.length > 0) {
-      for (let i = cleanHistory.length - 1; i >= 0; i--) {
-        const hMsg = cleanHistory[i];
-        if (hMsg.role !== 'user') continue;
-        const hChange = detectEventChangeIntent(hMsg.content);
-        if (hChange.isChange && !hChange.isCancelOnly && !hChange.targetQuery) {
-          // Explicit event abandonment / change breaks the active event binding
-          break;
-        }
-        if (isJailbreakAttempt(hMsg.content) ||
+      // Look back in cleanHistory to find the previous active event:
+      // IMPORTANT: Scan user messages first, ignoring greetings, FAQs, jailbreaks, continuations
+      let previousActiveEvent = null;
+      if (cleanHistory.length > 0) {
+        for (let i = cleanHistory.length - 1; i >= 0; i--) {
+          const hMsg = cleanHistory[i];
+          if (hMsg.role !== 'user') continue;
+          const hChange = detectEventChangeIntent(hMsg.content);
+          if (hChange.isChange && !hChange.isCancelOnly && !hChange.targetQuery) {
+            // Explicit event abandonment / change breaks the active event binding
+            break;
+          }
+          if (isJailbreakAttempt(hMsg.content) ||
             isSystemFaqQuery(hMsg.content) ||
             isOutOfScopeQuery(hMsg.content) ||
             isPureGreeting(hMsg.content) ||
             isBookingContinuationIntent(hMsg.content) ||
             hChange.isCancelOnly) {
-          continue;
-        }
-        const found = findMatchingPublishedEvent(hChange.targetQuery || hMsg.content, publishedEvents, { allowSemanticTopic: false });
-        if (found) {
-          previousActiveEvent = found;
-          break;
-        }
-      }
-
-      // If not found in user messages, look at assistant messages for explicit confirmed event titles OR action tags
-      if (!previousActiveEvent) {
-        for (let i = cleanHistory.length - 1; i >= 0; i--) {
-          const hMsg = cleanHistory[i];
-          if (hMsg.role !== 'assistant') continue;
-
-          // 1. Check for action tag embedded in assistant message (BOOKING, PREFILL_BOOKING, or CLEAR_BOOKING)
-          const actionSlugMatch = hMsg.content.match(/\[ACTION:(?:BOOKING|PREFILL_BOOKING|CLEAR_BOOKING):([^:\]]+)/i);
-          if (actionSlugMatch) {
-            const candidateIdentifier = actionSlugMatch[1];
-            const ev = publishedEvents.find(e => e.slug === candidateIdentifier || e.id === candidateIdentifier);
-            if (ev) {
-              previousActiveEvent = ev;
-              break;
-            }
+            continue;
           }
+          const found = findMatchingPublishedEvent(hChange.targetQuery || hMsg.content, publishedEvents, { allowSemanticTopic: false });
+          if (found) {
+            previousActiveEvent = found;
+            break;
+          }
+        }
 
-          const proposalMatch = hMsg.content.match(/\[ACTION:BOOKING_PROPOSAL:([^\]]+)\]/i);
-          if (proposalMatch) {
-            try {
-              const decoded = decodeURIComponent(proposalMatch[1]);
-              const pData = JSON.parse(decoded);
-              const evIdentifier = pData.eventSlug || pData.eventId || pData.event_slug;
-              const ev = publishedEvents.find(e => e.slug === evIdentifier || e.id === evIdentifier);
+        // If not found in user messages, look at assistant messages for explicit confirmed event titles OR action tags
+        if (!previousActiveEvent) {
+          for (let i = cleanHistory.length - 1; i >= 0; i--) {
+            const hMsg = cleanHistory[i];
+            if (hMsg.role !== 'assistant') continue;
+
+            // 1. Check for action tag embedded in assistant message (BOOKING, PREFILL_BOOKING, or CLEAR_BOOKING)
+            const actionSlugMatch = hMsg.content.match(/\[ACTION:(?:BOOKING|PREFILL_BOOKING|CLEAR_BOOKING):([^:\]]+)/i);
+            if (actionSlugMatch) {
+              const candidateIdentifier = actionSlugMatch[1];
+              const ev = publishedEvents.find(e => e.slug === candidateIdentifier || e.id === candidateIdentifier);
               if (ev) {
                 previousActiveEvent = ev;
                 break;
               }
-            } catch (e) {}
-          }
-
-          // 2. Check for event title in assistant message content
-          for (const e of publishedEvents) {
-            if (e.title && e.title.length >= 6 && hMsg.content.includes(e.title)) {
-              previousActiveEvent = e;
-              break;
             }
-          }
-          if (previousActiveEvent) break;
-        }
-      }
 
-      // 3. Fallback: Check if client passed active context (eventSlug / eventId from URL or local draft)
-      if (!previousActiveEvent && (clientContext?.eventSlug || clientContext?.eventId)) {
+            const proposalMatch = hMsg.content.match(/\[ACTION:BOOKING_PROPOSAL:([^\]]+)\]/i);
+            if (proposalMatch) {
+              try {
+                const decoded = decodeURIComponent(proposalMatch[1]);
+                const pData = JSON.parse(decoded);
+                const evIdentifier = pData.eventSlug || pData.eventId || pData.event_slug;
+                const ev = publishedEvents.find(e => e.slug === evIdentifier || e.id === evIdentifier);
+                if (ev) {
+                  previousActiveEvent = ev;
+                  break;
+                }
+              } catch (e) { }
+            }
+
+            // 2. Check for event title in assistant message content
+            for (const e of publishedEvents) {
+              if (e.title && e.title.length >= 6 && hMsg.content.includes(e.title)) {
+                previousActiveEvent = e;
+                break;
+              }
+            }
+            if (previousActiveEvent) break;
+          }
+        }
+
+        // 3. Fallback: Check if client passed active context (eventSlug / eventId from URL or local draft)
+        if (!previousActiveEvent && (clientContext?.eventSlug || clientContext?.eventId)) {
+          const targetId = clientContext.eventSlug || clientContext.eventId;
+          const ev = publishedEvents.find(e => e.slug === targetId || e.id === targetId);
+          if (ev) {
+            previousActiveEvent = ev;
+          }
+        }
+      } else if (clientContext?.eventSlug || clientContext?.eventId) {
         const targetId = clientContext.eventSlug || clientContext.eventId;
         const ev = publishedEvents.find(e => e.slug === targetId || e.id === targetId);
         if (ev) {
           previousActiveEvent = ev;
         }
       }
-    } else if (clientContext?.eventSlug || clientContext?.eventId) {
-      const targetId = clientContext.eventSlug || clientContext.eventId;
-      const ev = publishedEvents.find(e => e.slug === targetId || e.id === targetId);
-      if (ev) {
-        previousActiveEvent = ev;
-      }
-    }
 
-    // Fast-path: Explicit Booking Cancellation (0.00s)
-    if (eventChangeInfo.isCancelOnly) {
-      const eventIdToRelease = previousActiveEvent?.id || previousActiveEvent?.slug || clientContext?.eventId || clientContext?.eventSlug || null;
-      if (userId) {
-        try {
-          await eventsService.releaseSeatHolds(userId, { event_id: eventIdToRelease, session_seat_ids: [] });
-        } catch (e) {
-          logger.warn(`[AiAssistant] Error releasing seat holds on cancel: ${e.message}`);
+      // Fast-path: Explicit Booking Cancellation (0.00s)
+      if (eventChangeInfo.isCancelOnly) {
+        const eventIdToRelease = previousActiveEvent?.id || previousActiveEvent?.slug || clientContext?.eventId || clientContext?.eventSlug || null;
+        if (userId) {
+          try {
+            await eventsService.releaseSeatHolds(userId, { event_id: eventIdToRelease, session_seat_ids: [] });
+          } catch (e) {
+            logger.warn(`[AiAssistant] Error releasing seat holds on cancel: ${e.message}`);
+          }
         }
-      }
-      const isEn = clientContext?.locale === 'en';
-      return {
-        role: 'assistant',
-        content: isEn
+        const isEn = clientContext?.locale === 'en';
+        const replyContent = isEn
           ? `Certainly, Eve has stopped the booking process as requested.\n\nPlease don't worry, any temporary seat holds (if any) have been automatically released. Would you like Eve to help you search for other events, or answer any other questions on EventHub?\n\n[ACTION:CLEAR_BOOKING${eventIdToRelease ? `:${eventIdToRelease}` : ''}]`
-          : `Dạ vâng, Eve đã dừng quy trình đặt vé theo yêu cầu của bạn rồi nhé.\n\nBạn đừng lo lắng, các vị trí giữ chỗ tạm thời (nếu có) đã được tự động giải phóng rồi nha. Bạn có muốn Eve hỗ trợ tìm kiếm sự kiện nào khác, hoặc cần Eve giải đáp thêm thông tin gì trên EventHub không ạ?\n\n[ACTION:CLEAR_BOOKING${eventIdToRelease ? `:${eventIdToRelease}` : ''}]`
-      };
-    }
-
-    // Fast-path: Switch to Other Events without specific target (e.g. user clicks "Đổi sự kiện khác" or says "đổi sang sự kiện khác") (0.01s)
-    if (eventChangeInfo.isChange && !eventChangeInfo.targetQuery) {
-      const eventIdToRelease = previousActiveEvent?.id || null;
-      if (userId) {
-        try {
-          await eventsService.releaseSeatHolds(userId, { event_id: eventIdToRelease, session_seat_ids: [] });
-        } catch (e) {
-          logger.warn(`[AiAssistant] Error releasing seat holds on change: ${e.message}`);
-        }
-      }
-      const isEn = clientContext?.locale === 'en';
-      const topEvents = (publishedEvents || []).slice(0, 4);
-      let listStr = '';
-      if (topEvents.length > 0) {
-        listStr = topEvents.map(e => {
-          const price = Number(e.min_price) === 0
-            ? (isEn ? 'Free' : 'Miễn phí')
-            : (isEn ? `${Number(e.min_price).toLocaleString('en-US')} VND` : `${Number(e.min_price).toLocaleString('vi-VN')}đ`);
-          const title = (isEn && e.title_en) ? e.title_en : e.title;
-          return isEn
-            ? `**${title}**\nVenue: ${e.venue_name || e.city || 'Vietnam'}\nFrom: ${price}`
-            : `**${title}**\nĐịa điểm: ${e.venue_name || e.city || 'TP.HCM'}\nGiá từ: ${price}`;
-        }).join('\n\n');
-      }
-      return {
-        role: 'assistant',
-        content: isEn
-          ? `Certainly, Eve has cleared your previous booking proposal.\n\nHere are some featured events currently on EventHub for you to explore:\n\n${listStr}\n\nWould you like Eve to help you book tickets for any of these events?\n\n[ACTION:CLEAR_BOOKING${eventIdToRelease ? `:${eventIdToRelease}` : ''}]`
-          : `Dạ vâng, Eve đã hủy đề xuất đặt vé trước đó rồi nè.\n\nEve xin gợi ý cho bạn một số sự kiện nổi bật đang có trên EventHub để bạn tham khảo nhé:\n\n${listStr}\n\nBạn quan tâm hoặc muốn Eve hỗ trợ sự kiện nào trong số này không ạ?\n\n[ACTION:CLEAR_BOOKING${eventIdToRelease ? `:${eventIdToRelease}` : ''}]`
-      };
-    }
-
-    // If user asked to switch to a target ("Đổi sang sự kiện Hoàng Dũng"), try to match that target query first!
-    const queryForMatching = eventChangeInfo.targetQuery || message;
-    const currentMatchedEvent = findMatchingPublishedEvent(
-      queryForMatching,
-      publishedEvents,
-      { allowSemanticTopic: true }
-    );
-
-    // Determine effective activeEvent for this turn:
-    let activeEvent = null;
-    let isEventSwitched = false;
-
-    if (eventChangeInfo.isCancelOnly) {
-      // User cancelled booking entirely
-      activeEvent = null;
-    } else if (eventChangeInfo.isChange && !currentMatchedEvent) {
-      // User asked to change/abandon event without specifying the new event title yet
-      activeEvent = null;
-    } else if (currentMatchedEvent) {
-      activeEvent = currentMatchedEvent;
-      if (previousActiveEvent && previousActiveEvent.slug !== currentMatchedEvent.slug) {
-        isEventSwitched = true;
-      }
-    } else if (previousActiveEvent && /(?:hoan\s*ve|tra\s*ve|huy\s*ve|hoan\s*tien|refund|gia\s*ve|lich\s*dien|dia\s*diem|o\s*dau|may\s*gio)/i.test(normalizeText(message)) && !/(?:nen\s*tang|eventhub|organizer|ban\s*to\s*chuc)\b/i.test(normalizeText(message))) {
-      activeEvent = previousActiveEvent;
-    } else if (isGeneralDiscoveryQuery(message) || isSystemFaqQuery(message)) {
-      activeEvent = null;
-    } else {
-      activeEvent = previousActiveEvent;
-    }
-
-    // Immediate Booking Continuation Fast-path:
-    // If user asks to continue booking without naming an event, use activeEvent
-    if (isBookingContinuationIntent(message) && activeEvent) {
-      let contDetail = null;
-      try {
-        contDetail = await eventsService.getPublicEventDetail(activeEvent.slug || activeEvent.id, userId);
-      } catch (e) {}
-
-      const contTicketTypes = contDetail?.ticket_types || [];
-      const contIsSeated = Boolean(
-        contDetail?.sessions?.some(s => s.seat_map_id || s.has_seat_map) ||
-        contTicketTypes.some(t => t.is_seated === true)
-      );
-
-      const contQty = parseQuantityFromText(message);
-      const contDetected = parseTicketsFromText(message, contTicketTypes);
-      const contHasPlacement = /(?:hang\s*[a-z]|gan\s*(?:san\s*khau|trung\s*tam)|o\s*giua|trung\s*tam|vip|thuong|dau|cuoi)/i.test(normalizeText(message));
-
-      if (!contQty && contDetected.length === 0 && !contHasPlacement) {
-        const isEn = clientContext?.locale === 'en';
-        const evTitle = (isEn && (contDetail?.title_en || activeEvent.title_en)) || activeEvent.title;
-        if (contIsSeated) {
-          return {
-            role: 'assistant',
-            content: isEn
-              ? `Certainly, Eve is ready to continue assisting you with booking tickets for **${evTitle}**! 🎉\n\nThis event features an **interactive seat map**. Would you like Eve to open the seat map so you can select your favorite seats, or would you like to tell Eve which seating zone (VIP, Standard...) you prefer so Eve can hold seats for you? 🥰`
-              : `Dạ vâng, Eve sẵn sàng tiếp tục hỗ trợ bạn đặt vé sự kiện **${activeEvent.title}** nè! 🎉\n\nĐây là sự kiện có **sơ đồ ghế ngồi trực quan**. Bạn có muốn Eve mở sơ đồ chỗ ngồi để bạn tự tay chọn vị trí đẹp nhất, hoặc bạn cho Eve biết bạn muốn ngồi khu vực nào (VIP, Tiêu chuẩn...) để Eve giữ chỗ giúp bạn nhé? 🥰`
-          };
-        } else if (contTicketTypes.length > 0) {
-          const tierSummary = contTicketTypes.map(t => {
-            const priceStr = Number(t.price) === 0
-              ? (isEn ? 'Free' : 'Miễn phí')
-              : (isEn ? `${Number(t.price).toLocaleString('en-US')} VND` : `${Number(t.price).toLocaleString('vi-VN')}đ`);
-            const remaining = t.available_quantity !== undefined
-              ? (isEn ? ` (${t.available_quantity} tickets left)` : ` (còn ${t.available_quantity} vé)`)
-              : '';
-            return `• **${t.name}:** ${priceStr}${remaining}`;
-          }).join('\n');
-
-          return {
-            role: 'assistant',
-            content: isEn
-              ? `Certainly, Eve is ready to continue assisting you with booking tickets for **${evTitle}**! 🎉\n\nCurrently on sale:\n${tierSummary}\n\nHow many tickets and which tier would you like to book? Eve will reserve them right away for you! 🥰`
-              : `Dạ vâng, Eve sẵn sàng tiếp tục hỗ trợ bạn đặt vé sự kiện **${activeEvent.title}** nè! 🎉\n\nSự kiện hiện đang mở bán các hạng vé:\n${tierSummary}\n\nBạn muốn đặt mấy vé và chọn hạng vé nào để Eve tiến hành giữ chỗ ngay cho bạn nhé? 🥰`
-          };
-        } else {
-          return {
-            role: 'assistant',
-            content: isEn
-              ? `Certainly, Eve is ready to continue assisting you with booking tickets for **${evTitle}**! 🎉\n\nHow many tickets would you like to book? Eve is happy to help you right away! 🥰`
-              : `Dạ vâng, Eve sẵn sàng tiếp tục hỗ trợ bạn đặt vé sự kiện **${activeEvent.title}** nè! 🎉\n\nBạn muốn đặt bao nhiêu vé để Eve hỗ trợ bạn ngay nhé? 🥰`
-          };
-        }
-      }
-    }
-
-    let requireAttendeeInfo = false;
-    let hasSeatMap = false;
-    let eventDetail = null;
-    let sessionList = [];
-    let activeSessionId = '';
-
-    if (activeEvent) {
-      let sessionText = '';
-      let ticketText = '';
-      try {
-        eventDetail = await eventsService.getPublicEventDetail(activeEvent.slug || activeEvent.id, userId);
-        if (eventDetail) {
-          sessionList = eventDetail.sessions || [];
-          requireAttendeeInfo = Boolean(eventDetail.require_attendee_info);
-          if (activeEvent) activeEvent.require_attendee_info = requireAttendeeInfo;
-          hasSeatMap = Boolean(
-            sessionList.some(s => s.seat_map_id || s.has_seat_map) ||
-            eventDetail.ticket_types?.some(t => t.is_seated === true)
-          );
-          sessionText = sessionList.map((s, idx) => `Suất ${idx + 1} (${s.session_name || 'Mặc định'} lúc ${s.start_time ? new Date(s.start_time).toLocaleString('vi-VN') : ''}): ID=${s.id}`).join('\n  ');
-          ticketText = (eventDetail.ticket_types || []).map(t => `${t.name} (${Number(t.price).toLocaleString('vi-VN')}đ, còn ${t.available_quantity} vé): ID=${t.id}`).join('\n  ');
-        }
-      } catch (err) {
-        logger.warn(`[AiAssistant] Error fetching activeEvent detail: ${err.message}`);
-      }
-
-      const matchedSession = findMatchingSession(message, sessionList);
-      activeSessionId = matchedSession?.id || sessionList[0]?.id || '';
-
-      const sessionCount = sessionList.length;
-      const activeEventDesc = stripHtml(eventDetail?.description || activeEvent.description || '');
-      const activeEventVenue = eventDetail?.venue?.summary || [eventDetail?.venue?.name, eventDetail?.venue?.address_line, eventDetail?.venue?.city].filter(Boolean).join(', ') || 'Chưa cập nhật';
-
-      // Direct Event Information Inquiry Fast-Path:
-      // If user asks for information / details about this matched event without requesting to book:
-      const normMsg = normalizeText(message);
-      const isRefundInquiry = /(?:hoan\s*ve|tra\s*ve|huy\s*ve|hoan\s*tien|refund|chinh\s*sach\s*hoan|co\s*duoc\s*hoan|co\s*duoc\s*tra|chinh\s*sach\s*tra|co\s*cho\s*hoan|co\s*cho\s*tra)/i.test(normMsg) &&
-        !/(?:dat|mua|book|lay)\s*(?:ve|ghe|\d+)/i.test(normMsg);
-
-      if (isRefundInquiry) {
-        const isEn = clientContext?.locale === 'en';
-        const evTitle = (isEn && (eventDetail?.title_en || activeEvent.title_en)) || activeEvent.title;
-        const refundPolicy = eventDetail?.refund_policy || activeEvent.refund_policy || null;
-        const allowRefund = Boolean(refundPolicy?.allow_refund ?? refundPolicy?.allow_refunds);
-        const rules = Array.isArray(refundPolicy?.refund_rules) ? refundPolicy.refund_rules : [];
-
-        if (allowRefund && rules.length > 0) {
-          const sortedRules = [...rules].sort((a, b) => Number(b.days_before) - Number(a.days_before));
-          const ruleLines = sortedRules.map((r, i) => {
-            if (i === 0) {
-              return isEn
-                ? `• **${r.refund_rate}% refund** if requested at least **${r.days_before} days** prior to the event.`
-                : `• Hoàn **${r.refund_rate}%** giá trị vé nếu gửi yêu cầu trước ngày diễn ra ít nhất **${r.days_before} ngày**.`;
-            }
-            const prev = sortedRules[i - 1];
-            return isEn
-              ? `• **${r.refund_rate}% refund** if requested between **${r.days_before}** and under **${prev.days_before} days** prior to the event.`
-              : `• Hoàn **${r.refund_rate}%** giá trị vé nếu gửi yêu cầu trước ngày diễn ra từ **${r.days_before}** đến dưới **${prev.days_before} ngày**.`;
-          });
-          const minDays = sortedRules[sortedRules.length - 1].days_before;
-          if (minDays > 0) {
-            ruleLines.push(
-              isEn
-                ? `• **No refund** if requested within **${minDays} days** prior to the event.`
-                : `• **Không hỗ trợ hoàn tiền** nếu yêu cầu trong vòng **${minDays} ngày** trước giờ diễn.`
-            );
-          }
-          if (refundPolicy.refund_notes?.trim()) {
-            ruleLines.push(
-              isEn
-                ? `* Note from Organizer: ${refundPolicy.refund_notes.trim()}`
-                : `* Ghi chú từ Ban tổ chức: ${refundPolicy.refund_notes.trim()}`
-            );
-          }
-
-          return {
-            role: 'assistant',
-            content: isEn
-              ? `Regarding **${evTitle}**, the Organizer **DOES SUPPORT REFUNDS** according to the following policy:\n\n${ruleLines.join('\n')}\n\n💡 **How to submit a refund request:**\nAfter purchasing your tickets, if you are unable to attend, you can go to **"My Tickets"** > Select your ticket for this event > Click **"Request Refund"** to proceed!\n\nWould you like Eve to assist you with anything else regarding this event? 🥰`
-              : `Dạ đối với sự kiện **${evTitle}**, Ban tổ chức **CÓ HỖ TRỢ HOÀN VÉ** theo chính sách chi tiết như sau nè:\n\n${ruleLines.join('\n')}\n\n💡 **Cách thức gửi yêu cầu hoàn tiền:**\nSau khi đặt vé thành công, nếu có việc bận không thể tham dự, bạn chỉ cần vào mục **"Vé của tôi"** > Chọn vé sự kiện này > Nhấn **"Yêu cầu hoàn vé"** để hệ thống tiếp nhận và xử lý nhé!\n\nBạn có muốn Eve hỗ trợ thêm thông tin gì về sự kiện này không ạ? 🥰`
-          };
-        } else {
-          return {
-            role: 'assistant',
-            content: isEn
-              ? `Regarding **${evTitle}**, according to the Organizer's policy, this event **DOES NOT SUPPORT REFUNDS** once tickets have been successfully purchased.\n\nPlease carefully check your schedule and details before booking! Would you like Eve to help you check session schedules or ticket tiers for this event? 🥰`
-              : `Dạ đối với sự kiện **${evTitle}**, theo quy định chính thức của Ban tổ chức thì sự kiện này **KHÔNG ÁP DỤNG HOÀN VÉ** sau khi đã thanh toán thành công ạ.\n\nBạn vui lòng kiểm tra kỹ lịch trình trước khi đặt vé nhé! Bạn có muốn Eve hỗ trợ xem lịch diễn hoặc các hạng vé hiện có của sự kiện này không ạ? 🥰`
-          };
-        }
-      }
-
-      const isDirectInfoInquiry = !isSystemFaqQuery(message) &&
-        (Boolean(currentMatchedEvent) || (Boolean(activeEvent) && /(?:su\s*kien|show|no|nay|lich\s*dien|dia\s*diem)\b/i.test(normalizeText(message)))) &&
-        isEventInfoInquiry(message);
-      if ((isDirectInfoInquiry || isEventSwitched) && !isBookingContinuationIntent(message) && !isAutonomousBookingRequest(message)) {
-        const isEn = clientContext?.locale === 'en';
-        const formatted = formatEventDetailResponse(eventDetail, activeEvent, isEn);
-        if (isEventSwitched) {
-          const prefix = isEn
-            ? `Certainly! Eve has switched to **${(isEn && (eventDetail?.title_en || activeEvent.title_en)) || activeEvent.title}** for you! 🎉\n\n`
-            : `Dạ Eve đã chuyển sang sự kiện **${activeEvent.title}** theo yêu cầu của bạn rồi nhé! 🎉\n\n`;
-          return {
-            role: 'assistant',
-            content: prefix + formatted
-          };
-        }
+          : `Dạ vâng, Eve đã dừng quy trình đặt vé theo yêu cầu của bạn rồi nhé.\n\nBạn đừng lo lắng, các vị trí giữ chỗ tạm thời (nếu có) đã được tự động giải phóng rồi nha. Bạn có muốn Eve hỗ trợ tìm kiếm sự kiện nào khác, hoặc cần Eve giải đáp thêm thông tin gì trên EventHub không ạ?\n\n[ACTION:CLEAR_BOOKING${eventIdToRelease ? `:${eventIdToRelease}` : ''}]`;
         return {
           role: 'assistant',
-          content: formatted
+          content: sanitizeAssistantResponse(replyContent, isEn)
         };
       }
 
-      const rawRules = eventDetail?.seating_rules || activeEvent?.seating_rules || {};
-      const normRules = normalizeRules(rawRules);
-      const rulesSummary = [
-        `- Giới hạn số vé tối đa mỗi đơn: ${normRules.max_tickets_per_order} vé`,
-        `- Yêu cầu cùng một hàng: ${normRules.require_same_row ? 'BẮT BUỘC CÙNG HÀNG' : 'Không bắt buộc cùng hàng (linh hoạt)'}`,
-        `- Yêu cầu ghế ngồi liền kề: ${normRules.require_adjacent_seats ? 'BẮT BUỘC LIỀN KỀ NHAU' : 'Không bắt buộc liền kề'}`,
-        `- Quy tắc chống để lại ghế lẻ loi: ${normRules.disallow_single_seat_left ? 'BẬT (không được để lại 1 ghế trống đơn độc)' : 'TẮT'}`
-      ].join('\n  ');
+      // Fast-path: Switch to Other Events without specific target (e.g. user clicks "Đổi sự kiện khác" or says "đổi sang sự kiện khác") (0.01s)
+      if (eventChangeInfo.isChange && !eventChangeInfo.targetQuery) {
+        const eventIdToRelease = previousActiveEvent?.id || null;
+        if (userId) {
+          try {
+            await eventsService.releaseSeatHolds(userId, { event_id: eventIdToRelease, session_seat_ids: [] });
+          } catch (e) {
+            logger.warn(`[AiAssistant] Error releasing seat holds on change: ${e.message}`);
+          }
+        }
+        const isEn = clientContext?.locale === 'en';
+        const topEvents = (publishedEvents || []).slice(0, 4);
+        let listStr = '';
+        if (topEvents.length > 0) {
+          listStr = topEvents.map(e => {
+            const price = Number(e.min_price) === 0
+              ? (isEn ? 'Free' : 'Miễn phí')
+              : (isEn ? `${Number(e.min_price).toLocaleString('en-US')} VND` : `${Number(e.min_price).toLocaleString('vi-VN')}đ`);
+            const title = (isEn && e.title_en) ? e.title_en : e.title;
+            return isEn
+              ? `**${title}**\nVenue: ${e.venue_name || e.city || 'Vietnam'}\nFrom: ${price}`
+              : `**${title}**\nĐịa điểm: ${e.venue_name || e.city || 'TP.HCM'}\nGiá từ: ${price}`;
+          }).join('\n\n');
+        }
+        const replyContent = isEn
+          ? `Certainly, Eve has cleared your previous booking proposal.\n\nHere are some featured events currently on EventHub for you to explore:\n\n${listStr}\n\nWould you like Eve to help you book tickets for any of these events?\n\n[ACTION:CLEAR_BOOKING${eventIdToRelease ? `:${eventIdToRelease}` : ''}]`
+          : `Dạ vâng, Eve đã hủy đề xuất đặt vé trước đó rồi nè.\n\nEve xin gợi ý cho bạn một số sự kiện nổi bật đang có trên EventHub để bạn tham khảo nhé:\n\n${listStr}\n\nBạn quan tâm hoặc muốn Eve hỗ trợ sự kiện nào trong số này không ạ?\n\n[ACTION:CLEAR_BOOKING${eventIdToRelease ? `:${eventIdToRelease}` : ''}]`;
+        return {
+          role: 'assistant',
+          content: sanitizeAssistantResponse(replyContent, isEn)
+        };
+      }
 
-      if (hasSeatMap) {
-        dynamicSystemPrompt += `\n\nSỰ KIỆN KHÁCH HÀNG ĐANG XEM / ĐẶT VÉ TRONG ĐOẠN CHAT:
+      // If user asked to switch to a target ("Đổi sang sự kiện Hoàng Dũng"), try to match that target query first!
+      const queryForMatching = eventChangeInfo.targetQuery || message;
+      const currentMatchedEvent = findMatchingPublishedEvent(
+        queryForMatching,
+        publishedEvents,
+        { allowSemanticTopic: true }
+      );
+
+      // Determine effective activeEvent for this turn:
+      let activeEvent = null;
+      let isEventSwitched = false;
+
+      if (eventChangeInfo.isCancelOnly) {
+        // User cancelled booking entirely
+        activeEvent = null;
+      } else if (eventChangeInfo.isChange && !currentMatchedEvent) {
+        // User asked to change/abandon event without specifying the new event title yet
+        activeEvent = null;
+      } else if (currentMatchedEvent) {
+        activeEvent = currentMatchedEvent;
+        if (previousActiveEvent && previousActiveEvent.slug !== currentMatchedEvent.slug) {
+          isEventSwitched = true;
+        }
+      } else if (previousActiveEvent && /(?:hoan\s*ve|tra\s*ve|huy\s*ve|hoan\s*tien|refund|gia\s*ve|lich\s*dien|dia\s*diem|o\s*dau|may\s*gio)/i.test(normalizeText(message)) && !/(?:nen\s*tang|eventhub|organizer|ban\s*to\s*chuc)\b/i.test(normalizeText(message))) {
+        activeEvent = previousActiveEvent;
+      } else if (isGeneralDiscoveryQuery(message) || isSystemFaqQuery(message)) {
+        activeEvent = null;
+      } else {
+        activeEvent = previousActiveEvent;
+      }
+
+      // Immediate Booking Continuation Fast-path:
+      // If user asks to continue booking without naming an event, use activeEvent
+      if (isBookingContinuationIntent(message) && activeEvent) {
+        let contDetail = null;
+        try {
+          contDetail = await eventsService.getPublicEventDetail(activeEvent.slug || activeEvent.id, userId);
+        } catch (e) { }
+
+        const contTicketTypes = contDetail?.ticket_types || [];
+        const contIsSeated = Boolean(
+          contDetail?.sessions?.some(s => s.seat_map_id || s.has_seat_map) ||
+          contTicketTypes.some(t => t.is_seated === true)
+        );
+
+        const contQty = parseQuantityFromText(message);
+        const contDetected = parseTicketsFromText(message, contTicketTypes);
+        const contHasPlacement = /(?:hang\s*[a-z]|gan\s*(?:san\s*khau|trung\s*tam)|o\s*giua|trung\s*tam|vip|thuong|dau|cuoi)/i.test(normalizeText(message));
+
+        if (!contQty && contDetected.length === 0 && !contHasPlacement) {
+          const isEn = clientContext?.locale === 'en';
+          const evTitle = (isEn && (contDetail?.title_en || activeEvent.title_en)) || activeEvent.title;
+          if (contIsSeated) {
+            return {
+              role: 'assistant',
+              content: isEn
+                ? `Certainly, Eve is ready to continue assisting you with booking tickets for **${evTitle}**! 🎉\n\nThis event features an **interactive seat map**. Would you like Eve to open the seat map so you can select your favorite seats, or would you like to tell Eve which seating zone (VIP, Standard...) you prefer so Eve can hold seats for you? 🥰`
+                : `Dạ vâng, Eve sẵn sàng tiếp tục hỗ trợ bạn đặt vé sự kiện **${activeEvent.title}** nè! 🎉\n\nĐây là sự kiện có **sơ đồ ghế ngồi trực quan**. Bạn có muốn Eve mở sơ đồ chỗ ngồi để bạn tự tay chọn vị trí đẹp nhất, hoặc bạn cho Eve biết bạn muốn ngồi khu vực nào (VIP, Tiêu chuẩn...) để Eve giữ chỗ giúp bạn nhé? 🥰`
+            };
+          } else if (contTicketTypes.length > 0) {
+            const tierSummary = contTicketTypes.map(t => {
+              const priceStr = Number(t.price) === 0
+                ? (isEn ? 'Free' : 'Miễn phí')
+                : (isEn ? `${Number(t.price).toLocaleString('en-US')} VND` : `${Number(t.price).toLocaleString('vi-VN')}đ`);
+              const remaining = t.available_quantity !== undefined
+                ? (isEn ? ` (${t.available_quantity} tickets left)` : ` (còn ${t.available_quantity} vé)`)
+                : '';
+              return `• **${t.name}:** ${priceStr}${remaining}`;
+            }).join('\n');
+
+            return {
+              role: 'assistant',
+              content: isEn
+                ? `Certainly, Eve is ready to continue assisting you with booking tickets for **${evTitle}**! 🎉\n\nCurrently on sale:\n${tierSummary}\n\nHow many tickets and which tier would you like to book? Eve will reserve them right away for you! 🥰`
+                : `Dạ vâng, Eve sẵn sàng tiếp tục hỗ trợ bạn đặt vé sự kiện **${activeEvent.title}** nè! 🎉\n\nSự kiện hiện đang mở bán các hạng vé:\n${tierSummary}\n\nBạn muốn đặt mấy vé và chọn hạng vé nào để Eve tiến hành giữ chỗ ngay cho bạn nhé? 🥰`
+            };
+          } else {
+            return {
+              role: 'assistant',
+              content: isEn
+                ? `Certainly, Eve is ready to continue assisting you with booking tickets for **${evTitle}**! 🎉\n\nHow many tickets would you like to book? Eve is happy to help you right away! 🥰`
+                : `Dạ vâng, Eve sẵn sàng tiếp tục hỗ trợ bạn đặt vé sự kiện **${activeEvent.title}** nè! 🎉\n\nBạn muốn đặt bao nhiêu vé để Eve hỗ trợ bạn ngay nhé? 🥰`
+            };
+          }
+        }
+      }
+
+      let requireAttendeeInfo = false;
+      let hasSeatMap = false;
+      let eventDetail = null;
+      let sessionList = [];
+      let activeSessionId = '';
+
+      if (activeEvent) {
+        let sessionText = '';
+        let ticketText = '';
+        try {
+          eventDetail = await eventsService.getPublicEventDetail(activeEvent.slug || activeEvent.id, userId);
+          if (eventDetail) {
+            sessionList = eventDetail.sessions || [];
+            requireAttendeeInfo = Boolean(eventDetail.require_attendee_info);
+            if (activeEvent) activeEvent.require_attendee_info = requireAttendeeInfo;
+            hasSeatMap = Boolean(
+              sessionList.some(s => s.seat_map_id || s.has_seat_map) ||
+              eventDetail.ticket_types?.some(t => t.is_seated === true)
+            );
+            sessionText = sessionList.map((s, idx) => `Suất ${idx + 1} (${s.session_name || 'Mặc định'} lúc ${s.start_time ? new Date(s.start_time).toLocaleString('vi-VN') : ''}): ID=${s.id}`).join('\n  ');
+            ticketText = (eventDetail.ticket_types || []).map(t => `${t.name} (${Number(t.price).toLocaleString('vi-VN')}đ, còn ${t.available_quantity} vé): ID=${t.id}`).join('\n  ');
+          }
+        } catch (err) {
+          logger.warn(`[AiAssistant] Error fetching activeEvent detail: ${err.message}`);
+        }
+
+        const matchedSession = findMatchingSession(message, sessionList);
+        activeSessionId = matchedSession?.id || sessionList[0]?.id || '';
+
+        const sessionCount = sessionList.length;
+        const activeEventDesc = stripHtml(eventDetail?.description || activeEvent.description || '');
+        const activeEventVenue = eventDetail?.venue?.summary || [eventDetail?.venue?.name, eventDetail?.venue?.address_line, eventDetail?.venue?.city].filter(Boolean).join(', ') || 'Chưa cập nhật';
+
+        // Direct Event Information Inquiry Fast-Path:
+        // If user asks for information / details about this matched event without requesting to book:
+        const normMsg = normalizeText(message);
+        const isRefundInquiry = /(?:hoan\s*ve|tra\s*ve|huy\s*ve|hoan\s*tien|refund|chinh\s*sach\s*hoan|co\s*duoc\s*hoan|co\s*duoc\s*tra|chinh\s*sach\s*tra|co\s*cho\s*hoan|co\s*cho\s*tra)/i.test(normMsg) &&
+          !/(?:dat|mua|book|lay)\s*(?:ve|ghe|\d+)/i.test(normMsg);
+
+        if (isRefundInquiry) {
+          const isEn = clientContext?.locale === 'en';
+          const evTitle = (isEn && (eventDetail?.title_en || activeEvent.title_en)) || activeEvent.title;
+          const refundPolicy = eventDetail?.refund_policy || activeEvent.refund_policy || null;
+          const allowRefund = Boolean(refundPolicy?.allow_refund ?? refundPolicy?.allow_refunds);
+          const rules = Array.isArray(refundPolicy?.refund_rules) ? refundPolicy.refund_rules : [];
+
+          if (allowRefund && rules.length > 0) {
+            const sortedRules = [...rules].sort((a, b) => Number(b.days_before) - Number(a.days_before));
+            const ruleLines = sortedRules.map((r, i) => {
+              if (i === 0) {
+                return isEn
+                  ? `• **${r.refund_rate}% refund** if requested at least **${r.days_before} days** prior to the event.`
+                  : `• Hoàn **${r.refund_rate}%** giá trị vé nếu gửi yêu cầu trước ngày diễn ra ít nhất **${r.days_before} ngày**.`;
+              }
+              const prev = sortedRules[i - 1];
+              return isEn
+                ? `• **${r.refund_rate}% refund** if requested between **${r.days_before}** and under **${prev.days_before} days** prior to the event.`
+                : `• Hoàn **${r.refund_rate}%** giá trị vé nếu gửi yêu cầu trước ngày diễn ra từ **${r.days_before}** đến dưới **${prev.days_before} ngày**.`;
+            });
+            const minDays = sortedRules[sortedRules.length - 1].days_before;
+            if (minDays > 0) {
+              ruleLines.push(
+                isEn
+                  ? `• **No refund** if requested within **${minDays} days** prior to the event.`
+                  : `• **Không hỗ trợ hoàn tiền** nếu yêu cầu trong vòng **${minDays} ngày** trước giờ diễn.`
+              );
+            }
+            if (refundPolicy.refund_notes?.trim()) {
+              ruleLines.push(
+                isEn
+                  ? `* Note from Organizer: ${refundPolicy.refund_notes.trim()}`
+                  : `* Ghi chú từ Ban tổ chức: ${refundPolicy.refund_notes.trim()}`
+              );
+            }
+
+            return {
+              role: 'assistant',
+              content: isEn
+                ? `Regarding **${evTitle}**, the Organizer **DOES SUPPORT REFUNDS** according to the following policy:\n\n${ruleLines.join('\n')}\n\n💡 **How to submit a refund request:**\nAfter purchasing your tickets, if you are unable to attend, you can go to **"My Tickets"** > Select your ticket for this event > Click **"Request Refund"** to proceed!\n\nWould you like Eve to assist you with anything else regarding this event? 🥰`
+                : `Dạ đối với sự kiện **${evTitle}**, Ban tổ chức **CÓ HỖ TRỢ HOÀN VÉ** theo chính sách chi tiết như sau nè:\n\n${ruleLines.join('\n')}\n\n💡 **Cách thức gửi yêu cầu hoàn tiền:**\nSau khi đặt vé thành công, nếu có việc bận không thể tham dự, bạn chỉ cần vào mục **"Vé của tôi"** > Chọn vé sự kiện này > Nhấn **"Yêu cầu hoàn vé"** để hệ thống tiếp nhận và xử lý nhé!\n\nBạn có muốn Eve hỗ trợ thêm thông tin gì về sự kiện này không ạ? 🥰`
+            };
+          } else {
+            return {
+              role: 'assistant',
+              content: isEn
+                ? `Regarding **${evTitle}**, according to the Organizer's policy, this event **DOES NOT SUPPORT REFUNDS** once tickets have been successfully purchased.\n\nPlease carefully check your schedule and details before booking! Would you like Eve to help you check session schedules or ticket tiers for this event? 🥰`
+                : `Dạ đối với sự kiện **${evTitle}**, theo quy định chính thức của Ban tổ chức thì sự kiện này **KHÔNG ÁP DỤNG HOÀN VÉ** sau khi đã thanh toán thành công ạ.\n\nBạn vui lòng kiểm tra kỹ lịch trình trước khi đặt vé nhé! Bạn có muốn Eve hỗ trợ xem lịch diễn hoặc các hạng vé hiện có của sự kiện này không ạ? 🥰`
+            };
+          }
+        }
+
+        const isDirectInfoInquiry = !isSystemFaqQuery(message) &&
+          (Boolean(currentMatchedEvent) || (Boolean(activeEvent) && /(?:su\s*kien|show|no|nay|lich\s*dien|dia\s*diem)\b/i.test(normalizeText(message)))) &&
+          isEventInfoInquiry(message);
+        if ((isDirectInfoInquiry || isEventSwitched) && !isBookingContinuationIntent(message) && !isAutonomousBookingRequest(message)) {
+          const isEn = clientContext?.locale === 'en';
+          const formatted = formatEventDetailResponse(eventDetail, activeEvent, isEn);
+          if (isEventSwitched) {
+            const prefix = isEn
+              ? `Certainly! Eve has switched to **${(isEn && (eventDetail?.title_en || activeEvent.title_en)) || activeEvent.title}** for you! 🎉\n\n`
+              : `Dạ Eve đã chuyển sang sự kiện **${activeEvent.title}** theo yêu cầu của bạn rồi nhé! 🎉\n\n`;
+            return {
+              role: 'assistant',
+              content: prefix + formatted
+            };
+          }
+          return {
+            role: 'assistant',
+            content: formatted
+          };
+        }
+
+        const rawRules = eventDetail?.seating_rules || activeEvent?.seating_rules || {};
+        const normRules = normalizeRules(rawRules);
+        const rulesSummary = [
+          `- Giới hạn số vé tối đa mỗi đơn: ${normRules.max_tickets_per_order} vé`,
+          `- Yêu cầu cùng một hàng: ${normRules.require_same_row ? 'BẮT BUỘC CÙNG HÀNG' : 'Không bắt buộc cùng hàng (linh hoạt)'}`,
+          `- Yêu cầu ghế ngồi liền kề: ${normRules.require_adjacent_seats ? 'BẮT BUỘC LIỀN KỀ NHAU' : 'Không bắt buộc liền kề'}`,
+          `- Quy tắc chống để lại ghế lẻ loi: ${normRules.disallow_single_seat_left ? 'BẬT (không được để lại 1 ghế trống đơn độc)' : 'TẮT'}`
+        ].join('\n  ');
+
+        if (hasSeatMap) {
+          dynamicSystemPrompt += `\n\nSỰ KIỆN KHÁCH HÀNG ĐANG XEM / ĐẶT VÉ TRONG ĐOẠN CHAT:
 - Tên sự kiện: ${activeEvent.title}
 - Slug / ID: ${activeEvent.slug}
 - ĐẶC ĐIỂM: SỰ KIỆN CÓ SƠ ĐỒ CHỖ NGỒI (Khách có thể nhờ AI chọn ghế hoặc tự do chọn trên sơ đồ).
@@ -4228,8 +4281,8 @@ QUY TẮC HỖ TRỢ ĐẶT VÉ LINH HOẠT (HYBRID AGENT):
 3. CHẾ ĐỘ 2 - TỰ CHỌN GHẾ TRÊN SƠ ĐỒ (KHI KHÁCH MUỐN TỰ TAY CHỌN):
    - Khi khách nói: "để tôi tự chọn ghế", "mở sơ đồ ghế", "cho tôi tự chọn", "tự vào sơ đồ":
    - Gọi ngay generateBookingAction({ eventId: "${activeEvent.slug}", sessionId: "${activeSessionId}" }) để mở sơ đồ ghế cho khách!`;
-      } else {
-        dynamicSystemPrompt += `\n\nSỰ KIỆN KHÁCH HÀNG ĐANG XEM / ĐẶT VÉ TRONG ĐOẠN CHAT:
+        } else {
+          dynamicSystemPrompt += `\n\nSỰ KIỆN KHÁCH HÀNG ĐANG XEM / ĐẶT VÉ TRONG ĐOẠN CHAT:
 - Tên sự kiện: ${activeEvent.title}
 - Slug / ID: ${activeEvent.slug}
 - ĐẶC ĐIỂM: SỰ KIỆN KHÔNG CÓ CHỖ NGỒI (Vé tự do, không có sơ đồ ghế).
@@ -4257,872 +4310,1016 @@ QUY TẮC PHẢN HỒI CHO SỰ KIỆN KHÔNG CÓ CHỖ NGỒI:
    - Số điện thoại liên hệ:
      ${effectivePhone ? `+ ĐÃ CÓ SĐT LIÊN HỆ: ${effectivePhone}. TUYỆT ĐỐI KHÔNG HỎI LẠI SỐ ĐIỆN THOẠI NỮA!` : `+ CHƯA CÓ SĐT: Bắt buộc hỏi khách cung cấp số điện thoại: "Dạ tài khoản của bạn hiện chưa có số điện thoại liên hệ. Bạn vui lòng cho Eve xin số điện thoại để Eve hoàn tất đặt vé giúp bạn nhé! 🥰"`}
 4. THÔNG TIN NGƯỜI THAM GIA:
-   ${requireAttendeeInfo ? 
-   `- SỰ KIỆN NÀY YÊU CẦU THÔNG TIN NGƯỜI THAM GIA:
+   ${requireAttendeeInfo ?
+              `- SỰ KIỆN NÀY YÊU CẦU THÔNG TIN NGƯỜI THAM GIA:
     + ĐIỀU KIỆN TIÊN QUYẾT: CHỈ HỎI KHI KHÁCH ĐÃ CHỌN XONG LOẠI VÉ VÀ SỐ LƯỢNG VÉ! Nếu khách chưa chọn vé, TUYỆT ĐỐI KHÔNG ĐƯỢC HỎI thông tin người tham gia!
     + Sau khi khách ĐÃ CHỌN loại vé/số lượng và đã có SĐT liên hệ: BẮT BUỘC PHẢI HỎI thông tin người tham gia (Họ và tên, Email người tham gia). Gợi ý khách nếu là người tham gia thì chỉ cần gõ "dùng thông tin của tôi" là được!
-    + Khi khách cung cấp thông tin người tham gia HOẶC khách nói "dùng thông tin của tôi" / "lấy thông tin của tôi": Kiểm tra xem đã đủ số lượng người cho số vé đặt hay chưa. Nếu đủ thì GỌI TOOL generatePrefillBookingAction!` 
-   : 
-   `- SỰ KIỆN NÀY KHÔNG YÊU CẦU THÔNG TIN NGƯỜI THAM GIA:
+    + Khi khách cung cấp thông tin người tham gia HOẶC khách nói "dùng thông tin của tôi" / "lấy thông tin của tôi": Kiểm tra xem đã đủ số lượng người cho số vé đặt hay chưa. Nếu đủ thì GỌI TOOL generatePrefillBookingAction!`
+              :
+              `- SỰ KIỆN NÀY KHÔNG YÊU CẦU THÔNG TIN NGƯỜI THAM GIA:
     + TUYỆT ĐỐI KHÔNG HỎI THÔNG TIN NGƯỜI THAM GIA!
     + Khi đã có số điện thoại liên hệ và loại vé/số lượng: LẬP TỨC GỌI TOOL generatePrefillBookingAction để hỗ trợ đặt vé và chuyển thẳng khách đến trang xác nhận vé (/booking/review)!`}`;
-      }
-    }
-
-    const messages = [
-      { role: 'system', content: dynamicSystemPrompt },
-      ...cleanHistory,
-      { role: 'user', content: message }
-    ];
-
-    if (isOutOfScope) {
-      messages.splice(messages.length - 1, 0,
-        {
-          role: 'user',
-          content: '2 + 2 bằng mấy'
-        },
-        {
-          role: 'assistant',
-          content: 'Dạ việc tính toán này Eve xin phép nhường lại cho bạn nhé, vì Eve là Trợ lý AI chuyên trách của nền tảng EventHub nên chỉ có thể hỗ trợ bạn tìm kiếm sự kiện, tra cứu giá vé và đặt chỗ trên hệ thống thôi nè. Nếu bạn cần tìm sự kiện âm nhạc hay kịch nghệ để giải trí thì cứ nhắn Eve nhé!'
         }
-      );
-    }
-
-    if (eventChangeInfo.isCancelOnly) {
-      const eventIdToRelease = previousActiveEvent?.id || previousActiveEvent?.slug || clientContext?.eventId || clientContext?.eventSlug || null;
-      if (userId) {
-        try {
-          await eventsService.releaseSeatHolds(userId, { event_id: eventIdToRelease, session_seat_ids: [] });
-        } catch (e) {}
       }
-      messages.push({
-        role: 'system',
-        content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng vừa thông báo không muốn đặt vé nữa / muốn dừng đặt vé.
+
+      // Prune history for LLM prompt to prevent context token overflow:
+      // 1. Keep at most last 10 turns
+      // 2. Strip bulky action tag payloads from older turns
+      const prunedHistory = cleanHistory.slice(-10).map((m, idx, arr) => {
+        if (m.role === 'assistant' && typeof m.content === 'string' && idx < arr.length - 1) {
+          return {
+            ...m,
+            content: m.content.replace(/\[ACTION:[A-Z_]+:[^\]]+\]/g, '').trim()
+          };
+        }
+        return m;
+      });
+
+      const messages = [
+        { role: 'system', content: dynamicSystemPrompt },
+        ...prunedHistory,
+        { role: 'user', content: message }
+      ];
+
+      if (isOutOfScope) {
+        messages.splice(messages.length - 1, 0,
+          {
+            role: 'user',
+            content: '2 + 2 bằng mấy'
+          },
+          {
+            role: 'assistant',
+            content: 'Dạ việc tính toán này Eve xin phép nhường lại cho bạn nhé, vì Eve là Trợ lý AI chuyên trách của nền tảng EventHub nên chỉ có thể hỗ trợ bạn tìm kiếm sự kiện, tra cứu giá vé và đặt chỗ trên hệ thống thôi nè. Nếu bạn cần tìm sự kiện âm nhạc hay kịch nghệ để giải trí thì cứ nhắn Eve nhé!'
+          }
+        );
+      }
+
+      if (eventChangeInfo.isCancelOnly) {
+        const eventIdToRelease = previousActiveEvent?.id || previousActiveEvent?.slug || clientContext?.eventId || clientContext?.eventSlug || null;
+        if (userId) {
+          try {
+            await eventsService.releaseSeatHolds(userId, { event_id: eventIdToRelease, session_seat_ids: [] });
+          } catch (e) { }
+        }
+        messages.push({
+          role: 'system',
+          content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng vừa thông báo không muốn đặt vé nữa / muốn dừng đặt vé.
 Bạn hãy vui vẻ xác nhận đã dừng quy trình đặt vé và các vị trí giữ chỗ tạm thời (nếu có) đã được tự động giải phóng rồi nhé, chúc khách một ngày tốt lành, sẵn sàng hỗ trợ bất cứ khi nào khách cần.
 BẮT BUỘC chèn tag [ACTION:CLEAR_BOOKING${eventIdToRelease ? `:${eventIdToRelease}` : ''}] ở cuối cùng của câu trả lời! TUYỆT ĐỐI KHÔNG gọi tool đặt vé nữa!`
-      });
-    } else if (eventChangeInfo.isChange && !currentMatchedEvent) {
-      logger.info(`[AiAssistant] User requested event change/abandonment without naming new event yet. Loading new events...`);
-      const searchRes = await this.executeTool(userId, 'searchEvents', { query: '', limit: 5 });
-      messages.push({
-        role: 'assistant',
-        content: '',
-        tool_calls: [{ id: 'call_auto_search', function: { name: 'searchEvents', arguments: { query: '' } } }]
-      });
-      messages.push({
-        role: 'tool',
-        name: 'searchEvents',
-        tool_call_id: 'call_auto_search',
-        content: JSON.stringify(searchRes)
-      });
-      messages.push({
-        role: 'system',
-        content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng vừa yêu cầu đổi sự kiện / không muốn đặt vé cho sự kiện "${previousActiveEvent?.title || 'trước đó'}" nữa.
+        });
+      } else if (eventChangeInfo.isChange && !currentMatchedEvent) {
+        logger.info(`[AiAssistant] User requested event change/abandonment without naming new event yet. Loading new events...`);
+        const searchRes = await this.executeTool(userId, 'searchEvents', { query: '', limit: 5 });
+        messages.push({
+          role: 'assistant',
+          content: '',
+          tool_calls: [{ id: 'call_auto_search', function: { name: 'searchEvents', arguments: { query: '' } } }]
+        });
+        messages.push({
+          role: 'tool',
+          name: 'searchEvents',
+          tool_call_id: 'call_auto_search',
+          content: JSON.stringify(searchRes)
+        });
+        messages.push({
+          role: 'system',
+          content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng vừa yêu cầu đổi sự kiện / không muốn đặt vé cho sự kiện "${previousActiveEvent?.title || 'trước đó'}" nữa.
 Hệ thống đã dừng quy trình đặt vé cho sự kiện cũ và tải danh sách sự kiện mới.
 Bạn hãy trả lời bằng 100% TIẾNG VIỆT tự nhiên, xác nhận đã dừng đặt vé cho sự kiện cũ, sau đó gợi ý các sự kiện nổi bật hiện có hoặc hỏi xem khách muốn tìm theo thể loại nào (âm nhạc, kịch, workshop, triển lãm...). TUYỆT ĐỐI KHÔNG chèn câu tiếng Anh, không dùng emoji icon.
 TUYỆT ĐỐI KHÔNG gọi tool đặt vé hoặc tạo proposal cho sự kiện cũ!`
-      });
-    } else if (isEventSwitched && activeEvent) {
-      logger.info(`[AiAssistant] User switched from "${previousActiveEvent?.title}" to "${activeEvent.title}". Pre-fetching new event details...`);
-      const detailRes = await this.executeTool(userId, 'getEventDetails', { eventId: activeEvent.slug }, { message });
-      messages.push({
-        role: 'assistant',
-        content: '',
-        tool_calls: [{ id: 'call_auto_detail', function: { name: 'getEventDetails', arguments: { eventId: activeEvent.slug } } }]
-      });
-      messages.push({
-        role: 'tool',
-        name: 'getEventDetails',
-        tool_call_id: 'call_auto_detail',
-        content: JSON.stringify(detailRes)
-      });
-      messages.push({
-        role: 'system',
-        content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng vừa chuyển từ sự kiện "${previousActiveEvent?.title || 'cũ'}" sang sự kiện "${activeEvent.title}".
+        });
+      } else if (isEventSwitched && activeEvent) {
+        logger.info(`[AiAssistant] User switched from "${previousActiveEvent?.title}" to "${activeEvent.title}". Pre-fetching new event details...`);
+        const detailRes = await this.executeTool(userId, 'getEventDetails', { eventId: activeEvent.slug }, { message });
+        messages.push({
+          role: 'assistant',
+          content: '',
+          tool_calls: [{ id: 'call_auto_detail', function: { name: 'getEventDetails', arguments: { eventId: activeEvent.slug } } }]
+        });
+        messages.push({
+          role: 'tool',
+          name: 'getEventDetails',
+          tool_call_id: 'call_auto_detail',
+          content: JSON.stringify(detailRes)
+        });
+        messages.push({
+          role: 'system',
+          content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng vừa chuyển từ sự kiện "${previousActiveEvent?.title || 'cũ'}" sang sự kiện "${activeEvent.title}".
 Hệ thống đã chuyển sang sự kiện mới và hủy bỏ toàn bộ đề xuất của sự kiện cũ.
 Bạn hãy xác nhận đã chuyển sang sự kiện "${activeEvent.title}", giới thiệu thông tin sự kiện mới và các hạng vé hiện có để hỗ trợ khách nhé!`
-      });
-    } else if (currentMatchedEvent) {
-      // User just named or asked for this specific event in the current message
-      logger.info(`[AiAssistant] User specified event: "${currentMatchedEvent.title}" (${currentMatchedEvent.slug}). Pre-fetching event details...`);
-      const detailRes = await this.executeTool(userId, 'getEventDetails', { eventId: currentMatchedEvent.slug }, { message });
-      messages.push({
-        role: 'assistant',
-        content: '',
-        tool_calls: [{ id: 'call_auto_detail', function: { name: 'getEventDetails', arguments: { eventId: currentMatchedEvent.slug } } }]
-      });
-      messages.push({
-        role: 'tool',
-        name: 'getEventDetails',
-        tool_call_id: 'call_auto_detail',
-        content: JSON.stringify(detailRes)
-      });
-    } else if (!activeEvent) {
-      // ONLY pre-fetch searchEvents when there is NO active event being discussed
-      // AND the message is not selecting tickets/seats/checkout and not out-of-scope
-      const isBookingOrTicketSelect = /(?:suất|vé|ghế|chỗ|tickets?|seats?|sdt|số\s*điện\s*thoại|email)\b/i.test(message) ||
-        /(?:đặt|mua|chọn|book)\s*(?:vé|ghế|chỗ|suất|ticket|seat)/i.test(message);
+        });
+      } else if (currentMatchedEvent) {
+        // User just named or asked for this specific event in the current message
+        logger.info(`[AiAssistant] User specified event: "${currentMatchedEvent.title}" (${currentMatchedEvent.slug}). Pre-fetching event details...`);
+        const detailRes = await this.executeTool(userId, 'getEventDetails', { eventId: currentMatchedEvent.slug }, { message });
+        messages.push({
+          role: 'assistant',
+          content: '',
+          tool_calls: [{ id: 'call_auto_detail', function: { name: 'getEventDetails', arguments: { eventId: currentMatchedEvent.slug } } }]
+        });
+        messages.push({
+          role: 'tool',
+          name: 'getEventDetails',
+          tool_call_id: 'call_auto_detail',
+          content: JSON.stringify(detailRes)
+        });
+      } else if (!activeEvent) {
+        // ONLY pre-fetch searchEvents when there is NO active event being discussed
+        // AND the message is not selecting tickets/seats/checkout and not out-of-scope
+        const isBookingOrTicketSelect = /(?:suất|vé|ghế|chỗ|tickets?|seats?|sdt|số\s*điện\s*thoại|email)\b/i.test(message) ||
+          /(?:đặt|mua|chọn|book)\s*(?:vé|ghế|chỗ|suất|ticket|seat)/i.test(message);
 
-      if (!isBookingOrTicketSelect && !isOutOfScope) {
-        const isGeneralDiscovery = isGeneralDiscoveryQuery(message);
-        const isEventInquiry = isGeneralDiscovery || /(sự kiện|show|chương trình|thể loại|lĩnh vực|nhạc|kịch|workshop|hội thảo|có gì|diễn ra|ca nhạc|concert|đang hot|tìm|xem|sắp tới|nổi bật|xe|ô tô|oto|vẽ|gốm)/i.test(message);
+        if (!isBookingOrTicketSelect && !isOutOfScope) {
+          const isGeneralDiscovery = isGeneralDiscoveryQuery(message);
+          const isEventInquiry = isGeneralDiscovery || /(sự kiện|show|chương trình|thể loại|lĩnh vực|nhạc|kịch|workshop|hội thảo|có gì|diễn ra|ca nhạc|concert|đang hot|tìm|xem|sắp tới|nổi bật|xe|ô tô|oto|vẽ|gốm)/i.test(message);
 
-        if (isEventInquiry) {
-          let q = '';
-          if (isGeneralDiscovery) {
-            q = '';
-          } else {
-            q = extractCoreSearchQuery(message);
-            const catInfo = detectCategory(q);
-            if (catInfo && q.length < 3) {
-              q = catInfo.name;
+          if (isEventInquiry) {
+            let q = '';
+            if (isGeneralDiscovery) {
+              q = '';
+            } else {
+              q = extractCoreSearchQuery(message);
+              const catInfo = detectCategory(q);
+              if (catInfo && q.length < 3) {
+                q = catInfo.name;
+              }
             }
+
+            logger.info(`[AiAssistant] Pre-fetching events from DB for query: "${q}" (isGeneralDiscovery: ${isGeneralDiscovery})...`);
+            const searchRes = await this.executeTool(userId, 'searchEvents', { query: q, limit: 5 });
+            messages.push({
+              role: 'assistant',
+              content: '',
+              tool_calls: [{ id: 'call_auto_search', function: { name: 'searchEvents', arguments: { query: q } } }]
+            });
+            messages.push({
+              role: 'tool',
+              name: 'searchEvents',
+              tool_call_id: 'call_auto_search',
+              content: JSON.stringify(searchRes)
+            });
           }
-
-          logger.info(`[AiAssistant] Pre-fetching events from DB for query: "${q}" (isGeneralDiscovery: ${isGeneralDiscovery})...`);
-          const searchRes = await this.executeTool(userId, 'searchEvents', { query: q, limit: 5 });
-          messages.push({
-            role: 'assistant',
-            content: '',
-            tool_calls: [{ id: 'call_auto_search', function: { name: 'searchEvents', arguments: { query: q } } }]
-          });
-          messages.push({
-            role: 'tool',
-            name: 'searchEvents',
-            tool_call_id: 'call_auto_search',
-            content: JSON.stringify(searchRes)
-          });
         }
       }
-    }
 
-    // Context triggers for phone or "dùng thông tin của tôi":
-    const normMsg = normalizeText(message);
-    const hasUseMyInfoInMsg = /(dung|lay|su dung|giong)\s+thong\s+tin\s+cua\s+toi|thong\s+tin\s+nhu\s+tren/i.test(normMsg);
-    const allUserNorm = normalizeText(allUserMessages);
-    const hasSaidUseMyInfo = /(dung|lay|su dung|giong)\s+thong\s+tin\s+cua\s+toi|thong\s+tin\s+nhu\s+tren/i.test(allUserNorm);
+      // Context triggers for phone or "dùng thông tin của tôi":
+      const normMsg = normalizeText(message);
+      const hasUseMyInfoInMsg = /(dung|lay|su dung|giong)\s+thong\s+tin\s+cua\s+toi|thong\s+tin\s+nhu\s+tren/i.test(normMsg);
+      const allUserNorm = normalizeText(allUserMessages);
+      const hasSaidUseMyInfo = /(dung|lay|su dung|giong)\s+thong\s+tin\s+cua\s+toi|thong\s+tin\s+nhu\s+tren/i.test(allUserNorm);
 
-    // 1. Detect user intents from current message early:
-    const wantsDifferentTier = !eventChangeInfo.isChange && (
-      /(?:đổi|chuyển|qua|sang|chọn|lấy|mua)?\s*(?:sang\s*)?(?:khu\s*vực|khu|hạng|loại\s*vé|loại|vùng)\s*khác\b/i.test(message) ||
-      /(?:doi|chuyen|qua|sang|chon|lay|mua)?\s*(?:sang\s*)?(?:khu\s*vuc|khu|hang|loai\s*ve|loai|vung)\s*khac\b/i.test(normMsg) ||
-      /(?:đổi\s*khu|đổi\s*khu\s*vực|chuyển\s*khu|chuyển\s*khu\s*vực|khu\s*vực\s*khác|loại\s*vé\s*khác|hạng\s*vé\s*khác|loại\s*khác|hạng\s*khác)/i.test(message) ||
-      /(?:doi\s*khu|doi\s*khu\s*vuc|chuyen\s*khu|chuyen\s*khu\s*vuc|khu\s*vuc\s*khac|loai\s*ve\s*khac|hang\s*ve\s*khac|loai\s*khac|hang\s*khac)/i.test(normMsg)
-    );
+      // 1. Detect user intents from current message early:
+      const wantsDifferentTier = !eventChangeInfo.isChange && (
+        /(?:đổi|chuyển|qua|sang|chọn|lấy|mua)?\s*(?:sang\s*)?(?:khu\s*vực|khu|hạng|loại\s*vé|loại|vùng)\s*khác\b/i.test(message) ||
+        /(?:doi|chuyen|qua|sang|chon|lay|mua)?\s*(?:sang\s*)?(?:khu\s*vuc|khu|hang|loai\s*ve|loai|vung)\s*khac\b/i.test(normMsg) ||
+        /(?:đổi\s*khu|đổi\s*khu\s*vực|chuyển\s*khu|chuyển\s*khu\s*vực|khu\s*vực\s*khác|loại\s*vé\s*khác|hạng\s*vé\s*khác|loại\s*khác|hạng\s*khác)/i.test(message) ||
+        /(?:doi\s*khu|doi\s*khu\s*vuc|chuyen\s*khu|chuyen\s*khu\s*vuc|khu\s*vuc\s*khac|loai\s*ve\s*khac|hang\s*ve\s*khac|loai\s*khac|hang\s*khac)/i.test(normMsg)
+      );
 
-    const isChangeRowRequest = !eventChangeInfo.isChange && (
-      /(?:đổi|chuyển|chọn)\s*(?:sang\s*)?(?:hàng|dãy|row)\s*(?:ghế\s*)?khác\b/i.test(message) ||
-      /(?:doi|chuyen|chon)\s*(?:sang\s*)?(?:hang|day|row)\s*(?:ghe\s*)?khac\b/i.test(normMsg) ||
-      /(?:hàng\s*khác|hang\s*khac)/i.test(normMsg)
-    );
+      const isChangeRowRequest = !eventChangeInfo.isChange && (
+        /(?:đổi|chuyển|chọn)\s*(?:sang\s*)?(?:hàng|dãy|row)\s*(?:ghế\s*)?khác\b/i.test(message) ||
+        /(?:doi|chuyen|chon)\s*(?:sang\s*)?(?:hang|day|row)\s*(?:ghe\s*)?khac\b/i.test(normMsg) ||
+        /(?:hàng\s*khác|hang\s*khac)/i.test(normMsg)
+      );
 
-    const isChangeSameRowSeats = !eventChangeInfo.isChange && (
-      /(?:đổi|chuyển|chọn|lấy)\s*(?:sang\s*)?(?:ghế|vị\s*trí|chỗ)?\s*khác\s*(?:cùng\s*hàng|trên\s*hàng\s*này|hàng\s*này|ở\s*hàng\s*này)?/i.test(message) ||
-      /(?:doi|chuyen|chon|lay)\s*(?:sang\s*)?(?:ghe|vi\s*tri|cho)?\s*khac\s*(?:cung\s*hang|tren\s*hang\s*nay|hang\s*nay|o\s*hang\s*nay)?/i.test(normMsg) ||
-      /(?:ghế\s*khác|ghe\s*khac|vị\s*trí\s*khác|vi\s*tri\s*khac|chỗ\s*khác|cho\s*khac)/i.test(normMsg)
-    ) && !isChangeRowRequest;
+      const isChangeSameRowSeats = !eventChangeInfo.isChange && (
+        /(?:đổi|chuyển|chọn|lấy)\s*(?:sang\s*)?(?:ghế|vị\s*trí|chỗ)?\s*khác\s*(?:cùng\s*hàng|trên\s*hàng\s*này|hàng\s*này|ở\s*hàng\s*này)?/i.test(message) ||
+        /(?:doi|chuyen|chon|lay)\s*(?:sang\s*)?(?:ghe|vi\s*tri|cho)?\s*khac\s*(?:cung\s*hang|tren\s*hang\s*nay|hang\s*nay|o\s*hang\s*nay)?/i.test(normMsg) ||
+        /(?:ghế\s*khác|ghe\s*khac|vị\s*trí\s*khác|vi\s*tri\s*khac|chỗ\s*khác|cho\s*khac)/i.test(normMsg)
+      ) && !isChangeRowRequest;
 
-    const isSeatAdjustmentRequest = !eventChangeInfo.isChange && (
-      /(?:lệch|lech|bị\s*lệch|bi\s*lech|chính\s*giữa|chinh\s*giua|ở\s*giữa|o\s*giua|giữa\s*hàng|giua\s*hang|đổi\s*ghế|doi\s*ghe|chọn\s*ghế|chon\s*ghe|lấy\s*ghế|lay\s*ghe|đổi\s*hàng|doi\s*hang|đổi\s*sang|doi\s*sang|chuyển\s*sang|chuyen\s*sang|chọn\s*lại|chon\s*lai|hàng\s*khác|hang\s*khac|sang\s*hang|sang\s*hàng|đổi\s*vé|doi\s*ve|đổi\s*loại|doi\s*loai|chuyển\s*loại|chuyen\s*loai|ghế\s*khác|ghe\s*khac|vị\s*trí\s*khác|vi\s*tri\s*khac|chỗ\s*khác|cho\s*khac)/i.test(message) ||
-      /(?:lech|bi\s*lech|chinh\s*giua|o\s*giua|giua\s*hang|doi\s*ghe|chon\s*ghe|lay\s*ghe|doi\s*hang|doi\s*sang|chuyen\s*sang|chon\s*lai|hang\s*khac|sang\s*hang|doi\s*ve|doi\s*loai|chuyen\s*loai|ghe\s*khac|vi\s*tri\s*khac|cho\s*khac)/i.test(normMsg) ||
-      wantsDifferentTier ||
-      isChangeRowRequest ||
-      isChangeSameRowSeats
-    );
+      // 2. Extract last proposal from history (ignore old proposal if switching/abandoning event):
+      const ticketTypesList = eventDetail?.ticket_types || [];
+      const lastProposal = (isEventSwitched || eventChangeInfo.isChange)
+        ? null
+        : findLastBookingProposal(cleanHistory, ticketTypesList);
+      const prevProposalQty = lastProposal?.quantity || null;
+      const firstSeat = lastProposal?.seats?.[0];
+      const firstSeatLabel = typeof firstSeat === 'string' ? firstSeat : (firstSeat?.label || '');
+      const prevRow = firstSeatLabel ? firstSeatLabel.charAt(0).toUpperCase() : null;
+      const excludeRow = isChangeRowRequest ? prevRow : null;
 
-    // 2. Extract last proposal from history (ignore old proposal if switching/abandoning event):
-    const ticketTypesList = eventDetail?.ticket_types || [];
-    const lastProposal = (isEventSwitched || eventChangeInfo.isChange)
-      ? null
-      : findLastBookingProposal(cleanHistory, ticketTypesList);
-    const prevProposalQty = lastProposal?.quantity || null;
-    const firstSeat = lastProposal?.seats?.[0];
-    const firstSeatLabel = typeof firstSeat === 'string' ? firstSeat : (firstSeat?.label || '');
-    const prevRow = firstSeatLabel ? firstSeatLabel.charAt(0).toUpperCase() : null;
-    const excludeRow = isChangeRowRequest ? prevRow : null;
+      const isQuantityAdjustment = Boolean(
+        lastProposal &&
+        !eventChangeInfo.isChange &&
+        !isEventInfoInquiry(message) &&
+        (
+          parseQuantityFromText(message, prevProposalQty) !== null ||
+          /(?:thêm|them|bớt|bot|tăng|tang|giảm|giam|nữa|nua|more|add|reduce|remove)\s*(?:\d+|một|hai|ba|bốn|năm|sau|bay|tam|chin|muoi)?\s*(?:vé|ve|ghế|ghe|chỗ|cho|tickets?|seats?)?/i.test(message)
+        )
+      );
 
-    const hasUnfulfilledBookingInHistory = (
-      !lastProposal &&
-      /(?:đặt|đạt|dat|mua|lấy|lay|book|booking|giữ\s*chỗ|giu\s*cho|order)\s*(?:giúp|giup|hộ|ho|cho)?\s*(?:\d+|một|hai|ba|bốn|năm|sáu|bảy|tám|chín|mười)?\s*(?:vé|ve|ghế|ghe|chỗ|cho)?/i.test(allUserMessages)
-    );
+      const isChangeSeatLocationRequest = !eventChangeInfo.isChange && (
+        isChangeSameRowSeats ||
+        /(?:đổi\s*ghế|doi\s*ghe|chọn\s*lại\s*ghế|chon\s*lai\s*ghe|lấy\s*ghế\s*khác|lay\s*ghe\s*khac|ghế\s*khác|ghe\s*khac|vị\s*trí\s*khác|vi\s*tri\s*khac|chỗ\s*khác|cho\s*khac)/i.test(message) ||
+        /(?:doi\s*ghe|chon\s*lai\s*ghe|lay\s*ghe\s*khac|ghe\s*khac|vi\s*tri\s*khac|cho\s*khac)/i.test(normMsg)
+      );
 
-    const isManualSeatMapRequest = /(?:tự\s*chọn|tu\s*chon|sơ\s*đồ\s*ghế|so\s*do\s*ghe|mở\s*sơ\s*đồ|mo\s*so\s*do|cho\s*tôi\s*tự\s*chọn|cho\s*toi\s*tu\s*chon|tự\s*vào\s*chọn|tu\s*vao\s*chon)/i.test(normMsg);
+      const isSeatAdjustmentRequest = !eventChangeInfo.isChange && (
+        /(?:lệch|lech|bị\s*lệch|bi\s*lech|chính\s*giữa|chinh\s*giua|ở\s*giữa|o\s*giua|giữa\s*hàng|giua\s*hang|đổi\s*ghế|doi\s*ghe|chọn\s*ghế|chon\s*ghe|lấy\s*ghế|lay\s*ghe|đổi\s*hàng|doi\s*hang|đổi\s*sang|doi\s*sang|chuyển\s*sang|chuyen\s*sang|chọn\s*lại|chon\s*lai|hàng\s*khác|hang\s*khac|sang\s*hang|sang\s*hàng|đổi\s*vé|doi\s*ve|đổi\s*loại|doi\s*loai|chuyển\s*loại|chuyen\s*loai|ghế\s*khác|ghe\s*khac|vị\s*trí\s*khác|vi\s*tri\s*khac|chỗ\s*khác|cho\s*khac)/i.test(message) ||
+        /(?:lech|bi\s*lech|chinh\s*giua|o\s*giua|giua\s*hang|doi\s*ghe|chon\s*ghe|lay\s*ghe|doi\s*hang|doi\s*sang|chuyen\s*sang|chon\s*lai|hang\s*khac|sang\s*hang|doi\s*ve|doi\s*loai|chuyen\s*loai|ghe\s*khac|vi\s*tri\s*khac|cho\s*khac)/i.test(normMsg) ||
+        wantsDifferentTier ||
+        isChangeRowRequest ||
+        isChangeSameRowSeats ||
+        isQuantityAdjustment
+      );
 
-    const isAutonomousBooking = (
-      !eventChangeInfo.isChange &&
-      !eventChangeInfo.isCancelOnly &&
-      !isOutOfScope &&
-      (
-        isAutonomousBookingRequest(message) ||
-        (hasUnfulfilledBookingInHistory && !isEventInfoInquiry(message) && !isManualSeatMapRequest)
-      )
-    );
+      const hasUnfulfilledBookingInHistory = (
+        !lastProposal &&
+        /(?:đặt|đạt|dat|mua|lấy|lay|book|booking|giữ\s*chỗ|giu\s*cho|order)\s*(?:giúp|giup|hộ|ho|cho)?\s*(?:\d+|một|hai|ba|bốn|năm|sáu|bảy|tám|chín|mười)?\s*(?:vé|ve|ghế|ghe|chỗ|cho)?/i.test(allUserMessages)
+      );
 
-    const specificSeatsInMsg = extractSpecificSeats(message, prevRow);
-    const excludeSeatsInMsg = (isChangeSameRowSeats || (isSeatAdjustmentRequest && !isChangeRowRequest && specificSeatsInMsg.length === 0))
-      ? (lastProposal?.seats || [])
-      : [];
+      const isManualSeatMapRequest = /(?:tự\s*chọn|tu\s*chon|sơ\s*đồ\s*ghế|so\s*do\s*ghe|mở\s*sơ\s*đồ|mo\s*so\s*do|cho\s*tôi\s*tự\s*chọn|cho\s*toi\s*tu\s*chon|tự\s*vào\s*chọn|tu\s*vao\s*chon)/i.test(normMsg);
 
-    const userTextForCurrentEvent = (isEventSwitched || eventChangeInfo.isChange)
-      ? message
-      : allUserMessages;
+      const hasAttendeeKeywords = (
+        /@/.test(message) ||
+        extractAttendeesFromText(message, userProfile).length > 0 ||
+        /(?:dung|lay|su\s*dung)\s+(?:thong\s*tin\s*cua\s*(?:toi|minh)|tai\s*khoan|profile)/i.test(normMsg)
+      );
+      const isAttendeeSubmission = Boolean(
+        !eventChangeInfo.isChange &&
+        !eventChangeInfo.isCancelOnly &&
+        !isManualSeatMapRequest &&
+        !isOutOfScope &&
+        !isEventInfoInquiry(message) &&
+        hasAttendeeKeywords &&
+        (Boolean(lastProposal) || Boolean(hasUnfulfilledBookingInHistory))
+      );
 
-    const ticketsFromCurrentMsg = parseTicketsFromText(message, ticketTypesList);
-    const detectedTickets = parseTicketsFromText(userTextForCurrentEvent, ticketTypesList);
+      const isAutonomousBooking = (
+        !eventChangeInfo.isChange &&
+        !eventChangeInfo.isCancelOnly &&
+        !isOutOfScope &&
+        (
+          isAutonomousBookingRequest(message) ||
+          (hasUnfulfilledBookingInHistory && !isEventInfoInquiry(message) && !isManualSeatMapRequest)
+        )
+      );
 
-    const collectedAttendees = extractAttendeesFromText(allUserMessages, userProfile);
+      const specificSeatsInMsg = extractSpecificSeats(message, prevRow);
+      const preservedSeatsFromProposal = (isAttendeeSubmission && lastProposal?.seats?.length > 0 && specificSeatsInMsg.length === 0)
+        ? lastProposal.seats.map(s => typeof s === 'string' ? s : (s?.label || ''))
+        : [];
+      const effectiveSpecificSeats = specificSeatsInMsg.length > 0
+        ? specificSeatsInMsg
+        : preservedSeatsFromProposal;
 
-    const seatedOrderQty = (() => {
-      if (ticketsFromCurrentMsg.length > 0) return ticketsFromCurrentMsg.reduce((sum, dt) => sum + dt.quantity, 0);
-      const parsedQInMsg = parseQuantityFromText(message, prevProposalQty);
-      if (parsedQInMsg && parsedQInMsg > 0) return parsedQInMsg;
-      if (wantsDifferentTier || isSeatAdjustmentRequest) {
-        if (prevProposalQty && prevProposalQty > 0) return prevProposalQty;
-      }
-      if (detectedTickets.length > 0) return detectedTickets.reduce((sum, dt) => sum + dt.quantity, 0);
-      const parsedQ = parseQuantityFromText(userTextForCurrentEvent);
-      if (parsedQ && parsedQ > 0) return parsedQ;
-      if (collectedAttendees.length > 0) return collectedAttendees.length;
-      return prevProposalQty || 1;
-    })();
+      const excludeSeatsInMsg = (isChangeSeatLocationRequest && !isChangeRowRequest && specificSeatsInMsg.length === 0 && !isQuantityAdjustment)
+        ? (lastProposal?.seats || [])
+        : [];
 
-    // Detect candidate ticket tiers & prices for active event:
-    const activeTicketList = (eventDetail?.ticket_types || activeEvent?.ticket_types || []).filter(
-      t => (t.available_quantity > 0 || t.available_quantity === undefined)
-    );
-    const seatedTicketList = activeTicketList.filter(t => t.is_seated !== false);
-    const targetCandidateTickets = (hasSeatMap && seatedTicketList.length > 0) ? seatedTicketList : activeTicketList;
+      const userTextForCurrentEvent = (isEventSwitched || eventChangeInfo.isChange)
+        ? message
+        : allUserMessages;
 
-    const distinctPrices = new Set(targetCandidateTickets.map(t => Number(t.price || 0)));
-    const hasMultiplePriceTiers = distinctPrices.size > 1;
-    const sortedCandidateTickets = [...targetCandidateTickets].sort((a, b) => Number(a.price) - Number(b.price));
-    const cheapestTicket = sortedCandidateTickets[0] || null;
+      const ticketsFromCurrentMsg = parseTicketsFromText(message, ticketTypesList);
+      const detectedTickets = parseTicketsFromText(userTextForCurrentEvent, ticketTypesList);
 
-    const normAllUser = normalizeText(allUserMessages);
+      const collectedAttendees = extractAttendeesFromText(allUserMessages, userProfile);
 
-    const wantsCheapestInMsg = /(?:rẻ\s*nhất|tiết\s*kiệm\s*nhất|loại\s*rẻ|vé\s*rẻ|giá\s*thấp\s*nhất|loại\s*nào\s*cũng\s*được|sao\s*cũng\s*được|tùy\s*bạn|bất\s*kỳ|loại\s*thấp\s*tiền)/i.test(message) ||
-      /(?:re\s*nhat|tiet\s*kiem\s*nhat|loai\s*re|ve\s*re|gia\s*thap\s*nhat|loai\s*nao\s*cung\s*duoc|sao\s*cung\s*duoc|tuy\s*ban|bat\s*ky|thap\s*tien)/i.test(normMsg);
-
-    const wantsCheapestAll = /(?:rẻ\s*nhất|tiết\s*kiệm\s*nhất|loại\s*rẻ|vé\s*rẻ|giá\s*thấp\s*nhất|loại\s*nào\s*cũng\s*được|sao\s*cũng\s*được|tùy\s*bạn|bất\s*kỳ|loại\s*thấp\s*tiền)/i.test(allUserMessages) ||
-      /(?:re\s*nhat|tiet\s*kiem\s*nhat|loai\s*re|ve\s*re|gia\s*thap\s*nhat|loai\s*nao\s*cung\s*duoc|sao\s*cung\s*duoc|tuy\s*ban|bat\s*ky|thap\s*tien)/i.test(normAllUser);
-
-    // Detect if user specifically mentioned any ticket tier by name or price in current message or in history:
-    let matchedTierInMsg = null;
-    let matchedTierAll = null;
-    for (const t of targetCandidateTickets) {
-      const normName = normalizeText(t.name).replace(/\([^)]*\)/g, '').trim();
-      const pNum = Number(t.price);
-      const pK = `${Math.round(pNum / 1000)}k`;
-      const priceRegex = new RegExp(`\\b${pK}\\b|\\b${pNum}\\b`, 'i');
-
-      if ((normName.length >= 3 && normMsg.includes(normName)) || priceRegex.test(normMsg)) {
-        matchedTierInMsg = t;
-      }
-      if ((normName.length >= 3 && normAllUser.includes(normName)) || priceRegex.test(normAllUser)) {
-        matchedTierAll = t;
-      }
-    }
-
-    const requestedQty = specificSeatsInMsg.length > 0
-      ? specificSeatsInMsg.length
-      : (parseQuantityFromText(message, prevProposalQty) || ((wantsDifferentTier || isSeatAdjustmentRequest) ? prevProposalQty : null));
-
-    let requestedRow = null;
-    if (specificSeatsInMsg.length > 0) {
-      const sRow = specificSeatsInMsg[0].match(/^[a-zA-Z]+/);
-      if (sRow) requestedRow = sRow[0].toUpperCase();
-    } else if (!wantsDifferentTier && !isChangeRowRequest) {
-      const rowMatch = message.match(/(?:hàng\s*(?:ghế\s*)?|dãy\s*(?:ghế\s*)?|row\s*)([a-zA-Z\d]+)/i) ||
-        normMsg.match(/(?:hang\s*(?:ghe\s*)?|day\s*(?:ghe\s*)?|row\s*)([a-z\d]+)/i) ||
-        normMsg.match(/(?:doi\s*sang|chuyen\s*sang|lay\s*hang|chon\s*hang|hang)\s+([a-z\d])\b/i);
-
-      if (rowMatch) {
-        const candidateRow = rowMatch[1].toUpperCase();
-        if (!/(?:TRUNG|GIỮA|GIUA|DAU|ĐẦU|CUOI|CUỐI|VIP|TAM)/i.test(candidateRow)) {
-          requestedRow = candidateRow;
+      const seatedOrderQty = (() => {
+        if (specificSeatsInMsg.length > 0) return specificSeatsInMsg.length;
+        if (ticketsFromCurrentMsg.length > 0) return ticketsFromCurrentMsg.reduce((sum, dt) => sum + dt.quantity, 0);
+        const parsedQInMsg = parseQuantityFromText(message, prevProposalQty);
+        if (parsedQInMsg && parsedQInMsg > 0) return parsedQInMsg;
+        if (wantsDifferentTier || isSeatAdjustmentRequest || isAttendeeSubmission) {
+          if (prevProposalQty && prevProposalQty > 0) return prevProposalQty;
         }
-      } else if (isChangeSameRowSeats && prevRow) {
-        requestedRow = prevRow;
-      }
-    } else if (!isChangeRowRequest) {
-      const rowInCurrent = message.match(/(?:hàng\s*(?:ghế\s*)?|dãy\s*(?:ghế\s*)?|row\s*)([a-zA-Z\d]+)/i);
-      if (rowInCurrent) {
-        const candidateRow = rowInCurrent[1].toUpperCase();
-        if (!/(?:TRUNG|GIỮA|GIUA|DAU|ĐẦU|CUOI|CUỐI|VIP|TAM)/i.test(candidateRow)) {
-          requestedRow = candidateRow;
+        if (detectedTickets.length > 0) return detectedTickets.reduce((sum, dt) => sum + dt.quantity, 0);
+        const parsedQ = parseQuantityFromText(userTextForCurrentEvent);
+        if (parsedQ && parsedQ > 0) return parsedQ;
+        if (collectedAttendees.length > 0) return collectedAttendees.length;
+        return prevProposalQty || 1;
+      })();
+
+      // Detect candidate ticket tiers & prices for active event:
+      const activeTicketList = (eventDetail?.ticket_types || activeEvent?.ticket_types || []).filter(
+        t => (t.available_quantity > 0 || t.available_quantity === undefined)
+      );
+      const seatedTicketList = activeTicketList.filter(t => t.is_seated !== false);
+      const targetCandidateTickets = (hasSeatMap && seatedTicketList.length > 0) ? seatedTicketList : activeTicketList;
+
+      const distinctPrices = new Set(targetCandidateTickets.map(t => Number(t.price || 0)));
+      const hasMultiplePriceTiers = distinctPrices.size > 1;
+      const sortedCandidateTickets = [...targetCandidateTickets].sort((a, b) => Number(a.price) - Number(b.price));
+      const cheapestTicket = sortedCandidateTickets[0] || null;
+
+      const normAllUser = normalizeText(allUserMessages);
+
+      const wantsCheapestInMsg = /(?:rẻ\s*nhất|tiết\s*kiệm\s*nhất|loại\s*rẻ|vé\s*rẻ|giá\s*thấp\s*nhất|loại\s*nào\s*cũng\s*được|sao\s*cũng\s*được|tùy\s*bạn|bất\s*kỳ|loại\s*thấp\s*tiền)/i.test(message) ||
+        /(?:re\s*nhat|tiet\s*kiem\s*nhat|loai\s*re|ve\s*re|gia\s*thap\s*nhat|loai\s*nao\s*cung\s*duoc|sao\s*cung\s*duoc|tuy\s*ban|bat\s*ky|thap\s*tien)/i.test(normMsg);
+
+      const wantsCheapestAll = /(?:rẻ\s*nhất|tiết\s*kiệm\s*nhất|loại\s*rẻ|vé\s*rẻ|giá\s*thấp\s*nhất|loại\s*nào\s*cũng\s*được|sao\s*cũng\s*được|tùy\s*bạn|bất\s*kỳ|loại\s*thấp\s*tiền)/i.test(allUserMessages) ||
+        /(?:re\s*nhat|tiet\s*kiem\s*nhat|loai\s*re|ve\s*re|gia\s*thap\s*nhat|loai\s*nao\s*cung\s*duoc|sao\s*cung\s*duoc|tuy\s*ban|bat\s*ky|thap\s*tien)/i.test(normAllUser);
+
+      // Detect if user specifically mentioned any ticket tier by name or price in current message or in history:
+      let matchedTierInMsg = null;
+      let matchedTierAll = null;
+      for (const t of targetCandidateTickets) {
+        const normName = normalizeText(t.name).replace(/\([^)]*\)/g, '').trim();
+        const pNum = Number(t.price);
+        const pK = `${Math.round(pNum / 1000)}k`;
+        const priceRegex = new RegExp(`\\b${pK}\\b|\\b${pNum}\\b`, 'i');
+
+        if ((normName.length >= 3 && normMsg.includes(normName)) || priceRegex.test(normMsg)) {
+          matchedTierInMsg = t;
+        }
+        if ((normName.length >= 3 && normAllUser.includes(normName)) || priceRegex.test(normAllUser)) {
+          matchedTierAll = t;
         }
       }
-    }
-    const isCenterInMsg = /(?:trung\s*tâm|ở\s*giữa|khu\s*vực\s*giữa|hàng\s*ghế\s*trung\s*tâm|chính\s*giữa)/i.test(message) ||
-      /(?:trung\s*tam|o\s*giua|khu\s*vuc\s*giua|hang\s*ghe\s*trung\s*tam|chinh\s*giua|hang\s*giua|center)/i.test(normMsg);
 
-    // If user previously asked to book and is now replying with a tier or price or "loại rẻ nhất":
-    const hasBookingContext = /(?:đặt|đạt|dat|mua|lấy|lay|chọn|chon|book|order)\s*(?:giúp|giup|hộ|ho|vé|ve|ghế|ghe)?/i.test(normAllUser);
-    const isTierOrPriceResponse = Boolean(matchedTierInMsg || wantsCheapestInMsg) && hasBookingContext;
+      const requestedQty = specificSeatsInMsg.length > 0
+        ? specificSeatsInMsg.length
+        : (parseQuantityFromText(message, prevProposalQty) || ((wantsDifferentTier || isSeatAdjustmentRequest) ? prevProposalQty : null));
 
-    // Determine current effective target tier and tickets (CURRENT message takes strict priority over history)
-    const isChangeTierInquiry = /(?:xem|hỏi|có\s*những|có\s*các)\s*(?:loại\s*vé|hạng\s*vé|khu\s*vực|giá\s*vé)/i.test(message) &&
-      !matchedTierInMsg && !wantsCheapestInMsg && !wantsDifferentTier && !isAutonomousBooking;
+      let requestedRow = null;
+      if (specificSeatsInMsg.length > 0) {
+        const sRow = specificSeatsInMsg[0].match(/^[a-zA-Z]+/);
+        if (sRow) requestedRow = sRow[0].toUpperCase();
+      } else if (!wantsDifferentTier && !isChangeRowRequest) {
+        const rowMatch = message.match(/(?:hàng\s*(?:ghế\s*)?|dãy\s*(?:ghế\s*)?|row\s*)([a-zA-Z\d]+)/i) ||
+          normMsg.match(/(?:hang\s*(?:ghe\s*)?|day\s*(?:ghe\s*)?|row\s*)([a-z\d]+)/i) ||
+          normMsg.match(/(?:doi\s*sang|chuyen\s*sang|lay\s*hang|chon\s*hang|hang)\s+([a-z\d])\b/i);
 
-    let effDetectedTickets = [];
-    let effTargetTier = null;
-
-    if (ticketsFromCurrentMsg.length > 0) {
-      effDetectedTickets = ticketsFromCurrentMsg;
-      effTargetTier = ticketsFromCurrentMsg[0]?.ticket;
-    } else if (matchedTierInMsg) {
-      effTargetTier = matchedTierInMsg;
-      const q = requestedQty || seatedOrderQty || 1;
-      effDetectedTickets = [{ ticket: matchedTierInMsg, quantity: q }];
-    } else if (wantsDifferentTier && targetCandidateTickets.length > 1) {
-      // User specifically requested to switch to a different zone / tier:
-      const prevTierId = lastProposal?.ticket_type_id;
-      const candidateOther = targetCandidateTickets.filter(t => (!prevTierId || String(t.id) !== String(prevTierId)));
-      const otherTiers = candidateOther.length > 0 ? candidateOther : targetCandidateTickets;
-      effTargetTier = otherTiers[0] || targetCandidateTickets[0];
-      const q = requestedQty || seatedOrderQty || prevProposalQty || 1;
-      effDetectedTickets = [{ ticket: effTargetTier, quantity: q }];
-    } else if (wantsCheapestInMsg) {
-      effTargetTier = cheapestTicket;
-      const q = requestedQty || seatedOrderQty || 1;
-      effDetectedTickets = [{ ticket: cheapestTicket, quantity: q }];
-    } else if (!wantsDifferentTier && (isChangeRowRequest || isSeatAdjustmentRequest || specificSeatsInMsg.length > 0) && lastProposal?.ticket_type_id) {
-      // Preserve previous tier when user is adjusting seats or changing row
-      const prevMatchedTier = targetCandidateTickets.find(t => String(t.id) === String(lastProposal.ticket_type_id));
-      if (prevMatchedTier) {
-        effTargetTier = prevMatchedTier;
-        const q = requestedQty || seatedOrderQty || prevProposalQty || 1;
-        effDetectedTickets = [{ ticket: prevMatchedTier, quantity: q }];
+        if (rowMatch) {
+          const candidateRow = rowMatch[1].toUpperCase();
+          if (!/(?:TRUNG|GIỮA|GIUA|DAU|ĐẦU|CUOI|CUỐI|VIP|TAM)/i.test(candidateRow)) {
+            requestedRow = candidateRow;
+          }
+        } else if (isChangeSameRowSeats && prevRow) {
+          requestedRow = prevRow;
+        }
+      } else if (!isChangeRowRequest) {
+        const rowInCurrent = message.match(/(?:hàng\s*(?:ghế\s*)?|dãy\s*(?:ghế\s*)?|row\s*)([a-zA-Z\d]+)/i);
+        if (rowInCurrent) {
+          const candidateRow = rowInCurrent[1].toUpperCase();
+          if (!/(?:TRUNG|GIỮA|GIUA|DAU|ĐẦU|CUOI|CUỐI|VIP|TAM)/i.test(candidateRow)) {
+            requestedRow = candidateRow;
+          }
+        }
       }
-    } else if (detectedTickets.length > 0) {
-      effDetectedTickets = detectedTickets;
-      effTargetTier = detectedTickets[0]?.ticket;
-    } else if (isAutonomousBooking || isSeatAdjustmentRequest || wantsDifferentTier || isTierOrPriceResponse || isBookingContinuationIntent(message)) {
-      effTargetTier = matchedTierAll || (wantsCheapestAll ? cheapestTicket : cheapestTicket);
-      if (effTargetTier) {
+      const isCenterInMsg = /(?:trung\s*tâm|ở\s*giữa|khu\s*vực\s*giữa|hàng\s*ghế\s*trung\s*tâm|chính\s*giữa)/i.test(message) ||
+        /(?:trung\s*tam|o\s*giua|khu\s*vuc\s*giua|hang\s*ghe\s*trung\s*tam|chinh\s*giua|hang\s*giua|center)/i.test(normMsg);
+
+      // If user previously asked to book and is now replying with a tier or price or "loại rẻ nhất":
+      const hasBookingContext = /(?:đặt|đạt|dat|mua|lấy|lay|chọn|chon|book|order)\s*(?:giúp|giup|hộ|ho|vé|ve|ghế|ghe)?/i.test(normAllUser);
+      const isTierOrPriceResponse = Boolean(matchedTierInMsg || wantsCheapestInMsg) && hasBookingContext;
+
+      // Determine current effective target tier and tickets (CURRENT message takes strict priority over history)
+      const isChangeTierInquiry = /(?:xem|hỏi|có\s*những|có\s*các)\s*(?:loại\s*vé|hạng\s*vé|khu\s*vực|giá\s*vé)/i.test(message) &&
+        !matchedTierInMsg && !wantsCheapestInMsg && !wantsDifferentTier && !isAutonomousBooking;
+
+      let effDetectedTickets = [];
+      let effTargetTier = null;
+
+      if (ticketsFromCurrentMsg.length > 0) {
+        effDetectedTickets = ticketsFromCurrentMsg;
+        effTargetTier = ticketsFromCurrentMsg[0]?.ticket;
+      } else if (matchedTierInMsg) {
+        effTargetTier = matchedTierInMsg;
         const q = requestedQty || seatedOrderQty || 1;
+        effDetectedTickets = [{ ticket: matchedTierInMsg, quantity: q }];
+      } else if (wantsDifferentTier && targetCandidateTickets.length > 1) {
+        // User specifically requested to switch to a different zone / tier:
+        const prevTierId = lastProposal?.ticket_type_id;
+        const candidateOther = targetCandidateTickets.filter(t => (!prevTierId || String(t.id) !== String(prevTierId)));
+        const otherTiers = candidateOther.length > 0 ? candidateOther : targetCandidateTickets;
+        effTargetTier = otherTiers[0] || targetCandidateTickets[0];
+        const q = requestedQty || seatedOrderQty || prevProposalQty || 1;
         effDetectedTickets = [{ ticket: effTargetTier, quantity: q }];
+      } else if (wantsCheapestInMsg) {
+        effTargetTier = cheapestTicket;
+        const q = requestedQty || seatedOrderQty || 1;
+        effDetectedTickets = [{ ticket: cheapestTicket, quantity: q }];
+      } else if (!wantsDifferentTier && (isChangeRowRequest || isSeatAdjustmentRequest || specificSeatsInMsg.length > 0 || isQuantityAdjustment) && lastProposal?.ticket_type_id) {
+        // Preserve previous tier when user is adjusting seats, changing row, or adjusting quantity
+        const prevMatchedTier = targetCandidateTickets.find(t => String(t.id) === String(lastProposal.ticket_type_id)) ||
+          (eventDetail?.ticket_types || []).find(t => String(t.id) === String(lastProposal.ticket_type_id));
+        if (prevMatchedTier) {
+          effTargetTier = prevMatchedTier;
+          const q = requestedQty || seatedOrderQty || prevProposalQty || 1;
+          effDetectedTickets = [{ ticket: prevMatchedTier, quantity: q }];
+        }
+      } else if (detectedTickets.length > 0) {
+        effDetectedTickets = detectedTickets;
+        effTargetTier = detectedTickets[0]?.ticket;
+      } else if (isAutonomousBooking || isSeatAdjustmentRequest || wantsDifferentTier || isTierOrPriceResponse || isBookingContinuationIntent(message)) {
+        effTargetTier = matchedTierAll || (wantsCheapestAll ? cheapestTicket : cheapestTicket);
+        if (effTargetTier) {
+          const q = requestedQty || seatedOrderQty || 1;
+          effDetectedTickets = [{ ticket: effTargetTier, quantity: q }];
+        }
+      } else {
+        effTargetTier = null;
+        effDetectedTickets = [];
       }
-    } else {
-      effTargetTier = null;
-      effDetectedTickets = [];
-    }
 
-    const effQty = requestedQty || (ticketsFromCurrentMsg.length > 0 ? ticketsFromCurrentMsg.reduce((s, t) => s + t.quantity, 0) : null) || (effDetectedTickets.length > 0 ? effDetectedTickets.reduce((s, t) => s + t.quantity, 0) : null) || seatedOrderQty || 1;
-    const hasChosenTickets = effDetectedTickets.length > 0;
-    const totalOrderQty = hasChosenTickets ? effDetectedTickets.reduce((sum, dt) => sum + dt.quantity, 0) : 0;
-    const hasEnoughAttendees = !requireAttendeeInfo || (hasChosenTickets && collectedAttendees.length >= totalOrderQty);
+      const effQty = requestedQty || (ticketsFromCurrentMsg.length > 0 ? ticketsFromCurrentMsg.reduce((s, t) => s + t.quantity, 0) : null) || (effDetectedTickets.length > 0 ? effDetectedTickets.reduce((s, t) => s + t.quantity, 0) : null) || seatedOrderQty || 1;
+      const hasChosenTickets = effDetectedTickets.length > 0;
+      const totalOrderQty = hasChosenTickets ? effDetectedTickets.reduce((sum, dt) => sum + dt.quantity, 0) : 0;
+      const hasEnoughAttendees = !requireAttendeeInfo || (hasChosenTickets && collectedAttendees.length >= totalOrderQty);
 
-    const hasSpecificPlacement = Boolean(requestedRow || isCenterInMsg || isSeatAdjustmentRequest);
-    const hasSpecificTier = Boolean(effTargetTier || matchedTierAll || hasChosenTickets);
+      const hasSpecificPlacement = Boolean(requestedRow || isCenterInMsg || isSeatAdjustmentRequest);
+      const hasSpecificTier = Boolean(effTargetTier || matchedTierAll || hasChosenTickets);
 
-    const isBookingFlowActive = Boolean(
-      activeEvent &&
+      const isBookingFlowActive = Boolean(
+        activeEvent &&
+        !eventChangeInfo.isChange &&
+        !eventChangeInfo.isCancelOnly &&
+        !isManualSeatMapRequest &&
+        !isEventInfoInquiry(message) &&
+        (isAutonomousBooking || isSeatAdjustmentRequest || wantsDifferentTier || isTierOrPriceResponse || isBookingContinuationIntent(message) || Boolean(specificSeatsInMsg.length > 0) || /(?:đặt luôn|đặt vé|chọn vé|dat luon|dat ve|chon ve|đặt lại|mua lại|book lại|dat lai|mua lai|book lai|múc|muc|chốt|chot|chốt kèo|chot keo|vào việc|vao viec|lấy|lay|húp|hup|lụm|lum|buy ticket|buy tickets|book ticket|book tickets|wanna buy|want to buy|purchase ticket|purchase tickets|get ticket|get tickets)/i.test(message))
+      );
+
+      const toolExecutionContext = {
+        userProfile,
+        history: cleanHistory,
+        message,
+        activeEvent,
+        lastGeneratedActionTag: null
+      };
+
+    // FAST-PATH: User is providing attendee info to complete an existing Smart Booking Proposal (0.01s)
+    const attendeesInCurrentMsg = extractAttendeesFromText(message, userProfile);
+    const existingProposalData = lastProposal?.fullProposal || null;
+    const isAttendeeSubmissionForProposal = Boolean(
+      existingProposalData &&
+      existingProposalData.requireAttendeeInfo &&
+      !existingProposalData.isAttendeesComplete &&
+      (attendeesInCurrentMsg.length > 0 || collectedAttendees.length > (existingProposalData.attendees || []).length) &&
       !eventChangeInfo.isChange &&
       !eventChangeInfo.isCancelOnly &&
       !isManualSeatMapRequest &&
-      !isEventInfoInquiry(message) &&
-      (isAutonomousBooking || isSeatAdjustmentRequest || wantsDifferentTier || isTierOrPriceResponse || isBookingContinuationIntent(message) || Boolean(specificSeatsInMsg.length > 0) || /(?:đặt luôn|đặt vé|chọn vé|dat luon|dat ve|chon ve|đặt lại|mua lại|book lại|dat lai|mua lai|book lai|múc|muc|chốt|chot|chốt kèo|chot keo|vào việc|vao viec|lấy|lay|húp|hup|lụm|lum|buy ticket|buy tickets|book ticket|book tickets|wanna buy|want to buy|purchase ticket|purchase tickets|get ticket|get tickets)/i.test(message))
+      !isChangeRowRequest &&
+      !isSeatAdjustmentRequest &&
+      specificSeatsInMsg.length === 0 &&
+      !wantsDifferentTier
     );
 
-    const toolExecutionContext = {
-      userProfile,
-      history: cleanHistory,
-      message,
-      activeEvent,
-      lastGeneratedActionTag: null
-    };
-
-    if (isBookingFlowActive && !isChangeTierInquiry) {
-      // Customer specified row, tier, cheapest, or asked to book!
-      const hasMultipleDetected = effDetectedTickets.length > 1;
-      const ticketsArg = hasMultipleDetected ? effDetectedTickets.map(dt => ({
-        ticketTypeId: dt.ticket.id,
-        ticketTypeName: dt.ticket.name,
-        quantity: dt.quantity
-      })) : null;
-
-      const ticketsParam = ticketsArg ? `, tickets: ${JSON.stringify(ticketsArg)}` : '';
-      const targetTier = !hasMultipleDetected ? effTargetTier : null;
-      const tierParam = targetTier ? `, ticketTypeId: "${targetTier.id}", ticketTypeName: "${targetTier.name}"` : '';
-      const tierDesc = hasMultipleDetected
-        ? `, Các loại vé: ${effDetectedTickets.map(dt => `${dt.quantity} vé "${dt.ticket.name}" (${Number(dt.ticket.price).toLocaleString('vi-VN')} VNĐ)`).join(', ')}`
-        : (targetTier ? `, Hạng vé: "${targetTier.name}" (${Number(targetTier.price).toLocaleString('vi-VN')} VNĐ)` : '');
-      const excludeRowParam = excludeRow ? `, excludeRow: "${excludeRow}"` : '';
-      const rowParam = requestedRow ? `, preferredRow: "${requestedRow}"` : (isCenterInMsg ? ', preferredRow: "trung tâm"' : '');
-      const rowDesc = requestedRow ? `, Ưu tiên hàng: ${requestedRow}` : (excludeRow ? `, Đổi hàng khác (không lấy hàng ${excludeRow})` : (isCenterInMsg ? ', Ưu tiên hàng ghế trung tâm' : ''));
-
-      // DETERMINISTIC FAST-PATH FOR DIRECT / AUTONOMOUS BOOKING:
-      // Execute proposeSmartBooking immediately in 0.03s without waiting for heavy CPU LLM agent loop!
-      try {
-        let horizontalPrefInMsg = 'CENTER';
-        if (/(?:bên\s*trái|lệch\s*trái|phía\s*trái|tay\s*trái)/i.test(message) && !/(?:bị\s*lệch|quá\s*lệch|lệch\s*quá)/i.test(message)) {
-          horizontalPrefInMsg = 'LEFT';
-        } else if (/(?:bên\s*phải|lệch\s*phải|phía\s*phải|tay\s*phải)/i.test(message) && !/(?:bị\s*lệch|quá\s*lệch|lệch\s*quá)/i.test(message)) {
-          horizontalPrefInMsg = 'RIGHT';
-        }
-
-        const directToolRes = await this.executeTool(userId, 'proposeSmartBooking', {
-          eventId: activeEvent.slug,
-          sessionId: (sessionList?.[0]?.id || eventDetail?.sessions?.[0]?.id || activeEvent.sessions?.[0]?.id || activeSessionId || ''),
-          quantity: effQty,
-          preferredRow: requestedRow || (isCenterInMsg ? 'trung tâm' : ''),
-          excludeRow: excludeRow || null,
-          excludeSeats: excludeSeatsInMsg.length > 0 ? excludeSeatsInMsg : undefined,
-          specificSeats: specificSeatsInMsg.length > 0 ? specificSeatsInMsg : undefined,
-          horizontalPreference: horizontalPrefInMsg !== 'CENTER' ? horizontalPrefInMsg : undefined,
-          ticketTypeId: targetTier?.id || null,
-          ticketTypeName: targetTier?.name || '',
-          tickets: ticketsArg || undefined
-        }, toolExecutionContext);
-
-        if (directToolRes?.error) {
-          return {
-            role: 'assistant',
-            content: `Dạ Eve xin thông báo: ${directToolRes.error}`
-          };
-        }
-
-        if (directToolRes?.status === 'SUCCESS' && toolExecutionContext.lastGeneratedActionTag) {
-          const isEn = clientContext?.locale === 'en';
-          const seatsStr = directToolRes.proposal?.seats 
-            ? (isEn ? `with seats: **[${directToolRes.proposal.seats}]**` : `với các vị trí ghế: **[${directToolRes.proposal.seats}]**`) 
-            : '';
-          const totalStr = directToolRes.proposal?.totalAmount 
-            ? (isEn 
-                ? `, total payment: **${Number(directToolRes.proposal.totalAmount).toLocaleString('en-US')} VND**` 
-                : `, tổng thanh toán: **${Number(directToolRes.proposal.totalAmount).toLocaleString('vi-VN')}đ**`) 
-            : '';
-          const noteStr = directToolRes.proposal?.note ? `\n\n📌 **${directToolRes.proposal.note}**` : '';
-          const eventTitle = isEn && (eventDetail?.title_en || activeEvent.title_en) ? (eventDetail?.title_en || activeEvent.title_en) : (eventDetail?.title || activeEvent.title);
-          const directReply = isEn
-            ? `Eve has created a Smart Booking Proposal for **${eventTitle}** (Quantity: ${effQty} ${effQty > 1 ? 'tickets' : 'ticket'}) ${seatsStr}${totalStr}.${noteStr}\n\nPlease review the details on the proposal card below and click **"Confirm & Proceed to Payment"** to hold your seats. If you would like to change your seating or choose from the seat map, Eve is always happy to assist you.\n\n${toolExecutionContext.lastGeneratedActionTag}`
-            : `Dạ Eve đã tạo Đề Xuất Đặt Vé cho sự kiện **${activeEvent.title}** (Số lượng: ${effQty} vé) ${seatsStr}${totalStr} rồi nhé.${noteStr}\n\nBạn hãy kiểm tra lại thông tin trên thẻ đề xuất bên dưới và nhấn nút **"Xác nhận & Đi tới Thanh toán"** để giữ chỗ nha. Nếu bạn muốn đổi vị trí ghế hoặc tự chọn trên sơ đồ, Eve luôn sẵn lòng hỗ trợ bạn.\n\n${toolExecutionContext.lastGeneratedActionTag}`;
-          
-          this._logConversationSample(messages, directReply);
-          return {
-            role: 'assistant',
-            content: directReply
-          };
-        }
-      } catch (directBookingErr) {
-        logger.warn(`[AiAssistant] Direct proposeSmartBooking error, falling back to agent loop: ${directBookingErr.message}`);
-      }
-
-      messages.push({
-        role: 'system',
-        content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng yêu cầu đặt vé tự động hoặc điều chỉnh ghế cho sự kiện "${activeEvent.title}" (Số lượng: ${effQty} vé${rowDesc}${tierDesc}).
-${!hasSpecificTier && hasMultiplePriceTiers && !matchedTierInMsg && !wantsCheapestInMsg ? `Khách chưa chọn hạng vé cụ thể -> Hệ thống tự động chọn hạng vé tiết kiệm nhất: "${cheapestTicket?.name}" (${Number(cheapestTicket?.price || 0).toLocaleString('vi-VN')} VNĐ). Sau khi gọi tool, bạn hãy giới thiệu rõ đã chọn trước hạng vé này cho khách và gợi ý khách có thể đổi sang các hạng khác nếu muốn nhé!` : ''}
-Bạn BẮT BUỘC PHẢI GỌI TOOL proposeSmartBooking({ eventId: "${activeEvent.slug}", sessionId: "${activeSessionId}", quantity: ${effQty}${ticketsParam}${rowParam}${excludeRowParam}${tierParam} }) để hệ thống phân bổ lại ghế tối ưu và tạo Đề Xuất Đặt Vé cho khách duyệt! TUYỆT ĐỐI không bảo khách tự mở sơ đồ chọn ghế khi khách đã nhờ đặt!`
-      });
-    } else if (activeEvent && isChangeTierInquiry && targetCandidateTickets.length > 1) {
-      messages.push({
-        role: 'system',
-        content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng muốn tham khảo hoặc đổi loại vé cho sự kiện "${activeEvent.title}".
-Danh sách các hạng vé hiện có:
-${targetCandidateTickets.map(t => `- Hạng vé: "${t.name}" - Giá: ${Number(t.price).toLocaleString('vi-VN')} VNĐ`).join('\n')}
-Bạn hãy liệt kê các hạng vé và mức giá trên một cách thân thiện và hỏi khách muốn đổi sang hạng vé nào để Eve hỗ trợ đặt cho bạn ngay nhé!`
-      });
-    } else if (activeEvent && isManualSeatMapRequest) {
-      messages.push({
-        role: 'system',
-        content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng muốn TỰ CHỌN GHẾ trên sơ đồ. Bạn hãy gọi tool generateBookingAction({ eventId: "${activeEvent.slug}", sessionId: "${activeSessionId}" }) để mở sơ đồ ghế cho khách!`
-      });
-    }
-
-    const msgClean = (message || '').trim().replace(/[\.\-\s\+]/g, '');
-    const isJustPhone = msgClean.length >= 9 && msgClean.length <= 13 && /^(?:84|0)[35789]\d{8}$|^0\d{9,10}$/.test(msgClean);
-
-    if (activeEvent && hasSeatMap) {
-      if (isJustPhone) {
-        if (!requireAttendeeInfo) {
-          messages.push({
-            role: 'system',
-            content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng vừa gửi số điện thoại liên hệ (${effectivePhone}). Sự kiện có sơ đồ chỗ ngồi và KHÔNG yêu cầu thông tin người tham gia. Bạn hãy cảm ơn khách và mở sơ đồ chọn ghế cho khách bằng cách gọi generateBookingAction({ eventId: "${activeEvent.slug}", sessionId: "${activeSessionId}" }). TUYỆT ĐỐI KHÔNG dùng từ "tool" hay "gọi tool" trong câu trả lời!`
-          });
-        } else {
-          if (collectedAttendees.length >= seatedOrderQty && collectedAttendees.length > 0) {
-            messages.push({
-              role: 'system',
-              content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng vừa gửi số điện thoại liên hệ (${effectivePhone}) và đã cung cấp đủ thông tin người tham gia cho cả ${seatedOrderQty} vé: [${collectedAttendees.slice(0, seatedOrderQty).map(a => `${a.name} - ${a.email}`).join('; ')}]. Bạn hãy gọi generatePrefillBookingAction({ eventId: "${activeEvent.slug}", sessionId: "${activeSessionId}", quantity: ${seatedOrderQty} }) để tạo nút chọn ghế trên sơ đồ cho khách! TUYỆT ĐỐI KHÔNG dùng từ "tool" hay "gọi tool" trong câu trả lời!`
-            });
-          } else {
-            messages.push({
-              role: 'system',
-              content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng vừa gửi số điện thoại liên hệ (${effectivePhone}). Bạn hãy cảm ơn khách đã gửi SĐT, TUYỆT ĐỐI KHÔNG HỎI LẠI SỐ ĐIỆN THOẠI NỮA. Sự kiện này có sơ đồ chỗ ngồi và có yêu cầu thông tin check-in riêng cho từng người tham gia. Bạn hãy hỏi khách muốn đặt mấy vé và xin Họ tên + Email của người tham gia (khách có thể nhắn "dùng thông tin của tôi" nếu tự đi một mình).`
-            });
-          }
-        }
-      } else if (requireAttendeeInfo) {
-        if (collectedAttendees.length >= seatedOrderQty && collectedAttendees.length > 0) {
-          messages.push({
-            role: 'system',
-            content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng đã cung cấp ĐỦ thông tin người tham gia cho cả ${seatedOrderQty} vé: [${collectedAttendees.slice(0, seatedOrderQty).map(a => `${a.name} - ${a.email}`).join('; ')}]. Thông tin người mua tự động lấy từ tài khoản: ${userProfile?.full_name || 'Khách hàng'} (${userProfile?.email || ''}, SĐT: ${effectivePhone}).
-Sự kiện có sơ đồ chỗ ngồi. Bạn BẮT BUỘC PHẢI GỌI TOOL generatePrefillBookingAction({ eventId: "${activeEvent.slug}", sessionId: "${activeSessionId}", quantity: ${seatedOrderQty} }) ngay lập tức để hoàn tất tạo thông tin vé cho khách!
-TUYỆT ĐỐI KHÔNG được trả lời dạng hứa hẹn "đang chuyển bạn đến trang thanh toán", "vui lòng đợi" mà BẮT BUỘC PHẢI GỌI TOOL generatePrefillBookingAction!`
-          });
-        }
-      }
-    } else if (activeEvent && !hasSeatMap) {
-      if (!hasChosenTickets) {
-        // Customer has NOT chosen ticket types and quantities yet!
-        // DO NOT ask for attendees or phone. Let the assistant introduce the schedule and ticket categories as requested.
-        if (isJustPhone) {
-          messages.push({
-            role: 'system',
-            content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng vừa gửi số điện thoại liên hệ (${effectivePhone}). Bạn hãy cảm ơn khách đã gửi SĐT, rồi giới thiệu các loại vé hiện có kèm giá vé và hỏi khách muốn đặt loại vé nào và số lượng bao nhiêu vé nhé! 🎭`
-          });
-        }
-      } else {
-        // Customer HAS chosen tickets!
-        if (isJustPhone) {
-          if (!requireAttendeeInfo) {
-            messages.push({
-              role: 'system',
-              content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng vừa gửi số điện thoại liên hệ (${effectivePhone}). Thông tin người mua đã đầy đủ và sự kiện này KHÔNG yêu cầu thông tin người tham gia. Bạn PHẢI GỌI NGAY tool generatePrefillBookingAction với buyerPhone: "${effectivePhone}" để tạo liên kết xác nhận đặt vé cho khách! TUYỆT ĐỐI KHÔNG hỏi lại số điện thoại và KHÔNG hỏi thông tin người tham gia!`
-            });
-          } else {
-            if (hasEnoughAttendees) {
-              messages.push({
-                role: 'system',
-                content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng vừa gửi số điện thoại liên hệ (${effectivePhone}) và đã cung cấp đủ thông tin người tham gia cho cả ${totalOrderQty} vé: [${collectedAttendees.slice(0, totalOrderQty).map(a => `${a.name} - ${a.email}`).join('; ')}]. Thông tin người mua tự động lấy từ tài khoản (${userProfile?.full_name || 'Khách hàng'} - ${userProfile?.email || ''}). Bạn PHẢI GỌI NGAY tool generatePrefillBookingAction!`
-              });
-            } else {
-              messages.push({
-                role: 'system',
-                content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng vừa gửi số điện thoại liên hệ (${effectivePhone}). Bạn hãy cảm ơn khách đã gửi SĐT, TUYỆT ĐỐI KHÔNG HỎI LẠI SỐ ĐIỆN THOẠI NỮA. Vì sự kiện này có yêu cầu thông tin check-in riêng cho từng người tham gia (${totalOrderQty} vé), hiện tại khách ${collectedAttendees.length > 0 ? `mới chỉ cung cấp ${collectedAttendees.length} người: [${collectedAttendees.map(a => `${a.name} - ${a.email}`).join('; ')}]` : 'chưa cung cấp thông tin người tham gia'}. Bạn PHẢI yêu cầu khách cung cấp Họ và tên + Email cho ${totalOrderQty - collectedAttendees.length} vé còn lại:\n${getRemainingTicketsDescription(detectedTickets, collectedAttendees.length)}\nTUYỆT ĐỐI KHÔNG ĐƯỢC TỰ Ý HOÀN TẤT ĐẶT VÉ KHI THIẾU THÔNG TIN!`
-              });
-            }
-          }
-        } else if (!effectivePhone) {
-          messages.push({
-            role: 'system',
-            content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng đã chọn vé (${totalOrderQty} vé) nhưng tài khoản CHƯA CÓ số điện thoại liên hệ. Bạn hãy hỏi khách hàng số điện thoại liên hệ: "Dạ tài khoản của bạn hiện chưa có số điện thoại liên hệ. Bạn vui lòng cho Eve xin số điện thoại để Eve hoàn tất đặt vé giúp bạn nhé! 🥰". TUYỆT ĐỐI KHÔNG TỰ BỊA SỐ ĐIỆN THOẠI VÀ CHƯA GỌI TOOL generatePrefillBookingAction!`
-          });
-        } else if (requireAttendeeInfo) {
-          if (hasEnoughAttendees) {
-            messages.push({
-              role: 'system',
-              content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng đã cung cấp ĐỦ thông tin người tham gia cho tất cả ${totalOrderQty} vé: [${collectedAttendees.slice(0, totalOrderQty).map(a => `${a.name} - ${a.email}`).join('; ')}]. Thông tin người mua tự động lấy từ tài khoản: ${userProfile?.full_name || 'Khách hàng'} (${userProfile?.email || ''}, SĐT: ${effectivePhone}). Bạn BẮT BUỘC PHẢI GỌI TOOL generatePrefillBookingAction ngay lập tức để hoàn tất đặt vé! TUYỆT ĐỐI KHÔNG hỏi thêm gì nữa!`
-            });
-          } else {
-            messages.push({
-              role: 'system',
-              content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng đặt ${totalOrderQty} vé. Sự kiện này BẮT BUỘC có thông tin check-in riêng cho từng người tham gia (chỉ người đó mới được vào, không thể đổi người khác).
-Hiện tại khách ${collectedAttendees.length > 0 ? `mới chỉ cung cấp ${collectedAttendees.length} người: [${collectedAttendees.map(a => `${a.name} - ${a.email}`).join('; ')}]` : 'chưa cung cấp thông tin người tham gia'}.
-VẪN CÒN THIẾU ${totalOrderQty - collectedAttendees.length} người tham gia!
-TUYỆT ĐỐI KHÔNG ĐƯỢC GỌI TOOL generatePrefillBookingAction!
-Bạn hãy ghi nhận thông tin đã có (nếu có), và YÊU CẦU KHÁCH CUNG CẤP TIẾP Họ tên + Email cho ${totalOrderQty - collectedAttendees.length} vé còn lại:
-${getRemainingTicketsDescription(detectedTickets, collectedAttendees.length)}`
-            });
-          }
-        }
-      }
-    }
-
-    const MAX_LOOPS = 5;
-    let loopsLeft = MAX_LOOPS;
-    let finalContent = "";
-    // toolExecutionContext was initialized above
-
-    while (loopsLeft > 0) {
-      const loopNum = MAX_LOOPS - loopsLeft + 1;
-      logger.info(`[AgentLoop] Loop ${loopNum} starting...`);
-
-      const lastMessage = messages[messages.length - 1];
-      const hasRecentToolResult = lastMessage && lastMessage.role === 'tool';
-      let activeTools = TOOLS;
-      if (hasRecentToolResult || isOutOfScope) {
-        activeTools = [];
-      } else if (activeEvent && !/(sự kiện khác|show khác|tìm sự kiện|tìm kiếm|xem sự kiện khác)/i.test(message)) {
-        // When user is currently in a booking flow for an active event, exclude searchEvents so model doesn't search for session/ticket terms
-        activeTools = TOOLS.filter(t => t.function.name !== 'searchEvents');
-
-        // Only allow generatePrefillBookingAction when customer has chosen tickets, has phone, and has provided enough attendees
-        const canPrefill = hasSeatMap
-          ? (Boolean(effectivePhone) && (!requireAttendeeInfo || (collectedAttendees.length >= seatedOrderQty && collectedAttendees.length > 0)))
-          : (hasChosenTickets && Boolean(effectivePhone) && hasEnoughAttendees);
-        if (!canPrefill) {
-          activeTools = activeTools.filter(t => t.function.name !== 'generatePrefillBookingAction');
+    if (isAttendeeSubmissionForProposal) {
+      logger.info(`[AiAssistant] Fast-path: updating attendee info for existing proposal (event: ${activeEvent?.title}, seats: ${lastProposal.seats})`);
+      const prevAtts = Array.isArray(existingProposalData.attendees) ? existingProposalData.attendees : [];
+      const mergedAttendees = [...prevAtts];
+      for (const a of collectedAttendees) {
+        if (!mergedAttendees.some(ex => (ex.email && a.email && ex.email.toLowerCase() === a.email.toLowerCase()) || (ex.name && a.name && ex.name.toLowerCase() === a.name.toLowerCase()))) {
+          mergedAttendees.push(a);
         }
       }
 
-      let response = null;
-      try {
-        response = await ollamaClient.chat(messages, { tools: activeTools });
-      } catch (chatErr) {
-        logger.warn(`[AgentLoop] ollamaClient.chat with tools error: ${chatErr.message}`);
-        if (activeTools.length > 0) {
-          try {
-            logger.info(`[AgentLoop] Retrying ollamaClient.chat without tools...`);
-            response = await ollamaClient.chat(messages, { tools: [] });
-          } catch (retryErr) {
-            logger.error(`[AgentLoop] Retry without tools also failed: ${retryErr.message}`);
-          }
-        }
-      }
+      const propQty = existingProposalData.quantity || lastProposal.quantity || 1;
+      const isNowComplete = mergedAttendees.length >= propQty;
+      const finalAttendees = mergedAttendees.slice(0, propQty);
 
-      if (!response) {
-        const isEn = clientContext?.locale === 'en';
-        // Fallback: If Ollama is completely unreachable or timed out
-        if (toolExecutionContext.lastGeneratedActionTag) {
-          finalContent = isEn
-            ? `Eve has successfully created a booking proposal for you! Please review the details below and click "Confirm & Proceed to Payment"! 🎉\n\n${toolExecutionContext.lastGeneratedActionTag}`
-            : `Eve đã tạo đề xuất đặt vé thành công cho bạn rồi nhé! Bạn kiểm tra thông tin trên thẻ bên dưới và nhấn "Xác nhận & Đi tới Thanh toán" nhé! 🎉\n\n${toolExecutionContext.lastGeneratedActionTag}`;
-          break;
-        } else if (isBookingFlowActive && activeEvent) {
-          try {
-            logger.info(`[AgentLoop] Directly triggering proposeSmartBooking as AI model fallback...`);
-            await this.executeTool(userId, 'proposeSmartBooking', {
-              eventId: activeEvent.slug,
-              sessionId: activeSessionId,
-              quantity: effQty,
-              preferredRow: requestedRow || (isCenterInMsg ? 'trung tâm' : ''),
-              excludeRow,
-              ticketTypeId: effTargetTier?.id,
-              ticketTypeName: effTargetTier?.name
-            }, toolExecutionContext);
-            if (toolExecutionContext.lastGeneratedActionTag) {
-              finalContent = isEn
-                ? `Eve has successfully created a Smart Booking Proposal for you! 🎉 Please review the details on the card below and click "Confirm & Proceed to Payment"!\n\n${toolExecutionContext.lastGeneratedActionTag}`
-                : `Eve đã tạo Đề xuất Đặt vé thành công cho bạn nè! 🎉 Bạn vui lòng kiểm tra thông tin trên thẻ đề xuất bên dưới và nhấn "Xác nhận & Đi tới Thanh toán" nhé!\n\n${toolExecutionContext.lastGeneratedActionTag}`;
-              break;
-            }
-          } catch (fbErr) {
-            logger.error(`[AgentLoop] Direct fallback proposeSmartBooking error: ${fbErr.message}`);
-          }
-        }
-
-        if (activeEvent && isEventInfoInquiry(message)) {
-          finalContent = formatEventDetailResponse(eventDetail, activeEvent, isEn);
-        } else if (isOutOfScope) {
-          finalContent = isEn
-            ? "Eve would love to help you with that, but EventHub specializes exclusively in live events, concert tickets, and creative workshops! If you ever need tickets or great weekend event recommendations, Eve is always here for you."
-            : "Dạ Eve rất muốn hỗ trợ bạn, nhưng EventHub chúng mình hiện chỉ chuyên về vé các sự kiện, concert và workshop nghệ thuật thôi nè. Nếu bạn muốn tìm vé xem show hay hoặc cần gợi ý sự kiện cuối tuần thì cứ nhắn Eve nhé.";
-        } else {
-          finalContent = isEn
-            ? "Eve is always ready to assist you with exploring events and booking tickets on EventHub! 🎉\n\nPlease let Eve know what event you are interested in or what you need assistance with!"
-            : "Dạ Eve luôn sẵn sàng đồng hành cùng bạn để khám phá sự kiện và hỗ trợ đặt vé nhanh nhất trên EventHub nè! 🥰\n\nBạn quan tâm đến sự kiện nào hoặc cần Eve hỗ trợ điều gì cứ nhắn Eve nhé! 🎉";
-        }
-        break;
-      }
-
-      let toolCalls = response.tool_calls || [];
-
-      // Fallback: If model returned empty content with tools enabled, re-run without tools
-      if (!response.content && toolCalls.length === 0 && activeTools.length > 0) {
-        logger.info(`[AgentLoop] Model returned empty with tools, retrying without tools...`);
+      // Refresh seat hold so user gets a fresh 15-minute window to review and confirm
+      let holdExpiresAt = existingProposalData.holdExpiresAt;
+      const eventIdForHold = existingProposalData.eventId || activeEvent?.id || null;
+      if (userId && eventIdForHold && existingProposalData.items && existingProposalData.items.length > 0) {
         try {
-          response = await ollamaClient.chat(messages, { tools: [] });
-          toolCalls = response.tool_calls || [];
-        } catch (emptyRetryErr) {
-          logger.warn(`[AgentLoop] Retrying empty content without tools error: ${emptyRetryErr.message}`);
-        }
-      }
-
-      logger.info(`[AgentLoop] Content: "${(response?.content || '').substring(0, 200)}"`);
-      logger.info(`[AgentLoop] Tool calls: ${JSON.stringify(toolCalls.map(tc => tc.function?.name || 'unknown'))}`);
-
-      // If model made tool calls → execute them and loop again
-      if (toolCalls.length > 0) {
-        // Push assistant message WITH tool_calls for Ollama's chat template
-        messages.push({
-          role: 'assistant',
-          content: response?.content || '',
-          tool_calls: toolCalls
-        });
-
-        for (const call of toolCalls) {
-          const toolName = call.function.name;
-          const toolArgs = call.function.arguments || {};
-          logger.info(`[AgentLoop] Executing tool: ${toolName} with args: ${JSON.stringify(toolArgs)}`);
-          
-          const result = await this.executeTool(userId, toolName, toolArgs, toolExecutionContext);
-          logger.info(`[AgentLoop] Tool result: ${JSON.stringify(result).substring(0, 300)}`);
-
-          messages.push({
-            role: 'tool',
-            name: toolName,
-            tool_call_id: call.id,
-            content: JSON.stringify(result)
+          const holdRes = await eventsService.holdSeats(userId, {
+            event_id: eventIdForHold,
+            items: existingProposalData.items
           });
-        }
-
-        loopsLeft--;
-        continue;
-      }
-
-      // No tool calls → model is done, this is the final response
-      finalContent = response?.content || '';
-      logger.info(`[AgentLoop] Finished. Final content length: ${finalContent.length}`);
-      break;
-    }
-
-    if (loopsLeft === 0 && !finalContent) {
-      logger.warn(`[AgentLoop] Max loops (${MAX_LOOPS}) exhausted!`);
-      finalContent = "Eve đã cố gắng tìm kiếm nhưng có vẻ thông tin hơi phức tạp. Bạn có thể cung cấp thêm chi tiết để Eve hỗ trợ tốt hơn không?";
-    }
-
-    // Strip <think> blocks from the output (Qwen3 thinking mode)
-    finalContent = this._stripThinkBlocks(finalContent);
-
-    // Programmatic Grounding Sanitizer: Filter out any hallucinated event not in EventHub
-    finalContent = await this._sanitizeEventRecommendations(finalContent, activeEvent);
-
-    // Sanitize any Chinese characters leaked by Qwen foundation model
-    finalContent = finalContent
-      .replace(/電子信箱|电子邮箱|邮箱/gi, 'Email')
-      .replace(/[\u4e00-\u9fff]+/g, '')
-      .replace(/\s*\(?\s*Đang xử lý đặt vé[^\)]*\)?\s*/gi, '')
-      .replace(/^.*(?:tôi hiểu rồi|khi khách hàng muốn đặt|tôi sẽ thực hiện như sau).*$/gim, '')
-      .replace(/\[CHỈ DẪN HỆ THỐNG\][\s\S]*?(?=\n\n|$)/gi, '')
-      .replace(/TUYỆT ĐỐI KHÔNG GỌI TOOL[^\n]*/gi, '')
-      .trim();
-
-    // Convert any code-block function calls like ```javascript generateBookingAction(...)``` into actual action tag
-    if (finalContent.includes('generateBookingAction') && !finalContent.includes('[ACTION:BOOKING:')) {
-      const codeCallMatch = finalContent.match(/generateBookingAction\s*\(\s*\{([\s\S]*?)\}\s*\)/i);
-      if (codeCallMatch) {
-        const argsText = codeCallMatch[1];
-        const evMatch = argsText.match(/eventId\s*:\s*["']([^"']+)["']/i);
-        const sessMatch = argsText.match(/sessionId\s*:\s*["']([^"']+)["']/i);
-        const evId = evMatch ? evMatch[1] : (activeEvent?.slug || '');
-        const sessId = sessMatch ? sessMatch[1] : '';
-        if (evId) {
-          finalContent = finalContent.replace(/```[a-z]*\s*generateBookingAction\s*\([\s\S]*?\)\s*```/gi, '').trim();
-          finalContent += `\n\n[ACTION:BOOKING:${evId}${sessId ? `:${sessId}` : ''}]`;
+          if (holdRes?.hold_expires_at) {
+            holdExpiresAt = holdRes.hold_expires_at;
+          }
+        } catch (holdErr) {
+          logger.warn(`[AiAssistant] Could not refresh seat hold on attendee update: ${holdErr.message}`);
         }
       }
+      if (!holdExpiresAt) {
+        holdExpiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+      }
+
+      const updatedProposal = {
+        ...existingProposalData,
+        attendees: finalAttendees,
+        isAttendeesComplete: isNowComplete,
+        holdExpiresAt,
+        hold_expires_at: holdExpiresAt
+      };
+
+      const actionTag = `[ACTION:BOOKING_PROPOSAL:${encodeURIComponent(JSON.stringify(updatedProposal))}]`;
+      const isEn = clientContext?.locale === 'en';
+
+      if (isNowComplete) {
+        const attendeeListStr = finalAttendees.map(a => `**${a.name}** (${a.email})`).join(', ');
+        const seatsDesc = updatedProposal.seats?.length > 0
+          ? ` cho vị trí ghế **[${updatedProposal.seats.map(s => typeof s === 'string' ? s : (s?.label || '')).join(', ')}]**`
+          : '';
+        const reply = isEn
+          ? `Eve has updated the attendee information: ${attendeeListStr}${seatsDesc}.\n\nPlease review the details on the proposal card below and click **"Confirm & Proceed to Payment"** to complete your booking.\n\n${actionTag}`
+          : `Dạ Eve đã cập nhật đầy đủ thông tin người tham gia: ${attendeeListStr}${seatsDesc} rồi nhé.\n\nBạn hãy kiểm tra lại thông tin trên thẻ đề xuất bên dưới và nhấn nút **"Xác nhận & Đi tới Thanh toán"** để hoàn tất giữ chỗ và tiến hành thanh toán nha!\n\n${actionTag}`;
+
+        this._logConversationSample(messages, reply);
+        return {
+          role: 'assistant',
+          content: sanitizeAssistantResponse(reply, isEn)
+        };
+      } else {
+        const remainingNeeded = propQty - finalAttendees.length;
+        const attendeeListStr = finalAttendees.map(a => `**${a.name}** (${a.email})`).join(', ');
+        const reply = isEn
+          ? `Eve has recorded attendee info for: ${attendeeListStr}. Please provide the Full Name and Email for the remaining ${remainingNeeded} attendee(s) to complete your booking.\n\n${actionTag}`
+          : `Dạ Eve đã ghi nhận thông tin người tham gia: ${attendeeListStr} rồi nhé. Bạn vui lòng cung cấp thêm Họ tên và Email cho **${remainingNeeded} người tham gia còn lại** để Eve hoàn tất đề xuất cho bạn nha!\n\n${actionTag}`;
+
+        this._logConversationSample(messages, reply);
+        return {
+          role: 'assistant',
+          content: sanitizeAssistantResponse(reply, isEn)
+        };
+      }
     }
 
-    // Safety net for ACTION tags:
-    // If the requirements are met but the model did NOT emit the tool call (or hallucinated in text),
-    // automatically execute generatePrefillBookingAction deterministically!
-    let effectiveSeatedQty = seatedOrderQty || 1;
-    if (!toolExecutionContext.lastGeneratedActionTag && activeEvent) {
-      const needsToAskTier = hasMultiplePriceTiers && !hasSpecificPlacement && !hasSpecificTier && !wantsCheapestAll && !matchedTierInMsg;
-      if (isBookingFlowActive && !needsToAskTier && !isChangeTierInquiry) {
-        const effAutoQty = effQty;
+      if (isBookingFlowActive && !isChangeTierInquiry) {
+        // Customer specified row, tier, cheapest, or asked to book!
         const hasMultipleDetected = effDetectedTickets.length > 1;
         const ticketsArg = hasMultipleDetected ? effDetectedTickets.map(dt => ({
           ticketTypeId: dt.ticket.id,
           ticketTypeName: dt.ticket.name,
           quantity: dt.quantity
-        })) : undefined;
+        })) : null;
+
+        const ticketsParam = ticketsArg ? `, tickets: ${JSON.stringify(ticketsArg)}` : '';
         const targetTier = !hasMultipleDetected ? effTargetTier : null;
+        const tierParam = targetTier ? `, ticketTypeId: "${targetTier.id}", ticketTypeName: "${targetTier.name}"` : '';
+        const tierDesc = hasMultipleDetected
+          ? `, Các loại vé: ${effDetectedTickets.map(dt => `${dt.quantity} vé "${dt.ticket.name}" (${Number(dt.ticket.price).toLocaleString('vi-VN')} VNĐ)`).join(', ')}`
+          : (targetTier ? `, Hạng vé: "${targetTier.name}" (${Number(targetTier.price).toLocaleString('vi-VN')} VNĐ)` : '');
+        const excludeRowParam = excludeRow ? `, excludeRow: "${excludeRow}"` : '';
+        const rowParam = requestedRow ? `, preferredRow: "${requestedRow}"` : (isCenterInMsg ? ', preferredRow: "trung tâm"' : '');
+        const rowDesc = requestedRow ? `, Ưu tiên hàng: ${requestedRow}` : (excludeRow ? `, Đổi hàng khác (không lấy hàng ${excludeRow})` : (isCenterInMsg ? ', Ưu tiên hàng ghế trung tâm' : ''));
 
-        logger.info(`[AgentLoop] Auto-triggering proposeSmartBooking because user requested autonomous booking but model skipped tool call.`);
-        await this.executeTool(userId, 'proposeSmartBooking', {
-          eventId: activeEvent.slug,
-          sessionId: (sessionList?.[0]?.id || eventDetail?.sessions?.[0]?.id || activeEvent.sessions?.[0]?.id || ''),
-          quantity: effAutoQty,
-          preferredRow: requestedRow || (isCenterInMsg ? 'trung tâm' : ''),
-          ticketTypeId: targetTier?.id || null,
-          ticketTypeName: targetTier?.name || '',
-          tickets: ticketsArg
-        }, toolExecutionContext);
+        // DETERMINISTIC FAST-PATH FOR DIRECT / AUTONOMOUS BOOKING:
+        // Execute proposeSmartBooking immediately in 0.03s without waiting for heavy CPU LLM agent loop!
+        try {
+          let horizontalPrefInMsg = 'CENTER';
+          if (/(?:bên\s*trái|lệch\s*trái|phía\s*trái|tay\s*trái)/i.test(message) && !/(?:bị\s*lệch|quá\s*lệch|lệch\s*quá)/i.test(message)) {
+            horizontalPrefInMsg = 'LEFT';
+          } else if (/(?:bên\s*phải|lệch\s*phải|phía\s*phải|tay\s*phải)/i.test(message) && !/(?:bị\s*lệch|quá\s*lệch|lệch\s*quá)/i.test(message)) {
+            horizontalPrefInMsg = 'RIGHT';
+          }
+
+          const directToolRes = await this.executeTool(userId, 'proposeSmartBooking', {
+            eventId: activeEvent.slug,
+            sessionId: (lastProposal?.session?.id || sessionList?.[0]?.id || eventDetail?.sessions?.[0]?.id || activeEvent.sessions?.[0]?.id || activeSessionId || ''),
+            quantity: effQty,
+            preferredRow: requestedRow || (!excludeRow && prevRow ? prevRow : (isCenterInMsg ? 'trung tâm' : '')),
+            excludeRow: excludeRow || null,
+            excludeSeats: excludeSeatsInMsg.length > 0 ? excludeSeatsInMsg : undefined,
+            specificSeats: specificSeatsInMsg.length > 0 ? specificSeatsInMsg : undefined,
+            horizontalPreference: horizontalPrefInMsg !== 'CENTER' ? horizontalPrefInMsg : undefined,
+            ticketTypeId: targetTier?.id || null,
+            ticketTypeName: targetTier?.name || '',
+            tickets: ticketsArg || undefined
+          }, toolExecutionContext);
+
+          if (directToolRes?.error) {
+            const isEn = clientContext?.locale === 'en';
+            const errorMsg = isEn ? `Eve would like to inform you: ${directToolRes.error}` : `Dạ Eve xin thông báo: ${directToolRes.error}`;
+            return {
+              role: 'assistant',
+              content: sanitizeAssistantResponse(errorMsg, isEn)
+            };
+          }
+
+          if (directToolRes?.status === 'SUCCESS' && toolExecutionContext.lastGeneratedActionTag) {
+            const isEn = clientContext?.locale === 'en';
+            const seatsStr = directToolRes.proposal?.seats
+              ? (isEn ? `with seats: **[${directToolRes.proposal.seats}]**` : `với các vị trí ghế: **[${directToolRes.proposal.seats}]**`)
+              : '';
+            const totalStr = directToolRes.proposal?.totalAmount
+              ? (isEn
+                ? `, total payment: **${Number(directToolRes.proposal.totalAmount).toLocaleString('en-US')} VND**`
+                : `, tổng thanh toán: **${Number(directToolRes.proposal.totalAmount).toLocaleString('vi-VN')}đ**`)
+              : '';
+            const noteStr = directToolRes.proposal?.note ? `\n\n📌 **${directToolRes.proposal.note}**` : '';
+            const eventTitle = isEn && (eventDetail?.title_en || activeEvent.title_en) ? (eventDetail?.title_en || activeEvent.title_en) : (eventDetail?.title || activeEvent.title);
+            const directReply = isEn
+              ? `Eve has created a Smart Booking Proposal for **${eventTitle}** (Quantity: ${effQty} ${effQty > 1 ? 'tickets' : 'ticket'}) ${seatsStr}${totalStr}.${noteStr}\n\nPlease review the details on the proposal card below and click **"Confirm & Proceed to Payment"** to hold your seats. If you would like to change your seating or choose from the seat map, Eve is always happy to assist you.\n\n${toolExecutionContext.lastGeneratedActionTag}`
+              : `Dạ Eve đã tạo Đề Xuất Đặt Vé cho sự kiện **${activeEvent.title}** (Số lượng: ${effQty} vé) ${seatsStr}${totalStr} rồi nhé.${noteStr}\n\nBạn hãy kiểm tra lại thông tin trên thẻ đề xuất bên dưới và nhấn nút **"Xác nhận & Đi tới Thanh toán"** để giữ chỗ nha. Nếu bạn muốn đổi vị trí ghế hoặc tự chọn trên sơ đồ, Eve luôn sẵn lòng hỗ trợ bạn.\n\n${toolExecutionContext.lastGeneratedActionTag}`;
+
+            this._logConversationSample(messages, directReply);
+            return {
+              role: 'assistant',
+              content: sanitizeAssistantResponse(directReply, isEn)
+            };
+          }
+        } catch (directBookingErr) {
+          logger.warn(`[AiAssistant] Direct proposeSmartBooking error, falling back to agent loop: ${directBookingErr.message}`);
+        }
+
+        messages.push({
+          role: 'system',
+          content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng yêu cầu đặt vé tự động hoặc điều chỉnh ghế cho sự kiện "${activeEvent.title}" (Số lượng: ${effQty} vé${rowDesc}${tierDesc}).
+${!hasSpecificTier && hasMultiplePriceTiers && !matchedTierInMsg && !wantsCheapestInMsg ? `Khách chưa chọn hạng vé cụ thể -> Hệ thống tự động chọn hạng vé tiết kiệm nhất: "${cheapestTicket?.name}" (${Number(cheapestTicket?.price || 0).toLocaleString('vi-VN')} VNĐ). Sau khi gọi tool, bạn hãy giới thiệu rõ đã chọn trước hạng vé này cho khách và gợi ý khách có thể đổi sang các hạng khác nếu muốn nhé!` : ''}
+Bạn BẮT BUỘC PHẢI GỌI TOOL proposeSmartBooking({ eventId: "${activeEvent.slug}", sessionId: "${activeSessionId}", quantity: ${effQty}${ticketsParam}${rowParam}${excludeRowParam}${tierParam} }) để hệ thống phân bổ lại ghế tối ưu và tạo Đề Xuất Đặt Vé cho khách duyệt! TUYỆT ĐỐI không bảo khách tự mở sơ đồ chọn ghế khi khách đã nhờ đặt!`
+        });
+      } else if (activeEvent && isChangeTierInquiry && targetCandidateTickets.length > 1) {
+        messages.push({
+          role: 'system',
+          content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng muốn tham khảo hoặc đổi loại vé cho sự kiện "${activeEvent.title}".
+Danh sách các hạng vé hiện có:
+${targetCandidateTickets.map(t => `- Hạng vé: "${t.name}" - Giá: ${Number(t.price).toLocaleString('vi-VN')} VNĐ`).join('\n')}
+Bạn hãy liệt kê các hạng vé và mức giá trên một cách thân thiện và hỏi khách muốn đổi sang hạng vé nào để Eve hỗ trợ đặt cho bạn ngay nhé!`
+        });
+      } else if (activeEvent && isManualSeatMapRequest) {
+        messages.push({
+          role: 'system',
+          content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng muốn TỰ CHỌN GHẾ trên sơ đồ. Bạn hãy gọi tool generateBookingAction({ eventId: "${activeEvent.slug}", sessionId: "${activeSessionId}" }) để mở sơ đồ ghế cho khách!`
+        });
       }
 
-      let shouldAutoPrefill = false;
-      let autoPrefillQty = 1;
+      const msgClean = (message || '').trim().replace(/[\.\-\s\+]/g, '');
+      const isJustPhone = msgClean.length >= 9 && msgClean.length <= 13 && /^(?:84|0)[35789]\d{8}$|^0\d{9,10}$/.test(msgClean);
 
-      // Only auto-prefill manual seat map action if this is NOT an autonomous booking flow and NOT in the middle of asking about tiers!
-      if (!toolExecutionContext.lastGeneratedActionTag && !isBookingFlowActive && !needsToAskTier) {
-        if (hasSeatMap) {
-          if (effectivePhone && (!requireAttendeeInfo || (collectedAttendees.length >= seatedOrderQty && collectedAttendees.length > 0))) {
-            shouldAutoPrefill = true;
-            autoPrefillQty = seatedOrderQty;
-            effectiveSeatedQty = autoPrefillQty;
+      if (activeEvent && hasSeatMap) {
+        if (isJustPhone) {
+          if (!requireAttendeeInfo) {
+            messages.push({
+              role: 'system',
+              content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng vừa gửi số điện thoại liên hệ (${effectivePhone}). Sự kiện có sơ đồ chỗ ngồi và KHÔNG yêu cầu thông tin người tham gia. Bạn hãy cảm ơn khách và mở sơ đồ chọn ghế cho khách bằng cách gọi generateBookingAction({ eventId: "${activeEvent.slug}", sessionId: "${activeSessionId}" }). TUYỆT ĐỐI KHÔNG dùng từ "tool" hay "gọi tool" trong câu trả lời!`
+            });
+          } else {
+            if (collectedAttendees.length >= seatedOrderQty && collectedAttendees.length > 0) {
+              messages.push({
+                role: 'system',
+                content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng vừa gửi số điện thoại liên hệ (${effectivePhone}) và đã cung cấp đủ thông tin người tham gia cho cả ${seatedOrderQty} vé: [${collectedAttendees.slice(0, seatedOrderQty).map(a => `${a.name} - ${a.email}`).join('; ')}]. Bạn hãy gọi generatePrefillBookingAction({ eventId: "${activeEvent.slug}", sessionId: "${activeSessionId}", quantity: ${seatedOrderQty} }) để tạo nút chọn ghế trên sơ đồ cho khách! TUYỆT ĐỐI KHÔNG dùng từ "tool" hay "gọi tool" trong câu trả lời!`
+              });
+            } else {
+              messages.push({
+                role: 'system',
+                content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng vừa gửi số điện thoại liên hệ (${effectivePhone}). Bạn hãy cảm ơn khách đã gửi SĐT, TUYỆT ĐỐI KHÔNG HỎI LẠI SỐ ĐIỆN THOẠI NỮA. Sự kiện này có sơ đồ chỗ ngồi và có yêu cầu thông tin check-in riêng cho từng người tham gia. Bạn hãy hỏi khách muốn đặt mấy vé và xin Họ tên + Email của người tham gia (khách có thể nhắn "dùng thông tin của tôi" nếu tự đi một mình).`
+              });
+            }
+          }
+        } else if (requireAttendeeInfo) {
+          if (collectedAttendees.length >= seatedOrderQty && collectedAttendees.length > 0) {
+            messages.push({
+              role: 'system',
+              content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng đã cung cấp ĐỦ thông tin người tham gia cho cả ${seatedOrderQty} vé: [${collectedAttendees.slice(0, seatedOrderQty).map(a => `${a.name} - ${a.email}`).join('; ')}]. Thông tin người mua tự động lấy từ tài khoản: ${userProfile?.full_name || 'Khách hàng'} (${userProfile?.email || ''}, SĐT: ${effectivePhone}).
+Sự kiện có sơ đồ chỗ ngồi. Bạn BẮT BUỘC PHẢI GỌI TOOL generatePrefillBookingAction({ eventId: "${activeEvent.slug}", sessionId: "${activeSessionId}", quantity: ${seatedOrderQty} }) ngay lập tức để hoàn tất tạo thông tin vé cho khách!
+TUYỆT ĐỐI KHÔNG được trả lời dạng hứa hẹn "đang chuyển bạn đến trang thanh toán", "vui lòng đợi" mà BẮT BUỘC PHẢI GỌI TOOL generatePrefillBookingAction!`
+            });
+          }
+        }
+      } else if (activeEvent && !hasSeatMap) {
+        if (!hasChosenTickets) {
+          // Customer has NOT chosen ticket types and quantities yet!
+          // DO NOT ask for attendees or phone. Let the assistant introduce the schedule and ticket categories as requested.
+          if (isJustPhone) {
+            messages.push({
+              role: 'system',
+              content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng vừa gửi số điện thoại liên hệ (${effectivePhone}). Bạn hãy cảm ơn khách đã gửi SĐT, rồi giới thiệu các loại vé hiện có kèm giá vé và hỏi khách muốn đặt loại vé nào và số lượng bao nhiêu vé nhé! 🎭`
+            });
           }
         } else {
-          if (hasChosenTickets && Boolean(effectivePhone) && hasEnoughAttendees) {
-            shouldAutoPrefill = true;
-            autoPrefillQty = totalOrderQty;
+          // Customer HAS chosen tickets!
+          if (isJustPhone) {
+            if (!requireAttendeeInfo) {
+              messages.push({
+                role: 'system',
+                content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng vừa gửi số điện thoại liên hệ (${effectivePhone}). Thông tin người mua đã đầy đủ và sự kiện này KHÔNG yêu cầu thông tin người tham gia. Bạn PHẢI GỌI NGAY tool generatePrefillBookingAction với buyerPhone: "${effectivePhone}" để tạo liên kết xác nhận đặt vé cho khách! TUYỆT ĐỐI KHÔNG hỏi lại số điện thoại và KHÔNG hỏi thông tin người tham gia!`
+              });
+            } else {
+              if (hasEnoughAttendees) {
+                messages.push({
+                  role: 'system',
+                  content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng vừa gửi số điện thoại liên hệ (${effectivePhone}) và đã cung cấp đủ thông tin người tham gia cho cả ${totalOrderQty} vé: [${collectedAttendees.slice(0, totalOrderQty).map(a => `${a.name} - ${a.email}`).join('; ')}]. Thông tin người mua tự động lấy từ tài khoản (${userProfile?.full_name || 'Khách hàng'} - ${userProfile?.email || ''}). Bạn PHẢI GỌI NGAY tool generatePrefillBookingAction!`
+                });
+              } else {
+                messages.push({
+                  role: 'system',
+                  content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng vừa gửi số điện thoại liên hệ (${effectivePhone}). Bạn hãy cảm ơn khách đã gửi SĐT, TUYỆT ĐỐI KHÔNG HỎI LẠI SỐ ĐIỆN THOẠI NỮA. Vì sự kiện này có yêu cầu thông tin check-in riêng cho từng người tham gia (${totalOrderQty} vé), hiện tại khách ${collectedAttendees.length > 0 ? `mới chỉ cung cấp ${collectedAttendees.length} người: [${collectedAttendees.map(a => `${a.name} - ${a.email}`).join('; ')}]` : 'chưa cung cấp thông tin người tham gia'}. Bạn PHẢI yêu cầu khách cung cấp Họ và tên + Email cho ${totalOrderQty - collectedAttendees.length} vé còn lại:\n${getRemainingTicketsDescription(detectedTickets, collectedAttendees.length)}\nTUYỆT ĐỐI KHÔNG ĐƯỢC TỰ Ý HOÀN TẤT ĐẶT VÉ KHI THIẾU THÔNG TIN!`
+                });
+              }
+            }
+          } else if (!effectivePhone) {
+            messages.push({
+              role: 'system',
+              content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng đã chọn vé (${totalOrderQty} vé) nhưng tài khoản CHƯA CÓ số điện thoại liên hệ. Bạn hãy hỏi khách hàng số điện thoại liên hệ: "Dạ tài khoản của bạn hiện chưa có số điện thoại liên hệ. Bạn vui lòng cho Eve xin số điện thoại để Eve hoàn tất đặt vé giúp bạn nhé! 🥰". TUYỆT ĐỐI KHÔNG TỰ BỊA SỐ ĐIỆN THOẠI VÀ CHƯA GỌI TOOL generatePrefillBookingAction!`
+            });
+          } else if (requireAttendeeInfo) {
+            if (hasEnoughAttendees) {
+              messages.push({
+                role: 'system',
+                content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng đã cung cấp ĐỦ thông tin người tham gia cho tất cả ${totalOrderQty} vé: [${collectedAttendees.slice(0, totalOrderQty).map(a => `${a.name} - ${a.email}`).join('; ')}]. Thông tin người mua tự động lấy từ tài khoản: ${userProfile?.full_name || 'Khách hàng'} (${userProfile?.email || ''}, SĐT: ${effectivePhone}). Bạn BẮT BUỘC PHẢI GỌI TOOL generatePrefillBookingAction ngay lập tức để hoàn tất đặt vé! TUYỆT ĐỐI KHÔNG hỏi thêm gì nữa!`
+              });
+            } else {
+              messages.push({
+                role: 'system',
+                content: `[CHỈ DẪN HỆ THỐNG]: Khách hàng đặt ${totalOrderQty} vé. Sự kiện này BẮT BUỘC có thông tin check-in riêng cho từng người tham gia (chỉ người đó mới được vào, không thể đổi người khác).
+Hiện tại khách ${collectedAttendees.length > 0 ? `mới chỉ cung cấp ${collectedAttendees.length} người: [${collectedAttendees.map(a => `${a.name} - ${a.email}`).join('; ')}]` : 'chưa cung cấp thông tin người tham gia'}.
+VẪN CÒN THIẾU ${totalOrderQty - collectedAttendees.length} người tham gia!
+TUYỆT ĐỐI KHÔNG ĐƯỢC GỌI TOOL generatePrefillBookingAction!
+Bạn hãy ghi nhận thông tin đã có (nếu có), và YÊU CẦU KHÁCH CUNG CẤP TIẾP Họ tên + Email cho ${totalOrderQty - collectedAttendees.length} vé còn lại:
+${getRemainingTicketsDescription(detectedTickets, collectedAttendees.length)}`
+              });
+            }
           }
         }
       }
 
-      if (shouldAutoPrefill) {
-        logger.info(`[AgentLoop] Auto-triggering generatePrefillBookingAction (hasSeatMap=${hasSeatMap}, qty=${autoPrefillQty}) because all requirements are met but model skipped tool call.`);
-        await this.executeTool(userId, 'generatePrefillBookingAction', {
-          eventId: activeEvent.slug,
-          sessionId: (sessionList?.[0]?.id || eventDetail?.sessions?.[0]?.id || activeEvent.sessions?.[0]?.id || ''),
-          quantity: autoPrefillQty
-        }, toolExecutionContext);
+      const MAX_LOOPS = 5;
+      let loopsLeft = MAX_LOOPS;
+      let finalContent = "";
+      // toolExecutionContext was initialized above
+
+      while (loopsLeft > 0) {
+        const loopNum = MAX_LOOPS - loopsLeft + 1;
+        logger.info(`[AgentLoop] Loop ${loopNum} starting...`);
+
+        const lastMessage = messages[messages.length - 1];
+        const hasRecentToolResult = lastMessage && lastMessage.role === 'tool';
+        let activeTools = TOOLS;
+        if (hasRecentToolResult || isOutOfScope) {
+          activeTools = [];
+        } else if (activeEvent && !/(sự kiện khác|show khác|tìm sự kiện|tìm kiếm|xem sự kiện khác)/i.test(message)) {
+          // When user is currently in a booking flow for an active event, exclude searchEvents so model doesn't search for session/ticket terms
+          activeTools = TOOLS.filter(t => t.function.name !== 'searchEvents');
+
+          // Only allow generatePrefillBookingAction when customer has chosen tickets, has phone, and has provided enough attendees
+          const canPrefill = hasSeatMap
+            ? (Boolean(effectivePhone) && (!requireAttendeeInfo || (collectedAttendees.length >= seatedOrderQty && collectedAttendees.length > 0)))
+            : (hasChosenTickets && Boolean(effectivePhone) && hasEnoughAttendees);
+          if (!canPrefill) {
+            activeTools = activeTools.filter(t => t.function.name !== 'generatePrefillBookingAction');
+          }
+        }
+
+        let response = null;
+        try {
+          response = await ollamaClient.chat(messages, { tools: activeTools });
+        } catch (chatErr) {
+          logger.warn(`[AgentLoop] ollamaClient.chat with tools error: ${chatErr.message}`);
+          if (activeTools.length > 0) {
+            try {
+              logger.info(`[AgentLoop] Retrying ollamaClient.chat without tools...`);
+              response = await ollamaClient.chat(messages, { tools: [] });
+            } catch (retryErr) {
+              logger.error(`[AgentLoop] Retry without tools also failed: ${retryErr.message}`);
+            }
+          }
+        }
+
+        if (!response) {
+          const isEn = clientContext?.locale === 'en';
+          // Fallback: If Ollama is completely unreachable or timed out
+          if (toolExecutionContext.lastGeneratedActionTag) {
+            finalContent = isEn
+              ? `Eve has successfully created a booking proposal for you! Please review the details below and click "Confirm & Proceed to Payment"! 🎉\n\n${toolExecutionContext.lastGeneratedActionTag}`
+              : `Eve đã tạo đề xuất đặt vé thành công cho bạn rồi nhé! Bạn kiểm tra thông tin trên thẻ bên dưới và nhấn "Xác nhận & Đi tới Thanh toán" nhé! 🎉\n\n${toolExecutionContext.lastGeneratedActionTag}`;
+            break;
+          } else if (isBookingFlowActive && activeEvent) {
+            try {
+              logger.info(`[AgentLoop] Directly triggering proposeSmartBooking as AI model fallback...`);
+              await this.executeTool(userId, 'proposeSmartBooking', {
+                eventId: activeEvent.slug,
+                sessionId: lastProposal?.session?.id || activeSessionId,
+                quantity: effQty,
+                preferredRow: requestedRow || (!excludeRow && prevRow ? prevRow : (isCenterInMsg ? 'trung tâm' : '')),
+                excludeRow,
+                ticketTypeId: effTargetTier?.id,
+                ticketTypeName: effTargetTier?.name
+              }, toolExecutionContext);
+              if (toolExecutionContext.lastGeneratedActionTag) {
+                finalContent = isEn
+                  ? `Eve has successfully created a Smart Booking Proposal for you! 🎉 Please review the details on the card below and click "Confirm & Proceed to Payment"!\n\n${toolExecutionContext.lastGeneratedActionTag}`
+                  : `Eve đã tạo Đề xuất Đặt vé thành công cho bạn nè! 🎉 Bạn vui lòng kiểm tra thông tin trên thẻ đề xuất bên dưới và nhấn "Xác nhận & Đi tới Thanh toán" nhé!\n\n${toolExecutionContext.lastGeneratedActionTag}`;
+                break;
+              }
+            } catch (fbErr) {
+              logger.error(`[AgentLoop] Direct fallback proposeSmartBooking error: ${fbErr.message}`);
+            }
+          }
+
+          if (activeEvent && isEventInfoInquiry(message)) {
+            finalContent = formatEventDetailResponse(eventDetail, activeEvent, isEn);
+          } else if (isOutOfScope) {
+            finalContent = isEn
+              ? "Eve would love to help you with that, but EventHub specializes exclusively in live events, concert tickets, and creative workshops! If you ever need tickets or great weekend event recommendations, Eve is always here for you."
+              : "Dạ Eve rất muốn hỗ trợ bạn, nhưng EventHub chúng mình hiện chỉ chuyên về vé các sự kiện, concert và workshop nghệ thuật thôi nè. Nếu bạn muốn tìm vé xem show hay hoặc cần gợi ý sự kiện cuối tuần thì cứ nhắn Eve nhé.";
+          } else {
+            finalContent = isEn
+              ? "Eve is always ready to assist you with exploring events and booking tickets on EventHub! 🎉\n\nPlease let Eve know what event you are interested in or what you need assistance with!"
+              : "Dạ Eve luôn sẵn sàng đồng hành cùng bạn để khám phá sự kiện và hỗ trợ đặt vé nhanh nhất trên EventHub nè! 🥰\n\nBạn quan tâm đến sự kiện nào hoặc cần Eve hỗ trợ điều gì cứ nhắn Eve nhé! 🎉";
+          }
+          break;
+        }
+
+        let toolCalls = response.tool_calls || [];
+
+        // Fallback: If model returned empty content with tools enabled, re-run without tools
+        if (!response.content && toolCalls.length === 0 && activeTools.length > 0) {
+          logger.info(`[AgentLoop] Model returned empty with tools, retrying without tools...`);
+          try {
+            response = await ollamaClient.chat(messages, { tools: [] });
+            toolCalls = response.tool_calls || [];
+          } catch (emptyRetryErr) {
+            logger.warn(`[AgentLoop] Retrying empty content without tools error: ${emptyRetryErr.message}`);
+          }
+        }
+
+        logger.info(`[AgentLoop] Content: "${(response?.content || '').substring(0, 200)}"`);
+        logger.info(`[AgentLoop] Tool calls: ${JSON.stringify(toolCalls.map(tc => tc.function?.name || 'unknown'))}`);
+
+        // If model made tool calls → execute them and loop again
+        if (toolCalls.length > 0) {
+          // Push assistant message WITH tool_calls for Ollama's chat template
+          messages.push({
+            role: 'assistant',
+            content: response?.content || '',
+            tool_calls: toolCalls
+          });
+
+          for (const call of toolCalls) {
+            const toolName = call.function.name;
+            const toolArgs = call.function.arguments || {};
+            logger.info(`[AgentLoop] Executing tool: ${toolName} with args: ${JSON.stringify(toolArgs)}`);
+
+            const result = await this.executeTool(userId, toolName, toolArgs, toolExecutionContext);
+            logger.info(`[AgentLoop] Tool result: ${JSON.stringify(result).substring(0, 300)}`);
+
+            messages.push({
+              role: 'tool',
+              name: toolName,
+              tool_call_id: call.id,
+              content: JSON.stringify(result)
+            });
+          }
+
+          loopsLeft--;
+          continue;
+        }
+
+        // No tool calls → model is done, this is the final response
+        finalContent = response?.content || '';
+        logger.info(`[AgentLoop] Finished. Final content length: ${finalContent.length}`);
+        break;
       }
-    }
 
-    // If an action tool was executed (or auto-triggered),
-    // ensure that any truncated, corrupted, or missing action tag is cleaned up and replaced with the exact generated tag!
-    if (toolExecutionContext.lastGeneratedActionTag) {
-      // Remove any partial, truncated, or broken [ACTION:... from model output
-      finalContent = finalContent.replace(/\[ACTION:[A-Z_]+:?[\s\S]*?(?:\]|$)/gi, '').trim();
+      if (loopsLeft === 0 && !finalContent) {
+        logger.warn(`[AgentLoop] Max loops (${MAX_LOOPS}) exhausted!`);
+        finalContent = "Eve đã cố gắng tìm kiếm nhưng có vẻ thông tin hơi phức tạp. Bạn có thể cung cấp thêm chi tiết để Eve hỗ trợ tốt hơn không?";
+      }
 
-      // If the model ended with a pending/waiting phrase like "Vui lòng đợi một chút nhé", make it clear and helpful
-      const isEn = clientContext?.locale === 'en';
-      if (/vui lòng đợi|đang xử lý|đang chuyển|hãy đợi|chuyển bạn đến trang|please wait|processing/i.test(finalContent)) {
-        finalContent = finalContent.replace(/(?:👉\s*)?(?:\*{1,2})?(?:vui lòng đợi|đang xử lý|đang chuyển|hãy đợi|chuyển bạn đến trang|please wait|processing)[\s\S]*$/i, '').trim();
-        if (toolExecutionContext.lastGeneratedActionTag.includes('BOOKING_PROPOSAL')) {
-          finalContent += isEn
-            ? '\n\nEve has created a Smart Booking Proposal for you below. Please review the details on the card and click "Confirm & Proceed to Payment".'
-            : '\n\nEve đã tạo đề xuất đặt vé cho bạn rồi nè. Bạn kiểm tra thông tin trên thẻ bên dưới và nhấn "Xác nhận & Đi tới Thanh toán" nhé.';
-        } else if (hasSeatMap) {
-          finalContent += isEn
-            ? `\n\nEve has recorded attendee info for you. Please click the button below to select your ${effectiveSeatedQty} seat(s) on the seat map.`
-            : `\n\nEve đã ghi nhận thông tin người tham gia cho bạn rồi nhé. Bạn nhấn vào nút bên dưới để chọn đúng ${effectiveSeatedQty} vị trí ghế ưng ý trên sơ đồ, sau đó hệ thống sẽ tự động đưa bạn đến thẳng trang thanh toán nha.`;
-        } else {
-          finalContent += isEn
-            ? '\n\nEve has prepared ticket info for you. Please click the button below to proceed to checkout.'
-            : '\n\nEve đã tạo thông tin vé giúp bạn rồi nè. Bạn nhấn vào nút bên dưới để chuyển thẳng đến trang xác nhận và thanh toán vé nha.';
+      // Strip <think> blocks from the output (Qwen3 thinking mode)
+      finalContent = this._stripThinkBlocks(finalContent);
+
+      // Programmatic Grounding Sanitizer: Filter out any hallucinated event not in EventHub
+      finalContent = await this._sanitizeEventRecommendations(finalContent, activeEvent);
+
+      // Sanitize any Chinese characters leaked by Qwen foundation model
+      finalContent = finalContent
+        .replace(/電子信箱|电子邮箱|邮箱/gi, 'Email')
+        .replace(/[\u4e00-\u9fff]+/g, '')
+        .replace(/\s*\(?\s*Đang xử lý đặt vé[^\)]*\)?\s*/gi, '')
+        .replace(/^.*(?:tôi hiểu rồi|khi khách hàng muốn đặt|tôi sẽ thực hiện như sau).*$/gim, '')
+        .replace(/\[CHỈ DẪN HỆ THỐNG\][\s\S]*?(?=\n\n|$)/gi, '')
+        .replace(/TUYỆT ĐỐI KHÔNG GỌI TOOL[^\n]*/gi, '')
+        .trim();
+
+      // Convert any code-block function calls like ```javascript generateBookingAction(...)``` into actual action tag
+      if (finalContent.includes('generateBookingAction') && !finalContent.includes('[ACTION:BOOKING:')) {
+        const codeCallMatch = finalContent.match(/generateBookingAction\s*\(\s*\{([\s\S]*?)\}\s*\)/i);
+        if (codeCallMatch) {
+          const argsText = codeCallMatch[1];
+          const evMatch = argsText.match(/eventId\s*:\s*["']([^"']+)["']/i);
+          const sessMatch = argsText.match(/sessionId\s*:\s*["']([^"']+)["']/i);
+          const evId = evMatch ? evMatch[1] : (activeEvent?.slug || '');
+          const sessId = sessMatch ? sessMatch[1] : '';
+          if (evId) {
+            finalContent = finalContent.replace(/```[a-z]*\s*generateBookingAction\s*\([\s\S]*?\)\s*```/gi, '').trim();
+            finalContent += `\n\n[ACTION:BOOKING:${evId}${sessId ? `:${sessId}` : ''}]`;
+          }
         }
       }
 
-      finalContent += `\n\n${toolExecutionContext.lastGeneratedActionTag}`;
-    }
+      // Safety net for ACTION tags:
+      // If the requirements are met but the model did NOT emit the tool call (or hallucinated in text),
+      // automatically execute generatePrefillBookingAction deterministically!
+      let effectiveSeatedQty = seatedOrderQty || 1;
+      if (!toolExecutionContext.lastGeneratedActionTag && activeEvent) {
+        const needsToAskTier = hasMultiplePriceTiers && !hasSpecificPlacement && !hasSpecificTier && !wantsCheapestAll && !matchedTierInMsg;
+        if (isBookingFlowActive && !needsToAskTier && !isChangeTierInquiry) {
+          const effAutoQty = effQty;
+          const hasMultipleDetected = effDetectedTickets.length > 1;
+          const ticketsArg = hasMultipleDetected ? effDetectedTickets.map(dt => ({
+            ticketTypeId: dt.ticket.id,
+            ticketTypeName: dt.ticket.name,
+            quantity: dt.quantity
+          })) : undefined;
+          const targetTier = !hasMultipleDetected ? effTargetTier : null;
 
-    // Final safety net
-    if (!finalContent || finalContent.trim() === '') {
-      logger.info(`[AgentLoop] Empty content after stripping think blocks.`);
+          logger.info(`[AgentLoop] Auto-triggering proposeSmartBooking because user requested autonomous booking but model skipped tool call.`);
+          await this.executeTool(userId, 'proposeSmartBooking', {
+            eventId: activeEvent.slug,
+            sessionId: (lastProposal?.session?.id || sessionList?.[0]?.id || eventDetail?.sessions?.[0]?.id || activeEvent.sessions?.[0]?.id || ''),
+            quantity: effAutoQty,
+            preferredRow: requestedRow || (!excludeRow && prevRow ? prevRow : (isCenterInMsg ? 'trung tâm' : '')),
+            ticketTypeId: targetTier?.id || null,
+            ticketTypeName: targetTier?.name || '',
+            tickets: ticketsArg
+          }, toolExecutionContext);
+        }
+
+        let shouldAutoPrefill = false;
+        let autoPrefillQty = 1;
+
+        // Only auto-prefill manual seat map action if this is NOT an autonomous booking flow and NOT in the middle of asking about tiers!
+        if (!toolExecutionContext.lastGeneratedActionTag && !isBookingFlowActive && !needsToAskTier) {
+          if (hasSeatMap) {
+            if (effectivePhone && (!requireAttendeeInfo || (collectedAttendees.length >= seatedOrderQty && collectedAttendees.length > 0))) {
+              shouldAutoPrefill = true;
+              autoPrefillQty = seatedOrderQty;
+              effectiveSeatedQty = autoPrefillQty;
+            }
+          } else {
+            if (hasChosenTickets && Boolean(effectivePhone) && hasEnoughAttendees) {
+              shouldAutoPrefill = true;
+              autoPrefillQty = totalOrderQty;
+            }
+          }
+        }
+
+        if (shouldAutoPrefill) {
+          logger.info(`[AgentLoop] Auto-triggering generatePrefillBookingAction (hasSeatMap=${hasSeatMap}, qty=${autoPrefillQty}) because all requirements are met but model skipped tool call.`);
+          await this.executeTool(userId, 'generatePrefillBookingAction', {
+            eventId: activeEvent.slug,
+            sessionId: (sessionList?.[0]?.id || eventDetail?.sessions?.[0]?.id || activeEvent.sessions?.[0]?.id || ''),
+            quantity: autoPrefillQty
+          }, toolExecutionContext);
+        }
+      }
+
+      // If an action tool was executed (or auto-triggered),
+      // ensure that any truncated, corrupted, or missing action tag is cleaned up and replaced with the exact generated tag!
+      if (toolExecutionContext.lastGeneratedActionTag) {
+        // Remove any partial, truncated, or broken [ACTION:... from model output
+        finalContent = finalContent.replace(/\[ACTION:[A-Z_]+:?[\s\S]*?(?:\]|$)/gi, '').trim();
+
+        // If the model ended with a pending/waiting phrase like "Vui lòng đợi một chút nhé", make it clear and helpful
+        const isEn = clientContext?.locale === 'en';
+        if (/vui lòng đợi|đang xử lý|đang chuyển|hãy đợi|chuyển bạn đến trang|please wait|processing/i.test(finalContent)) {
+          finalContent = finalContent.replace(/(?:👉\s*)?(?:\*{1,2})?(?:vui lòng đợi|đang xử lý|đang chuyển|hãy đợi|chuyển bạn đến trang|please wait|processing)[\s\S]*$/i, '').trim();
+          if (toolExecutionContext.lastGeneratedActionTag.includes('BOOKING_PROPOSAL')) {
+            finalContent += isEn
+              ? '\n\nEve has created a Smart Booking Proposal for you below. Please review the details on the card and click "Confirm & Proceed to Payment".'
+              : '\n\nEve đã tạo đề xuất đặt vé cho bạn rồi nè. Bạn kiểm tra thông tin trên thẻ bên dưới và nhấn "Xác nhận & Đi tới Thanh toán" nhé.';
+          } else if (hasSeatMap) {
+            finalContent += isEn
+              ? `\n\nEve has recorded attendee info for you. Please click the button below to select your ${effectiveSeatedQty} seat(s) on the seat map.`
+              : `\n\nEve đã ghi nhận thông tin người tham gia cho bạn rồi nhé. Bạn nhấn vào nút bên dưới để chọn đúng ${effectiveSeatedQty} vị trí ghế ưng ý trên sơ đồ, sau đó hệ thống sẽ tự động đưa bạn đến thẳng trang thanh toán nha.`;
+          } else {
+            finalContent += isEn
+              ? '\n\nEve has prepared ticket info for you. Please click the button below to proceed to checkout.'
+              : '\n\nEve đã tạo thông tin vé giúp bạn rồi nè. Bạn nhấn vào nút bên dưới để chuyển thẳng đến trang xác nhận và thanh toán vé nha.';
+          }
+        }
+
+        finalContent += `\n\n${toolExecutionContext.lastGeneratedActionTag}`;
+      }
+
+      // Final safety net
+      if (!finalContent || finalContent.trim() === '') {
+        logger.info(`[AgentLoop] Empty content after stripping think blocks.`);
+        const isEn = clientContext?.locale === 'en';
+        finalContent = isEn
+          ? "Eve is always ready to assist you with exploring events and booking tickets on EventHub! 🎉\n\nPlease let Eve know which event you're interested in or need help booking tickets for."
+          : "Dạ Eve luôn sẵn sàng đồng hành cùng bạn để khám phá sự kiện và hỗ trợ đặt vé nhanh nhất trên EventHub nè.\n\nBạn quan tâm đến sự kiện nào hoặc cần Eve hỗ trợ điều gì cứ nhắn Eve nhé.";
+      }
+
+      const isEnMode = clientContext?.locale === 'en';
+      finalContent = sanitizeAssistantResponse(finalContent, isEnMode);
+
+      // Asynchronously log this conversation turn for continuous self-training
+      this._logConversationSample(messages, finalContent);
+
+      return {
+        role: 'assistant',
+        content: finalContent
+      };
+    } catch (fatalErr) {
+      logger.error(`[AiAssistant] Unhandled error in chat(): ${fatalErr.message}\n${fatalErr.stack}`);
       const isEn = clientContext?.locale === 'en';
-      finalContent = isEn
-        ? "Eve is always ready to assist you with exploring events and booking tickets on EventHub! 🎉\n\nPlease let Eve know which event you're interested in or need help booking tickets for."
-        : "Dạ Eve luôn sẵn sàng đồng hành cùng bạn để khám phá sự kiện và hỗ trợ đặt vé nhanh nhất trên EventHub nè.\n\nBạn quan tâm đến sự kiện nào hoặc cần Eve hỗ trợ điều gì cứ nhắn Eve nhé.";
-    }
-
-    finalContent = stripLinks(stripIcons(scrubTechnicalJargon(finalContent)));
-    const isEnMode = clientContext?.locale === 'en';
-    if (!isEnMode) {
-      finalContent = stripMixedEnglishInVietnamese(finalContent);
-    }
-
-    // Asynchronously log this conversation turn for continuous self-training
-    this._logConversationSample(messages, finalContent);
-
-    return {
-      role: 'assistant',
-      content: finalContent
-    };
-  } catch (fatalErr) {
-    logger.error(`[AiAssistant] Unhandled error in chat(): ${fatalErr.message}\n${fatalErr.stack}`);
-    const isEn = clientContext?.locale === 'en';
-    const normErr = normalizeText(message || '');
-    const isEventRelated = /(?:su\s*kien|event|show|workshop|ve|ghe|cho|ticket|seat|lich\s*dien|gia\s*ve|hoan\s*ve|thanh\s*toan|eventhub)/i.test(normErr);
-    if (!isEventRelated) {
+      const normErr = normalizeText(message || '');
+      const isEventRelated = /(?:su\s*kien|event|show|workshop|ve|ghe|cho|ticket|seat|lich\s*dien|gia\s*ve|hoan\s*ve|thanh\s*toan|eventhub)/i.test(normErr);
+      if (!isEventRelated) {
+        return {
+          role: 'assistant',
+          content: isEn
+            ? `Eve is EventHub's specialized AI Assistant, dedicated to helping you discover events, check ticket prices, and book tickets on EventHub.\n\nEve does not support buying physical goods or requests outside event tickets. Please let Eve know if you would like recommendations for concerts, exhibitions, or creative workshops!`
+            : `Dạ Eve là Trợ lý AI chuyên trách của nền tảng EventHub nên chỉ có thể hỗ trợ các thông tin về sự kiện, đặt vé và chính sách của hệ thống thôi nè.\n\nEve xin phép không hỗ trợ mua bán các sản phẩm/hàng hóa hoặc yêu cầu ngoài phạm vi vé sự kiện nhé. Bạn có muốn Eve giới thiệu các sự kiện âm nhạc, triển lãm hay workshop thú vị đang có trên EventHub không ạ?`
+        };
+      }
       return {
         role: 'assistant',
         content: isEn
-          ? `Eve is EventHub's specialized AI Assistant, dedicated to helping you discover events, check ticket prices, and book tickets on EventHub.\n\nEve does not support buying physical goods or requests outside event tickets. Please let Eve know if you would like recommendations for concerts, exhibitions, or creative workshops!`
-          : `Dạ Eve là Trợ lý AI chuyên trách của nền tảng EventHub nên chỉ có thể hỗ trợ các thông tin về sự kiện, đặt vé và chính sách của hệ thống thôi nè.\n\nEve xin phép không hỗ trợ mua bán các sản phẩm/hàng hóa hoặc yêu cầu ngoài phạm vi vé sự kiện nhé. Bạn có muốn Eve giới thiệu các sự kiện âm nhạc, triển lãm hay workshop thú vị đang có trên EventHub không ạ?`
+          ? 'Eve encountered a minor technical interruption while processing your request. Please message again or refresh the page (F5) so Eve can best assist you.'
+          : 'Dạ Eve vừa gặp một chút gián đoạn kỹ thuật khi xử lý yêu cầu. Bạn hãy nhắn lại hoặc tải lại trang web (F5) để Eve phục vụ bạn tốt nhất nhé.'
       };
     }
-    return {
-      role: 'assistant',
-      content: isEn
-        ? 'Eve encountered a minor technical interruption while processing your request. Please message again or refresh the page (F5) so Eve can best assist you.'
-        : 'Dạ Eve vừa gặp một chút gián đoạn kỹ thuật khi xử lý yêu cầu. Bạn hãy nhắn lại hoặc tải lại trang web (F5) để Eve phục vụ bạn tốt nhất nhé.'
-    };
   }
-}
 
   /**
    * Log meaningful conversation turns into ai/datasets/collected_chat_logs.jsonl for future model fine-tuning.
@@ -5283,7 +5480,7 @@ ${getRemainingTicketsDescription(detectedTickets, collectedAttendees.length)}`
           upcomingEvents = upRes.items || [];
         } catch { }
 
-        const eventListStr = upcomingEvents.map((e, idx) => 
+        const eventListStr = upcomingEvents.map((e, idx) =>
           `${idx + 1}. **${e.title}**\n   - Thể loại: ${e.category?.name || 'Sự kiện'}\n   - Giá vé từ: ${e.min_price ? Number(e.min_price).toLocaleString('vi-VN') + 'đ' : 'Liên hệ'}`
         ).join('\n\n');
 
@@ -5332,6 +5529,7 @@ serviceInstance.scrubTechnicalJargon = scrubTechnicalJargon;
 serviceInstance.stripIcons = stripIcons;
 serviceInstance.stripLinks = stripLinks;
 serviceInstance.stripMixedEnglishInVietnamese = stripMixedEnglishInVietnamese;
+serviceInstance.sanitizeAssistantResponse = sanitizeAssistantResponse;
 serviceInstance.getDirectFaqAnswer = getDirectFaqAnswer;
 
 module.exports = serviceInstance;

@@ -103,10 +103,16 @@ class SeatAllocationService {
     let availableSeats = (allSessionSeats || []).filter(s => isAvailableSeat(s));
 
     if (requestedTicketTypeId) {
+      let effectiveTierId = requestedTicketTypeId;
+      const reqTier = ticketTypes.find(t => String(t.id) === String(requestedTicketTypeId));
+      if (reqTier && reqTier.is_seated === false && sortedTicketTypes.length > 0) {
+        effectiveTierId = sortedTicketTypes[0].id;
+      }
+
       availableSeats = availableSeats.filter(s =>
         !s.ticket_type_ids ||
         s.ticket_type_ids.length === 0 ||
-        s.ticket_type_ids.map(String).includes(String(requestedTicketTypeId))
+        s.ticket_type_ids.map(String).includes(String(effectiveTierId))
       );
     } else if (cheapestOnly && sortedTicketTypes.length > 0) {
       const cheapestId = String(sortedTicketTypes[0].id);
