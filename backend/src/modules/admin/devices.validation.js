@@ -4,6 +4,10 @@ const deviceIdParamSchema = z.object({
   id: z.string().uuid('ID thiết bị không hợp lệ'),
 });
 
+const eventIdParamSchema = z.object({
+  eventId: z.string().uuid('ID sự kiện không hợp lệ'),
+});
+
 const listDevicesQuerySchema = z.object({
   status: z.enum(['ALL', 'PENDING', 'ACTIVE', 'DISABLED', 'REVOKED']).default('ALL'),
   online: z.enum(['ALL', 'ONLINE', 'OFFLINE']).default('ALL'),
@@ -21,23 +25,27 @@ const deviceHistoryQuerySchema = z.object({
 const approveDeviceSchema = z.object({
   name: z.string().trim().min(1, 'Vui lòng nhập tên thiết bị').max(120),
   assigned_event_id: z.string().uuid('Sự kiện được chọn không hợp lệ').nullable().optional(),
+  assigned_gate_id: z.string().uuid('Cổng check-in được chọn không hợp lệ').nullable().optional(),
   auto_confirm: z.boolean().default(false),
 });
 
 const updateDeviceSchema = z.object({
   name: z.string().trim().min(1, 'Tên thiết bị không được để trống').max(120).optional(),
   assigned_event_id: z.string().uuid('Sự kiện được chọn không hợp lệ').nullable().optional(),
+  assigned_gate_id: z.string().uuid('Cổng check-in được chọn không hợp lệ').nullable().optional(),
   auto_confirm: z.boolean().optional(),
 }).refine(
   (data) =>
     data.name !== undefined
     || data.assigned_event_id !== undefined
+    || data.assigned_gate_id !== undefined
     || data.auto_confirm !== undefined,
   { message: 'Vui lòng cung cấp ít nhất một thông tin cần cập nhật' },
 );
 
 module.exports = {
   deviceIdParamSchema,
+  eventIdParamSchema,
   listDevicesQuerySchema,
   deviceHistoryQuerySchema,
   approveDeviceSchema,

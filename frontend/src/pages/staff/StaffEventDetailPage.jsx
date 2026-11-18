@@ -4,8 +4,9 @@ import { Armchair, Calendar, Clock, DoorOpen, Layers, Loader2, MapPin, Users } f
 import { Link, useParams } from 'react-router-dom'
 import { fetchSessionSeats } from '@/services/events.js'
 import { fetchStaffCheckInReport } from '@/services/operations.js'
-import { Avatar, Badge, StaffPage, StaffPanel, StaffTable } from './StaffComponents.jsx'
+import { Avatar, Badge, StaffPage, StaffPanel } from './StaffComponents.jsx'
 import { SeatMapCanvas } from './StaffDirectBookingPage.jsx'
+import { SharedGateCheckInHistoryPanel } from './StaffQrCheckInPage.jsx'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
 import { cleanAndFormatVenue } from '@/i18n/eventTranslations.js'
 import { translatePhrase } from '@/i18n/phraseDictionary.js'
@@ -32,6 +33,7 @@ function formatDateTime(value) {
 
 function checkInMethodLabel(method) {
   const isEn = getAutoLocale() === 'en-US'
+  if (method === 'ESP32_QR') return isEn ? 'IoT Device (QR)' : 'Thiết bị IoT (QR)'
   if (method === 'QR') return isEn ? 'QR Scan' : 'Quét mã QR'
   return isEn ? 'Manual' : 'Thủ công'
 }
@@ -258,16 +260,7 @@ export function StaffEventDetailPage() {
       </div>
 
       <div className="mt-5">
-        <StaffTable
-          headers={['Thời gian', 'Người tham dự', 'Loại vé', 'Phương thức', 'Nhân sự thực hiện']}
-          rows={(report.recent_checkins || []).map((item) => [
-            formatDateTime(item.checked_in_at),
-            item.attendee_name,
-            item.ticket_type_name,
-            checkInMethodLabel(item.method),
-            item.checked_in_by_name || 'Chưa xác định',
-          ])}
-        />
+        <SharedGateCheckInHistoryPanel eventId={eventId} />
       </div>
     </StaffPage>
   )

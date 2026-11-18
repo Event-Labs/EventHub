@@ -32,6 +32,7 @@ const deviceHistoryQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(50).default(10),
   result: z.string().trim().max(40).optional().default('ALL'),
+  source: z.enum(['ALL', 'STAFF', 'IOT']).optional().default('ALL'),
   event_only: z
     .enum(['true', 'false'])
     .optional()

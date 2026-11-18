@@ -398,12 +398,12 @@ class OrganizerOrdersRepository {
    * - Overall totals (total tickets, checked in, valid, cancelled, check-in rate)
    * - Per-session breakdown
    * - Per-ticket-type breakdown
-   * - Recent check-ins (last 20)
+   * - Check-in timeline
    */
   async getCheckinStats(organizerId, eventId) {
     // Note: Event ownership is already asserted by organizerOrders.service.js
-    // Execute all 5 stats queries in parallel for high throughput and minimal latency
-    const [overallRes, bySessionRes, byTicketTypeRes, recentRes, timelineRes] = await Promise.all([
+    // Execute stats queries in parallel for high throughput and minimal latency
+    const [overallRes, bySessionRes, byTicketTypeRes, timelineRes] = await Promise.all([
       db.query(
         `
         SELECT
@@ -461,27 +461,6 @@ class OrganizerOrdersRepository {
       db.query(
         `
         SELECT
-          t.ticket_code,
-          t.attendee_name,
-          t.attendee_email,
-          t.checked_in_at,
-          tt.name AS ticket_type_name,
-          es.session_name
-        FROM tickets t
-        JOIN ticket_types tt ON tt.id = t.ticket_type_id
-        JOIN event_sessions es ON es.id = t.event_session_id
-        WHERE t.event_id = $1
-          AND t.status = 'USED'
-          AND t.checked_in_at IS NOT NULL
-        ORDER BY t.checked_in_at DESC
-        LIMIT 20
-        `,
-        [eventId],
-      ),
-
-      db.query(
-        `
-        SELECT
           t.checked_in_at
         FROM tickets t
         WHERE t.event_id = $1
@@ -514,8 +493,203 @@ class OrganizerOrdersRepository {
           ? Math.round((tt.checked_in / tt.total_tickets) * 100)
           : 0,
       })),
-      recent_checkins: recentRes.rows,
       checkin_timeline: timelineRes.rows.map((r) => r.checked_in_at),
+    };
+  }
+
+  async getCheckinHistory(
+    eventId,
+    { page = 1, limit = 10, result = 'OK', source = 'ALL', gateId = null } = {},
+  ) {
+    const safePage = Math.max(1, Number(page) || 1);
+    const safeLimit = Math.max(1, Math.min(100, Number(limit) || 10));
+    const offset = (safePage - 1) * safeLimit;
+    const includeAllScans = String(result || 'OK').toUpperCase() === 'ALL';
+    const normalizedSource = ['STAFF', 'IOT'].includes(String(source || 'ALL').toUpperCase())
+      ? String(source).toUpperCase()
+      : 'ALL';
+
+    const gatesRes = await db.query(
+      `
+      SELECT id, name
+      FROM event_gates
+      WHERE event_id = $1
+      ORDER BY sort_order ASC, name ASC
+      `,
+      [eventId],
+    );
+    const gates = gatesRes.rows || [];
+    const selectedGate = gateId ? gates.find((g) => g.id === gateId) : null;
+    const gateNameFilter = selectedGate?.name ? selectedGate.name.trim() : null;
+
+    const combinedCte = `
+      WITH ticket_history AS (
+        SELECT
+          t.id,
+          t.id AS ticket_id,
+          t.ticket_code,
+          COALESCE(t.attendee_name, o.buyer_name, 'Không rõ') AS attendee_name,
+          COALESCE(t.attendee_email, o.buyer_email) AS attendee_email,
+          tt.name AS ticket_type_name,
+          esess.session_name,
+          CASE
+            WHEN s.row_label IS NOT NULL OR s.seat_number IS NOT NULL
+              THEN CONCAT(COALESCE(s.row_label, ''), COALESCE(s.seat_number::text, ''))
+            ELSE NULL
+          END AS seat_label,
+          COALESCE(t.checkin_method, 'MANUAL') AS method,
+          CASE WHEN t.checked_in_device_id IS NOT NULL THEN 'IOT' ELSE 'STAFF' END AS source,
+          COALESCE(t.checked_in_device_id, t.checked_in_by) AS actor_id,
+          COALESCE(dev.name, dev.mac_address, checker.full_name, checker.email, 'Không rõ') AS actor_name,
+          COALESCE(t.checked_in_gate_id, dev.assigned_gate_id, checker_es.gate_id) AS gate_id,
+          COALESCE(t_gate.name, t.checked_in_gate, dev_gate.name, dev.assigned_gate, checker_gate.name, checker_es.gate) AS gate_name,
+          'OK'::varchar AS result,
+          NULL::varchar AS result_message,
+          t.checked_in_at
+        FROM tickets t
+        JOIN order_items oi ON oi.id = t.order_item_id
+        JOIN orders o ON o.id = oi.order_id
+        JOIN ticket_types tt ON tt.id = t.ticket_type_id
+        LEFT JOIN event_sessions esess ON esess.id = t.event_session_id
+        LEFT JOIN session_seats ss ON ss.id = COALESCE(t.session_seat_id, oi.session_seat_id)
+        LEFT JOIN seats s ON s.id = ss.seat_id
+        LEFT JOIN users checker ON checker.id = t.checked_in_by
+        LEFT JOIN event_staffs checker_es ON checker_es.event_id = t.event_id AND checker_es.staff_id = t.checked_in_by
+        LEFT JOIN event_gates checker_gate ON checker_gate.id = checker_es.gate_id
+        LEFT JOIN checkin_devices dev ON dev.id = t.checked_in_device_id
+        LEFT JOIN event_gates dev_gate ON dev_gate.id = dev.assigned_gate_id
+        LEFT JOIN event_gates t_gate ON t_gate.id = t.checked_in_gate_id
+        WHERE t.event_id = $1
+          AND t.status = 'USED'
+          AND (
+            $2::uuid IS NULL
+            OR COALESCE(t.checked_in_gate_id, dev.assigned_gate_id, checker_es.gate_id) = $2::uuid
+            OR (
+              $3::text IS NOT NULL
+              AND LOWER(TRIM(COALESCE(t_gate.name, t.checked_in_gate, dev_gate.name, dev.assigned_gate, checker_gate.name, checker_es.gate, ''))) = LOWER(TRIM($3::text))
+            )
+          )
+      ),
+      scan_logs AS (
+        SELECT
+          l.id,
+          l.ticket_id,
+          COALESCE(l.ticket_code, t.ticket_code, l.qr_code_raw) AS ticket_code,
+          COALESCE(l.attendee_name, t.attendee_name, o.buyer_name, 'Không rõ') AS attendee_name,
+          COALESCE(t.attendee_email, o.buyer_email) AS attendee_email,
+          tt.name AS ticket_type_name,
+          esess.session_name,
+          CASE
+            WHEN s.row_label IS NOT NULL OR s.seat_number IS NOT NULL
+              THEN CONCAT(COALESCE(s.row_label, ''), COALESCE(s.seat_number::text, ''))
+            ELSE NULL
+          END AS seat_label,
+          CASE
+            WHEN l.device_id IS NOT NULL THEN 'ESP32_QR'::varchar
+            WHEN UPPER(COALESCE(l.action, '')) = 'MANUAL' THEN 'MANUAL'::varchar
+            ELSE 'QR'::varchar
+          END AS method,
+          CASE
+            WHEN l.source = 'STAFF' OR (l.device_id IS NULL AND l.staff_id IS NOT NULL) THEN 'STAFF'::text
+            ELSE 'IOT'::text
+          END AS source,
+          COALESCE(l.device_id, l.staff_id) AS actor_id,
+          CASE
+            WHEN l.source = 'STAFF' OR (l.device_id IS NULL AND l.staff_id IS NOT NULL)
+              THEN COALESCE(staff_u.full_name, staff_u.email, 'Nhân viên')
+            ELSE COALESCE(dev.name, dev.mac_address, 'Thiết bị IoT')
+          END AS actor_name,
+          COALESCE(l.gate_id, dev.assigned_gate_id, log_es.gate_id) AS gate_id,
+          COALESCE(l_gate.name, l.gate_name, dev_gate.name, dev.assigned_gate, log_es_gate.name, log_es.gate) AS gate_name,
+          l.result::varchar AS result,
+          l.message::varchar AS result_message,
+          l.scanned_at AS checked_in_at
+        FROM checkin_device_logs l
+        LEFT JOIN checkin_devices dev ON dev.id = l.device_id
+        LEFT JOIN users staff_u ON staff_u.id = l.staff_id
+        LEFT JOIN event_staffs log_es ON log_es.event_id = COALESCE(l.event_id, dev.assigned_event_id) AND log_es.staff_id = l.staff_id
+        LEFT JOIN event_gates log_es_gate ON log_es_gate.id = log_es.gate_id
+        LEFT JOIN event_gates dev_gate ON dev_gate.id = dev.assigned_gate_id
+        LEFT JOIN event_gates l_gate ON l_gate.id = l.gate_id
+        LEFT JOIN tickets t ON t.id = l.ticket_id
+        LEFT JOIN ticket_types tt ON tt.id = t.ticket_type_id
+        LEFT JOIN event_sessions esess ON esess.id = t.event_session_id
+        LEFT JOIN order_items oi ON oi.id = t.order_item_id
+        LEFT JOIN orders o ON o.id = oi.order_id
+        LEFT JOIN session_seats ss ON ss.id = COALESCE(t.session_seat_id, oi.session_seat_id)
+        LEFT JOIN seats s ON s.id = ss.seat_id
+        WHERE COALESCE(l.event_id, dev.assigned_event_id) = $1
+          AND (${includeAllScans ? 'true' : "l.result = 'OK'"})
+          AND (
+            $2::uuid IS NULL
+            OR COALESCE(l.gate_id, dev.assigned_gate_id, log_es.gate_id) = $2::uuid
+            OR (
+              $3::text IS NOT NULL
+              AND LOWER(TRIM(COALESCE(l_gate.name, l.gate_name, dev_gate.name, dev.assigned_gate, log_es_gate.name, log_es.gate, ''))) = LOWER(TRIM($3::text))
+            )
+          )
+          AND (
+            ${includeAllScans ? "l.result <> 'OK' OR " : ''}NOT EXISTS (
+              SELECT 1
+              FROM ticket_history th
+              WHERE (l.ticket_id IS NOT NULL AND th.ticket_id = l.ticket_id)
+                 OR (l.ticket_id IS NULL AND l.ticket_code IS NOT NULL AND th.ticket_code = l.ticket_code)
+            )
+          )
+      ),
+      combined AS (
+        SELECT * FROM ticket_history
+        UNION ALL
+        SELECT * FROM scan_logs
+      )
+    `;
+
+    const [countsRes, historyRes] = await Promise.all([
+      db.query(
+        `
+        ${combinedCte}
+        SELECT
+          COUNT(*)::int AS all_count,
+          COUNT(*) FILTER (WHERE combined.source <> 'IOT')::int AS staff_count,
+          COUNT(*) FILTER (WHERE combined.source = 'IOT')::int AS iot_count
+        FROM combined
+        `,
+        [eventId, gateId || null, gateNameFilter],
+      ),
+      db.query(
+        `
+        ${combinedCte}
+        SELECT *
+        FROM combined
+        WHERE ($4::text = 'ALL' OR combined.source = $4::text)
+        ORDER BY combined.checked_in_at DESC NULLS LAST
+        LIMIT $5 OFFSET $6
+        `,
+        [eventId, gateId || null, gateNameFilter, normalizedSource, safeLimit, offset],
+      ),
+    ]);
+
+    const countsRow = countsRes.rows[0] || { all_count: 0, staff_count: 0, iot_count: 0 };
+    const total = normalizedSource === 'STAFF'
+      ? countsRow.staff_count
+      : (normalizedSource === 'IOT' ? countsRow.iot_count : countsRow.all_count);
+    const totalPages = Math.max(1, Math.ceil(total / safeLimit));
+
+    return {
+      gates,
+      items: historyRes.rows,
+      counts: {
+        all: countsRow.all_count,
+        staff: countsRow.staff_count,
+        iot: countsRow.iot_count,
+      },
+      pagination: {
+        page: safePage,
+        limit: safeLimit,
+        total,
+        total_pages: totalPages,
+        has_more: safePage * safeLimit < total,
+      },
     };
   }
 

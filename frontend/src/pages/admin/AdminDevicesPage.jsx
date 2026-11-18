@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   CheckCircle2,
   Cpu,
+  DoorOpen,
   Edit3,
   Eye,
   Lock,
@@ -14,6 +15,7 @@ import {
   ShieldOff,
   Trash2,
   Unlock,
+  UserCheck,
   Wifi,
   WifiOff,
   Zap,
@@ -26,6 +28,7 @@ import {
   fetchAdminDeviceDetail,
   fetchAdminDeviceHistory,
   fetchAdminDevices,
+  fetchAssignableEventGates,
   fetchAssignableEvents,
   resetAdminDevicePairing,
   revokeAdminDevice,
@@ -137,6 +140,7 @@ const initialHistoryFilters = {
 const emptyConfigForm = {
   name: '',
   assigned_event_id: '',
+  assigned_gate_id: '',
   auto_confirm: false,
 }
 
@@ -349,6 +353,12 @@ export function AdminDevicesPage() {
     queryFn: fetchAssignableEvents,
   })
 
+  const configEventGatesQuery = useQuery({
+    queryKey: ['admin-device-event-gates', configForm.assigned_event_id],
+    queryFn: () => fetchAssignableEventGates(configForm.assigned_event_id),
+    enabled: Boolean(configModal.open && configForm.assigned_event_id),
+  })
+
   const detailQuery = useQuery({
     queryKey: ['admin-device-detail', detailDeviceId],
     queryFn: () => fetchAdminDeviceDetail(detailDeviceId),
@@ -393,6 +403,28 @@ export function AdminDevicesPage() {
       })),
     )
   }, [assignableEvents, isEnglish])
+
+  const selectedConfigEventGates = useMemo(() => {
+    if (!configForm.assigned_event_id) return []
+    if (Array.isArray(configEventGatesQuery.data)) return configEventGatesQuery.data
+    const ev = assignableEvents.find((item) => item.id === configForm.assigned_event_id)
+    return Array.isArray(ev?.gates) ? ev.gates : []
+  }, [configForm.assigned_event_id, configEventGatesQuery.data, assignableEvents])
+
+  const gateOptions = useMemo(() => {
+    const base = [
+      {
+        value: '',
+        label: isEnglish ? 'All gates (No specific gate)' : 'Tất cả cổng (Chưa phân cổng)',
+      },
+    ]
+    return base.concat(
+      selectedConfigEventGates.map((g) => ({
+        value: g.id,
+        label: g.name,
+      })),
+    )
+  }, [selectedConfigEventGates, isEnglish])
 
   const filterEventOptions = useMemo(() => {
     const base = [
@@ -480,6 +512,7 @@ export function AdminDevicesPage() {
     setConfigForm({
       name: device.name || '',
       assigned_event_id: device.assigned_event_id || '',
+      assigned_gate_id: device.assigned_gate_id || '',
       auto_confirm: Boolean(device.auto_confirm),
     })
     setConfigModal({ open: true, mode: 'approve', device })
@@ -489,6 +522,7 @@ export function AdminDevicesPage() {
     setConfigForm({
       name: device.name || '',
       assigned_event_id: device.assigned_event_id || '',
+      assigned_gate_id: device.assigned_gate_id || '',
       auto_confirm: Boolean(device.auto_confirm),
     })
     setConfigModal({ open: true, mode: 'edit', device })
@@ -512,6 +546,7 @@ export function AdminDevicesPage() {
     const payload = {
       name: trimmedName,
       assigned_event_id: configForm.assigned_event_id || null,
+      assigned_gate_id: configForm.assigned_event_id ? (configForm.assigned_gate_id || null) : null,
       auto_confirm: Boolean(configForm.auto_confirm),
     }
 
@@ -678,14 +713,24 @@ export function AdminDevicesPage() {
         </div>
       </div>,
 
-      // 4. Assigned Event
-      <div key="event" className="max-w-[230px]">
+      // 4. Assigned Event & Gate
+      <div key="event" className="max-w-[230px] space-y-1">
         {device.assigned_event_id && device.event_title ? (
           <>
             <p className="truncate font-semibold text-white [html.light_&]:text-[#0D1B2A]" title={device.event_title}>
               {device.event_title}
             </p>
             <p className="truncate font-mono text-[11px] text-slate-400">{device.event_slug}</p>
+            {device.assigned_gate ? (
+              <span className="inline-flex items-center gap-1 rounded-md border border-purple-400/35 bg-purple-500/15 px-2 py-0.5 text-[11px] font-bold text-purple-300 [html.light_&]:text-purple-700">
+                <DoorOpen className="size-3" />
+                {device.assigned_gate}
+              </span>
+            ) : (
+              <span className="inline-block text-[11px] text-slate-500">
+                {isEnglish ? 'All gates' : 'Tất cả cổng'}
+              </span>
+            )}
           </>
         ) : (
           <Badge tone="gray">{isEnglish ? 'Unassigned' : 'Chưa gán sự kiện'}</Badge>
@@ -943,7 +988,13 @@ export function AdminDevicesPage() {
               </span>
               <CosmicSelect
                 value={configForm.assigned_event_id}
-                onChange={(val) => setConfigForm((prev) => ({ ...prev, assigned_event_id: val }))}
+                onChange={(val) =>
+                  setConfigForm((prev) => ({
+                    ...prev,
+                    assigned_event_id: val,
+                    assigned_gate_id: val === prev.assigned_event_id ? prev.assigned_gate_id : '',
+                  }))
+                }
                 options={eventOptions}
                 className="w-full"
                 buttonClassName="w-full"
@@ -952,6 +1003,33 @@ export function AdminDevicesPage() {
                 {isEnglish
                   ? 'The device will reject tickets belonging to any other event (WRONG_EVENT).'
                   : 'Thiết bị sẽ từ chối ngay lập tức nếu vé không thuộc sự kiện đang gán.'}
+              </p>
+            </div>
+
+            <div>
+              <span className="mb-2 block text-xs font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">
+                {isEnglish ? 'Assigned Check-in Gate' : 'Cổng check-in được phân công'}
+              </span>
+              <CosmicSelect
+                value={configForm.assigned_gate_id}
+                onChange={(val) => setConfigForm((prev) => ({ ...prev, assigned_gate_id: val }))}
+                options={gateOptions}
+                disabled={!configForm.assigned_event_id || configEventGatesQuery.isLoading}
+                className="w-full"
+                buttonClassName="w-full"
+              />
+              <p className="mt-1.5 text-xs text-slate-400">
+                {!configForm.assigned_event_id
+                  ? (isEnglish
+                      ? 'Select an event first to choose from its saved gates.'
+                      : 'Chọn sự kiện trước để chọn cổng đã được Organizer lưu trong hệ thống.')
+                  : selectedConfigEventGates.length === 0
+                    ? (isEnglish
+                        ? 'This event has no gates configured by the organizer yet.'
+                        : 'Sự kiện này chưa có cổng nào được Organizer thiết lập.')
+                    : (isEnglish
+                        ? 'IoT devices and staff assigned to the same gate share check-in history automatically.'
+                        : 'Thiết bị IoT và nhân sự chung cổng sẽ tự động hiển thị lịch sử check-in của nhau.')}
               </p>
             </div>
 
@@ -1006,6 +1084,12 @@ export function AdminDevicesPage() {
                 <p className="mt-0.5 truncate font-mono text-[11px] text-slate-400">
                   ID: {detailQuery.data.device.id}
                 </p>
+                {detailQuery.data.device.assigned_gate && (
+                  <p className="mt-1.5 inline-flex items-center gap-1 rounded-md border border-purple-400/35 bg-purple-500/15 px-2 py-0.5 text-[11px] font-bold text-purple-300 [html.light_&]:text-purple-700">
+                    <DoorOpen className="size-3" />
+                    {isEnglish ? 'Gate:' : 'Cổng:'} {detailQuery.data.device.assigned_gate}
+                  </p>
+                )}
               </div>
 
               <div className="rounded-xl border border-white/10 bg-[#121c38] p-3.5 [html.light_&]:border-slate-200 [html.light_&]:bg-slate-50">
@@ -1044,6 +1128,16 @@ export function AdminDevicesPage() {
 
               return (
                 <div className="space-y-3">
+                  {detailQuery.data.device.assigned_gate && (
+                    <div className="flex items-center gap-2 rounded-xl border border-purple-400/30 bg-purple-500/10 px-3.5 py-2 text-xs font-semibold text-purple-200 [html.light_&]:text-purple-800">
+                      <DoorOpen className="size-4 shrink-0 text-purple-400" />
+                      <span>
+                        {isEnglish
+                          ? `Shared gate history active for "${detailQuery.data.device.assigned_gate}" — includes both IoT and Staff check-ins at this gate.`
+                          : `Đang đồng bộ lịch sử cùng cổng "${detailQuery.data.device.assigned_gate}" — hiển thị cả lượt check-in của IoT và nhân sự (Staff) tại cổng này.`}
+                      </span>
+                    </div>
+                  )}
                   <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
                     <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 [html.light_&]:border-slate-200 [html.light_&]:bg-slate-50">
                       <p className="text-[11px] font-bold uppercase text-slate-400">
@@ -1146,6 +1240,9 @@ export function AdminDevicesPage() {
                                 {isEnglish ? 'Event' : 'Sự kiện'}
                               </th>
                               <th className="bg-[#172242] px-3 py-2.5 text-center text-sm font-bold text-white [html.light_&]:bg-slate-100 [html.light_&]:text-[#0D1B2A]">
+                                {isEnglish ? 'Source' : 'Nguồn'}
+                              </th>
+                              <th className="bg-[#172242] px-3 py-2.5 text-center text-sm font-bold text-white [html.light_&]:bg-slate-100 [html.light_&]:text-[#0D1B2A]">
                                 {isEnglish ? 'Result' : 'Kết quả'}
                               </th>
                               <th className="bg-[#172242] px-3 py-2.5 text-center text-sm font-bold text-white [html.light_&]:bg-slate-100 [html.light_&]:text-[#0D1B2A]">
@@ -1178,6 +1275,26 @@ export function AdminDevicesPage() {
                                   </td>
                                   <td className="px-3 py-2 text-center text-slate-300 [html.light_&]:text-slate-700">
                                     {item.event_title || item.event_code || '—'}
+                                  </td>
+                                  <td className="px-3 py-2 text-center">
+                                    <div className="flex flex-col items-center gap-0.5">
+                                      {item.source === 'STAFF' ? (
+                                        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/35 bg-emerald-500/15 px-2 py-0.5 text-[11px] font-bold text-emerald-300 [html.light_&]:text-emerald-700">
+                                          <UserCheck className="size-3" />
+                                          Staff
+                                        </span>
+                                      ) : (
+                                        <span className="inline-flex items-center gap-1 rounded-full border border-cyan-400/35 bg-cyan-500/15 px-2 py-0.5 text-[11px] font-bold text-cyan-300 [html.light_&]:text-cyan-700">
+                                          <Cpu className="size-3" />
+                                          IoT
+                                        </span>
+                                      )}
+                                      {item.actor_name && (
+                                        <span className="max-w-[130px] truncate text-[11px] text-slate-400" title={item.actor_name}>
+                                          {item.actor_name}
+                                        </span>
+                                      )}
+                                    </div>
                                   </td>
                                   <td className="px-3 py-2 text-center">
                                     <div className="flex flex-col items-center justify-center">

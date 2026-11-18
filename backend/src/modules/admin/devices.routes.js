@@ -8,6 +8,7 @@ router.use(protect, authorize('ADMIN', 'admin', 'SUPER_ADMIN', 'super_admin'));
 
 router.get('/', adminDevicesController.list);
 router.get('/events', adminDevicesController.listEvents);
+router.get('/events/:eventId/gates', adminDevicesController.listEventGates);
 router.get('/:id', adminDevicesController.detail);
 router.get('/:id/history', adminDevicesController.history);
 router.post('/:id/approve', adminDevicesController.approve);

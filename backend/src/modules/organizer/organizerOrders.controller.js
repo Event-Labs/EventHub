@@ -7,6 +7,7 @@ const {
   eventIdParamSchema,
   financialSummarySchema,
   listAttendeesSchema,
+  checkinHistoryQuerySchema,
 } = require('./organizerOrders.validation');
 
 class OrganizerOrdersController {
@@ -130,6 +131,24 @@ class OrganizerOrdersController {
       res.status(200).json(ApiResponse.success(data, 'Check-in stats fetched successfully'));
     } catch (err) {
       logger.error('[OrganizerOrdersController] getCheckinStats error:', err);
+      next(err);
+    }
+  };
+
+  getCheckinHistory = async (req, res, next) => {
+    try {
+      const { eventId } = eventIdParamSchema.parse(req.params);
+      const query = checkinHistoryQuerySchema.parse(req.query);
+      const data = await organizerOrdersService.getCheckinHistory(req.user.sub, eventId, {
+        page: query.page,
+        limit: query.limit,
+        result: query.result,
+        source: query.source,
+        gateId: query.gate_id || null,
+      });
+      res.status(200).json(ApiResponse.success(data, 'Check-in history fetched successfully'));
+    } catch (err) {
+      logger.error('[OrganizerOrdersController] getCheckinHistory error:', err);
       next(err);
     }
   };

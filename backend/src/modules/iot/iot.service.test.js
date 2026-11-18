@@ -701,6 +701,66 @@ describe('IoT Check-in Device Flow', () => {
         ],
       });
     });
+
+    it('includes shared gate staff check-ins when IoT device is assigned to a gate', async () => {
+      const gatedDevice = {
+        ...activeDevice,
+        assigned_gate_id: '44444444-4444-4444-8444-444444444444',
+        assigned_gate: 'Cổng A',
+      };
+      mockIotRepository.queryDeviceHistory.mockResolvedValue({
+        items: [
+          {
+            id: 'ticket-staff-1',
+            source: 'STAFF',
+            actor_name: 'Nguyen Staff',
+            gate_name: 'Cổng A',
+            ticket_code: 'TCK-STAFF-1',
+            attendee_name: 'Khach Hang B',
+            event_id: gatedDevice.assigned_event_id,
+            event_code: 'tech-2026',
+            event_title: 'Tech Summit 2026',
+            action: 'qr',
+            result: 'OK',
+            success: true,
+            message: 'Staff check-in: Nguyen Staff',
+            scanned_at: '2026-11-18T15:00:00.000Z',
+          },
+        ],
+        total: 1,
+        page: 1,
+        limit: 10,
+        total_pages: 1,
+      });
+      mockIotRepository.getDeviceHistoryStats.mockResolvedValue({
+        total_scans: 1,
+        ok_count: 1,
+        verified_count: 0,
+        failed_count: 0,
+      });
+
+      const res = await iotService.getDeviceHistory(gatedDevice, { page: 1, limit: 10, result: 'ALL' });
+
+      expect(mockIotRepository.queryDeviceHistory).toHaveBeenCalledWith(gatedDevice.id, {
+        page: 1,
+        limit: 10,
+        result: 'ALL',
+        eventId: '',
+        includeSharedGate: true,
+        assignedEventId: gatedDevice.assigned_event_id,
+        assignedGateId: gatedDevice.assigned_gate_id,
+        assignedGate: 'Cổng A',
+      });
+      expect(res.httpStatus).toBe(200);
+      expect(res.body.shared_gate_history).toBe(true);
+      expect(res.body.gate_name).toBe('Cổng A');
+      expect(res.body.items[0]).toMatchObject({
+        source: 'STAFF',
+        actor_name: 'Nguyen Staff',
+        gate_name: 'Cổng A',
+        ticket_code: 'TCK-STAFF-1',
+      });
+    });
   });
 
   describe('extractClientIp', () => {

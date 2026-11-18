@@ -12,6 +12,8 @@ const SAFE_DEVICE_SELECT = `
     d.pairing_code,
     d.pairing_expires_at,
     d.assigned_event_id,
+    d.assigned_gate_id,
+    COALESCE(eg.name, d.assigned_gate) AS assigned_gate,
     d.auto_confirm,
     d.config_version,
     d.firmware_version,
@@ -37,6 +39,7 @@ const SAFE_DEVICE_SELECT = `
     COALESCE(ticket_stats.checked_in_count, 0)::int AS checked_in_count
   FROM checkin_devices d
   LEFT JOIN events e ON e.id = d.assigned_event_id AND e.deleted_at IS NULL
+  LEFT JOIN event_gates eg ON eg.id = d.assigned_gate_id
   LEFT JOIN organizers org ON org.id = e.organizer_id
   LEFT JOIN users ou ON ou.id = org.user_id
   LEFT JOIN users approver ON approver.id = d.approved_by
@@ -141,10 +144,25 @@ class AdminDevicesRepository {
         e.approval_status,
         e.start_time,
         e.end_time,
-        COALESCE(o.organization_name, ou.full_name) AS organizer_name
+        COALESCE(o.organization_name, ou.full_name) AS organizer_name,
+        COALESCE(gate_summary.gates, '[]'::json) AS gates
       FROM events e
       JOIN organizers o ON o.id = e.organizer_id
       LEFT JOIN users ou ON ou.id = o.user_id
+      LEFT JOIN LATERAL (
+        SELECT json_agg(
+          json_build_object(
+            'id', eg.id,
+            'event_id', eg.event_id,
+            'name', eg.name,
+            'description', eg.description,
+            'sort_order', eg.sort_order
+          )
+          ORDER BY eg.sort_order ASC, eg.created_at ASC
+        ) AS gates
+        FROM event_gates eg
+        WHERE eg.event_id = e.id
+      ) gate_summary ON true
       WHERE e.deleted_at IS NULL
         AND (
           e.status = 'PUBLISHED'
@@ -156,6 +174,32 @@ class AdminDevicesRepository {
       `,
     );
     return rows;
+  }
+
+  async listEventGates(eventId) {
+    const { rows } = await db.query(
+      `
+      SELECT id, event_id, name, description, sort_order
+      FROM event_gates
+      WHERE event_id = $1
+      ORDER BY sort_order ASC, created_at ASC
+      `,
+      [eventId],
+    );
+    return rows;
+  }
+
+  async findEventGateById(eventId, gateId) {
+    const { rows } = await db.query(
+      `
+      SELECT id, event_id, name, description, sort_order
+      FROM event_gates
+      WHERE event_id = $1 AND id = $2
+      LIMIT 1
+      `,
+      [eventId, gateId],
+    );
+    return rows[0] || null;
   }
 
   async findAssignableEventById(eventId) {
@@ -192,35 +236,54 @@ class AdminDevicesRepository {
     return rows[0] || null;
   }
 
-  async getRecentCheckIns(deviceId, limit = 20) {
-    const history = await iotRepository.queryDeviceHistory(deviceId, { page: 1, limit });
+  async getRecentCheckIns(deviceId, limit = 20, sharedGateCtx = null) {
+    const history = await iotRepository.queryDeviceHistory(deviceId, {
+      page: 1,
+      limit,
+      ...(sharedGateCtx || {}),
+    });
     return history.items;
   }
 
-  async getDeviceHistory(deviceId, filters = {}) {
-    return iotRepository.queryDeviceHistory(deviceId, filters);
+  async getDeviceHistory(deviceId, filters = {}, sharedGateCtx = null) {
+    return iotRepository.queryDeviceHistory(deviceId, {
+      ...filters,
+      ...(sharedGateCtx || {}),
+    });
   }
 
-  async getDeviceHistoryStats(deviceId) {
-    return iotRepository.getDeviceHistoryStats(deviceId);
+  async getDeviceHistoryStats(deviceId, sharedGateCtx = null) {
+    return iotRepository.getDeviceHistoryStats(deviceId, sharedGateCtx || {});
   }
 
   async approveDevice(
     id,
-    { name, assignedEventId, autoConfirm, secretHash, pendingSecretPlain, pendingSecretExpiresAt, approvedBy },
+    {
+      name,
+      assignedEventId,
+      assignedGateId = null,
+      assignedGate = null,
+      autoConfirm,
+      secretHash,
+      pendingSecretPlain,
+      pendingSecretExpiresAt,
+      approvedBy,
+    },
   ) {
     const { rows } = await db.query(
       `
       UPDATE checkin_devices
       SET name = $2,
           assigned_event_id = $3,
-          auto_confirm = $4,
+          assigned_gate_id = $4,
+          assigned_gate = $5,
+          auto_confirm = $6,
           status = 'ACTIVE',
-          secret_hash = $5,
-          pending_secret_plain = $6,
-          pending_secret_expires_at = $7,
+          secret_hash = $7,
+          pending_secret_plain = $8,
+          pending_secret_expires_at = $9,
           config_version = config_version + 1,
-          approved_by = $8,
+          approved_by = $10,
           approved_at = now(),
           updated_at = now()
       WHERE id = $1
@@ -230,6 +293,8 @@ class AdminDevicesRepository {
         id,
         name,
         assignedEventId || null,
+        assignedGateId || null,
+        assignedGate || null,
         Boolean(autoConfirm),
         secretHash,
         pendingSecretPlain,
@@ -241,7 +306,7 @@ class AdminDevicesRepository {
     return this.findById(id);
   }
 
-  async updateDeviceConfig(id, { name, assignedEventId, autoConfirm }) {
+  async updateDeviceConfig(id, { name, assignedEventId, assignedGateId, assignedGate, autoConfirm }) {
     const sets = ['config_version = config_version + 1', 'updated_at = now()'];
     const params = [id];
 
@@ -253,6 +318,16 @@ class AdminDevicesRepository {
     if (assignedEventId !== undefined) {
       params.push(assignedEventId);
       sets.push(`assigned_event_id = $${params.length}`);
+    }
+
+    if (assignedGateId !== undefined) {
+      params.push(assignedGateId);
+      sets.push(`assigned_gate_id = $${params.length}`);
+    }
+
+    if (assignedGate !== undefined) {
+      params.push(assignedGate);
+      sets.push(`assigned_gate = $${params.length}`);
     }
 
     if (autoConfirm !== undefined) {
@@ -317,6 +392,8 @@ class AdminDevicesRepository {
           pairing_code = NULL,
           pairing_expires_at = NULL,
           assigned_event_id = NULL,
+          assigned_gate_id = NULL,
+          assigned_gate = NULL,
           config_version = config_version + 1,
           updated_at = now()
       WHERE id = $1

@@ -25,15 +25,36 @@ class AdminDevicesService {
     return adminDevicesRepository.listAssignableEvents();
   }
 
+  async listEventGates(eventId) {
+    return adminDevicesRepository.listEventGates(eventId);
+  }
+
+  buildSharedGateContext(device) {
+    if (!device?.assigned_event_id || (!device?.assigned_gate_id && !device?.assigned_gate)) {
+      return null;
+    }
+    return {
+      includeSharedGate: true,
+      assignedEventId: device.assigned_event_id,
+      assignedGateId: device.assigned_gate_id || null,
+      assignedGate: device.assigned_gate || null,
+    };
+  }
+
   async getDeviceDetail(id) {
     const device = await adminDevicesRepository.findById(id);
     if (!device) {
       throw new AppError('Không tìm thấy thiết bị check-in.', 404, ErrorCodes.RESOURCE_NOT_FOUND);
     }
 
+    const sharedGateCtx = this.buildSharedGateContext(device);
     const [recentCheckIns, scanStats] = await Promise.all([
-      adminDevicesRepository.getRecentCheckIns(id, 20),
-      adminDevicesRepository.getDeviceHistoryStats(id),
+      sharedGateCtx
+        ? adminDevicesRepository.getRecentCheckIns(id, 20, sharedGateCtx)
+        : adminDevicesRepository.getRecentCheckIns(id, 20),
+      sharedGateCtx
+        ? adminDevicesRepository.getDeviceHistoryStats(id, sharedGateCtx)
+        : adminDevicesRepository.getDeviceHistoryStats(id),
     ]);
 
     return {
@@ -49,9 +70,14 @@ class AdminDevicesService {
       throw new AppError('Không tìm thấy thiết bị check-in.', 404, ErrorCodes.RESOURCE_NOT_FOUND);
     }
 
+    const sharedGateCtx = this.buildSharedGateContext(device);
     const [history, stats] = await Promise.all([
-      adminDevicesRepository.getDeviceHistory(id, filters),
-      adminDevicesRepository.getDeviceHistoryStats(id),
+      sharedGateCtx
+        ? adminDevicesRepository.getDeviceHistory(id, filters, sharedGateCtx)
+        : adminDevicesRepository.getDeviceHistory(id, filters),
+      sharedGateCtx
+        ? adminDevicesRepository.getDeviceHistoryStats(id, sharedGateCtx)
+        : adminDevicesRepository.getDeviceHistoryStats(id),
     ]);
 
     return {
@@ -79,6 +105,18 @@ class AdminDevicesService {
     return event;
   }
 
+  async assertGateAssignable(eventId, gateId) {
+    if (!gateId) return null;
+    if (!eventId) {
+      throw new AppError('Vui lòng chọn sự kiện trước khi phân cổng cho thiết bị.', 400, ErrorCodes.INVALID_INPUT);
+    }
+    const gate = await adminDevicesRepository.findEventGateById(eventId, gateId);
+    if (!gate) {
+      throw new AppError('Cổng check-in được chọn không tồn tại hoặc không thuộc sự kiện này.', 400, ErrorCodes.INVALID_INPUT);
+    }
+    return gate;
+  }
+
   async approveDevice(id, adminUserId, payload) {
     const rawDevice = await adminDevicesRepository.findRawById(id);
     if (!rawDevice) {
@@ -101,6 +139,11 @@ class AdminDevicesService {
       await this.assertEventAssignable(payload.assigned_event_id);
     }
 
+    let resolvedGate = null;
+    if (payload.assigned_gate_id) {
+      resolvedGate = await this.assertGateAssignable(payload.assigned_event_id, payload.assigned_gate_id);
+    }
+
     const deviceSecret = generateRandomToken(32);
     const secretHash = sha256Hex(deviceSecret);
     const pendingSecretExpiresAt = new Date(Date.now() + PENDING_SECRET_TTL_MINUTES * 60 * 1000);
@@ -108,6 +151,8 @@ class AdminDevicesService {
     return adminDevicesRepository.approveDevice(id, {
       name: payload.name,
       assignedEventId: payload.assigned_event_id || null,
+      assignedGateId: resolvedGate?.id || null,
+      assignedGate: resolvedGate?.name || null,
       autoConfirm: Boolean(payload.auto_confirm),
       secretHash,
       pendingSecretPlain: deviceSecret,
@@ -130,9 +175,34 @@ class AdminDevicesService {
       await this.assertEventAssignable(payload.assigned_event_id);
     }
 
+    const effectiveEventId = payload.assigned_event_id !== undefined
+      ? payload.assigned_event_id
+      : rawDevice.assigned_event_id;
+    const eventChanged = payload.assigned_event_id !== undefined
+      && payload.assigned_event_id !== rawDevice.assigned_event_id;
+
+    let nextGateId;
+    let nextGateName;
+
+    if (payload.assigned_gate_id !== undefined) {
+      if (payload.assigned_gate_id) {
+        const resolvedGate = await this.assertGateAssignable(effectiveEventId, payload.assigned_gate_id);
+        nextGateId = resolvedGate.id;
+        nextGateName = resolvedGate.name;
+      } else {
+        nextGateId = null;
+        nextGateName = null;
+      }
+    } else if (eventChanged) {
+      nextGateId = null;
+      nextGateName = null;
+    }
+
     return adminDevicesRepository.updateDeviceConfig(id, {
       name: payload.name,
       assignedEventId: payload.assigned_event_id,
+      assignedGateId: nextGateId,
+      assignedGate: nextGateName,
       autoConfirm: payload.auto_confirm,
     });
   }

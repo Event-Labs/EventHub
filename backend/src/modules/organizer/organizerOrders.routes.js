@@ -16,6 +16,7 @@ router.post('/financial-summary', organizerOrdersController.generateFinancialSum
 router.get('/events/:eventId/attendees/export', organizerOrdersController.exportAttendees);
 router.get('/events/:eventId/attendees', organizerOrdersController.listAttendees);
 router.get('/events/:eventId/checkin-stats', organizerOrdersController.getCheckinStats);
+router.get('/events/:eventId/checkin-history', organizerOrdersController.getCheckinHistory);
 router.get('/:orderId', organizerOrdersController.getOrderDetail);
 
 module.exports = router;

@@ -10,6 +10,11 @@ export async function fetchAssignableEvents() {
   return response.data.data
 }
 
+export async function fetchAssignableEventGates(eventId) {
+  const response = await http.get(`/admin/devices/events/${eventId}/gates`)
+  return response.data.data
+}
+
 export async function fetchAdminDeviceDetail(deviceId) {
   const response = await http.get(`/admin/devices/${deviceId}`)
   return response.data.data

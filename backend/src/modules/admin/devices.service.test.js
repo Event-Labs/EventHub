@@ -2,6 +2,8 @@ const mockAdminDevicesRepository = {
   listDevices: jest.fn(),
   getStats: jest.fn(),
   listAssignableEvents: jest.fn(),
+  listEventGates: jest.fn(),
+  findEventGateById: jest.fn(),
   findAssignableEventById: jest.fn(),
   findById: jest.fn(),
   findRawById: jest.fn(),
@@ -123,6 +125,80 @@ describe('AdminDevicesService', () => {
       total_pages: 1,
     });
     expect(result.items).toHaveLength(1);
+  });
+
+  it('validates and assigns event gate when updating IoT device, and passes shared gate context to history', async () => {
+    const deviceId = '11111111-1111-4111-8111-111111111111';
+    const eventId = '22222222-2222-4222-8222-222222222222';
+    const gateId = '33333333-3333-4333-8333-333333333333';
+
+    mockAdminDevicesRepository.findRawById.mockResolvedValue({
+      id: deviceId,
+      status: 'ACTIVE',
+      assigned_event_id: eventId,
+    });
+    mockAdminDevicesRepository.findAssignableEventById.mockResolvedValue({
+      id: eventId,
+      status: 'PUBLISHED',
+    });
+    mockAdminDevicesRepository.findEventGateById.mockResolvedValue({
+      id: gateId,
+      event_id: eventId,
+      name: 'Cổng A',
+    });
+    mockAdminDevicesRepository.updateDeviceConfig.mockResolvedValue({
+      id: deviceId,
+      assigned_event_id: eventId,
+      assigned_gate_id: gateId,
+      assigned_gate: 'Cổng A',
+    });
+
+    const updated = await adminDevicesService.updateDevice(deviceId, {
+      assigned_event_id: eventId,
+      assigned_gate_id: gateId,
+    });
+
+    expect(updated.assigned_gate).toBe('Cổng A');
+    expect(mockAdminDevicesRepository.updateDeviceConfig).toHaveBeenCalledWith(deviceId, expect.objectContaining({
+      assignedEventId: eventId,
+      assignedGateId: gateId,
+      assignedGate: 'Cổng A',
+    }));
+
+    mockAdminDevicesRepository.findById.mockResolvedValue({
+      id: deviceId,
+      name: 'ESP32-1',
+      status: 'ACTIVE',
+      assigned_event_id: eventId,
+      assigned_gate_id: gateId,
+      assigned_gate: 'Cổng A',
+    });
+    mockAdminDevicesRepository.getDeviceHistory.mockResolvedValue({
+      items: [{ id: 'staff-ticket-1', source: 'STAFF', actor_name: 'Staff A', result: 'OK', success: true }],
+      total: 1,
+      page: 1,
+      limit: 20,
+      total_pages: 1,
+    });
+    mockAdminDevicesRepository.getDeviceHistoryStats.mockResolvedValue({
+      total_scans: 1,
+      ok_count: 1,
+      verified_count: 0,
+      failed_count: 0,
+    });
+
+    const history = await adminDevicesService.getDeviceHistory(deviceId, { page: 1, limit: 20 });
+    expect(mockAdminDevicesRepository.getDeviceHistory).toHaveBeenCalledWith(
+      deviceId,
+      { page: 1, limit: 20 },
+      {
+        includeSharedGate: true,
+        assignedEventId: eventId,
+        assignedGateId: gateId,
+        assignedGate: 'Cổng A',
+      },
+    );
+    expect(history.items[0].source).toBe('STAFF');
   });
 });
 

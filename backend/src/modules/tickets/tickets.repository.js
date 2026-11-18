@@ -16,6 +16,8 @@ const STAFF_TICKET_SELECT = `
     t.checked_in_at,
     t.checked_in_by,
     t.checked_in_device_id,
+    t.checked_in_gate_id,
+    COALESCE(checked_gate.name, t.checked_in_gate, dev_gate.name, dev.assigned_gate) AS checked_in_gate,
     t.checkin_method,
     e.id AS event_id,
     e.title AS event_title,
@@ -41,6 +43,8 @@ const STAFF_TICKET_SELECT = `
     checker.id AS checked_in_by_id,
     checker.full_name AS checked_in_by_name,
     checker.email AS checked_in_by_email,
+    COALESCE(dev.name, dev.mac_address) AS checked_in_device_name,
+    dev.mac_address AS checked_in_device_mac,
     ss.id AS session_seat_id,
     ss.status AS session_seat_status,
     s.id AS seat_id,
@@ -54,6 +58,9 @@ const STAFF_TICKET_SELECT = `
   JOIN event_sessions es ON es.id = t.event_session_id
   JOIN ticket_types tt ON tt.id = t.ticket_type_id
   LEFT JOIN users checker ON checker.id = t.checked_in_by
+  LEFT JOIN checkin_devices dev ON dev.id = t.checked_in_device_id
+  LEFT JOIN event_gates dev_gate ON dev_gate.id = dev.assigned_gate_id
+  LEFT JOIN event_gates checked_gate ON checked_gate.id = t.checked_in_gate_id
   LEFT JOIN session_seats ss ON ss.id = COALESCE(t.session_seat_id, oi.session_seat_id)
   LEFT JOIN seats s ON s.id = ss.seat_id
 `;
@@ -470,9 +477,11 @@ class TicketsRepository {
         `
         SELECT
           t.id,
+          t.ticket_code,
           t.status,
           t.event_id,
           t.checked_in_at,
+          COALESCE(t.attendee_name, o.buyer_name) AS attendee_name,
           e.organizer_id,
           e.status AS event_status,
           es.status AS session_status,
@@ -489,12 +498,24 @@ class TicketsRepository {
                 OR jsonb_array_length(staff_scope.session_ids) = 0
                 OR staff_scope.session_ids @> to_jsonb(t.event_session_id::text)
               )
-          ) AS has_staff_access
+          ) AS has_staff_access,
+          staff_gate.gate_id AS staff_gate_id,
+          staff_gate.gate_name AS staff_gate_name
         FROM tickets t
         JOIN event_sessions es ON es.id = t.event_session_id
         JOIN order_items oi ON oi.id = t.order_item_id
         JOIN orders o ON o.id = oi.order_id
         JOIN events e ON e.id = t.event_id
+        LEFT JOIN LATERAL (
+          SELECT
+            ss_es.gate_id,
+            COALESCE(ss_eg.name, ss_es.gate) AS gate_name
+          FROM event_staffs ss_es
+          LEFT JOIN event_gates ss_eg ON ss_eg.id = ss_es.gate_id
+          WHERE ss_es.event_id = t.event_id
+            AND ss_es.staff_id = $2
+          LIMIT 1
+        ) staff_gate ON true
         WHERE t.id = $1
           AND e.deleted_at IS NULL
         FOR UPDATE OF t
@@ -511,7 +532,7 @@ class TicketsRepository {
       // BR-RL-04, AC-SC-06: Staff must be assigned to this event
       if (!lockedTicket.has_staff_access) {
         await client.query('ROLLBACK');
-        return { state: 'FORBIDDEN_ACTION' };
+        return { state: 'FORBIDDEN_ACTION', ticket: lockedTicket };
       }
 
       // Manual checkin subscription guard
@@ -535,10 +556,18 @@ class TicketsRepository {
         SET status = 'USED',
             checked_in_at = now(),
             checked_in_by = $2,
-            checkin_method = $3
+            checkin_method = $3,
+            checked_in_gate_id = $4,
+            checked_in_gate = $5
         WHERE id = $1
         `,
-        [ticketId, staffId, method || 'QR'],
+        [
+          ticketId,
+          staffId,
+          method || 'QR',
+          lockedTicket.staff_gate_id || null,
+          lockedTicket.staff_gate_name || null,
+        ],
       );
 
       const ticketResult = await client.query(
@@ -560,7 +589,7 @@ class TicketsRepository {
     }
   }
 
-  async checkInTicketByDevice(ticketId, deviceId, assignedEventId) {
+  async checkInTicketByDevice(ticketId, deviceId, assignedEventId, { gateId = null, gateName = null } = {}) {
     const client = await db.getClient();
 
     try {
@@ -615,10 +644,12 @@ class TicketsRepository {
         SET status = 'USED',
             checked_in_at = now(),
             checked_in_device_id = $2,
-            checkin_method = 'ESP32_QR'
+            checkin_method = 'ESP32_QR',
+            checked_in_gate_id = $3,
+            checked_in_gate = $4
         WHERE id = $1
         `,
-        [ticketId, deviceId],
+        [ticketId, deviceId, gateId || null, gateName || null],
       );
 
       const ticketResult = await client.query(
@@ -638,6 +669,93 @@ class TicketsRepository {
     } finally {
       client.release();
     }
+  }
+
+  async findStaffActiveGateContext(staffId, preferredEventId = null) {
+    const { rows } = await db.query(
+      `
+      SELECT
+        es.event_id,
+        es.gate_id,
+        COALESCE(eg.name, es.gate) AS gate_name
+      FROM event_staffs es
+      JOIN events e ON e.id = es.event_id
+      LEFT JOIN event_gates eg ON eg.id = es.gate_id
+      WHERE es.staff_id = $1
+        AND e.deleted_at IS NULL
+        AND (
+          e.status = 'PUBLISHED'
+          OR (e.status = 'COMPLETED' AND e.approval_status = 'APPROVED')
+        )
+        AND COALESCE(e.end_time, e.start_time) >= now()
+      ORDER BY
+        CASE WHEN $2::uuid IS NOT NULL AND es.event_id = $2::uuid THEN 0 ELSE 1 END,
+        e.start_time ASC
+      LIMIT 1
+      `,
+      [staffId, preferredEventId || null],
+    );
+    return rows[0] || null;
+  }
+
+  async insertStaffScanLog({
+    staffId,
+    eventId = null,
+    ticketId = null,
+    ticketCode = null,
+    qrCodeRaw = null,
+    action = 'verify',
+    result,
+    success = false,
+    message = null,
+    attendeeName = null,
+    gateId = null,
+    gateName = null,
+  }) {
+    const trimTo = (val, maxLen) => {
+      if (val === null || val === undefined) return null;
+      const str = String(val).trim();
+      if (!str) return null;
+      return str.length > maxLen ? str.slice(0, maxLen) : str;
+    };
+
+    const { rows } = await db.query(
+      `
+      INSERT INTO checkin_device_logs (
+        device_id,
+        staff_id,
+        source,
+        event_id,
+        ticket_id,
+        ticket_code,
+        qr_code_raw,
+        action,
+        result,
+        success,
+        message,
+        attendee_name,
+        gate_id,
+        gate_name
+      )
+      VALUES (NULL, $1, 'STAFF', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      RETURNING id, scanned_at
+      `,
+      [
+        staffId,
+        eventId || null,
+        ticketId || null,
+        trimTo(ticketCode, 100),
+        trimTo(qrCodeRaw, 255),
+        trimTo(action, 20) || 'verify',
+        trimTo(result, 40) || 'INVALID',
+        Boolean(success),
+        trimTo(message, 255),
+        trimTo(attendeeName, 255),
+        gateId || null,
+        trimTo(gateName, 100),
+      ],
+    );
+    return rows[0];
   }
 
   /**

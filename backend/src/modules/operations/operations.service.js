@@ -290,6 +290,147 @@ class OperationsService {
     return operationsRepository.findStaffUsers(search);
   }
 
+  async resolveGateForEvent(eventId, { gateId, gate } = {}) {
+    if (gateId !== undefined) {
+      if (!gateId) {
+        return { gateId: null, gateName: null };
+      }
+      const gateRow = await operationsRepository.findEventGateById(eventId, gateId);
+      if (!gateRow) {
+        throw new AppError(
+          'Cổng check-in được chọn không hợp lệ hoặc không thuộc sự kiện này.',
+          400,
+          ErrorCodes.INVALID_INPUT,
+        );
+      }
+      return { gateId: gateRow.id, gateName: gateRow.name };
+    }
+
+    if (gate !== undefined) {
+      const trimmed = typeof gate === 'string' ? gate.trim() : '';
+      if (!trimmed) {
+        return { gateId: null, gateName: null };
+      }
+      if (typeof operationsRepository.findEventGateByName === 'function') {
+        const matched = await operationsRepository.findEventGateByName(eventId, trimmed);
+        if (matched) {
+          return { gateId: matched.id, gateName: matched.name };
+        }
+      }
+      return { gateId: null, gateName: trimmed };
+    }
+
+    return undefined;
+  }
+
+  async listEventGates(userId, eventId) {
+    const organizer = await this.getOrganizerContext(userId);
+    await this.resolveOrganizerEvent(organizer.id, eventId);
+    return operationsRepository.listEventGates(eventId);
+  }
+
+  async createEventGate(userId, eventId, payload) {
+    const organizer = await this.getOrganizerContext(userId);
+    const event = await this.resolveOrganizerEvent(organizer.id, eventId);
+    this.assertEventStaffManageable(event);
+
+    const existing = await operationsRepository.findEventGateByName(eventId, payload.name);
+    if (existing) {
+      throw new AppError(
+        `Cổng "${existing.name}" đã tồn tại trong sự kiện này.`,
+        409,
+        ErrorCodes.INVALID_INPUT,
+      );
+    }
+
+    try {
+      return await operationsRepository.createEventGate(eventId, {
+        name: payload.name,
+        description: payload.description || null,
+      });
+    } catch (err) {
+      if (err?.code === '23505') {
+        throw new AppError(
+          `Cổng "${payload.name}" đã tồn tại trong sự kiện này.`,
+          409,
+          ErrorCodes.INVALID_INPUT,
+        );
+      }
+      throw err;
+    }
+  }
+
+  async updateEventGate(userId, eventId, gateId, payload) {
+    const organizer = await this.getOrganizerContext(userId);
+    const event = await this.resolveOrganizerEvent(organizer.id, eventId);
+    this.assertEventStaffManageable(event);
+
+    const current = await operationsRepository.findEventGateById(eventId, gateId);
+    if (!current) {
+      throw new AppError('Không tìm thấy cổng check-in trong sự kiện này.', 404, ErrorCodes.RESOURCE_NOT_FOUND);
+    }
+
+    if (payload.name !== undefined) {
+      const dup = await operationsRepository.findEventGateByName(eventId, payload.name);
+      if (dup && dup.id !== gateId) {
+        throw new AppError(
+          `Cổng "${dup.name}" đã tồn tại trong sự kiện này.`,
+          409,
+          ErrorCodes.INVALID_INPUT,
+        );
+      }
+    }
+
+    const updated = await operationsRepository.updateEventGate(eventId, gateId, {
+      name: payload.name,
+      description: payload.description,
+      sortOrder: payload.sort_order,
+    });
+    if (!updated) {
+      throw new AppError('Không tìm thấy cổng check-in trong sự kiện này.', 404, ErrorCodes.RESOURCE_NOT_FOUND);
+    }
+    return updated;
+  }
+
+  async deleteEventGate(userId, eventId, gateId) {
+    const organizer = await this.getOrganizerContext(userId);
+    const event = await this.resolveOrganizerEvent(organizer.id, eventId);
+    this.assertEventStaffManageable(event);
+
+    const deleted = await operationsRepository.deleteEventGate(eventId, gateId);
+    if (!deleted) {
+      throw new AppError('Không tìm thấy cổng check-in trong sự kiện này.', 404, ErrorCodes.RESOURCE_NOT_FOUND);
+    }
+    return { gate_id: gateId, deleted: true };
+  }
+
+  async updateOrganizerEventDeviceGate(userId, eventId, deviceId, assignedGateId) {
+    const organizer = await this.getOrganizerContext(userId);
+    const event = await this.resolveOrganizerEvent(organizer.id, eventId);
+    this.assertEventStaffManageable(event);
+
+    const device = await operationsRepository.findEventDevice(eventId, deviceId);
+    if (!device) {
+      throw new AppError(
+        'Không tìm thấy thiết bị IoT được gán cho sự kiện này.',
+        404,
+        ErrorCodes.RESOURCE_NOT_FOUND,
+      );
+    }
+
+    if (device.status === 'REVOKED') {
+      throw new AppError('Thiết bị đã bị thu hồi quyền, không thể phân cổng.', 400, ErrorCodes.INVALID_INPUT);
+    }
+
+    const resolvedGate = await this.resolveGateForEvent(eventId, { gateId: assignedGateId });
+    const updated = await operationsRepository.updateEventDeviceGate(eventId, deviceId, {
+      gateId: resolvedGate?.gateId || null,
+      gateName: resolvedGate?.gateName || null,
+    });
+
+    return updated;
+  }
+
   async inviteStaff(userId, payload) {
     const organizer = await this.getOrganizerContext(userId);
     const event = await this.resolveOrganizerEvent(organizer.id, payload.event_id);
@@ -331,20 +472,30 @@ class OperationsService {
 
     await this.assertStaffScheduleAvailable(invitedUser.id, payload.event_id, normalizedSessionIds);
 
+    const resolvedGate = await this.resolveGateForEvent(payload.event_id, {
+      gateId: payload.gate_id,
+      gate: payload.gate,
+    });
+
     const quota = await this.assertStaffQuotaAvailable(organizer.id, payload.event_id);
 
-    const invitation = await operationsRepository.createStaffInvitation({
+    const invitationPayload = {
       eventId: payload.event_id,
       organizerId: organizer.id,
       invitedUserId: invitedUser.id,
       email: invitedUser.email,
       staffRole: payload.staff_role,
-      gate: payload.gate,
+      gate: resolvedGate !== undefined ? resolvedGate.gateName : payload.gate,
       zone: payload.zone,
       sessionIds: normalizedSessionIds,
       sessionName,
       invitedBy: userId,
-    });
+    };
+    if (resolvedGate?.gateId) {
+      invitationPayload.gateId = resolvedGate.gateId;
+    }
+
+    const invitation = await operationsRepository.createStaffInvitation(invitationPayload);
 
     const emailSent = await this.sendStaffInvitationEmail({
       email: invitedUser.email,
@@ -372,7 +523,7 @@ class OperationsService {
     };
   }
 
-  async updateStaffAssignment(userId, { eventId, staffId, staffRole, gate, zone, sessionId, sessionIds }) {
+  async updateStaffAssignment(userId, { eventId, staffId, staffRole, gateId, gate, zone, sessionId, sessionIds }) {
     const organizer = await this.getOrganizerContext(userId);
     const event = await this.resolveOrganizerEvent(organizer.id, eventId);
     this.assertEventStaffManageable(event);
@@ -396,12 +547,23 @@ class OperationsService {
       }
     }
 
-    const updated = await operationsRepository.updateStaffAssignment(eventId, staffId, {
+    const resolvedGate = await this.resolveGateForEvent(eventId, { gateId, gate });
+
+    const updatePayload = {
       staffRole: staffRole !== undefined ? staffRole : existing.staff_role,
-      gate: gate !== undefined ? gate : existing.gate,
+      gate: resolvedGate !== undefined ? resolvedGate.gateName : existing.gate,
       zone: zone !== undefined ? zone : existing.zone,
       sessionIds: normalizedSessionIds,
-    });
+    };
+    if (resolvedGate !== undefined) {
+      if (resolvedGate.gateId !== null || gateId !== undefined || existing.gate_id) {
+        updatePayload.gateId = resolvedGate.gateId;
+      }
+    } else if (existing.gate_id !== undefined) {
+      updatePayload.gateId = existing.gate_id;
+    }
+
+    const updated = await operationsRepository.updateStaffAssignment(eventId, staffId, updatePayload);
 
     return updated;
   }
@@ -478,6 +640,7 @@ class OperationsService {
       invitationId,
       userId: user.id,
       staffRole: invitation.staff_role,
+      gateId: invitation.gate_id || null,
       gate: invitation.gate,
       zone: invitation.zone,
       acceptedBy: invitation.invited_by,
@@ -539,6 +702,25 @@ class OperationsService {
 
     const report = await operationsRepository.getStaffCheckInReport(staffId, eventId);
     return { event, ...report };
+  }
+
+  async getStaffGateCheckInHistory(staffId, { eventId = null, page, limit = 10, result, source } = {}) {
+    if (eventId) {
+      const event = await operationsRepository.findStaffAssignedEvent(staffId, eventId);
+      if (!event) {
+        throw new AppError(
+          'Không tìm thấy sự kiện hoặc bạn không được phân công vào sự kiện này.',
+          403,
+          ErrorCodes.AUTH_FORBIDDEN,
+        );
+      }
+    }
+
+    const params = { eventId, limit };
+    if (page !== undefined) params.page = page;
+    if (result) params.result = result;
+    if (source) params.source = source;
+    return operationsRepository.getStaffGateCheckInHistory(staffId, params);
   }
 }
 
