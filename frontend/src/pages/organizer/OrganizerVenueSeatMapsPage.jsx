@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Armchair, ArrowLeft, Eye, Lock, Pencil, RotateCcw, Trash2, X, ZoomIn, ZoomOut } from 'lucide-react'
+import { Armchair, ArrowLeft, ChevronLeft, ChevronRight, Eye, Lock, Pencil, RotateCcw, Trash2, X, ZoomIn, ZoomOut } from 'lucide-react'
 import {
   Badge,
   ConfirmModal,
@@ -17,6 +17,7 @@ import { SeatMapEditor } from './SeatMapEditor.jsx'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
+import { getPaginationItems } from '@/utils/pagination.js'
 
 function isLightColor(hex) {
   if (!hex || typeof hex !== 'string') return false
@@ -776,12 +777,35 @@ function getSeatMapZoneCount(sm) {
 
 export function OrganizerVenueSeatMapsPage() {
   const toast = useToast()
+  const { isEnglish } = useLanguage()
   const { venueId } = useParams()
   const navigate = useNavigate()
   const [seatMaps, setSeatMaps] = useState([])
   const [loading, setLoading] = useState(true)
   const [editorOpen, setEditorOpen] = useState(false)
   const [editingSeatMapId, setEditingSeatMapId] = useState(null)
+  const [filterType, setFilterType] = useState('ALL') // 'ALL' | 'TEMPLATE' | 'EVENT'
+  const [page, setPage] = useState(1)
+  const PAGE_SIZE = 10
+
+  const filteredSeatMaps = useMemo(() => {
+    if (filterType === 'TEMPLATE') return seatMaps.filter((sm) => !sm.event_title)
+    if (filterType === 'EVENT') return seatMaps.filter((sm) => Boolean(sm.event_title))
+    return seatMaps
+  }, [seatMaps, filterType])
+
+  const totalPages = Math.ceil(filteredSeatMaps.length / PAGE_SIZE) || 1
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages)
+    }
+  }, [page, totalPages])
+
+  const paginatedSeatMaps = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE
+    return filteredSeatMaps.slice(start, start + PAGE_SIZE)
+  }, [filteredSeatMaps, page])
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewSeatMapId, setPreviewSeatMapId] = useState(null)
   const [seatMapToDelete, setSeatMapToDelete] = useState(null)
@@ -889,45 +913,160 @@ export function OrganizerVenueSeatMapsPage() {
         <div className="flex justify-center py-16">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
         </div>
-      ) : (
-        <OrganizerTable
-          minWidth="min-w-[840px]"
-          headers={['Tên sơ đồ', 'Loại', 'Cấu hình', { label: 'Tổng số ghế', align: 'center' }, { label: 'Khu vực', align: 'center' }, 'Trạng thái', 'Thao tác']}
-          rows={seatMaps.map((sm) => [
-            <span key="name" className="font-semibold text-white">{sm.name}</span>,
-            <span key="type" className="whitespace-nowrap">{sm.layout_type}</span>,
-            <span key="layout" className="whitespace-nowrap">{layoutLabel(sm)}</span>,
-            <span key="seats" className="whitespace-nowrap font-mono text-center">{getSeatMapTotalSeats(sm)}</span>,
-            <span key="zones" className="whitespace-nowrap font-mono text-center">{getSeatMapZoneCount(sm)}</span>,
-            <StatusBadge key="status" status={sm.is_active ? 'ACTIVE' : 'INACTIVE'} />,
-            <div key="actions" className="flex items-center justify-center gap-2 whitespace-nowrap">
-              <TableActionButton
-                icon={Eye}
-                tone="default"
-                title="Xem sơ đồ"
-                onClick={() => openPreview(sm.id)}
-              />
-              <TableActionButton
-                icon={Pencil}
-                tone="primary"
-                title="Sửa sơ đồ"
-                onClick={() => openEditor(sm.id)}
-              />
-              <TableActionButton
-                icon={Trash2}
-                tone="danger"
-                title="Xóa sơ đồ"
-                onClick={() => setSeatMapToDelete(sm.id)}
-              />
-            </div>,
-          ])}
-        />
-      )}
-
-      {!loading && !seatMaps.length && (
+      ) : !seatMaps.length ? (
         <p className="mt-4 text-center text-sm text-muted py-6 border border-dashed border-border-soft/30 rounded-xl bg-panel-soft/30">
           Chưa có sơ đồ ghế. Nhấn &quot;Tạo sơ đồ mới&quot; để bắt đầu.
         </p>
+      ) : (
+        <div className="space-y-3">
+          {/* Filter Tabs */}
+          <div className="flex items-center gap-2">
+            {[
+              { id: 'ALL', label: `Tất cả (${seatMaps.length})` },
+              { id: 'TEMPLATE', label: `Sơ đồ mẫu (${seatMaps.filter((sm) => !sm.event_title).length})` },
+              { id: 'EVENT', label: `Theo sự kiện (${seatMaps.filter((sm) => Boolean(sm.event_title)).length})` },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => {
+                  setFilterType(tab.id)
+                  setPage(1)
+                }}
+                className={`px-4 py-1.5 rounded-full text-xs transition-all duration-200 cursor-pointer ${
+                  filterType === tab.id
+                    ? 'border border-[#E6C17A] bg-[#C99A47]/20 text-[#F5D794] font-bold shadow-[0_0_14px_rgba(201,154,71,0.3)] [html.light_&]:border-[#C99A47] [html.light_&]:bg-[#C99A47]/15 [html.light_&]:text-[#966316]'
+                    : 'border border-[#C99A47]/40 bg-transparent text-slate-300 hover:border-[#E6C17A] hover:bg-[#C99A47]/10 hover:text-[#F5D794] [html.light_&]:border-[#C99A47]/40 [html.light_&]:text-slate-600 [html.light_&]:hover:text-[#966316]'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {!filteredSeatMaps.length ? (
+            <p className="text-center text-sm text-muted py-8 border border-dashed border-border-soft/30 rounded-xl bg-panel-soft/30">
+              Không có sơ đồ ghế nào trong danh mục này.
+            </p>
+          ) : (
+            <>
+              <OrganizerTable
+                minWidth="min-w-[840px]"
+                headers={['Tên sơ đồ', 'Loại', 'Cấu hình', { label: 'Tổng số ghế', align: 'center' }, { label: 'Khu vực', align: 'center' }, 'Trạng thái', 'Thao tác']}
+                rows={paginatedSeatMaps.map((sm) => [
+                  <div key="name" className="flex flex-col gap-1 py-0.5">
+                    <span className="font-semibold text-white">{sm.name}</span>
+                    {sm.event_title ? (
+                      <span className="inline-flex items-center gap-1.5 text-[11px] text-sky-400 font-medium">
+                        <span className="w-1.5 h-1.5 rounded-full bg-sky-400 shrink-0" />
+                        Sự kiện: {sm.event_title}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 text-[11px] text-amber-300/80 font-medium">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                        Sơ đồ mẫu địa điểm
+                      </span>
+                    )}
+                  </div>,
+                  <span key="type" className="whitespace-nowrap">{sm.layout_type}</span>,
+                  <span key="layout" className="whitespace-nowrap">{layoutLabel(sm)}</span>,
+                  <span key="seats" className="whitespace-nowrap font-mono text-center">{getSeatMapTotalSeats(sm)}</span>,
+                  <span key="zones" className="whitespace-nowrap font-mono text-center">{getSeatMapZoneCount(sm)}</span>,
+                  <div key="status" className="flex flex-col items-center justify-center gap-1.5 whitespace-nowrap">
+                    <StatusBadge status={sm.is_active ? 'ACTIVE' : 'INACTIVE'} />
+                    {sm.is_append_only && (
+                      <Badge
+                        tone="amber"
+                        title="Sự kiện đang mở bán vé - Sơ đồ ở chế độ bảo vệ vé (Chỉ bổ sung)"
+                      >
+                        Chỉ bổ sung
+                      </Badge>
+                    )}
+                  </div>,
+                  <div key="actions" className="flex items-center justify-center gap-2 whitespace-nowrap">
+                    <TableActionButton
+                      icon={Eye}
+                      tone="default"
+                      title="Xem sơ đồ"
+                      onClick={() => openPreview(sm.id)}
+                    />
+                    <TableActionButton
+                      icon={Pencil}
+                      tone="primary"
+                      title={sm.is_append_only ? 'Sửa sơ đồ (Chế độ bổ sung)' : 'Sửa sơ đồ'}
+                      onClick={() => openEditor(sm.id)}
+                    />
+                    <TableActionButton
+                      icon={Trash2}
+                      tone="danger"
+                      title={sm.session_count > 0 ? 'Sơ đồ đang được sử dụng trong phiên sự kiện, không thể xóa' : 'Xóa sơ đồ'}
+                      disabled={sm.session_count > 0}
+                      onClick={() => setSeatMapToDelete(sm.id)}
+                    />
+                  </div>,
+                ])}
+              />
+
+              {totalPages > 1 && (
+                <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3 px-2 py-3 border-t border-white/5">
+                  <span className="text-xs text-subtle font-medium">
+                    {isEnglish
+                      ? `Showing ${(page - 1) * PAGE_SIZE + 1} - ${Math.min(page * PAGE_SIZE, filteredSeatMaps.length)} of ${filteredSeatMaps.length} seat maps`
+                      : `Hiển thị ${(page - 1) * PAGE_SIZE + 1} - ${Math.min(page * PAGE_SIZE, filteredSeatMaps.length)} trong tổng số ${filteredSeatMaps.length} sơ đồ`}
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      className="grid size-8 place-items-center rounded-xl border border-border-soft/40 text-subtle bg-panel-soft hover:border-tertiary hover:text-tertiary disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
+                      disabled={page <= 1}
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      title={isEnglish ? 'Previous page' : 'Trang trước'}
+                    >
+                      <ChevronLeft className="size-4" />
+                    </button>
+                    {getPaginationItems(page, totalPages).map((item, idx) => {
+                      if (typeof item === 'string') {
+                        return (
+                          <span
+                            key={`${item}-${idx}`}
+                            className="grid size-8 place-items-center text-xs font-bold text-slate-500 select-none"
+                            aria-hidden="true"
+                          >
+                            ...
+                          </span>
+                        )
+                      }
+                      const pNum = item
+                      return (
+                        <button
+                          key={pNum}
+                          type="button"
+                          onClick={() => setPage(pNum)}
+                          className={`grid size-8 place-items-center rounded-xl text-xs font-bold transition cursor-pointer ${
+                            page === pNum
+                              ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] font-black shadow-md shadow-[#C99A47]/30'
+                              : 'border border-border-soft/40 text-subtle bg-panel-soft hover:border-tertiary hover:text-tertiary'
+                          }`}
+                        >
+                          {pNum}
+                        </button>
+                      )
+                    })}
+                    <button
+                      type="button"
+                      className="grid size-8 place-items-center rounded-xl border border-border-soft/40 text-subtle bg-panel-soft hover:border-tertiary hover:text-tertiary disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
+                      disabled={page >= totalPages}
+                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                      title={isEnglish ? 'Next page' : 'Trang kế tiếp'}
+                    >
+                      <ChevronRight className="size-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
       )}
 
       <SeatMapPreviewModal
@@ -948,8 +1087,6 @@ export function OrganizerVenueSeatMapsPage() {
           venueId={venueId}
           seatMapId={editingSeatMapId}
           onSave={() => {
-            const successMsg = editingSeatMapId ? 'Đã cập nhật sơ đồ ghế.' : 'Đã tạo sơ đồ ghế mới.'
-            toast.success(successMsg)
             closeEditor()
             loadData()
           }}

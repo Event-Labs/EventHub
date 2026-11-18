@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { Armchair, Building2, ExternalLink, Eye, Layers, MapPin, Pencil, Search, Trash2, X } from 'lucide-react'
@@ -534,7 +534,7 @@ function VenueDetailModal({ open, venue, onClose, onEdit }) {
           {/* Quick Stats Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="rounded-xl border border-border-soft/30 bg-panel-soft/40 p-4">
-              <div className="flex items-center gap-2 text-xs font-semibold text-muted mb-1">
+              <div className="flex items-center gap-2 text-sm font-semibold text-white mb-1">
                 <Armchair className="size-4 text-[#E6C17A]" />
                 <span>Sức chứa tối đa</span>
               </div>
@@ -542,7 +542,7 @@ function VenueDetailModal({ open, venue, onClose, onEdit }) {
             </div>
 
             <div className="rounded-xl border border-border-soft/30 bg-panel-soft/40 p-4">
-              <div className="flex items-center gap-2 text-xs font-semibold text-muted mb-1">
+              <div className="flex items-center gap-2 text-sm font-semibold text-white mb-1">
                 <Layers className="size-4 text-[#E6C17A]" />
                 <span>Số sơ đồ ghế</span>
               </div>
@@ -550,7 +550,7 @@ function VenueDetailModal({ open, venue, onClose, onEdit }) {
             </div>
 
             <div className="rounded-xl border border-border-soft/30 bg-panel-soft/40 p-4">
-              <div className="flex items-center gap-2 text-xs font-semibold text-muted mb-1">
+              <div className="flex items-center gap-2 text-sm font-semibold text-white mb-1">
                 <Building2 className="size-4 text-[#E6C17A]" />
                 <span>Khu vực</span>
               </div>
@@ -562,7 +562,7 @@ function VenueDetailModal({ open, venue, onClose, onEdit }) {
             {/* Left Col: Info & Description */}
             <div className="space-y-4">
               <div>
-                <h4 className="text-xs font-extrabold uppercase tracking-wider text-subtle mb-2">Địa chỉ & Tọa độ</h4>
+                <h4 className="text-xs font-extrabold uppercase tracking-wider text-white mb-2">Địa chỉ & Tọa độ</h4>
                 <div className="rounded-xl border border-border-soft/30 bg-panel-soft/30 p-4 space-y-3">
                   <div>
                     <span className="text-xs text-muted block mb-0.5">Địa chỉ đầy đủ</span>
@@ -586,7 +586,7 @@ function VenueDetailModal({ open, venue, onClose, onEdit }) {
               </div>
 
               <div>
-                <h4 className="text-xs font-extrabold uppercase tracking-wider text-subtle mb-2">Mô tả</h4>
+                <h4 className="text-xs font-extrabold uppercase tracking-wider text-white mb-2">Mô tả</h4>
                 <div className="rounded-xl border border-border-soft/30 bg-panel-soft/30 p-4 min-h-[80px]">
                   <p className="text-sm text-subtle leading-relaxed whitespace-pre-wrap">
                     {venue.description || 'Chưa có mô tả chi tiết cho địa điểm này.'}
@@ -597,7 +597,7 @@ function VenueDetailModal({ open, venue, onClose, onEdit }) {
               {/* Seat maps listing inside modal */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-xs font-extrabold uppercase tracking-wider text-subtle">Sơ đồ ghế thuộc địa điểm</h4>
+                  <h4 className="text-xs font-extrabold uppercase tracking-wider text-white">Sơ đồ ghế thuộc địa điểm</h4>
                   <Link
                     to={`/organizer/venues/${venue.id}/seat-maps`}
                     className="text-xs text-[#E6C17A] hover:underline font-semibold"
@@ -614,8 +614,8 @@ function VenueDetailModal({ open, venue, onClose, onEdit }) {
                     <ul className="space-y-2 max-h-36 overflow-y-auto pr-1">
                       {seatMaps.map((sm) => (
                         <li key={sm.id} className="flex items-center justify-between rounded-lg bg-surface p-2.5 text-xs border border-border-soft/20">
-                          <span className="font-semibold text-content">{sm.name}</span>
-                          <span className="text-muted">{sm.total_seats || sm.seat_count || 0} ghế</span>
+                          <span className="font-semibold text-white truncate max-w-[200px]" title={sm.name}>{sm.name}</span>
+                          <span className="text-slate-300 font-medium shrink-0 ml-2">{sm.total_seats || sm.seat_count || 0} ghế</span>
                         </li>
                       ))}
                     </ul>
@@ -626,7 +626,7 @@ function VenueDetailModal({ open, venue, onClose, onEdit }) {
 
             {/* Right Col: Map view */}
             <div className="flex flex-col">
-              <h4 className="text-xs font-extrabold uppercase tracking-wider text-subtle mb-2">Vị trí trên bản đồ</h4>
+              <h4 className="text-xs font-extrabold uppercase tracking-wider text-white mb-2">Vị trí trên bản đồ</h4>
               <div className="flex-1 min-h-[280px] rounded-xl border border-border-soft/30 overflow-hidden relative">
                 <div ref={mapRef} className="z-0 h-full w-full min-h-[280px]" />
                 {!isValidCoordinate(venue.latitude) && (
@@ -752,6 +752,7 @@ function VenueCard({ venue, onDetail, onEdit, onDelete }) {
 
 export function OrganizerVenuesPage() {
   const toast = useToast()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [venues, setVenues] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -760,7 +761,6 @@ export function OrganizerVenuesPage() {
   const [editVenue, setEditVenue] = useState(null)
   const [detailVenue, setDetailVenue] = useState(null)
   const [venueToDelete, setVenueToDelete] = useState(null)
-  const [message, setMessage] = useState('')
 
   const loadVenues = useCallback(async () => {
     setLoading(true)
@@ -769,17 +769,25 @@ export function OrganizerVenuesPage() {
       setVenues(data)
     } catch (err) {
       console.error(err)
-      const message = 'Không thể tải danh sách địa điểm.'
-      setMessage(message)
-      toast.error(message)
+      toast.error('Không thể tải danh sách địa điểm.')
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [toast])
 
   useEffect(() => {
     loadVenues()
   }, [loadVenues])
+
+  useEffect(() => {
+    if (searchParams.get('action') === 'create') {
+      setEditVenue(null)
+      setModalOpen(true)
+      const nextParams = new URLSearchParams(searchParams)
+      nextParams.delete('action')
+      setSearchParams(nextParams, { replace: true })
+    }
+  }, [searchParams, setSearchParams])
 
   const filtered = venues.filter((v) => {
     const q = search.toLowerCase()
@@ -811,14 +819,14 @@ export function OrganizerVenuesPage() {
     setVenueToDelete(null)
     try {
       await deleteVenue(venue.id)
-      setMessage('Đã xóa địa điểm.')
       toast.success('Đã xóa địa điểm.')
       loadVenues()
+      try {
+        localStorage.setItem('eventhub_venues_last_updated', Date.now().toString())
+      } catch (e) {}
     } catch (err) {
       console.error(err)
-      const message = getApiMessage(err, 'Không thể xóa địa điểm.')
-      setMessage(message)
-      toast.error(message)
+      toast.error(getApiMessage(err, 'Không thể xóa địa điểm.'))
     }
   }
 
@@ -840,8 +848,6 @@ export function OrganizerVenuesPage() {
           />
         </div>
       </div>
-
-      {message && <p className="mb-4 text-sm text-subtle font-semibold">{message}</p>}
 
       {loading ? (
         <div className="flex justify-center py-16">
@@ -885,9 +891,11 @@ export function OrganizerVenuesPage() {
         onClose={() => setModalOpen(false)}
         onSaved={() => {
           const message = editVenue ? 'Đã cập nhật địa điểm.' : 'Đã tạo địa điểm mới.'
-          setMessage(message)
           toast.success(message)
           loadVenues()
+          try {
+            localStorage.setItem('eventhub_venues_last_updated', Date.now().toString())
+          } catch (e) {}
         }}
       />
 

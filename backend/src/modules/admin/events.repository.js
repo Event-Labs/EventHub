@@ -136,6 +136,7 @@ class EventsAdminRepository {
             'end_time', sess.end_time,
             'status', sess.status,
             'venue_id', sess.venue_id,
+            'seat_map_id', sess.seat_map_id,
             'venue', CASE
               WHEN v.id IS NOT NULL THEN json_build_object(
                 'id', v.id,
@@ -466,6 +467,7 @@ class EventsAdminRepository {
             'start_time', sess.start_time,
             'end_time', sess.end_time,
             'venue_id', sess.venue_id,
+            'seat_map_id', sess.seat_map_id,
             'venue_name', v.name,
             'address', v.address_line,
             'ward', v.ward,

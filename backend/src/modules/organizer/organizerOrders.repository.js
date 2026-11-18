@@ -784,7 +784,7 @@ class OrganizerOrdersRepository {
         COALESCE(SUM(tt.quantity), 0)::int AS total_capacity,
         COALESCE(AVG(tt.price), 0)::numeric AS avg_listed_ticket_price,
         COUNT(DISTINCT es.id)::int AS total_sessions,
-        COUNT(DISTINCT tt.id)::int AS total_ticket_types
+        COUNT(DISTINCT LOWER(TRIM(tt.name)))::int AS total_ticket_types
       FROM events e
       LEFT JOIN event_sessions es ON es.event_id = e.id
       LEFT JOIN ticket_types tt ON tt.event_session_id = es.id
