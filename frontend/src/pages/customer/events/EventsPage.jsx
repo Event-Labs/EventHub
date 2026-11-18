@@ -179,7 +179,7 @@ export function EventsPage() {
           <div className="flex items-center gap-2 shrink-0">
             <button
               type="submit"
-              className="btn-gold-primary inline-flex h-11 sm:h-12 flex-1 sm:flex-none items-center justify-center gap-2 rounded-full px-6 sm:px-8 text-xs sm:text-sm font-extrabold shadow-lg shadow-[#C99A47]/30 transition-all hover:brightness-110 active:scale-95 cursor-pointer shrink-0"
+              className="btn-gold-primary inline-flex h-11 sm:h-12 flex-1 sm:flex-none items-center justify-center rounded-full px-6 sm:px-8 text-xs sm:text-sm font-extrabold shadow-lg shadow-[#C99A47]/30 transition-all hover:brightness-110 active:scale-95 cursor-pointer shrink-0"
               style={{
                 backgroundColor: '#C99A47',
                 backgroundImage: 'linear-gradient(135deg, #C99A47, #E6C17A)',
@@ -190,7 +190,6 @@ export function EventsPage() {
                 WebkitTransform: 'translateZ(0)',
               }}
             >
-              <Search className="size-4 shrink-0 stroke-[2.5] text-[#0D1B2A]" />
               <span className="font-extrabold text-[#0D1B2A]">{isEnglish ? 'Search' : 'Tìm kiếm'}</span>
             </button>
 

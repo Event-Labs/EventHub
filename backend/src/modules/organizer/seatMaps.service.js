@@ -1,5 +1,6 @@
 const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
+const db = require('../../infrastructure/database/db.client');
 const seatMapsRepository = require('./seatMaps.repository');
 const subscriptionGuard = require('../organizer-subscriptions/subscriptionGuard.service');
 
@@ -65,12 +66,42 @@ class SeatMapsService {
     if (!existing) {
       throw new AppError('Không tìm thấy sơ đồ ghế.', 404, ErrorCodes.RESOURCE_NOT_FOUND);
     }
-    const inUse = await seatMapsRepository.countSessionUsage(seatMapId);
-    if (inUse > 0) {
-      throw new AppError('Sơ đồ ghế đang được sử dụng bởi phiên sự kiện đang hoạt động.', 400, ErrorCodes.INVALID_INPUT);
-    }
     this.validatePayload(data);
+
+    if (existing.is_append_only) {
+      // Chế độ bổ sung (Append-Only): Chỉ cho phép thêm ghế và khu vực mới, khóa các ghế cũ
+      try {
+        await seatMapsRepository.appendSeatMapData(seatMapId, data);
+      } catch (err) {
+        throw new AppError(err.message, 400, ErrorCodes.INVALID_INPUT);
+      }
+      return seatMapsRepository.findSeatMapById(seatMapId, organizerId);
+    }
+
+    // Nếu chưa mở bán vé (bản mẫu hoặc sự kiện Draft): Cho phép cập nhật toàn bộ
     await seatMapsRepository.replaceSeatMapData(seatMapId, data);
+
+    // Đồng bộ session_seats cho các phiên Draft nếu có
+    if (existing.session_count > 0) {
+      const { rows: draftSessions } = await db.query(
+        `SELECT id FROM event_sessions WHERE seat_map_id = $1`,
+        [seatMapId],
+      );
+      for (const ds of draftSessions) {
+        await db.query(
+          `
+          INSERT INTO session_seats (event_session_id, seat_id, status)
+          SELECT $1, s.id, 'AVAILABLE'
+          FROM seats s
+          WHERE s.seat_map_id = $2
+            AND COALESCE(s.is_disabled, false) = false
+          ON CONFLICT (event_session_id, seat_id) DO NOTHING
+          `,
+          [ds.id, seatMapId],
+        );
+      }
+    }
+
     return seatMapsRepository.findSeatMapById(seatMapId, organizerId);
   }
 

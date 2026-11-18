@@ -2196,6 +2196,7 @@ class EventBusinessRulesService {
           'refund_policy',
           'seating_rules',
           'tags',
+          'visibility',
         ];
         const updates = [];
         const updateVals = [];

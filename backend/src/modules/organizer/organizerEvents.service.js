@@ -5,6 +5,8 @@ const db = require('../../infrastructure/database/db.client');
 const authRepository = require('../auth/auth.repository');
 const authService = require('../auth/auth.service');
 const organizerEventsRepository = require('./organizerEvents.repository');
+const seatMapsRepository = require('./seatMaps.repository');
+const eventsRepository = require('../events/events.repository');
 const organizerPaymentsRepository = require('../organizer-payments/organizerPayments.repository');
 const subscriptionGuard = require('../organizer-subscriptions/subscriptionGuard.service');
 const { validateRefundRules } = require('../refunds/refundPolicyHelper');
@@ -589,21 +591,21 @@ class OrganizerEventsService {
         };
       }
 
-      // Major Revision check (Section 4.4, AC-UE-03)
-      if (changeClass === 'MAJOR') {
+      // Revision check for published/approved events (Section 4.4, AC-UE-03)
+      if (changeClass === 'MAJOR' || (changeClass === 'MINOR' && changes.length > 0)) {
         if (currentEvent.pending_revision && currentEvent.pending_revision.status === 'SUBMITTED') {
           throw new AppError('Đã có một Revision đang mở cho sự kiện này.', 400, ErrorCodes.REVISION_ALREADY_OPEN);
         }
 
         const revision = {
           id: crypto.randomUUID(),
-          change_class: 'MAJOR',
+          change_class: changeClass,
           status: 'SUBMITTED',
           payload_before: currentEvent,
           payload_after: data,
           diff: changes,
           proposed_changes: changes,
-          reason: payload.reason || 'Major Event Update',
+          reason: payload.reason || (changeClass === 'MAJOR' ? 'Major Event Update' : 'Event Content Update'),
           submitted_by: userId,
           submitted_at: new Date().toISOString(),
           sla_due_at: new Date(Date.now() + 24 * 3600000).toISOString(),
@@ -625,7 +627,7 @@ class OrganizerEventsService {
         return {
           ...mapEvent(currentEvent),
           pending_revision: revision,
-          message: 'Thay đổi lớn đã được gửi tới Quản trị viên xét duyệt. Bản sự kiện đang chạy được giữ nguyên.',
+          message: 'Thay đổi đã được gửi tới Quản trị viên xét duyệt. Bản sự kiện đang chạy được giữ nguyên.',
         };
       }
 
@@ -715,7 +717,35 @@ class OrganizerEventsService {
         }
       }
 
+      // Cache bản sao sơ đồ ghế riêng cho sự kiện: các session trong cùng sự kiện dùng chung một bản sao (Requirement 1)
+      const resolvedSeatMapCache = new Map();
+
       for (const session of data.sessions) {
+        if (session.seat_map_id) {
+          if (resolvedSeatMapCache.has(session.seat_map_id)) {
+            session.seat_map_id = resolvedSeatMapCache.get(session.seat_map_id);
+          } else {
+            const { rows: smCheck } = await db.query(
+              `SELECT id, event_id, name, venue_id FROM seat_maps WHERE id = $1 AND deleted_at IS NULL`,
+              [session.seat_map_id],
+            );
+            const sm = smCheck[0];
+            if (sm) {
+              if (sm.event_id && sm.event_id === eventId) {
+                resolvedSeatMapCache.set(session.seat_map_id, session.seat_map_id);
+              } else {
+                const cloned = await seatMapsRepository.cloneSeatMap(session.seat_map_id, {
+                  venueId: session.venue_id || sm.venue_id,
+                  eventId,
+                  name: `${currentEvent.title || 'Sự kiện'} - ${sm.name}`,
+                });
+                resolvedSeatMapCache.set(session.seat_map_id, cloned.newSeatMapId);
+                session.seat_map_id = cloned.newSeatMapId;
+              }
+            }
+          }
+        }
+
         const existingSession = session.id ? existingSessions.find((item) => item.id === session.id) : null;
         const isNewOrChangedStartTime =
           !existingSession ||
@@ -744,10 +774,16 @@ class OrganizerEventsService {
           direct_sale_end_time: session.direct_sale_end_time || null,
         };
 
+        let savedSession;
         if (session.id && existingIds.has(session.id)) {
-          await organizerEventsRepository.updateSession(session.id, eventId, sessionData);
+          savedSession = await organizerEventsRepository.updateSession(session.id, eventId, sessionData);
         } else {
-          await organizerEventsRepository.createSession(eventId, sessionData);
+          savedSession = await organizerEventsRepository.createSession(eventId, sessionData);
+        }
+
+        // Tự động khởi tạo session_seats cho session mới/cập nhật sơ đồ (Requirement 2)
+        if (savedSession?.id && savedSession.seat_map_id) {
+          await eventsRepository.ensureSessionSeats(savedSession.id);
         }
       }
 
@@ -976,6 +1012,23 @@ class OrganizerEventsService {
       throw new AppError('venue_id, start_time and end_time are required', 400, ErrorCodes.INVALID_INPUT);
     }
 
+    if (payload.seat_map_id) {
+      const { rows: smCheck } = await db.query(
+        `SELECT id, event_id, name, venue_id FROM seat_maps WHERE id = $1 AND deleted_at IS NULL`,
+        [payload.seat_map_id],
+      );
+      const sm = smCheck[0];
+      if (sm && sm.event_id !== eventId) {
+        const currentEvent = await organizerEventsRepository.findEventById(eventId, organizerId);
+        const cloned = await seatMapsRepository.cloneSeatMap(payload.seat_map_id, {
+          venueId: payload.venue_id || sm.venue_id,
+          eventId,
+          name: `${currentEvent?.title || 'Sự kiện'} - ${sm.name}`,
+        });
+        payload.seat_map_id = cloned.newSeatMapId;
+      }
+    }
+
     assertValidSessionTimes(payload.start_time, payload.end_time, true, payload.checkin_start_time);
     await this.assertVenueAccessible(organizerId, payload.venue_id);
     await this.assertNoVenueOrSeatMapConflict({
@@ -987,6 +1040,9 @@ class OrganizerEventsService {
     });
 
     const session = await organizerEventsRepository.createSession(eventId, payload);
+    if (session?.id && session.seat_map_id) {
+      await eventsRepository.ensureSessionSeats(session.id);
+    }
     await organizerEventsRepository.syncEventTimesFromSessions(eventId);
     return session;
   }
@@ -1002,6 +1058,23 @@ class OrganizerEventsService {
 
     const { permissions } = await this.getEditContext(eventId);
     this.assertNotTimeLocked(permissions);
+
+    if (payload.seat_map_id) {
+      const { rows: smCheck } = await db.query(
+        `SELECT id, event_id, name, venue_id FROM seat_maps WHERE id = $1 AND deleted_at IS NULL`,
+        [payload.seat_map_id],
+      );
+      const sm = smCheck[0];
+      if (sm && sm.event_id !== eventId) {
+        const currentEvent = await organizerEventsRepository.findEventById(eventId, organizerId);
+        const cloned = await seatMapsRepository.cloneSeatMap(payload.seat_map_id, {
+          venueId: payload.venue_id || sm.venue_id,
+          eventId,
+          name: `${currentEvent?.title || 'Sự kiện'} - ${sm.name}`,
+        });
+        payload.seat_map_id = cloned.newSeatMapId;
+      }
+    }
 
     if (payload.venue_id) {
       await this.assertVenueAccessible(organizerId, payload.venue_id);
@@ -1032,6 +1105,9 @@ class OrganizerEventsService {
     });
 
     const updated = await organizerEventsRepository.updateSession(sessionId, eventId, payload);
+    if (updated?.id && updated.seat_map_id) {
+      await eventsRepository.ensureSessionSeats(sessionId);
+    }
     await organizerEventsRepository.syncEventTimesFromSessions(eventId);
     return updated;
   }

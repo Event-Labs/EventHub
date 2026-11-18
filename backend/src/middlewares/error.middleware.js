@@ -27,6 +27,16 @@ const MESSAGE_MAP = {
     'Promo code not found': 'Không tìm thấy mã khuyến mãi.',
     'Organizer has not configured payment channel.': 'Ban tổ chức sự kiện chưa thiết lập kênh thanh toán PayOS.',
     'Cloudinary is not configured': 'Hệ thống tải tệp chưa được cấu hình. Vui lòng liên hệ quản trị viên.',
+    'Venue not found or not accessible': 'Địa điểm không tồn tại hoặc bạn không có quyền truy cập.',
+    'venue_id is required': 'Vui lòng chọn địa điểm cho phiên sự kiện.',
+    'Session not found': 'Không tìm thấy phiên sự kiện.',
+    'Ticket type not found': 'Không tìm thấy loại vé.',
+    'Title is required': 'Tiêu đề sự kiện là bắt buộc.',
+    'name, price and quantity are required': 'Tên loại vé, giá và số lượng là bắt buộc.',
+    'venue_id, start_time and end_time are required': 'Vui lòng nhập đầy đủ địa điểm, giờ bắt đầu và kết thúc.',
+    'Event cannot be submitted': 'Không thể gửi duyệt sự kiện này.',
+    'Event must have at least one session before submit': 'Sự kiện cần có ít nhất một phiên trước khi gửi duyệt.',
+    'Event must have at least one ticket type before submit': 'Sự kiện cần có ít nhất một loại vé trước khi gửi duyệt.',
 };
 
 function normalizeMessage(message, fallback = 'Đã xảy ra lỗi. Vui lòng thử lại.') {

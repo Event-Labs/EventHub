@@ -16,6 +16,7 @@ import {
   ShieldCheck,
   RefreshCw,
   Sparkles,
+  FileEdit,
   FileCheck,
   Image as ImageIcon,
   Type,
@@ -38,6 +39,7 @@ import {
   ChevronRight,
   Ticket,
   Plus,
+  Armchair,
 } from 'lucide-react'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -60,6 +62,8 @@ import {
   reviewAdminEventRevision,
 } from '@/services/adminEvents.js'
 import { getApiMessage } from '@/lib/messages.js'
+import { fetchSessionSeats } from '@/services/events.js'
+import { SeatMapCanvas } from '@/pages/staff/StaffDirectBookingPage.jsx'
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
 import { translatePhrase } from '@/i18n/phraseDictionary.js'
@@ -281,7 +285,12 @@ const isDocIssue = (item) => {
   if (!item) return false
   const code = String(item.policy_code || '').toUpperCase()
   const text = String(item.issue || item.message || (typeof item === 'string' ? item : ''))
-  return code === 'LEGAL_PERMIT_AUTHENTICITY' || /\[(Vi phạm|Lưu ý) tài liệu\]/i.test(text) || /giấy phép|tài liệu đính kèm/i.test(text)
+  return (
+    code === 'LEGAL_PERMIT_AUTHENTICITY' ||
+    code === 'DOCUMENT_LEGAL_VALIDITY' ||
+    /\[(Vi phạm|Lưu ý) tài liệu\]/i.test(text) ||
+    /giấy phép|tài liệu đính kèm/i.test(text)
+  )
 }
 
 const isGeneralPolicyIssue = (item) => !isImageIssue(item) && !isDocIssue(item)
@@ -360,6 +369,7 @@ function SuggestionCard({ suggestion, onClick }) {
 }
 
 function ContentSpellingAuditCard({ contentReview, event, onClick }) {
+  const { isEnglish } = useLanguage()
   // Fallback to client-side evaluation if contentReview is absent or incomplete
   const fallbackReview = useMemo(() => {
     if (!event) return null
@@ -481,22 +491,23 @@ function ContentSpellingAuditCard({ contentReview, event, onClick }) {
   }
 
   const overallTone = descStatus === 'VIOLATION' || titleStatus === 'VIOLATION'
-    ? 'border-[#FF4569]/30 bg-[#101D32] [html.light_&]:bg-rose-50/40 [html.light_&]:border-rose-200'
+    ? 'border-[#FF4569]/30 bg-[#1A2940] [html.light_&]:bg-rose-50/40 [html.light_&]:border-rose-200'
     : descStatus === 'NEEDS_IMPROVEMENT' || titleStatus === 'NEEDS_IMPROVEMENT'
-      ? 'border-[#F59E0B]/30 bg-[#101D32] [html.light_&]:bg-amber-50/40 [html.light_&]:border-amber-200'
-      : 'border-[#263751] bg-[#101D32] [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200'
+      ? 'border-[#F59E0B]/30 bg-[#1A2940] [html.light_&]:bg-amber-50/40 [html.light_&]:border-amber-200'
+      : 'border-[#263751] bg-[#1A2940] [html.light_&]:bg-white [html.light_&]:border-slate-200'
 
   return (
-    <div className={`rounded-2xl border ${overallTone} p-4 space-y-3.5 shadow-sm`}>
-      <div className="flex items-center justify-between border-b border-[#263751] pb-2.5 [html.light_&]:border-slate-200">
-        <span className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">
-          <FileText className="size-4 text-white [html.light_&]:text-[#0D1B2A]" />
-          Kiểm duyệt Mô tả & Nội dung sự kiện
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-slate-100 [html.light_&]:text-[#0D1B2A]">
+          <FileText className="size-3.5 text-white [html.light_&]:text-[#0D1B2A]" />
+          {isEnglish ? 'Description & Content Audit' : 'Kiểm duyệt Mô tả & Nội dung sự kiện'}
         </span>
         {getHeaderBadge()}
       </div>
 
-      {/* Description Audit Section */}
+      <div className={`rounded-2xl border ${overallTone} p-4 space-y-3.5 shadow-sm`}>
+        {/* Description Audit Section */}
       <div className="space-y-1.5 pl-1">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 text-xs font-bold text-slate-100 [html.light_&]:text-[#0D1B2A]">
@@ -584,11 +595,13 @@ function ContentSpellingAuditCard({ contentReview, event, onClick }) {
           </div>
         </div>
       )}
+      </div>
     </div>
   )
 }
 
 function DocumentModerationAuditCard({ documentReview, documentAnalysis, onPreviewDoc, onClick }) {
+  const { isEnglish } = useLanguage()
   const items = Array.isArray(documentReview?.items) ? documentReview.items : []
   const docAnalysisList = Array.isArray(documentAnalysis) ? documentAnalysis : []
 
@@ -621,10 +634,10 @@ function DocumentModerationAuditCard({ documentReview, documentAnalysis, onPrevi
   }
 
   return (
-    <div className="rounded-2xl border border-[#263751] bg-[#101D32] p-4 space-y-3.5 shadow-sm [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
-      <div className="flex items-center justify-between border-b border-[#263751] pb-2.5 [html.light_&]:border-slate-200">
-        <span className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">
-          <FileCheck className="size-4 text-white [html.light_&]:text-[#0D1B2A]" />
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-slate-100 [html.light_&]:text-[#0D1B2A]">
+          <FileCheck className="size-3.5 text-white [html.light_&]:text-[#0D1B2A]" />
           Kiểm duyệt Tài liệu Giấy phép ({items.length || docAnalysisList.length} tệp)
         </span>
         <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${overallVerdict === 'VIOLATION'
@@ -637,7 +650,7 @@ function DocumentModerationAuditCard({ documentReview, documentAnalysis, onPrevi
         </span>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-2">
         {items.map((doc, idx) => {
           const matchingAnalysis = docAnalysisList.find(a => (doc.url && a.url === doc.url) || (doc.fileName && a.fileName === doc.fileName) || (a.source && a.source.includes(String(idx + 1))))
           const extractedText = matchingAnalysis?.extractedText || null
@@ -857,6 +870,7 @@ function VisualCoTOcrSection({ ocrReasoning, extractedTexts }) {
 }
 
 function ImageModerationAuditCard({ imageReview, visionAnalysis, event, onClick }) {
+  const { isEnglish } = useLanguage()
   // Strictly filter out any PERMIT items to never mix documents with images
   const items = Array.isArray(imageReview?.items) ? imageReview.items.filter(it => !it.source?.startsWith('PERMIT')) : []
   const visionItems = Array.isArray(visionAnalysis) ? visionAnalysis.filter(v => !v.source?.startsWith('PERMIT')) : []
@@ -901,10 +915,10 @@ function ImageModerationAuditCard({ imageReview, visionAnalysis, event, onClick 
   }
 
   return (
-    <div className="rounded-2xl border border-[#263751] bg-[#101D32] p-4 space-y-3.5 shadow-sm [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
-      <div className="flex items-center justify-between border-b border-[#263751] pb-2.5 [html.light_&]:border-slate-200">
-        <span className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">
-          <ImageIcon className="size-4 text-white [html.light_&]:text-[#0D1B2A]" />
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-slate-100 [html.light_&]:text-[#0D1B2A]">
+          <ImageIcon className="size-3.5 text-white [html.light_&]:text-[#0D1B2A]" />
           Kiểm duyệt Hình ảnh ({items.length || visionItems.length} ảnh)
         </span>
         <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${overallVerdict === 'VIOLATION'
@@ -919,7 +933,7 @@ function ImageModerationAuditCard({ imageReview, visionAnalysis, event, onClick 
 
       {/* Render structured items from image_review.items */}
       {items.length > 0 ? (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {items.map((img, idx) => {
             const thumbUrl = getThumbnailUrl(img.source, img.url)
             return (
@@ -1008,7 +1022,7 @@ function ImageModerationAuditCard({ imageReview, visionAnalysis, event, onClick 
           ))}
         </div>
       ) : (
-        <div className="space-y-2 text-xs text-slate-300">
+        <div className="rounded-xl border border-[#263751] bg-[#1A2940] p-3.5 space-y-2 text-xs text-slate-300 [html.light_&]:bg-white [html.light_&]:border-slate-200">
           {imageReview?.poster_analysis && <div><strong>Poster:</strong> {imageReview.poster_analysis}</div>}
           {imageReview?.banner_analysis && <div><strong>Banner:</strong> {imageReview.banner_analysis}</div>}
         </div>
@@ -1127,6 +1141,387 @@ function parseAiReviewData(aiData) {
 }
 
 // ---------------------------------------------------------------------------
+// Revision Diff Helpers
+// ---------------------------------------------------------------------------
+function decodeHtmlToPlain(html) {
+  if (!html) return ''
+  return String(html)
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&amp;/gi, '&')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n\s*\n/g, '\n')
+    .trim()
+}
+
+function getBlockTagLabel(tag) {
+  const t = String(tag || 'p').toLowerCase()
+  if (t === 'li') return 'Danh sách liệt kê (• <li>)'
+  if (/^h[1-6]$/.test(t)) return `Tiêu đề mục (<${t}>)`
+  if (t === 'blockquote') return 'Trích dẫn (<blockquote>)'
+  return 'Đoạn văn (<p>)'
+}
+
+function getBlockTypographyClass(block) {
+  if (!block) return ''
+  const t = String(block.tag || 'p').toLowerCase()
+  const base = 'break-words [overflow-wrap:break-word] [word-break:normal]'
+  if (t === 'h1') return `text-lg sm:text-xl font-black text-white [html.light_&]:text-[#0D1B2A] tracking-tight ${base}`
+  if (t === 'h2') return `text-base sm:text-lg font-black text-white [html.light_&]:text-[#0D1B2A] tracking-tight ${base}`
+  if (t === 'h3') return `text-sm sm:text-base font-bold text-white [html.light_&]:text-[#0D1B2A] ${base}`
+  if (t === 'h4' || t === 'h5' || t === 'h6') return `text-xs sm:text-sm font-bold text-white [html.light_&]:text-[#0D1B2A] ${base}`
+  if (t === 'blockquote') return `border-l-2 border-amber-400/50 pl-3 italic text-slate-300 [html.light_&]:text-slate-600 ${base}`
+  if (t === 'li') return `text-xs sm:text-sm text-slate-200 [html.light_&]:text-slate-800 ${base}`
+  return `text-xs sm:text-sm leading-relaxed text-slate-200 [html.light_&]:text-slate-800 ${base}`
+}
+
+function extractSemanticHtmlBlocks(html) {
+  if (!html || typeof html !== 'string') return []
+  const blocks = []
+  const blockRegex = /<(p|li|h[1-6]|blockquote)\b[^>]*>([\s\S]*?)<\/\1>/gi
+  let match
+  while ((match = blockRegex.exec(html)) !== null) {
+    const tag = match[1].toLowerCase()
+    const innerHtml = match[2] || ''
+    const fullHtml = match[0]
+    const text = decodeHtmlToPlain(innerHtml)
+    const hasImage = /<img\b/i.test(innerHtml)
+    if (!text && !hasImage) continue
+    blocks.push({
+      tag,
+      tagLabel: getBlockTagLabel(tag),
+      html: fullHtml,
+      innerHtml,
+      text,
+      hasBold: /<(strong|b)\b/i.test(innerHtml),
+      hasItalic: /<(em|i)\b/i.test(innerHtml),
+      hasImage,
+    })
+  }
+
+  if (blocks.length === 0) {
+    const plain = decodeHtmlToPlain(html)
+    if (plain) {
+      plain.split('\n').map((s) => s.trim()).filter(Boolean).forEach((line) => {
+        blocks.push({
+          tag: 'p',
+          tagLabel: 'Đoạn văn',
+          html: `<p>${line}</p>`,
+          innerHtml: line,
+          text: line,
+          hasBold: false,
+          hasItalic: false,
+          hasImage: false,
+        })
+      })
+    }
+  }
+  return blocks
+}
+
+function computeWordDiffTokens(oldStr, newStr) {
+  const aStr = String(oldStr ?? '').trim()
+  const bStr = String(newStr ?? '').trim()
+  if (aStr === bStr) {
+    return {
+      oldTokens: aStr ? [{ text: aStr, type: 'same' }] : [],
+      newTokens: bStr ? [{ text: bStr, type: 'same' }] : [],
+      hasChanges: false,
+    }
+  }
+
+  const tokenize = (s) => s.split(/(\s+|[.,;!?()[\]{}"'“”‘’/\\—–-]+)/).filter((t) => t !== '')
+  const aTokens = tokenize(aStr)
+  const bTokens = tokenize(bStr)
+
+  if (aTokens.length * bTokens.length > 250000) {
+    return {
+      oldTokens: aStr ? [{ text: aStr, type: 'removed' }] : [],
+      newTokens: bStr ? [{ text: bStr, type: 'added' }] : [],
+      hasChanges: true,
+    }
+  }
+
+  const m = aTokens.length
+  const n = bTokens.length
+  const dp = Array.from({ length: m + 1 }, () => new Int32Array(n + 1))
+
+  for (let i = m - 1; i >= 0; i--) {
+    for (let j = n - 1; j >= 0; j--) {
+      if (aTokens[i] === bTokens[j]) {
+        dp[i][j] = 1 + dp[i + 1][j + 1]
+      } else {
+        dp[i][j] = Math.max(dp[i + 1][j], dp[i][j + 1])
+      }
+    }
+  }
+
+  const rawOld = []
+  const rawNew = []
+  const rawInline = []
+  let i = 0
+  let j = 0
+  while (i < m && j < n) {
+    if (aTokens[i] === bTokens[j]) {
+      rawOld.push({ text: aTokens[i], type: 'same' })
+      rawNew.push({ text: bTokens[j], type: 'same' })
+      rawInline.push({ text: aTokens[i], type: 'same' })
+      i++
+      j++
+    } else if (dp[i + 1][j] >= dp[i][j + 1]) {
+      rawOld.push({ text: aTokens[i], type: 'removed' })
+      rawInline.push({ text: aTokens[i], type: 'removed' })
+      i++
+    } else {
+      rawNew.push({ text: bTokens[j], type: 'added' })
+      rawInline.push({ text: bTokens[j], type: 'added' })
+      j++
+    }
+  }
+  while (i < m) {
+    rawOld.push({ text: aTokens[i], type: 'removed' })
+    rawInline.push({ text: aTokens[i], type: 'removed' })
+    i++
+  }
+  while (j < n) {
+    rawNew.push({ text: bTokens[j], type: 'added' })
+    rawInline.push({ text: bTokens[j], type: 'added' })
+    j++
+  }
+
+  const mergeTokens = (list) => {
+    const merged = []
+    for (const item of list) {
+      const last = merged[merged.length - 1]
+      if (last && last.type === item.type) {
+        last.text += item.text
+      } else {
+        merged.push({ ...item })
+      }
+    }
+    return merged
+  }
+
+  return {
+    oldTokens: mergeTokens(rawOld),
+    newTokens: mergeTokens(rawNew),
+    inlineTokens: mergeTokens(rawInline),
+    hasChanges: true,
+  }
+}
+
+function computeHtmlDescriptionDiff(oldHtml, newHtml) {
+  const oldBlocks = extractSemanticHtmlBlocks(oldHtml)
+  const newBlocks = extractSemanticHtmlBlocks(newHtml)
+  const m = oldBlocks.length
+  const n = newBlocks.length
+
+  const dp = Array.from({ length: m + 1 }, () => new Int32Array(n + 1))
+  for (let i = m - 1; i >= 0; i--) {
+    for (let j = n - 1; j >= 0; j--) {
+      if (oldBlocks[i].text === newBlocks[j].text) {
+        dp[i][j] = 1 + dp[i + 1][j + 1]
+      } else {
+        dp[i][j] = Math.max(dp[i + 1][j], dp[i][j + 1])
+      }
+    }
+  }
+
+  const anchors = []
+  let i = 0
+  let j = 0
+  while (i < m && j < n) {
+    if (oldBlocks[i].text === newBlocks[j].text) {
+      anchors.push([i, j])
+      i++
+      j++
+    } else if (dp[i + 1][j] >= dp[i][j + 1]) {
+      i++
+    } else {
+      j++
+    }
+  }
+  anchors.push([m, n])
+
+  const items = []
+  const fullBlocks = []
+  let prevI = 0
+  let prevJ = 0
+
+  for (const [currI, currJ] of anchors) {
+    const removedSlice = oldBlocks.slice(prevI, currI)
+    const addedSlice = newBlocks.slice(prevJ, currJ)
+    const pairCount = Math.min(removedSlice.length, addedSlice.length)
+
+    for (let k = 0; k < pairCount; k++) {
+      const ob = removedSlice[k]
+      const nb = addedSlice[k]
+      const it = {
+        type: 'TEXT_CHANGE',
+        blockNumber: prevJ + k + 1,
+        oldBlock: ob,
+        newBlock: nb,
+        wordDiff: computeWordDiffTokens(ob.text, nb.text),
+        formatChanged: ob.tag !== nb.tag,
+        formatSummary: ob.tag !== nb.tag ? `${ob.tagLabel} → ${nb.tagLabel}` : null,
+      }
+      items.push(it)
+      fullBlocks.push(it)
+    }
+
+    for (let k = pairCount; k < removedSlice.length; k++) {
+      const it = {
+        type: 'REMOVED_BLOCK',
+        blockNumber: prevI + k + 1,
+        oldBlock: removedSlice[k],
+        newBlock: null,
+      }
+      items.push(it)
+      fullBlocks.push(it)
+    }
+
+    for (let k = pairCount; k < addedSlice.length; k++) {
+      const it = {
+        type: 'ADDED_BLOCK',
+        blockNumber: prevJ + k + 1,
+        oldBlock: null,
+        newBlock: addedSlice[k],
+      }
+      items.push(it)
+      fullBlocks.push(it)
+    }
+
+    if (currI < m && currJ < n) {
+      const ob = oldBlocks[currI]
+      const nb = newBlocks[currJ]
+      const tagChanged = ob.tag !== nb.tag
+      const styleChanged = ob.hasBold !== nb.hasBold || ob.hasItalic !== nb.hasItalic
+      if (tagChanged || styleChanged) {
+        const formatParts = []
+        if (tagChanged) formatParts.push(`${ob.tagLabel} → ${nb.tagLabel}`)
+        if (ob.hasBold !== nb.hasBold) formatParts.push(nb.hasBold ? 'Thêm in đậm' : 'Bỏ in đậm')
+        if (ob.hasItalic !== nb.hasItalic) formatParts.push(nb.hasItalic ? 'Thêm in nghiêng' : 'Bỏ in nghiêng')
+        const it = {
+          type: 'FORMAT_CHANGE',
+          blockNumber: currJ + 1,
+          oldBlock: ob,
+          newBlock: nb,
+          formatSummary: formatParts.join(' • '),
+        }
+        items.push(it)
+        fullBlocks.push(it)
+      } else {
+        fullBlocks.push({
+          type: 'UNCHANGED',
+          blockNumber: currJ + 1,
+          oldBlock: ob,
+          newBlock: nb,
+        })
+      }
+    }
+
+    prevI = currI + 1
+    prevJ = currJ + 1
+  }
+
+  return {
+    totalOldBlocks: m,
+    totalNewBlocks: n,
+    items,
+    fullBlocks,
+  }
+}
+
+function parseJsonObjSafe(val) {
+  if (!val) return {}
+  if (typeof val === 'string') {
+    try {
+      return JSON.parse(val)
+    } catch {
+      return {}
+    }
+  }
+  return typeof val === 'object' ? val : {}
+}
+
+function normalizeRefundPolicyForDiff(policy) {
+  const p = parseJsonObjSafe(policy)
+  const allowRefund = Boolean(p.allow_refund ?? p.allow_refunds)
+  const rules = allowRefund && Array.isArray(p.refund_rules)
+    ? p.refund_rules
+        .map((r) => ({
+          days_before: Number(r?.days_before || 0),
+          refund_rate: Number(r?.refund_rate ?? r?.percentage ?? 0),
+        }))
+        .sort((a, b) => b.days_before - a.days_before)
+    : []
+  return {
+    allow_refund: allowRefund,
+    refund_rules: rules,
+    refund_notes: typeof p.refund_notes === 'string' ? p.refund_notes.trim() : '',
+    deadline_days: p.deadline_days !== undefined && p.deadline_days !== null ? Number(p.deadline_days) : null,
+    policy_file_url: p.policy_file_url || null,
+    policy_file_name: p.policy_file_name || null,
+  }
+}
+
+function normalizePermitFilesForDiff(policyOrPermits) {
+  const p = parseJsonObjSafe(policyOrPermits)
+  const files = Array.isArray(policyOrPermits)
+    ? policyOrPermits
+    : Array.isArray(p.permit_files)
+      ? p.permit_files
+      : []
+  return files
+    .filter(Boolean)
+    .map((f) => ({
+      id: f.id || null,
+      url: f.url || f.file_url || null,
+      name: f.name || f.file_name || 'Tài liệu đính kèm',
+      size: f.size ? Number(f.size) : null,
+      type: f.type || f.mime_type || 'document',
+    }))
+}
+
+function normalizeSeatingRulesForDiff(rules) {
+  const r = parseJsonObjSafe(rules)
+  return {
+    require_adjacent_seats: Boolean(r.require_adjacent_seats),
+    require_same_row: Boolean(r.require_same_row),
+    disallow_single_seat_left: Boolean(r.disallow_single_seat_left),
+    max_tickets_per_order:
+      Number.isInteger(Number(r.max_tickets_per_order)) && Number(r.max_tickets_per_order) > 0
+        ? Number(r.max_tickets_per_order)
+        : 10,
+  }
+}
+
+function formatRefundSummaryText(normPolicy) {
+  if (!normPolicy?.allow_refund) return 'Không hỗ trợ hoàn vé'
+  const rulesStr = (normPolicy.refund_rules || [])
+    .map((r) => `Trước ${r.days_before} ngày: hoàn ${r.refund_rate}%`)
+    .join('; ')
+  const notesStr = normPolicy.refund_notes ? ` (Ghi chú: ${normPolicy.refund_notes})` : ''
+  return `Cho phép hoàn vé${rulesStr ? ` — ${rulesStr}` : ''}${notesStr}`
+}
+
+function formatSeatingRulesSummaryText(normRules) {
+  if (!normRules) return 'Mặc định'
+  const parts = [
+    `Tối đa ${normRules.max_tickets_per_order || 10} vé/đơn`,
+    normRules.require_adjacent_seats ? 'Bắt buộc ghế liền kề' : 'Không bắt buộc ghế liền kề',
+    normRules.require_same_row ? 'Bắt buộc cùng hàng' : 'Không bắt buộc cùng hàng',
+    normRules.disallow_single_seat_left ? 'Cấm để trống ghế lẻ' : 'Cho phép trống ghế lẻ',
+  ]
+  return parts.join(' • ')
+}
+
+// ---------------------------------------------------------------------------
 // Main Component
 // ---------------------------------------------------------------------------
 export function AdminEventReviewDetailPage() {
@@ -1163,7 +1558,7 @@ export function AdminEventReviewDetailPage() {
     enabled: !!eventId,
   })
 
-  // Parse pending revision details (ticket changes, session updates, general fields)
+  // Parse pending revision details (comprehensive diff across all fields, tickets, sessions, tags, description, media, policies)
   const revisionDetails = useMemo(() => {
     const rev = event?.pending_revision
     if (!rev) return null
@@ -1172,17 +1567,33 @@ export function AdminEventReviewDetailPage() {
     const before = rev.payload_before || {}
     const after = rev.payload_after || {}
 
+    const allSessions = Array.isArray(before.sessions) && before.sessions.length > 0 ? before.sessions : (event?.sessions || [])
+    const sessionNameById = new Map(allSessions.map((s, idx) => [String(s.id), s.session_name || `Phiên #${idx + 1}`]))
+
     // 1. Ticket changes
-    const ticketChanges = []
+    const rawTicketChanges = []
     const diffTickets = diffList.filter((d) => d.field === 'ticket_type' || d.field === 'ticket_added' || d.field === 'ticket_removed')
 
     if (diffTickets.length > 0) {
       diffTickets.forEach((dt) => {
+        const sName = dt.event_session_id ? sessionNameById.get(String(dt.event_session_id)) : null
         if (dt.field === 'ticket_type') {
-          ticketChanges.push({
+          rawTicketChanges.push({
             id: dt.ticket_id,
+            sessionName: sName,
             name: dt.ticket_name || dt.newValue?.name || dt.oldValue?.name || 'Vé',
-            typeLabel: dt.priceChanged && dt.qtyChanged ? 'Đổi giá & số lượng' : dt.priceChanged ? 'Đổi giá vé' : dt.qtyChanged ? 'Đổi số lượng' : 'Cập nhật',
+            typeLabel:
+              dt.priceChanged && dt.qtyChanged
+                ? 'Đổi giá & số lượng'
+                : dt.priceChanged
+                  ? 'Đổi giá vé'
+                  : dt.qtyChanged
+                    ? 'Đổi số lượng'
+                    : dt.nameChanged
+                      ? 'Đổi tên hạng vé'
+                      : dt.descChanged
+                        ? 'Đổi mô tả vé'
+                        : 'Cập nhật hạng vé',
             priceChanged: Boolean(dt.priceChanged),
             oldPrice: Number(dt.oldPrice ?? dt.oldValue?.price ?? 0),
             newPrice: Number(dt.newPrice ?? dt.newValue?.price ?? 0),
@@ -1192,19 +1603,24 @@ export function AdminEventReviewDetailPage() {
             nameChanged: Boolean(dt.nameChanged),
             oldName: dt.oldValue?.name,
             newName: dt.newValue?.name,
+            descChanged: Boolean(dt.descChanged),
+            oldDescription: dt.oldValue?.description || '',
+            newDescription: dt.newValue?.description || '',
           })
         } else if (dt.field === 'ticket_added') {
-          ticketChanges.push({
+          rawTicketChanges.push({
+            sessionName: sName,
             name: dt.ticket_name || dt.newValue?.name || 'Vé mới',
-            typeLabel: 'Thêm vé mới',
+            typeLabel: 'Thêm hạng vé mới',
             isAdded: true,
             newPrice: Number(dt.newValue?.price || 0),
             newQuantity: Number(dt.newValue?.quantity || 0),
           })
         } else if (dt.field === 'ticket_removed') {
-          ticketChanges.push({
+          rawTicketChanges.push({
+            sessionName: sName,
             name: dt.ticket_name || dt.oldValue?.name || 'Vé đã xóa',
-            typeLabel: 'Xóa loại vé',
+            typeLabel: 'Xóa hạng vé',
             isRemoved: true,
             oldPrice: Number(dt.oldValue?.price || 0),
             oldQuantity: Number(dt.oldValue?.quantity || 0),
@@ -1212,22 +1628,33 @@ export function AdminEventReviewDetailPage() {
         }
       })
     } else if (Array.isArray(after.ticket_types)) {
-      // Fallback: direct comparison between payload_before and payload_after
-      const beforeTickets = Array.isArray(before.ticket_types) && before.ticket_types.length > 0 ? before.ticket_types : (event.ticket_types || [])
+      const beforeTickets = Array.isArray(before.ticket_types) && before.ticket_types.length > 0 ? before.ticket_types : (event?.ticket_types || [])
       const beforeMap = new Map(beforeTickets.map((t) => [t.id, t]))
 
       after.ticket_types.forEach((att) => {
+        const sName = att.event_session_id ? sessionNameById.get(String(att.event_session_id)) : null
         if (att.id && beforeMap.has(att.id)) {
           const btt = beforeMap.get(att.id)
           const priceChanged = att.price !== undefined && Number(att.price) !== Number(btt.price)
           const qtyChanged = att.quantity !== undefined && Number(att.quantity) !== Number(btt.quantity)
-          const nameChanged = att.name && att.name.trim() !== (btt.name || '').trim()
+          const nameChanged = Boolean(att.name && att.name.trim() !== (btt.name || '').trim())
+          const descChanged = att.description !== undefined && String(att.description || '').trim() !== String(btt.description || '').trim()
 
-          if (priceChanged || qtyChanged || nameChanged) {
-            ticketChanges.push({
+          if (priceChanged || qtyChanged || nameChanged || descChanged) {
+            rawTicketChanges.push({
               id: att.id,
+              sessionName: sName,
               name: att.name || btt.name || 'Vé',
-              typeLabel: priceChanged && qtyChanged ? 'Đổi giá & số lượng' : priceChanged ? 'Đổi giá vé' : qtyChanged ? 'Đổi số lượng' : 'Cập nhật',
+              typeLabel:
+                priceChanged && qtyChanged
+                  ? 'Đổi giá & số lượng'
+                  : priceChanged
+                    ? 'Đổi giá vé'
+                    : qtyChanged
+                      ? 'Đổi số lượng'
+                      : nameChanged
+                        ? 'Đổi tên hạng vé'
+                        : 'Cập nhật hạng vé',
               priceChanged,
               oldPrice: Number(btt.price || 0),
               newPrice: Number(att.price ?? btt.price ?? 0),
@@ -1237,12 +1664,16 @@ export function AdminEventReviewDetailPage() {
               nameChanged,
               oldName: btt.name,
               newName: att.name,
+              descChanged,
+              oldDescription: btt.description || '',
+              newDescription: att.description || '',
             })
           }
         } else if (!att.id) {
-          ticketChanges.push({
+          rawTicketChanges.push({
+            sessionName: sName,
             name: att.name || 'Vé mới',
-            typeLabel: 'Thêm vé mới',
+            typeLabel: 'Thêm hạng vé mới',
             isAdded: true,
             newPrice: Number(att.price || 0),
             newQuantity: Number(att.quantity || 0),
@@ -1251,7 +1682,22 @@ export function AdminEventReviewDetailPage() {
       })
     }
 
-    // 2. Session changes (only sessions that actually changed!)
+    // Group identical ticket changes across multiple sessions for cleaner display
+    const ticketGroupMap = new Map()
+    rawTicketChanges.forEach((tc) => {
+      const gKey = `${tc.name}__${tc.typeLabel}__${tc.oldPrice ?? ''}__${tc.newPrice ?? ''}__${tc.oldQuantity ?? ''}__${tc.newQuantity ?? ''}__${tc.oldName ?? ''}__${tc.newDescription ?? ''}`
+      if (!ticketGroupMap.has(gKey)) {
+        ticketGroupMap.set(gKey, {
+          ...tc,
+          sessionsAffected: tc.sessionName ? [tc.sessionName] : [],
+        })
+      } else if (tc.sessionName) {
+        ticketGroupMap.get(gKey).sessionsAffected.push(tc.sessionName)
+      }
+    })
+    const ticketChanges = Array.from(ticketGroupMap.values())
+
+    // 2. Session changes (ONLY sessions that actually changed)
     const sessionChanges = []
     const diffSessions = diffList.filter((d) => d.field?.startsWith('session_') || d.field === 'sessions_added' || d.field === 'session_removed')
 
@@ -1260,24 +1706,45 @@ export function AdminEventReviewDetailPage() {
         if (ds.field === 'sessions_added') {
           sessionChanges.push({
             name: ds.newValue?.session_name || 'Suất diễn mới',
-            typeLabel: 'Thêm suất mới',
+            typeLabel: 'Thêm suất diễn mới',
+            isAdded: true,
             startTime: ds.newValue?.start_time,
             endTime: ds.newValue?.end_time,
           })
         } else if (ds.field === 'session_removed') {
           sessionChanges.push({
             name: ds.oldValue?.session_name || 'Suất diễn đã xóa',
-            typeLabel: 'Đã xóa',
+            typeLabel: 'Xóa suất diễn',
             isRemoved: true,
-          })
-        } else {
-          sessionChanges.push({
-            name: ds.newValue?.session_name || ds.oldValue?.session_name || 'Suất diễn',
-            typeLabel: 'Điều chỉnh thời gian / địa điểm',
-            startTime: ds.newValue?.start_time || ds.oldValue?.start_time,
-            endTime: ds.newValue?.end_time || ds.oldValue?.end_time,
             oldStartTime: ds.oldValue?.start_time,
             oldEndTime: ds.oldValue?.end_time,
+          })
+        } else if (ds.field?.endsWith('_name')) {
+          sessionChanges.push({
+            name: String(ds.newValue || 'Suất diễn'),
+            oldName: String(ds.oldValue || ''),
+            nameChanged: true,
+            typeLabel: 'Đổi tên suất diễn',
+          })
+        } else {
+          const oldStart = ds.oldValue?.start_time
+          const oldEnd = ds.oldValue?.end_time
+          const newStart = ds.newValue?.start_time || oldStart
+          const newEnd = ds.newValue?.end_time || oldEnd
+          const timeChanged =
+            (oldStart && newStart && new Date(oldStart).getTime() !== new Date(newStart).getTime()) ||
+            (oldEnd && newEnd && new Date(oldEnd).getTime() !== new Date(newEnd).getTime())
+          const nameChanged = Boolean(ds.newValue?.session_name && ds.oldValue?.session_name && ds.newValue.session_name !== ds.oldValue.session_name)
+          sessionChanges.push({
+            name: ds.newValue?.session_name || ds.oldValue?.session_name || 'Suất diễn',
+            oldName: ds.oldValue?.session_name,
+            nameChanged,
+            timeChanged,
+            typeLabel: timeChanged ? 'Đổi thời gian diễn' : 'Điều chỉnh suất diễn',
+            startTime: newStart,
+            endTime: newEnd,
+            oldStartTime: oldStart,
+            oldEndTime: oldEnd,
           })
         }
       })
@@ -1289,11 +1756,14 @@ export function AdminEventReviewDetailPage() {
           const timeChanged =
             new Date(as.start_time).getTime() !== new Date(bs.start_time).getTime() ||
             new Date(as.end_time).getTime() !== new Date(bs.end_time).getTime()
-          const nameChanged = as.session_name && as.session_name !== bs.session_name
+          const nameChanged = Boolean(as.session_name && as.session_name !== bs.session_name)
           if (timeChanged || nameChanged) {
             sessionChanges.push({
               name: as.session_name || bs.session_name || `Suất #${idx + 1}`,
-              typeLabel: 'Điều chỉnh',
+              oldName: bs.session_name,
+              nameChanged,
+              timeChanged,
+              typeLabel: timeChanged && nameChanged ? 'Đổi tên & thời gian' : timeChanged ? 'Đổi thời gian diễn' : 'Đổi tên suất diễn',
               startTime: as.start_time,
               endTime: as.end_time,
               oldStartTime: bs.start_time,
@@ -1303,47 +1773,343 @@ export function AdminEventReviewDetailPage() {
         } else if (!as.id) {
           sessionChanges.push({
             name: as.session_name || `Suất #${idx + 1}`,
-            typeLabel: 'Thêm suất mới',
+            typeLabel: 'Thêm suất diễn mới',
+            isAdded: true,
             startTime: as.start_time,
             endTime: as.end_time,
           })
         }
       })
-    }
-
-    // 3. Other general field changes
-    const generalChanges = []
-    const fieldLabels = {
-      title: 'Tiêu đề sự kiện',
-      format: 'Hình thức tổ chức',
-      category_id: 'Danh mục sự kiện',
-      short_description: 'Mô tả ngắn',
-      description: 'Mô tả chi tiết',
-      refund_policy: 'Chính sách hoàn tiền',
-      additional_terms: 'Điều khoản bổ sung',
-      require_attendee_info: 'Yêu cầu thông tin người tham dự',
-      thumbnail_url: 'Ảnh thumbnail',
-      banner_url: 'Ảnh banner',
-    }
-
-    diffList
-      .filter((d) => !d.field?.startsWith('session') && !d.field?.startsWith('ticket'))
-      .forEach((d) => {
-        generalChanges.push({
-          field: d.field,
-          label: fieldLabels[d.field] || d.field,
-          oldValue: d.oldValue,
-          newValue: d.newValue,
-        })
+      const afterIds = new Set(after.sessions.filter((s) => s.id).map((s) => s.id))
+      before.sessions.forEach((bs, idx) => {
+        if (bs.id && !afterIds.has(bs.id)) {
+          sessionChanges.push({
+            name: bs.session_name || `Suất #${idx + 1}`,
+            typeLabel: 'Xóa suất diễn',
+            isRemoved: true,
+            oldStartTime: bs.start_time,
+            oldEndTime: bs.end_time,
+          })
+        }
       })
+    }
+
+    // 3. Tag changes (Tags)
+    let tagChanges = null
+    const rawOldTags = before.tags !== undefined ? before.tags : event?.tags
+    const rawNewTags = after.tags !== undefined ? after.tags : diffList.find((d) => d.field === 'tags')?.newValue
+    if (rawNewTags !== undefined) {
+      const oldTags = Array.isArray(rawOldTags) ? rawOldTags.map((t) => String(t).trim()).filter(Boolean) : []
+      const newTags = Array.isArray(rawNewTags) ? rawNewTags.map((t) => String(t).trim()).filter(Boolean) : []
+      if (JSON.stringify(oldTags) !== JSON.stringify(newTags)) {
+        const oldSet = new Set(oldTags)
+        const newSet = new Set(newTags)
+        const added = newTags.filter((t) => !oldSet.has(t))
+        const removed = oldTags.filter((t) => !newSet.has(t))
+        const unchanged = newTags.filter((t) => oldSet.has(t))
+        tagChanges = {
+          oldTags,
+          newTags,
+          added,
+          removed,
+          unchanged,
+        }
+      }
+    }
+
+    // 4. Detailed Description changes (HTML Description)
+    let descriptionChange = null
+    const oldDesc = String(before.description ?? event?.description ?? '').trim()
+    const newDescRaw = after.description !== undefined ? after.description : diffList.find((d) => d.field === 'description')?.newValue
+    if (newDescRaw !== undefined) {
+      const newDesc = String(newDescRaw ?? '').trim()
+      if (oldDesc !== newDesc) {
+        const diffData = computeHtmlDescriptionDiff(oldDesc, newDesc)
+        descriptionChange = {
+          oldHtml: oldDesc,
+          newHtml: newDesc,
+          ...diffData,
+        }
+      }
+    }
+
+    // 5. Media changes (Banner & Thumbnail)
+    const mediaChanges = []
+    const checkMediaField = (field, label) => {
+      const oldUrl = before[field] !== undefined ? before[field] : event?.[field]
+      const newUrl = after[field] !== undefined ? after[field] : diffList.find((d) => d.field === field)?.newValue
+      if (newUrl !== undefined && String(oldUrl || '') !== String(newUrl || '')) {
+        mediaChanges.push({
+          field,
+          label,
+          oldUrl: oldUrl || null,
+          newUrl: newUrl || null,
+        })
+      }
+    }
+    checkMediaField('thumbnail_url', 'Ảnh thu nhỏ (Poster / Thumbnail)')
+    checkMediaField('banner_url', 'Ảnh bìa sự kiện (Banner)')
+
+    // 6. Text & General Field changes (Title, Short Description, Additional Terms, Format, Visibility, Category, Attendee Info, Refund Policy, Permits, Seating Rules)
+    const generalChanges = []
+
+    const checkTextField = (field, label) => {
+      const oldVal = String(before[field] ?? event?.[field] ?? '').trim()
+      const newRaw = after[field] !== undefined ? after[field] : diffList.find((d) => d.field === field)?.newValue
+      if (newRaw !== undefined) {
+        const newVal = String(newRaw ?? '').trim()
+        if (oldVal !== newVal) {
+          generalChanges.push({
+            field,
+            label,
+            kind: 'text',
+            oldValue: oldVal || 'Chưa cập nhật',
+            newValue: newVal || 'Đã xóa nội dung',
+            wordDiff: computeWordDiffTokens(oldVal, newVal),
+          })
+        }
+      }
+    }
+    checkTextField('title', 'Tiêu đề sự kiện')
+    checkTextField('short_description', 'Mô tả ngắn (Tóm tắt)')
+    checkTextField('additional_terms', 'Điều khoản bổ sung')
+
+    // Format
+    const oldFormat = before.format ?? event?.format
+    const newFormat = after.format !== undefined ? after.format : diffList.find((d) => d.field === 'format')?.newValue
+    if (newFormat !== undefined && String(oldFormat || '') !== String(newFormat || '')) {
+      const fmtMap = { OFFLINE: 'Trực tiếp (Offline)', ONLINE: 'Trực tuyến (Online)', HYBRID: 'Kết hợp (Hybrid)' }
+      generalChanges.push({
+        field: 'format',
+        label: 'Hình thức tổ chức',
+        kind: 'badge',
+        oldValue: fmtMap[oldFormat] || oldFormat || '—',
+        newValue: fmtMap[newFormat] || newFormat || '—',
+      })
+    }
+
+    // Visibility
+    const oldVis = before.visibility ?? event?.visibility
+    const newVis = after.visibility !== undefined ? after.visibility : diffList.find((d) => d.field === 'visibility')?.newValue
+    if (newVis !== undefined && oldVis !== undefined && String(oldVis || '') !== String(newVis || '')) {
+      const visMap = { PUBLIC: 'Công khai (Public)', PRIVATE: 'Riêng tư (Private)', UNLISTED: 'Không công khai (Unlisted)' }
+      generalChanges.push({
+        field: 'visibility',
+        label: 'Chế độ hiển thị',
+        kind: 'badge',
+        oldValue: visMap[oldVis] || oldVis,
+        newValue: visMap[newVis] || newVis,
+      })
+    }
+
+    // Category
+    const oldCat = before.category_id ?? event?.category_id
+    const newCat = after.category_id !== undefined ? after.category_id : diffList.find((d) => d.field === 'category_id')?.newValue
+    if (newCat !== undefined && String(oldCat || '') !== String(newCat || '')) {
+      generalChanges.push({
+        field: 'category_id',
+        label: 'Danh mục sự kiện',
+        kind: 'badge',
+        oldValue: before.category_name || event?.category_name || String(oldCat || 'Chưa phân loại'),
+        newValue: after.category_name || String(newCat || 'Chưa phân loại'),
+      })
+    }
+
+    // Require Attendee Info
+    const oldReqInfo = before.require_attendee_info ?? event?.require_attendee_info
+    const newReqInfo = after.require_attendee_info !== undefined ? after.require_attendee_info : diffList.find((d) => d.field === 'require_attendee_info')?.newValue
+    if (newReqInfo !== undefined && oldReqInfo !== undefined && Boolean(oldReqInfo) !== Boolean(newReqInfo)) {
+      generalChanges.push({
+        field: 'require_attendee_info',
+        label: 'Yêu cầu thông tin người tham dự',
+        kind: 'badge',
+        oldValue: oldReqInfo ? 'Có yêu cầu' : 'Không yêu cầu',
+        newValue: newReqInfo ? 'Có yêu cầu' : 'Không yêu cầu',
+      })
+    }
+
+    // Refund Policy & Permit Files (deep normalized check to prevent JSONB key-order false positives)
+    if (after.refund_policy !== undefined || diffList.some((d) => d.field === 'refund_policy' || d.field === 'permit_files')) {
+      const oldPolicyNorm = normalizeRefundPolicyForDiff(before.refund_policy ?? event?.refund_policy)
+      const newPolicyNorm = normalizeRefundPolicyForDiff(after.refund_policy ?? diffList.find((d) => d.field === 'refund_policy')?.newValue)
+      if (JSON.stringify(oldPolicyNorm) !== JSON.stringify(newPolicyNorm)) {
+        generalChanges.push({
+          field: 'refund_policy',
+          label: 'Chính sách hoàn tiền',
+          kind: 'policy',
+          oldValue: formatRefundSummaryText(oldPolicyNorm),
+          newValue: formatRefundSummaryText(newPolicyNorm),
+        })
+      }
+
+      if (after.refund_policy !== undefined || diffList.some((d) => d.field === 'permit_files')) {
+        const oldPermits = normalizePermitFilesForDiff(before.refund_policy ?? event?.refund_policy)
+        const newPermits = normalizePermitFilesForDiff(after.refund_policy ?? diffList.find((d) => d.field === 'permit_files')?.newValue)
+        if (
+          JSON.stringify(oldPermits.map((p) => `${p.url || ''}__${p.name || ''}`)) !==
+          JSON.stringify(newPermits.map((p) => `${p.url || ''}__${p.name || ''}`))
+        ) {
+          generalChanges.push({
+            field: 'permit_files',
+            label: 'Giấy phép & Tài liệu đính kèm',
+            kind: 'policy',
+            oldValue: oldPermits.length > 0 ? oldPermits.map((p) => p.name).join(', ') : 'Không có tài liệu',
+            newValue: newPermits.length > 0 ? newPermits.map((p) => p.name).join(', ') : 'Không có tài liệu',
+          })
+        }
+      }
+    }
+
+    // Seating Rules
+    if (after.seating_rules !== undefined || diffList.some((d) => d.field === 'seating_rules')) {
+      const oldRules = normalizeSeatingRulesForDiff(before.seating_rules ?? event?.seating_rules)
+      const newRules = normalizeSeatingRulesForDiff(after.seating_rules ?? diffList.find((d) => d.field === 'seating_rules')?.newValue)
+      if (JSON.stringify(oldRules) !== JSON.stringify(newRules)) {
+        generalChanges.push({
+          field: 'seating_rules',
+          label: 'Quy tắc chọn ghế',
+          kind: 'policy',
+          oldValue: formatSeatingRulesSummaryText(oldRules),
+          newValue: formatSeatingRulesSummaryText(newRules),
+        })
+      }
+    }
+
+    // Build summary pills for quick overview
+    const summaryPills = []
+    if (tagChanges) {
+      const parts = []
+      if (tagChanges.added.length > 0) parts.push(`+${tagChanges.added.length} mới`)
+      if (tagChanges.removed.length > 0) parts.push(`-${tagChanges.removed.length} xóa`)
+      summaryPills.push({
+        key: 'tags',
+        label: 'Thẻ sự kiện (Tags)',
+        badge: parts.join(', ') || 'Cập nhật',
+        tone: 'emerald',
+      })
+    }
+    if (descriptionChange) {
+      const blockCount = descriptionChange.items?.length || 1
+      summaryPills.push({
+        key: 'description',
+        label: 'Mô tả chi tiết',
+        badge: `${blockCount} đoạn chỉnh sửa`,
+        tone: 'amber',
+      })
+    }
+    if (ticketChanges.length > 0) {
+      summaryPills.push({
+        key: 'tickets',
+        label: 'Hạng vé',
+        badge: `${ticketChanges.length} mục`,
+        tone: 'amber',
+      })
+    }
+    if (sessionChanges.length > 0) {
+      summaryPills.push({
+        key: 'sessions',
+        label: 'Suất diễn',
+        badge: `${sessionChanges.length} suất`,
+        tone: 'indigo',
+      })
+    }
+    if (mediaChanges.length > 0) {
+      summaryPills.push({
+        key: 'media',
+        label: 'Hình ảnh sự kiện',
+        badge: `${mediaChanges.length} ảnh`,
+        tone: 'purple',
+      })
+    }
+    generalChanges.forEach((gc) => {
+      summaryPills.push({
+        key: gc.field,
+        label: gc.label,
+        badge: 'Đã sửa',
+        tone: 'blue',
+      })
+    })
+
+    // Calculate detailed breakdown counts
+    let addedCount = 0
+    let editedCount = 0
+    let removedCount = 0
+
+    if (tagChanges) {
+      addedCount += tagChanges.added.length
+      removedCount += tagChanges.removed.length
+    }
+
+    if (descriptionChange) {
+      if (descriptionChange.items && descriptionChange.items.length > 0) {
+        descriptionChange.items.forEach((it) => {
+          if (it.type === 'ADDED_BLOCK') addedCount++
+          else if (it.type === 'REMOVED_BLOCK') removedCount++
+          else editedCount++
+        })
+      } else {
+        editedCount++
+      }
+    }
+
+    ticketChanges.forEach((tc) => {
+      if (tc.isAdded) addedCount++
+      else if (tc.isRemoved) removedCount++
+      else editedCount++
+    })
+
+    sessionChanges.forEach((sc) => {
+      if (sc.isAdded) addedCount++
+      else if (sc.isRemoved) removedCount++
+      else editedCount++
+    })
+
+    mediaChanges.forEach((mc) => {
+      if (mc.isAdded) addedCount++
+      else if (mc.isRemoved) removedCount++
+      else editedCount++
+    })
+
+    generalChanges.forEach(() => {
+      editedCount++
+    })
+
+    const totalChanges = addedCount + editedCount + removedCount
 
     return {
       ticketChanges,
       sessionChanges,
+      tagChanges,
+      descriptionChange,
+      mediaChanges,
       generalChanges,
+      summaryPills,
+      submittedAt: rev.submitted_at || null,
       changeClass: rev.change_class || 'MAJOR',
+      addedCount,
+      editedCount,
+      removedCount,
+      totalChanges: totalChanges > 0 ? totalChanges : (summaryPills.length || 1),
     }
-  }, [event?.pending_revision, event?.ticket_types, event?.sessions])
+  }, [
+    event?.pending_revision,
+    event?.ticket_types,
+    event?.sessions,
+    event?.tags,
+    event?.description,
+    event?.short_description,
+    event?.title,
+    event?.format,
+    event?.visibility,
+    event?.category_id,
+    event?.category_name,
+    event?.thumbnail_url,
+    event?.banner_url,
+    event?.refund_policy,
+    event?.seating_rules,
+    event?.additional_terms,
+    event?.require_attendee_info,
+  ])
 
   // Group tickets across sessions with rich session metadata
   const groupedTickets = useMemo(() => {
@@ -1552,9 +2318,26 @@ export function AdminEventReviewDetailPage() {
   // -------------------------------------------------------------------------
   const { register, handleSubmit, setValue, getValues, watch } = useForm({
     defaultValues: { review_note: '' },
+    shouldUnregister: false,
   })
   const [isNoteExpanded, setIsNoteExpanded] = useState(false)
-  const [isAiExpanded, setIsAiExpanded] = useState(true)
+  const [hasNoteError, setHasNoteError] = useState(false)
+  const noteTextareaRef = useRef(null)
+  const {
+    ref: reviewNoteRegisterRef,
+    onChange: reviewNoteRegisterOnChange,
+    ...restReviewNoteRegister
+  } = register('review_note')
+
+  const [isAiExpanded, setIsAiExpanded] = useState(() => !event?.pending_revision)
+  const [descDiffMode, setDescDiffMode] = useState('split') // 'split' | 'inline'
+  const [activeChangeSectionId, setActiveChangeSectionId] = useState(null)
+
+  useEffect(() => {
+    if (event?.pending_revision) {
+      setIsAiExpanded(false)
+    }
+  }, [event?.pending_revision?.id])
   const reviewNoteWatch = watch('review_note') || ''
   const hasNote = Boolean(reviewNoteWatch.trim())
   const noteLinesCount = reviewNoteWatch.split('\n').filter(Boolean).length
@@ -1564,33 +2347,198 @@ export function AdminEventReviewDetailPage() {
     onSuccess: (_, variables) => {
       toast.success(
         variables.status === 'APPROVED'
-          ? 'Đã phê duyệt sự kiện.'
+          ? (isEnglish ? 'Event approved.' : 'Đã phê duyệt sự kiện.')
           : variables.status === 'REJECTED'
-            ? 'Đã từ chối sự kiện.'
-            : 'Đã yêu cầu chỉnh sửa.'
+            ? (isEnglish ? 'Event rejected.' : 'Đã từ chối sự kiện.')
+            : (isEnglish ? 'Requested event revision.' : 'Đã yêu cầu chỉnh sửa.')
       )
       queryClient.invalidateQueries({ queryKey: ['admin-events'] })
       navigate('/admin/events/review')
     },
     onError: (err) => {
-      toast.error(getApiMessage(err, 'Thao tác thất bại.'))
+      toast.error(getApiMessage(err, isEnglish ? 'Operation failed.' : 'Thao tác thất bại.'))
     },
   })
-
-  const [revisionNote, setRevisionNote] = useState('')
 
   const reviewRevisionMutation = useMutation({
     mutationFn: ({ decision, note }) => reviewAdminEventRevision(eventId, { decision, note }),
     onSuccess: (_, vars) => {
-      toast.success(vars.decision === 'APPROVE' ? 'Đã phê duyệt bản sửa đổi thành công!' : 'Đã từ chối bản sửa đổi.')
-      setRevisionNote('')
+      toast.success(
+        vars.decision === 'APPROVE'
+          ? (isEnglish ? 'Event revision approved successfully!' : 'Đã phê duyệt bản sửa đổi thành công!')
+          : (isEnglish ? 'Event revision rejected.' : 'Đã từ chối bản sửa đổi.')
+      )
       queryClient.invalidateQueries({ queryKey: ['admin-events'] })
       navigate('/admin/events/review')
     },
     onError: (err) => {
-      toast.error(getApiMessage(err, 'Không thể xử lý bản sửa đổi.'))
+      toast.error(getApiMessage(err, isEnglish ? 'Could not process event revision.' : 'Không thể xử lý bản sửa đổi.'))
     },
   })
+
+  // -------------------------------------------------------------------------
+  // Change Navigator Sections for Pending Revision (Must be before early returns)
+  // -------------------------------------------------------------------------
+  const changeSections = useMemo(() => {
+    if (!revisionDetails) return []
+    const list = []
+
+    if (revisionDetails.tagChanges) {
+      const added = revisionDetails.tagChanges.added.length
+      const removed = revisionDetails.tagChanges.removed.length
+      list.push({
+        id: 'rev-section-tags',
+        title: isEnglish ? 'Tags' : 'Thẻ sự kiện',
+        badge: added > 0 && removed > 0
+          ? `+${added} / -${removed}`
+          : added > 0
+            ? `+${added} ${isEnglish ? 'new' : 'mới'}`
+            : `-${removed} ${isEnglish ? 'removed' : 'xóa'}`,
+        count: added + removed,
+        icon: Tag,
+        tone: 'emerald',
+      })
+    }
+
+    if (revisionDetails.descriptionChange) {
+      const count = revisionDetails.descriptionChange.items?.length || 1
+      list.push({
+        id: 'rev-section-description',
+        title: isEnglish ? 'Detailed Description' : 'Mô tả chi tiết',
+        badge: `${count} ${isEnglish ? (count > 1 ? 'blocks' : 'block') : 'đoạn chỉnh sửa'}`,
+        count,
+        icon: FileText,
+        tone: 'amber',
+      })
+    }
+
+    if (revisionDetails.mediaChanges?.length > 0) {
+      list.push({
+        id: 'rev-section-media',
+        title: isEnglish ? 'Media & Images' : 'Hình ảnh sự kiện',
+        badge: `${revisionDetails.mediaChanges.length} ${isEnglish ? 'images' : 'ảnh'}`,
+        count: revisionDetails.mediaChanges.length,
+        icon: ImageIcon,
+        tone: 'purple',
+      })
+    }
+
+    if (revisionDetails.ticketChanges?.length > 0) {
+      list.push({
+        id: 'rev-section-tickets',
+        title: isEnglish ? 'Ticket Tiers' : 'Hạng vé',
+        badge: `${revisionDetails.ticketChanges.length} ${isEnglish ? 'items' : 'mục'}`,
+        count: revisionDetails.ticketChanges.length,
+        icon: Tag,
+        tone: 'amber',
+      })
+    }
+
+    if (revisionDetails.sessionChanges?.length > 0) {
+      list.push({
+        id: 'rev-section-sessions',
+        title: isEnglish ? 'Sessions' : 'Suất diễn',
+        badge: `${revisionDetails.sessionChanges.length} ${isEnglish ? 'sessions' : 'suất'}`,
+        count: revisionDetails.sessionChanges.length,
+        icon: Calendar,
+        tone: 'indigo',
+      })
+    }
+
+    if (revisionDetails.generalChanges?.length > 0) {
+      list.push({
+        id: 'rev-section-general',
+        title: isEnglish ? 'General & Policies' : 'Thông tin chung & Chính sách',
+        badge: `${revisionDetails.generalChanges.length} ${isEnglish ? 'fields' : 'mục'}`,
+        count: revisionDetails.generalChanges.length,
+        icon: Info,
+        tone: 'blue',
+      })
+    }
+
+    return list
+  }, [revisionDetails, isEnglish])
+
+  const currentSectionIndex = Math.max(
+    0,
+    changeSections.findIndex((s) => s.id === (activeChangeSectionId || changeSections[0]?.id))
+  )
+
+  const handleScrollToSection = (id) => {
+    setActiveChangeSectionId(id)
+    const el = document.getElementById(id)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }
+
+  const handlePrevChangeSection = () => {
+    if (currentSectionIndex > 0) {
+      handleScrollToSection(changeSections[currentSectionIndex - 1].id)
+    }
+  }
+
+  const handleNextChangeSection = () => {
+    if (currentSectionIndex < changeSections.length - 1) {
+      handleScrollToSection(changeSections[currentSectionIndex + 1].id)
+    }
+  }
+
+  // Seated sessions & seat map logic for view-only display (Must be before early returns)
+  const seatedSessions = useMemo(() => {
+    const list = (event?.sessions || []).filter((s) => Boolean(s.seat_map_id))
+    if (list.length > 0) return list
+    if (event?.ticket_types?.some((tt) => tt.is_seated)) {
+      return event?.sessions || []
+    }
+    return []
+  }, [event?.sessions, event?.ticket_types])
+
+  const [selectedSeatSessionId, setSelectedSeatSessionId] = useState('')
+
+  const effectiveSeatSessionId = useMemo(() => {
+    if (seatedSessions.some((s) => String(s.id) === String(selectedSeatSessionId))) {
+      return selectedSeatSessionId
+    }
+    return seatedSessions[0]?.id ? String(seatedSessions[0].id) : ''
+  }, [seatedSessions, selectedSeatSessionId])
+
+  const sessionSeatsQuery = useQuery({
+    queryKey: ['admin-review-session-seats', effectiveSeatSessionId],
+    queryFn: () => fetchSessionSeats(effectiveSeatSessionId),
+    enabled: Boolean(effectiveSeatSessionId),
+    staleTime: 60 * 1000,
+  })
+
+  // -------------------------------------------------------------------------
+  // Derived State / AI Data Resolution (kept above early returns per Rules of Hooks)
+  // -------------------------------------------------------------------------
+  const rawAiReview = aiReviewQuery.data || event?.aiReview
+  const aiData = useMemo(() => parseAiReviewData(rawAiReview), [rawAiReview])
+
+  const policyViolations = useMemo(() => {
+    return Array.isArray(aiData?.critical_violations) ? aiData.critical_violations : []
+  }, [aiData?.critical_violations])
+
+  const policyWarnings = useMemo(() => {
+    return Array.isArray(aiData?.warnings) ? aiData.warnings : []
+  }, [aiData?.warnings])
+
+  const hasDocumentViolations = useMemo(() => {
+    const items = aiData?.document_review?.items || []
+    return (
+      aiData?.document_review?.overall_document_verdict === 'VIOLATION' ||
+      items.some((d) => d?.status === 'VIOLATION')
+    )
+  }, [aiData?.document_review])
+
+  const hasImageViolations = useMemo(() => {
+    const items = (aiData?.image_review?.items || []).filter((i) => !i?.source?.startsWith('PERMIT'))
+    return (
+      aiData?.image_review?.overall_image_verdict === 'VIOLATION' ||
+      items.some((i) => i?.status === 'VIOLATION')
+    )
+  }, [aiData?.image_review])
 
   // -------------------------------------------------------------------------
   // Render Loading/Error
@@ -1617,12 +2565,6 @@ export function AdminEventReviewDetailPage() {
   }
 
   // -------------------------------------------------------------------------
-  // Derived State / AI Data Resolution
-  // -------------------------------------------------------------------------
-  const rawAiReview = aiReviewQuery.data || event.aiReview
-  const aiData = parseAiReviewData(rawAiReview)
-
-  // -------------------------------------------------------------------------
   // Handlers
   // -------------------------------------------------------------------------
   const handleWarningClick = (text) => {
@@ -1632,29 +2574,29 @@ export function AdminEventReviewDetailPage() {
     } else {
       setValue('review_note', `- ${text}`)
     }
+    setHasNoteError(false)
     setIsNoteExpanded(true)
-    toast.success('Đã thêm vào ghi chú kiểm duyệt!')
+    toast.success(isEnglish ? 'Added to review notes!' : 'Đã thêm vào ghi chú kiểm duyệt!')
   }
 
   const handleCopyAllIssues = () => {
     if (!aiData) return
     const lines = []
-
     // 1. Vi phạm điều khoản & chính sách nền tảng
     const policyCrits = (aiData.critical_violations || []).filter(isGeneralPolicyIssue)
     if (policyCrits.length > 0) {
-      lines.push('=== VI PHẠM ĐIỀU KHOẢN & CHÍNH SÁCH ===')
+      lines.push(isEnglish ? '=== POLICY & TERMS VIOLATIONS ===' : '=== VI PHẠM ĐIỀU KHOẢN & CHÍNH SÁCH ===')
       policyCrits.forEach((v) => {
-        lines.push(`- [${v.policy_code || 'VI PHẠM'}] ${v.issue || v.message || v}${v.highlighted_text ? ` (Trích dẫn: "${v.highlighted_text}")` : ''}`)
+        lines.push(`- [${v.policy_code || (isEnglish ? 'VIOLATION' : 'VI PHẠM')}] ${v.issue || v.message || v}${v.highlighted_text ? ` (${isEnglish ? 'Quote' : 'Trích dẫn'}: "${v.highlighted_text}")` : ''}`)
       })
     }
 
     const policyWarns = (aiData.warnings || []).filter(isGeneralPolicyIssue)
     if (policyWarns.length > 0) {
       if (lines.length > 0) lines.push('')
-      lines.push('=== CẢNH BÁO ĐIỀU KHOẢN & LƯU Ý ===')
+      lines.push(isEnglish ? '=== POLICY WARNINGS & NOTICES ===' : '=== CẢNH BÁO ĐIỀU KHOẢN & LƯU Ý ===')
       policyWarns.forEach((w) => {
-        lines.push(`- [${w.policy_code || 'LƯU Ý'}] ${w.issue || w.message || w}${w.highlighted_text ? ` (Trích dẫn: "${w.highlighted_text}")` : ''}`)
+        lines.push(`- [${w.policy_code || (isEnglish ? 'NOTICE' : 'LƯU Ý')}] ${w.issue || w.message || w}${w.highlighted_text ? ` (${isEnglish ? 'Quote' : 'Trích dẫn'}: "${w.highlighted_text}")` : ''}`)
       })
     }
 
@@ -1685,50 +2627,93 @@ export function AdminEventReviewDetailPage() {
     // 4. Gợi ý điều chỉnh
     if (aiData.suggestions && aiData.suggestions.length > 0) {
       if (lines.length > 0) lines.push('')
-      lines.push('=== GỢI Ý ĐIỀU CHỈNH ===')
+      lines.push(isEnglish ? '=== ADJUSTMENT SUGGESTIONS ===' : '=== GỢI Ý ĐIỀU CHỈNH ===')
       aiData.suggestions.forEach((s) => {
         lines.push(`- ${typeof s === 'string' ? s : s.text || JSON.stringify(s)}`)
       })
     }
 
     if (lines.length === 0) {
-      setValue('review_note', 'Sự kiện tuân thủ các điều khoản và chính sách EventHub. Đồng ý phê duyệt.')
+      setValue('review_note', isEnglish ? 'Event complies with all terms and policies. Ready for approval.' : 'Sự kiện tuân thủ các điều khoản và chính sách EventHub. Đồng ý phê duyệt.')
     } else {
       setValue('review_note', lines.join('\n'))
     }
+    setHasNoteError(false)
     setIsNoteExpanded(true)
-    toast.success('Đã sao chép toàn bộ đánh giá AI vào Ghi chú!')
+    toast.success(isEnglish ? 'Copied all AI evaluations into Review Notes!' : 'Đã sao chép toàn bộ đánh giá AI vào Ghi chú!')
   }
 
   const onSubmitReview = (status) => {
-    return handleSubmit((data) => {
+    return handleSubmit(async (data) => {
+      const isApprove = status === 'APPROVED'
+
+      if (!isApprove) {
+        // Kiểm tra ô ghi chú nếu chưa có điền thì in đỏ và hiện dòng chữ yêu cầu điền lý do từ chối
+        const note = (data.review_note || getValues('review_note') || '').trim()
+        if (!note) {
+          setHasNoteError(true)
+          setIsNoteExpanded(true)
+          setTimeout(() => {
+            noteTextareaRef.current?.focus()
+          }, 50)
+          return
+        }
+
+        // Đã có ghi chú -> Bỏ popup sau khi bấm, thực hiện từ chối trực tiếp luôn
+        setHasNoteError(false)
+
+        if (event?.cancel_request?.status === 'PENDING') {
+          try {
+            await approveCancellationRequest(eventId, {
+              decision: 'REJECT',
+              rejection_reason: note,
+            })
+            toast.info(isEnglish ? 'Rejected event cancellation request.' : 'Đã từ chối yêu cầu hủy sự kiện.')
+            queryClient.invalidateQueries({ queryKey: ['admin-events'] })
+            navigate('/admin/events/review')
+          } catch (err) {
+            toast.error(getApiMessage(err, isEnglish ? 'Failed to process event cancellation request.' : 'Không thể xử lý yêu cầu hủy sự kiện.'))
+          }
+          return
+        }
+
+        if (event?.pending_revision) {
+          reviewRevisionMutation.mutate({ decision: 'REJECT', note })
+          return
+        }
+
+        reviewMutation.mutate({
+          status: 'REJECTED',
+          review_note: note,
+        })
+        return
+      }
+
+      // Phê duyệt: phần ghi chú là không ràng buộc, có thể ghi hoặc không
+      setHasNoteError(false)
+      const note = (data.review_note || getValues('review_note') || '').trim() || null
+
       if (event?.cancel_request?.status === 'PENDING') {
-        const isApprove = status === 'APPROVED'
         setConfirmState({
-          title: isApprove ? 'Phê duyệt yêu cầu hủy sự kiện' : 'Từ chối yêu cầu hủy sự kiện',
-          subtitle: isApprove ? 'Chấp thuận hủy sự kiện và khởi tạo hoàn tiền.' : 'Bác bỏ yêu cầu hủy sự kiện từ Ban tổ chức.',
+          title: isEnglish ? 'Approve event cancellation request' : 'Phê duyệt yêu cầu hủy sự kiện',
+          subtitle: isEnglish ? 'Accept cancellation and initialize refund.' : 'Chấp thuận hủy sự kiện và khởi tạo hoàn tiền.',
           eventTitle: event?.title,
-          description: isApprove
-            ? 'Sự kiện sẽ chuyển sang trạng thái ĐÃ HỦY và hệ thống sẽ tự động tạo danh sách yêu cầu hoàn tiền cho toàn bộ đơn hàng đã thanh toán.'
-            : 'Yêu cầu hủy sự kiện sẽ bị từ chối. Sự kiện sẽ gỡ bỏ hạn chế bán vé do yêu cầu hủy và trở lại hoạt động bình thường.',
-          tone: isApprove ? 'danger' : 'neutral',
-          confirmText: isApprove ? 'Xác nhận duyệt hủy' : 'Từ chối yêu cầu',
-          cancelText: 'Hủy bỏ',
-          confirmColor: isApprove ? 'bg-error' : 'bg-subtle',
+          description: isEnglish
+            ? 'The event will be set to CANCELLED and refunds will be generated for all paid orders.'
+            : 'Sự kiện sẽ chuyển sang trạng thái ĐÃ HỦY và hệ thống sẽ tự động tạo danh sách yêu cầu hoàn tiền cho toàn bộ đơn hàng đã thanh toán.',
+          tone: 'danger',
+          confirmText: isEnglish ? 'Confirm approve cancellation' : 'Xác nhận duyệt hủy',
+          cancelText: isEnglish ? 'Cancel' : 'Hủy bỏ',
+          confirmColor: 'bg-error',
           onConfirm: async () => {
             try {
-              if (isApprove) {
-                await approveCancellationRequest(eventId, { decision: 'APPROVE', note: data.review_note?.trim() || null })
-                toast.success('Đã phê duyệt yêu cầu hủy sự kiện. Danh sách hoàn tiền đã được tạo.')
-              } else {
-                await approveCancellationRequest(eventId, { decision: 'REJECT', rejection_reason: data.review_note?.trim() || 'Admin từ chối yêu cầu hủy' })
-                toast.info('Đã từ chối yêu cầu hủy sự kiện.')
-              }
+              await approveCancellationRequest(eventId, { decision: 'APPROVE', note })
+              toast.success(isEnglish ? 'Event cancellation approved. Refund list created.' : 'Đã phê duyệt yêu cầu hủy sự kiện. Danh sách hoàn tiền đã được tạo.')
               setConfirmState(null)
               queryClient.invalidateQueries({ queryKey: ['admin-events'] })
               navigate('/admin/events/review')
             } catch (err) {
-              toast.error(getApiMessage(err, 'Không thể xử lý yêu cầu hủy sự kiện.'))
+              toast.error(getApiMessage(err, isEnglish ? 'Failed to process cancellation request.' : 'Không thể xử lý yêu cầu hủy sự kiện.'))
             }
           }
         })
@@ -1736,56 +2721,38 @@ export function AdminEventReviewDetailPage() {
       }
 
       if (event?.pending_revision) {
-        const decision = status === 'APPROVED' ? 'APPROVE' : 'REJECT'
         setConfirmState({
-          title: decision === 'APPROVE' ? 'Phê duyệt sửa đổi sự kiện' : 'Từ chối bản sửa đổi',
-          subtitle: decision === 'APPROVE' ? 'Áp dụng các thay đổi mới vào sự kiện trực tiếp.' : 'Giữ nguyên cấu hình sự kiện hiện tại.',
+          title: isEnglish ? 'Approve event revision' : 'Phê duyệt sửa đổi sự kiện',
+          subtitle: isEnglish ? 'Apply new changes directly to the live event.' : 'Áp dụng các thay đổi mới vào sự kiện trực tiếp.',
           eventTitle: event?.title,
-          description: decision === 'APPROVE'
-            ? 'Các thay đổi về ngày giờ/suất diễn sẽ được áp dụng chính thức và trạng thái tạm dừng bán (nếu có) sẽ được mở lại.'
-            : 'Bản đề xuất sửa đổi sẽ bị từ chối và lưu vào lịch sử kiểm duyệt. Cấu hình sự kiện hiện tại sẽ được giữ nguyên.',
-          tone: decision === 'APPROVE' ? 'gold' : 'danger',
-          confirmText: decision === 'APPROVE' ? 'Phê duyệt sửa đổi' : 'Từ chối sửa đổi',
-          cancelText: 'Hủy bỏ',
-          confirmColor: decision === 'APPROVE' ? undefined : 'bg-error',
+          description: isEnglish
+            ? 'All proposed edits from the Organizer will officially take effect on the event and ticket sales will resume (if paused).'
+            : 'Toàn bộ nội dung chỉnh sửa đề xuất từ Ban tổ chức sẽ được áp dụng chính thức vào sự kiện và mở lại bán vé (nếu đang tạm dừng).',
+          tone: 'gold',
+          confirmText: isEnglish ? 'Approve revision' : 'Phê duyệt sửa đổi',
+          cancelText: isEnglish ? 'Cancel' : 'Hủy bỏ',
           onConfirm: () => {
-            reviewRevisionMutation.mutate({ decision, note: data.review_note?.trim() || null })
+            reviewRevisionMutation.mutate({ decision: 'APPROVE', note })
             setConfirmState(null)
           }
         })
         return
       }
 
-      if (status === 'APPROVED') {
-        setConfirmState({
-          title: 'Xác nhận phê duyệt',
-          description: 'Bạn có chắc chắn muốn phê duyệt sự kiện này?',
-          tone: 'gold',
-          confirmText: 'Phê duyệt',
-          cancelText: 'Hủy bỏ',
-          onConfirm: () => {
-            reviewMutation.mutate({
-              status,
-              review_note: data.review_note?.trim() || null,
-            })
-            setConfirmState(null)
-          }
-        })
-      } else {
-        setConfirmState({
-          title: 'Xác nhận từ chối',
-          description: 'Bạn có chắc chắn muốn từ chối sự kiện này? Vui lòng đảm bảo đã nhập lý do.',
-          confirmText: 'Từ chối',
-          confirmColor: 'bg-error',
-          onConfirm: () => {
-            reviewMutation.mutate({
-              status,
-              review_note: data.review_note?.trim() || null,
-            })
-            setConfirmState(null)
-          }
-        })
-      }
+      setConfirmState({
+        title: isEnglish ? 'Confirm approval' : 'Xác nhận phê duyệt',
+        description: isEnglish ? 'Are you sure you want to approve this event?' : 'Bạn có chắc chắn muốn phê duyệt sự kiện này?',
+        tone: 'gold',
+        confirmText: isEnglish ? 'Approve' : 'Phê duyệt',
+        cancelText: isEnglish ? 'Cancel' : 'Hủy bỏ',
+        onConfirm: () => {
+          reviewMutation.mutate({
+            status: 'APPROVED',
+            review_note: note,
+          })
+          setConfirmState(null)
+        }
+      })
     })()
   }
 
@@ -1857,57 +2824,22 @@ export function AdminEventReviewDetailPage() {
     })
   }
 
-
-  const handleReviewRevision = (decision) => {
-    if (decision === 'APPROVE') {
-      setConfirmState({
-        title: 'Phê duyệt sửa đổi sự kiện',
-        subtitle: 'Áp dụng các thay đổi mới vào sự kiện trực tiếp.',
-        eventTitle: event?.title,
-        description: 'Các thay đổi về ngày giờ/suất diễn sẽ được áp dụng chính thức và trạng thái tạm dừng bán (nếu có) sẽ được mở lại.',
-        tone: 'gold',
-        confirmText: 'Xác nhận duyệt sửa đổi',
-        cancelText: 'Hủy bỏ',
-        onConfirm: () => {
-          reviewRevisionMutation.mutate({ decision: 'APPROVE', note: revisionNote.trim() || null })
-          setConfirmState(null)
-        },
-      })
-    } else {
-      setConfirmState({
-        title: 'Từ chối bản sửa đổi',
-        subtitle: 'Giữ nguyên cấu hình sự kiện hiện tại.',
-        eventTitle: event?.title,
-        description: 'Bản đề xuất sửa đổi sẽ bị từ chối và lưu vào lịch sử kiểm duyệt. Cấu hình sự kiện hiện tại sẽ được giữ nguyên.',
-        tone: 'danger',
-        confirmText: 'Từ chối sửa đổi',
-        cancelText: 'Hủy bỏ',
-        onConfirm: () => {
-          reviewRevisionMutation.mutate({ decision: 'REJECT', note: revisionNote.trim() || null })
-          setConfirmState(null)
-        },
-      })
-    }
-  }
+  const hasSeatMap = seatedSessions.length > 0 && (Boolean(sessionSeatsQuery.data?.seats?.length) || sessionSeatsQuery.isLoading)
 
   const isPending = reviewMutation.isPending || reviewRevisionMutation.isPending
   const isPendingReview = event?.status === 'PENDING_REVIEW' || Boolean(event?.pending_revision)
-  const customScrollbar = "[&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/10 hover:[&::-webkit-scrollbar-thumb]:bg-white/20"
+  const customScrollbar = "[&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar:horizontal]:h-0 [&::-webkit-scrollbar:horizontal]:hidden [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/10 hover:[&::-webkit-scrollbar-thumb]:bg-white/20"
 
   // If this event has a cancellation request or is cancelled, render the dedicated cancellation review page
   if (event?.cancel_request?.status === 'PENDING' || event?.status === 'CANCELLED') {
     return <AdminEventCancellationDetailPage />
   }
 
-  const generalPolicyViolations = useMemo(() => {
-    return (aiData?.critical_violations || []).filter(isGeneralPolicyIssue)
-  }, [aiData?.critical_violations])
-
-  const generalPolicyWarnings = useMemo(() => {
-    return (aiData?.warnings || []).filter(isGeneralPolicyIssue)
-  }, [aiData?.warnings])
-
-  const totalIssuesCount = (aiData?.critical_violations?.length || 0) + (aiData?.warnings?.length || 0)
+  const totalIssuesCount =
+    policyViolations.length +
+    policyWarnings.length +
+    (hasDocumentViolations ? 1 : 0) +
+    (hasImageViolations ? 1 : 0)
 
   return (
     <div className={`space-y-4 pb-8 ${!isPendingReview ? 'max-w-5xl mx-auto' : ''}`}>
@@ -2014,194 +2946,809 @@ export function AdminEventReviewDetailPage() {
             </div>
           )}
 
-          {/* Pending Revision Banner */}
+          {/* Pending Revision Summary Card */}
           {event.pending_revision && (
-            <div className="mb-6 rounded-xl border border-white/10 bg-[#121c38]/90 p-4 sm:p-5 shadow-sm [html.light_&]:bg-white [html.light_&]:border-[#C99A47]/30 [html.light_&]:shadow-md">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-white/5 text-amber-300 border border-white/10 [html.light_&]:bg-amber-50 [html.light_&]:border-amber-200">
-                    <Sparkles className="size-4" />
-                  </span>
-                  <div>
-                    <h3 className="text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">Bản sửa đổi sự kiện chờ duyệt</h3>
-                    <p className="text-xs text-slate-400 [html.light_&]:text-slate-600 mt-0.5">
-                      Ban tổ chức đã đề xuất các thay đổi đối với sự kiện. Vui lòng kiểm tra và duyệt nội dung.
-                    </p>
+            <div className="mb-6 rounded-2xl border border-amber-500/25 bg-gradient-to-b from-[#141f3d]/95 to-[#0f172e]/95 p-4 sm:p-5 shadow-[0_12px_36px_rgba(0,0,0,0.35)] [html.light_&]:from-white [html.light_&]:to-slate-50/90 [html.light_&]:border-[#C99A47]/40 [html.light_&]:shadow-md">
+              {/* Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/10 [html.light_&]:border-slate-200">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <FileEdit className="size-5 text-[#C99A47] shrink-0" />
+                    <h3 className="text-lg sm:text-xl font-black text-white [html.light_&]:text-[#0D1B2A]">
+                      {isEnglish ? 'Pending Event Revision' : 'Bản sửa đổi sự kiện chờ duyệt'}
+                    </h3>
+                    <span className="rounded-full bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-bold text-amber-300 border border-amber-500/25 [html.light_&]:bg-amber-100 [html.light_&]:text-amber-800 [html.light_&]:border-amber-300">
+                      {revisionDetails?.totalChanges || revisionDetails?.summaryPills?.length || 0} {isEnglish ? 'changes' : 'hạng mục thay đổi'}
+                    </span>
                   </div>
                 </div>
-                <span className="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-[11px] font-medium text-amber-300 border border-amber-500/20 shrink-0">
-                  Chờ duyệt sửa đổi
-                </span>
+
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  {revisionDetails?.submittedAt && (
+                    <span className="rounded-lg bg-white/5 px-2.5 py-1 text-[11px] font-medium text-slate-300 border border-white/10 [html.light_&]:bg-slate-100 [html.light_&]:text-slate-700 [html.light_&]:border-slate-200">
+                      {isEnglish ? 'Submitted:' : 'Gửi lúc:'} <strong className="text-white [html.light_&]:text-[#0D1B2A]">{formatDate(revisionDetails.submittedAt)}</strong>
+                    </span>
+                  )}
+                </div>
               </div>
 
-              {/* Proposed Changes Diff */}
-              <div className="mt-4 space-y-3">
-                <div className="text-xs bg-black/25 p-3.5 rounded-lg border border-white/5 space-y-3 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
-                  <div className="flex items-center justify-between">
-                    <p className="font-semibold text-slate-300 [html.light_&]:text-slate-700 uppercase tracking-wide text-[11px]">
-                      Nội dung thay đổi đề xuất:
-                    </p>
+              {/* 2. CHANGE NAVIGATOR PILLS (Khung bọc nội dung, tiến độ, nút trước/sau đã bỏ) */}
+              {changeSections.length > 0 && (
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A] mr-1 shrink-0">
+                    {isEnglish ? 'Changes:' : 'Hạng mục thay đổi:'}
+                  </span>
+                  {changeSections.map((sec) => {
+                    const isActive = (activeChangeSectionId || changeSections[0]?.id) === sec.id
+                    return (
+                      <button
+                        key={sec.id}
+                        type="button"
+                        onClick={() => handleScrollToSection(sec.id)}
+                        className={`inline-flex items-center rounded-full px-3.5 py-1.5 text-xs font-semibold transition cursor-pointer ${
+                          isActive
+                            ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] font-bold shadow-md border border-[#E6C17A]/50'
+                            : 'bg-[#C99A47]/10 text-[#E6C17A] border border-[#C99A47]/30 hover:bg-[#C99A47]/20 hover:text-white [html.light_&]:bg-amber-50 [html.light_&]:border-amber-300 [html.light_&]:text-amber-900'
+                        }`}
+                      >
+                        <span>{sec.title}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* Divider between navigator and revision change sections */}
+              <div className="border-t border-white/10 [html.light_&]:border-slate-200 my-4" />
+
+              {/* Detailed Revision Changes Sections (Nằm trong khung tổng) */}
+              <div className="space-y-6">
+                {/* 1. TAGS DIFF */}
+                {revisionDetails?.tagChanges && (
+                <div id="rev-section-tags" className="space-y-3 scroll-mt-24">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h4 className="text-sm sm:text-base font-bold text-white [html.light_&]:text-[#0D1B2A]">
+                      {isEnglish ? 'Tags' : 'Thẻ sự kiện'}
+                    </h4>
+                    <div className="flex items-center gap-1.5 text-[11px] font-semibold">
+                      {revisionDetails.tagChanges.added.length > 0 && (
+                        <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-emerald-300 [html.light_&]:bg-emerald-50 [html.light_&]:text-emerald-700 [html.light_&]:border-emerald-200">
+                          +{revisionDetails.tagChanges.added.length} {isEnglish ? 'new' : 'thẻ mới'}
+                        </span>
+                      )}
+                      {revisionDetails.tagChanges.removed.length > 0 && (
+                        <span className="rounded-full bg-rose-500/15 border border-rose-500/30 px-2.5 py-0.5 text-rose-300 [html.light_&]:bg-rose-50 [html.light_&]:text-rose-700 [html.light_&]:border-rose-200">
+                          -{revisionDetails.tagChanges.removed.length} {isEnglish ? 'removed' : 'thẻ đã xóa'}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
-                  {/* 1. Ticket Changes */}
-                  {revisionDetails?.ticketChanges && revisionDetails.ticketChanges.length > 0 && (
-                    <div className="space-y-2 pt-1">
-                      <p className="text-xs font-semibold text-slate-300 [html.light_&]:text-slate-700 flex items-center gap-1.5">
-                        <Ticket className="size-3.5 text-amber-400" />
-                        Thay đổi loại vé ({revisionDetails.ticketChanges.length}):
-                      </p>
-                      <div className="grid gap-2">
-                        {revisionDetails.ticketChanges.map((tc, idx) => (
-                          <div key={tc.id || idx} className="rounded-lg border border-white/10 bg-white/[0.02] p-3 text-xs space-y-1.5 [html.light_&]:bg-white [html.light_&]:border-slate-200">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <span className="font-bold text-white [html.light_&]:text-[#0D1B2A] text-sm">{tc.name}</span>
-                                {tc.nameChanged && tc.oldName && (
-                                  <span className="text-[11px] text-slate-400 [html.light_&]:text-slate-500">(Tên cũ: {tc.oldName})</span>
-                                )}
-                              </div>
-                              <span className="rounded bg-white/5 px-2 py-0.5 text-[10px] font-medium text-slate-300 border border-white/10 [html.light_&]:bg-slate-100 [html.light_&]:text-slate-700 [html.light_&]:border-slate-300">
-                                {tc.typeLabel}
+                  {/* Highlighted Added / Removed Tags */}
+                  {(revisionDetails.tagChanges.added.length > 0 || revisionDetails.tagChanges.removed.length > 0) && (
+                    <div className="flex flex-wrap items-center gap-2 py-0.5">
+                      <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-white [html.light_&]:text-[#0D1B2A] mr-1">
+                        <span className="text-[#C99A47] text-sm leading-none font-black select-none">•</span>
+                        <span>{isEnglish ? 'Change details:' : 'Chi tiết thay đổi:'}</span>
+                      </span>
+                      {revisionDetails.tagChanges.added.map((t) => (
+                        <span
+                          key={`add-${t}`}
+                          className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/35 px-3 py-1 text-xs font-bold text-emerald-300 shadow-xs [html.light_&]:bg-emerald-50 [html.light_&]:text-emerald-800 [html.light_&]:border-emerald-300"
+                        >
+                          <Plus className="size-3 stroke-[2.5]" />
+                          <span>#{t}</span>
+                          <span className="text-[10px] font-medium opacity-80">({isEnglish ? 'Added' : 'Mới thêm'})</span>
+                        </span>
+                      ))}
+                      {revisionDetails.tagChanges.removed.map((t) => (
+                        <span
+                          key={`rem-${t}`}
+                          className="inline-flex items-center gap-1.5 rounded-full bg-rose-500/15 border border-rose-500/35 px-3 py-1 text-xs font-bold text-rose-300 shadow-xs [html.light_&]:bg-rose-50 [html.light_&]:text-rose-800 [html.light_&]:border-rose-300"
+                        >
+                          <X className="size-3 stroke-[2.5]" />
+                          <span className="line-through">#{t}</span>
+                          <span className="text-[10px] font-medium opacity-80">({isEnglish ? 'Deleted' : 'Đã xóa'})</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Before vs After Tag Sets (Giống style 2 khung so sánh mô tả) */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                    <div className="min-w-0 rounded-xl border border-white/10 bg-black/30 p-4 space-y-3 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                      <div className="flex items-center justify-between border-b border-white/10 pb-2.5 [html.light_&]:border-slate-200">
+                        <span className="text-xs font-bold uppercase tracking-wider text-rose-300 [html.light_&]:text-rose-700">
+                          {isEnglish ? 'Before revision' : 'Trước khi sửa'}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-medium">
+                          {revisionDetails.tagChanges.oldTags.length} {isEnglish ? 'tags' : 'thẻ'}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {revisionDetails.tagChanges.oldTags.length > 0 ? (
+                          revisionDetails.tagChanges.oldTags.map((t) => {
+                            const isRemoved = revisionDetails.tagChanges.removed.includes(t)
+                            return (
+                              <span
+                                key={`old-${t}`}
+                                className={`inline-flex items-center rounded-md px-2.5 py-1 text-xs font-medium border break-words [word-break:normal] ${
+                                  isRemoved
+                                    ? 'bg-rose-500/15 text-rose-300 border-rose-500/30 line-through [html.light_&]:bg-rose-50 [html.light_&]:text-rose-700 [html.light_&]:border-rose-200'
+                                    : 'bg-white/5 text-slate-300 border-white/10 [html.light_&]:bg-white [html.light_&]:text-slate-700 [html.light_&]:border-slate-200'
+                                }`}
+                              >
+                                #{t}
                               </span>
-                            </div>
-                            {tc.priceChanged && (
-                              <div className="flex items-center gap-2 pt-0.5">
-                                <span className="text-slate-400 [html.light_&]:text-slate-600">Giá vé:</span>
-                                <span className="text-slate-500 line-through">
-                                  {tc.oldPrice.toLocaleString('vi-VN')} đ
-                                </span>
-                                <span className="text-slate-400 font-bold">→</span>
-                                <span className="text-emerald-400 font-bold text-sm [html.light_&]:text-emerald-700">
-                                  {tc.newPrice.toLocaleString('vi-VN')} đ
-                                </span>
-                              </div>
-                            )}
-                            {tc.qtyChanged && (
-                              <div className="flex items-center gap-2">
-                                <span className="text-slate-400 [html.light_&]:text-slate-600">Số lượng mở bán:</span>
-                                <span className="text-slate-500">
-                                  {tc.oldQuantity.toLocaleString('vi-VN')} vé
-                                </span>
-                                <span className="text-slate-400 font-bold">→</span>
-                                <span className="text-white [html.light_&]:text-[#0D1B2A] font-medium">
-                                  {tc.newQuantity.toLocaleString('vi-VN')} vé
-                                </span>
-                              </div>
-                            )}
-                            {tc.isAdded && (
-                              <div className="text-xs text-slate-300 [html.light_&]:text-slate-700 flex items-center gap-2">
-                                <span>Giá mở bán: <strong className="text-emerald-400 [html.light_&]:text-emerald-700">{tc.newPrice.toLocaleString('vi-VN')} đ</strong></span>
-                                <span>•</span>
-                                <span>Số lượng: <strong className="text-white [html.light_&]:text-[#0D1B2A]">{tc.newQuantity.toLocaleString('vi-VN')} vé</strong></span>
-                              </div>
-                            )}
-                            {tc.isRemoved && (
-                              <div className="text-xs text-rose-300 [html.light_&]:text-rose-700">
-                                Đã xoá loại vé này khỏi sự kiện
-                              </div>
-                            )}
-                          </div>
-                        ))}
+                            )
+                          })
+                        ) : (
+                          <span className="text-slate-500 italic">{isEnglish ? 'No tags' : 'Chưa có thẻ nào'}</span>
+                        )}
                       </div>
                     </div>
-                  )}
 
-                  {/* 2. Session Changes (Only if sessions actually changed or added) */}
-                  {revisionDetails?.sessionChanges && revisionDetails.sessionChanges.length > 0 && (
-                    <div className="space-y-2 pt-1">
-                      <p className="text-xs font-semibold text-slate-300 [html.light_&]:text-slate-700 flex items-center gap-1.5">
-                        <Calendar className="size-3.5 text-amber-400" />
-                        Điều chỉnh suất diễn ({revisionDetails.sessionChanges.length}):
+                    <div className="min-w-0 rounded-xl border border-emerald-500/30 bg-emerald-950/15 p-4 space-y-3 [html.light_&]:bg-emerald-50/30 [html.light_&]:border-emerald-200">
+                      <div className="flex items-center justify-between border-b border-emerald-500/20 pb-2.5 [html.light_&]:border-emerald-200">
+                        <span className="text-xs font-bold uppercase tracking-wider text-emerald-300 [html.light_&]:text-emerald-700">
+                          {isEnglish ? 'After revision' : 'Sau khi sửa'}
+                        </span>
+                        <span className="text-[10px] text-emerald-400 font-medium">
+                          {revisionDetails.tagChanges.newTags.length} {isEnglish ? 'tags' : 'thẻ'}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {revisionDetails.tagChanges.newTags.length > 0 ? (
+                          revisionDetails.tagChanges.newTags.map((t) => {
+                            const isAdded = revisionDetails.tagChanges.added.includes(t)
+                            return (
+                              <span
+                                key={`new-${t}`}
+                                className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs border break-words [word-break:normal] ${
+                                  isAdded
+                                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-bold shadow-xs [html.light_&]:bg-emerald-100 [html.light_&]:text-emerald-800 [html.light_&]:border-emerald-300'
+                                    : 'bg-white/5 text-slate-200 border-white/10 font-medium [html.light_&]:bg-white [html.light_&]:text-slate-700 [html.light_&]:border-slate-200'
+                                }`}
+                              >
+                                {isAdded && <Plus className="size-3" />}
+                                <span>#{t}</span>
+                              </span>
+                            )
+                          })
+                        ) : (
+                          <span className="text-slate-500 italic">{isEnglish ? 'All tags deleted' : 'Đã xóa toàn bộ thẻ'}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 2. DETAILED DESCRIPTION DIFF */}
+              {revisionDetails?.descriptionChange && (
+                <div id="rev-section-description" className="space-y-2.5 scroll-mt-24 pt-5 border-t border-[#263751] [html.light_&]:border-slate-200">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <h4 className="text-sm sm:text-base font-bold text-white [html.light_&]:text-[#0D1B2A]">
+                        {isEnglish ? 'Event Description Details' : 'Mô tả chi tiết sự kiện'}
+                      </h4>
+                      <p className="text-[11px] text-slate-400 [html.light_&]:text-slate-500">
+                        {revisionDetails.descriptionChange.items?.length > 0
+                          ? (isEnglish
+                              ? `Found ${revisionDetails.descriptionChange.items.length} changed blocks out of ${revisionDetails.descriptionChange.totalNewBlocks} paragraphs.`
+                              : `Phát hiện ${revisionDetails.descriptionChange.items.length} vị trí thay đổi nội dung / định dạng trên tổng số ${revisionDetails.descriptionChange.totalNewBlocks} đoạn.`)
+                          : (isEnglish ? 'Normalized description format.' : 'Cập nhật định dạng HTML mô tả sự kiện.')}
                       </p>
-                      <div className="grid gap-2">
-                        {revisionDetails.sessionChanges.map((sess, idx) => (
-                          <div key={idx} className="rounded-lg border border-white/10 bg-white/[0.02] p-2.5 text-xs text-slate-200 flex flex-wrap items-center justify-between gap-2 [html.light_&]:bg-white [html.light_&]:border-slate-200">
-                            <span className="font-semibold text-white [html.light_&]:text-[#0D1B2A]">{sess.name}</span>
-                            <div className="flex items-center gap-3 text-slate-300 [html.light_&]:text-slate-600">
-                              <span>Bắt đầu: <strong className="text-white [html.light_&]:text-[#0D1B2A]">{formatDate(sess.startTime)}</strong></span>
-                              <span>•</span>
-                              <span>Kết thúc: <strong className="text-white [html.light_&]:text-[#0D1B2A]">{formatDate(sess.endTime)}</strong></span>
-                            </div>
-                          </div>
-                        ))}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      {/* View Mode Toggle: Inline Diff vs Split 2 Columns */}
+                      <div className="inline-flex items-center rounded-full border border-[#C99A47]/30 bg-black/40 p-1 shadow-inner [html.light_&]:bg-slate-100 [html.light_&]:border-slate-300">
+                        <button
+                          type="button"
+                          onClick={() => setDescDiffMode('inline')}
+                          className={`rounded-full px-3.5 py-1 text-xs font-semibold transition cursor-pointer ${
+                            descDiffMode === 'inline'
+                              ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] font-bold shadow-md'
+                              : 'text-slate-300 hover:text-white [html.light_&]:text-slate-600 [html.light_&]:hover:text-slate-900'
+                          }`}
+                        >
+                          {isEnglish ? 'Inline' : 'Dòng'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDescDiffMode('split')}
+                          className={`rounded-full px-3.5 py-1 text-xs font-semibold transition cursor-pointer ${
+                            descDiffMode === 'split'
+                              ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] font-bold shadow-md'
+                              : 'text-slate-300 hover:text-white [html.light_&]:text-slate-600 [html.light_&]:hover:text-slate-900'
+                          }`}
+                        >
+                          {isEnglish ? '2 Columns' : 'So sánh 2 cột'}
+                        </button>
                       </div>
                     </div>
-                  )}
+                  </div>
 
-                  {/* Fallback if no specific ticket/session diff detected but raw sessions exist */}
-                  {(!revisionDetails?.ticketChanges || revisionDetails.ticketChanges.length === 0) &&
-                    (!revisionDetails?.sessionChanges || revisionDetails.sessionChanges.length === 0) &&
-                    event.pending_revision.payload_after?.sessions && (
-                      <div className="space-y-2 pt-1">
-                        <p className="text-xs font-semibold text-slate-300 [html.light_&]:text-slate-700">Suất diễn mới:</p>
-                        <div className="grid gap-2">
-                          {event.pending_revision.payload_after.sessions.map((sess, idx) => (
-                            <div key={sess.id || idx} className="rounded-lg border border-white/10 bg-white/[0.02] p-2.5 text-xs text-slate-200 flex flex-wrap items-center justify-between gap-2 [html.light_&]:bg-white [html.light_&]:border-slate-200">
-                              <span className="font-semibold text-white [html.light_&]:text-[#0D1B2A]">{sess.session_name || `Suất #${idx + 1}`}</span>
-                              <div className="flex items-center gap-3 text-slate-300 [html.light_&]:text-slate-600">
-                                <span>Bắt đầu: <strong className="text-white [html.light_&]:text-[#0D1B2A]">{formatDate(sess.start_time)}</strong></span>
-                                <span>•</span>
-                                <span>Kết thúc: <strong className="text-white [html.light_&]:text-[#0D1B2A]">{formatDate(sess.end_time)}</strong></span>
-                              </div>
+                  {/* Body: Full Description with In-Place Diff Highlighting */}
+                  {descDiffMode === 'split' ? (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      {/* Left Column: Current Description (Before revision) */}
+                      <div className="min-w-0 rounded-xl border border-white/10 bg-black/30 p-4 space-y-3 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                        <div className="flex items-center justify-between border-b border-white/10 pb-2.5 [html.light_&]:border-slate-200">
+                          <span className="text-xs font-bold uppercase tracking-wider text-rose-300 [html.light_&]:text-rose-700">
+                            {isEnglish ? 'Before revision' : 'Trước khi sửa'}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-medium">
+                            {revisionDetails.descriptionChange.totalOldBlocks || 0} {isEnglish ? 'paragraphs' : 'đoạn'}
+                          </span>
+                        </div>
+
+                        <div className={`space-y-3 max-h-[600px] overflow-y-auto overflow-x-hidden break-words [overflow-wrap:break-word] [word-break:normal] pr-2 ${customScrollbar}`}>
+                          {revisionDetails.descriptionChange.fullBlocks && revisionDetails.descriptionChange.fullBlocks.length > 0 ? (
+                            revisionDetails.descriptionChange.fullBlocks.map((fb, idx) => {
+                              if (fb.type === 'ADDED_BLOCK') return null
+
+                              if (fb.type === 'TEXT_CHANGE') {
+                                return (
+                                  <div
+                                    key={idx}
+                                    className={`rounded-lg border border-rose-500/25 bg-rose-500/[0.04] p-2.5 [html.light_&]:bg-rose-50/50 [html.light_&]:border-rose-200 ${getBlockTypographyClass(fb.oldBlock)}`}
+                                  >
+                                    {fb.oldBlock.tag === 'li' && <span className="text-rose-400 mr-1.5">•</span>}
+                                    {fb.wordDiff.oldTokens.map((tok, tIdx) =>
+                                      tok.type === 'removed' ? (
+                                        <del
+                                          key={tIdx}
+                                          className="bg-rose-500/25 text-rose-200 line-through px-1 py-0.5 rounded font-semibold [html.light_&]:bg-rose-200/80 [html.light_&]:text-rose-900 inline-block my-0.5 break-words [overflow-wrap:break-word] [word-break:normal] max-w-full"
+                                        >
+                                          {tok.text}
+                                        </del>
+                                      ) : (
+                                        <span key={tIdx}>{tok.text}</span>
+                                      )
+                                    )}
+                                  </div>
+                                )
+                              }
+
+                              if (fb.type === 'REMOVED_BLOCK') {
+                                return (
+                                  <div
+                                    key={idx}
+                                    className={`rounded-lg border border-rose-500/30 bg-rose-500/[0.06] p-2.5 [html.light_&]:bg-rose-50 [html.light_&]:border-rose-200 text-rose-200 line-through [html.light_&]:text-rose-800 ${getBlockTypographyClass(fb.oldBlock)}`}
+                                  >
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-rose-300 [html.light_&]:text-rose-700 block mb-1">
+                                      {isEnglish ? 'Deleted paragraph' : 'Đoạn đã xóa'}
+                                    </span>
+                                    {fb.oldBlock.tag === 'li' && <span className="text-rose-400 mr-1.5">•</span>}
+                                    <span dangerouslySetInnerHTML={{ __html: fb.oldBlock.innerHtml || fb.oldBlock.text }} />
+                                  </div>
+                                )
+                              }
+
+                              if (fb.type === 'FORMAT_CHANGE') {
+                                return (
+                                  <div
+                                    key={idx}
+                                    className={`rounded-lg border border-amber-500/35 bg-amber-500/10 p-2.5 [html.light_&]:bg-amber-50/80 [html.light_&]:border-amber-300 ${getBlockTypographyClass(fb.oldBlock)}`}
+                                  >
+                                    {fb.oldBlock.tag === 'li' && <span className="text-amber-400 mr-1.5">•</span>}
+                                    <span dangerouslySetInnerHTML={{ __html: fb.oldBlock.innerHtml || fb.oldBlock.text }} />
+                                  </div>
+                                )
+                              }
+
+                              // UNCHANGED
+                              return (
+                                <div key={idx} className={getBlockTypographyClass(fb.oldBlock)}>
+                                  {fb.oldBlock.tag === 'li' && <span className="text-amber-400 mr-1.5">•</span>}
+                                  <span dangerouslySetInnerHTML={{ __html: fb.oldBlock.innerHtml || fb.oldBlock.text }} />
+                                </div>
+                              )
+                            })
+                          ) : (
+                            <div className="text-xs text-slate-500 italic py-2">
+                              {isEnglish ? 'No description content.' : 'Chưa có nội dung mô tả.'}
                             </div>
-                          ))}
+                          )}
                         </div>
                       </div>
-                    )}
 
-                  {/* 3. General Field Changes */}
-                  {revisionDetails?.generalChanges && revisionDetails.generalChanges.length > 0 && (
-                    <div className="space-y-1.5 pt-1">
-                      {revisionDetails.generalChanges.map((gc) => (
-                        <div key={gc.field} className="text-xs text-slate-300 bg-white/[0.02] rounded-lg p-2.5 border border-white/5 flex flex-wrap items-center justify-between gap-2 [html.light_&]:bg-white [html.light_&]:border-slate-200">
-                          <span className="font-medium text-slate-300 [html.light_&]:text-slate-700">{gc.label}:</span>
-                          {typeof gc.newValue === 'object' && gc.newValue !== null ? (
-                            <span className="text-slate-400 [html.light_&]:text-slate-500">Đã cập nhật nội dung mới</span>
+                      {/* Right Column: Proposed Description (After revision) */}
+                      <div className="min-w-0 rounded-xl border border-emerald-500/30 bg-emerald-950/15 p-4 space-y-3 [html.light_&]:bg-emerald-50/30 [html.light_&]:border-emerald-200">
+                        <div className="flex items-center justify-between border-b border-emerald-500/20 pb-2.5 [html.light_&]:border-emerald-200">
+                          <span className="text-xs font-bold uppercase tracking-wider text-emerald-300 [html.light_&]:text-emerald-700">
+                            {isEnglish ? 'After revision' : 'Sau khi sửa'}
+                          </span>
+                          <span className="text-[10px] text-emerald-400 font-medium">
+                            {revisionDetails.descriptionChange.totalNewBlocks || 0} {isEnglish ? 'paragraphs' : 'đoạn'}
+                          </span>
+                        </div>
+
+                        <div className={`space-y-3 max-h-[600px] overflow-y-auto overflow-x-hidden break-words [overflow-wrap:break-word] [word-break:normal] pr-2 ${customScrollbar}`}>
+                          {revisionDetails.descriptionChange.fullBlocks && revisionDetails.descriptionChange.fullBlocks.length > 0 ? (
+                            revisionDetails.descriptionChange.fullBlocks.map((fb, idx) => {
+                              if (fb.type === 'REMOVED_BLOCK') return null
+
+                              if (fb.type === 'TEXT_CHANGE') {
+                                return (
+                                  <div
+                                    key={idx}
+                                    className={`rounded-lg border border-emerald-500/25 bg-emerald-500/[0.04] p-2.5 [html.light_&]:bg-emerald-50/50 [html.light_&]:border-emerald-200 ${getBlockTypographyClass(fb.newBlock)}`}
+                                  >
+                                    {fb.newBlock.tag === 'li' && <span className="text-emerald-400 mr-1.5">•</span>}
+                                    {fb.wordDiff.newTokens.map((tok, tIdx) =>
+                                      tok.type === 'added' ? (
+                                        <ins
+                                          key={tIdx}
+                                          className="bg-emerald-500/25 text-emerald-200 font-bold px-1 py-0.5 rounded border-b border-emerald-400/50 no-underline [html.light_&]:bg-emerald-200/80 [html.light_&]:text-emerald-950 inline-block my-0.5 break-words [overflow-wrap:break-word] [word-break:normal] max-w-full"
+                                        >
+                                          {tok.text}
+                                        </ins>
+                                      ) : (
+                                        <span key={tIdx}>{tok.text}</span>
+                                      )
+                                    )}
+                                  </div>
+                                )
+                              }
+
+                              if (fb.type === 'ADDED_BLOCK') {
+                                return (
+                                  <div
+                                    key={idx}
+                                    className={`rounded-lg border border-emerald-500/30 bg-emerald-500/[0.06] p-2.5 [html.light_&]:bg-emerald-50 [html.light_&]:border-emerald-200 text-emerald-200 [html.light_&]:text-emerald-900 ${getBlockTypographyClass(fb.newBlock)}`}
+                                  >
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300 [html.light_&]:text-emerald-700 block mb-1">
+                                      {isEnglish ? 'Added paragraph' : 'Đoạn thêm mới'}
+                                    </span>
+                                    {fb.newBlock.tag === 'li' && <span className="text-emerald-400 mr-1.5">•</span>}
+                                    <span dangerouslySetInnerHTML={{ __html: fb.newBlock.innerHtml || fb.newBlock.text }} />
+                                  </div>
+                                )
+                              }
+
+                              if (fb.type === 'FORMAT_CHANGE') {
+                                return (
+                                  <div
+                                    key={idx}
+                                    className={`rounded-lg border border-amber-500/35 bg-amber-500/10 p-2.5 [html.light_&]:bg-amber-50/80 [html.light_&]:border-amber-300 ${getBlockTypographyClass(fb.newBlock)}`}
+                                  >
+                                    {fb.newBlock.tag === 'li' && <span className="text-amber-400 mr-1.5">•</span>}
+                                    <span dangerouslySetInnerHTML={{ __html: fb.newBlock.innerHtml || fb.newBlock.text }} />
+                                  </div>
+                                )
+                              }
+
+                              // UNCHANGED
+                              return (
+                                <div key={idx} className={getBlockTypographyClass(fb.newBlock)}>
+                                  {fb.newBlock.tag === 'li' && <span className="text-amber-400 mr-1.5">•</span>}
+                                  <span dangerouslySetInnerHTML={{ __html: fb.newBlock.innerHtml || fb.newBlock.text }} />
+                                </div>
+                              )
+                            })
                           ) : (
-                            <div className="flex items-center gap-2">
-                              {gc.oldValue !== undefined && gc.oldValue !== null && (
-                                <span className="line-through text-slate-500">{String(gc.oldValue)}</span>
+                            <div className="text-xs text-slate-500 italic py-2">
+                              {isEnglish ? 'No description content.' : 'Chưa có nội dung mô tả.'}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Inline Diff View */
+                    <div className="min-w-0 rounded-xl border border-white/10 bg-black/30 p-4 space-y-3 [html.light_&]:bg-white [html.light_&]:border-slate-200">
+                      <div className="flex items-center justify-between border-b border-white/10 pb-2.5 [html.light_&]:border-slate-200">
+                        <span className="text-xs font-bold uppercase tracking-wider text-amber-300 [html.light_&]:text-amber-800">
+                          {isEnglish ? 'Proposed Description with Inline Diff' : 'Toàn văn mô tả sự kiện (So sánh dòng trực tiếp)'}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-medium">
+                          {revisionDetails.descriptionChange.items?.length || 0} {isEnglish ? 'changes' : 'vị trí thay đổi'}
+                        </span>
+                      </div>
+
+                      <div className={`space-y-3 max-h-[600px] overflow-y-auto overflow-x-hidden break-words [overflow-wrap:break-word] [word-break:normal] pr-2 ${customScrollbar}`}>
+                        {revisionDetails.descriptionChange.fullBlocks && revisionDetails.descriptionChange.fullBlocks.length > 0 ? (
+                          revisionDetails.descriptionChange.fullBlocks.map((fb, idx) => {
+                            if (fb.type === 'TEXT_CHANGE') {
+                              return (
+                                <div
+                                  key={idx}
+                                  className={`rounded-lg border border-amber-500/20 bg-amber-500/[0.04] p-2.5 [html.light_&]:bg-amber-50/50 [html.light_&]:border-amber-200 ${getBlockTypographyClass(fb.newBlock)}`}
+                                >
+                                  {fb.newBlock.tag === 'li' && <span className="text-amber-400 mr-1.5">•</span>}
+                                  <div className="text-slate-200 [html.light_&]:text-[#0D1B2A] break-words [overflow-wrap:break-word] [word-break:normal] leading-relaxed space-x-0.5">
+                                    {fb.wordDiff.inlineTokens && fb.wordDiff.inlineTokens.length > 0 ? (
+                                      fb.wordDiff.inlineTokens.map((tok, tIdx) => {
+                                        if (tok.type === 'removed') {
+                                          return (
+                                            <del
+                                              key={tIdx}
+                                              className="bg-rose-500/25 text-rose-300 line-through px-1.5 py-0.5 rounded font-semibold [html.light_&]:bg-rose-100 [html.light_&]:text-rose-900 inline-block my-0.5 break-words [overflow-wrap:break-word] [word-break:normal] max-w-full"
+                                            >
+                                              {tok.text}
+                                            </del>
+                                          )
+                                        }
+                                        if (tok.type === 'added') {
+                                          return (
+                                            <ins
+                                              key={tIdx}
+                                              className="bg-emerald-500/25 text-emerald-300 font-bold px-1.5 py-0.5 rounded border-b border-emerald-400/50 no-underline [html.light_&]:bg-emerald-100 [html.light_&]:text-emerald-950 inline-block my-0.5 break-words [overflow-wrap:break-word] [word-break:normal] max-w-full"
+                                            >
+                                              {tok.text}
+                                            </ins>
+                                          )
+                                        }
+                                        return <span key={tIdx}>{tok.text}</span>
+                                      })
+                                    ) : (
+                                      <span>{fb.newBlock.text}</span>
+                                    )}
+                                  </div>
+                                </div>
+                              )
+                            }
+
+                            if (fb.type === 'ADDED_BLOCK') {
+                              return (
+                                <div
+                                  key={idx}
+                                  className={`rounded-lg border border-emerald-500/30 bg-emerald-500/[0.06] p-2.5 [html.light_&]:bg-emerald-50 [html.light_&]:border-emerald-200 text-emerald-200 [html.light_&]:text-emerald-900 ${getBlockTypographyClass(fb.newBlock)}`}
+                                >
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300 [html.light_&]:text-emerald-700 block mb-1">
+                                    +{isEnglish ? 'Added paragraph' : 'Đoạn thêm mới'}
+                                  </span>
+                                  {fb.newBlock.tag === 'li' && <span className="text-emerald-400 mr-1.5">•</span>}
+                                  <span dangerouslySetInnerHTML={{ __html: fb.newBlock.innerHtml || fb.newBlock.text }} />
+                                </div>
+                              )
+                            }
+
+                            if (fb.type === 'REMOVED_BLOCK') {
+                              return (
+                                <div
+                                  key={idx}
+                                  className={`rounded-lg border border-rose-500/30 bg-rose-500/[0.06] p-2.5 [html.light_&]:bg-rose-50 [html.light_&]:border-rose-200 line-through text-rose-200 [html.light_&]:text-rose-800 ${getBlockTypographyClass(fb.oldBlock)}`}
+                                >
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-rose-300 [html.light_&]:text-rose-700 block mb-1">
+                                    -{isEnglish ? 'Deleted paragraph' : 'Đoạn đã xóa'}
+                                  </span>
+                                  {fb.oldBlock.tag === 'li' && <span className="text-rose-400 mr-1.5">•</span>}
+                                  <span dangerouslySetInnerHTML={{ __html: fb.oldBlock.innerHtml || fb.oldBlock.text }} />
+                                </div>
+                              )
+                            }
+
+                            if (fb.type === 'FORMAT_CHANGE') {
+                              return (
+                                <div
+                                  key={idx}
+                                  className={`rounded-lg border border-amber-500/35 bg-amber-500/10 p-2.5 [html.light_&]:bg-amber-50/80 [html.light_&]:border-amber-300 ${getBlockTypographyClass(fb.newBlock)}`}
+                                >
+                                  {fb.newBlock.tag === 'li' && <span className="text-amber-400 mr-1.5">•</span>}
+                                  <span dangerouslySetInnerHTML={{ __html: fb.newBlock.innerHtml || fb.newBlock.text }} />
+                                </div>
+                              )
+                            }
+
+                            // UNCHANGED
+                            return (
+                              <div key={idx} className={getBlockTypographyClass(fb.newBlock)}>
+                                {fb.newBlock.tag === 'li' && <span className="text-amber-400 mr-1.5">•</span>}
+                                <span dangerouslySetInnerHTML={{ __html: fb.newBlock.innerHtml || fb.newBlock.text }} />
+                              </div>
+                            )
+                          })
+                        ) : (
+                          <div className="text-xs text-slate-500 italic py-2">
+                            {isEnglish ? 'No description content.' : 'Chưa có nội dung mô tả.'}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+                {/* 3. MEDIA CHANGES (THUMBNAIL / BANNER) */}
+                {revisionDetails?.mediaChanges && revisionDetails.mediaChanges.length > 0 && (
+                  <div id="rev-section-media" className="space-y-2.5 scroll-mt-24 pt-5 border-t border-[#263751] [html.light_&]:border-slate-200">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="grid size-7 place-items-center rounded-lg bg-purple-500/15 text-purple-300 border border-purple-500/25 [html.light_&]:bg-purple-50 [html.light_&]:text-purple-700 [html.light_&]:border-purple-200">
+                          <ImageIcon className="size-3.5" />
+                        </span>
+                        <h4 className="text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">
+                          {isEnglish ? `Media Changes (${revisionDetails.mediaChanges.length})` : `Thay đổi hình ảnh sự kiện (${revisionDetails.mediaChanges.length})`}
+                        </h4>
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-white/10 bg-black/25 p-4 space-y-3.5 [html.light_&]:bg-white [html.light_&]:border-slate-200">
+                      <div className="grid gap-4">
+                        {revisionDetails.mediaChanges.map((mc) => (
+                          <div key={mc.field} className="space-y-2">
+                            <p className="text-xs font-semibold text-slate-300 [html.light_&]:text-slate-700">{mc.label}:</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <div className="rounded-lg border border-white/10 bg-white/[0.02] p-2.5 space-y-2 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 [html.light_&]:text-slate-600 block">
+                                  {isEnglish ? 'Before revision' : 'Trước khi sửa'}
+                                </span>
+                                {mc.oldUrl ? (
+                                  <img src={mc.oldUrl} alt="Old media" className="h-36 w-full rounded-lg object-cover border border-white/10" />
+                                ) : (
+                                  <div className="h-36 grid place-items-center text-xs text-slate-500 italic">{isEnglish ? 'No image' : 'Chưa có ảnh'}</div>
+                                )}
+                              </div>
+                              <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/[0.04] p-2.5 space-y-2 [html.light_&]:bg-emerald-50/40 [html.light_&]:border-emerald-200">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300 [html.light_&]:text-emerald-700 block">
+                                  {isEnglish ? 'After revision' : 'Sau khi sửa'}
+                                </span>
+                                {mc.newUrl ? (
+                                  <img src={mc.newUrl} alt="New media" className="h-36 w-full rounded-lg object-cover border border-emerald-500/30" />
+                                ) : (
+                                  <div className="h-36 grid place-items-center text-xs text-rose-400 italic">{isEnglish ? 'Removed image' : 'Đã gỡ ảnh'}</div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 4. TICKET CHANGES */}
+                {revisionDetails?.ticketChanges && revisionDetails.ticketChanges.length > 0 && (
+                  <div id="rev-section-tickets" className="space-y-2.5 scroll-mt-24 pt-5 border-t border-[#263751] [html.light_&]:border-slate-200">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="grid size-7 place-items-center rounded-lg bg-amber-500/15 text-amber-400 border border-amber-500/25 [html.light_&]:bg-amber-50 [html.light_&]:text-amber-700 [html.light_&]:border-amber-200">
+                          <Ticket className="size-3.5" />
+                        </span>
+                        <h4 className="text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">
+                          {isEnglish ? `Ticket Changes (${revisionDetails.ticketChanges.length})` : `Thay đổi cơ cấu hạng vé (${revisionDetails.ticketChanges.length})`}
+                        </h4>
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-white/10 bg-black/25 p-4 space-y-3 [html.light_&]:bg-white [html.light_&]:border-slate-200">
+                      <div className="grid gap-2.5">
+                      {revisionDetails.ticketChanges.map((tc, idx) => (
+                        <div key={tc.id || idx} className="rounded-lg border border-white/10 bg-white/[0.02] p-3 text-xs space-y-2 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-bold text-white [html.light_&]:text-[#0D1B2A] text-sm">{tc.name}</span>
+                              {tc.nameChanged && tc.oldName && (
+                                <span className="text-[11px] text-rose-300 line-through [html.light_&]:text-rose-700">
+                                  {tc.oldName}
+                                </span>
                               )}
+                              {tc.sessionsAffected && tc.sessionsAffected.length > 0 && (
+                                <span className="rounded bg-indigo-500/15 px-2 py-0.5 text-[10px] font-medium text-indigo-300 border border-indigo-500/25 [html.light_&]:bg-indigo-50 [html.light_&]:text-indigo-700 [html.light_&]:border-indigo-200">
+                                  {tc.sessionsAffected.length > 2
+                                    ? (isEnglish ? `Applies to ${tc.sessionsAffected.length} sessions` : `Áp dụng cho ${tc.sessionsAffected.length} phiên diễn`)
+                                    : tc.sessionsAffected.join(', ')}
+                                </span>
+                              )}
+                            </div>
+                            <span className="rounded-full bg-amber-500/15 px-2.5 py-0.5 text-[10px] font-bold text-amber-300 border border-amber-500/25 [html.light_&]:bg-amber-50 [html.light_&]:text-amber-800 [html.light_&]:border-amber-200">
+                              {tc.typeLabel}
+                            </span>
+                          </div>
+                          {tc.priceChanged && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-slate-400 [html.light_&]:text-slate-600">{isEnglish ? 'Price:' : 'Đơn giá vé:'}</span>
+                              <span className="text-rose-300 line-through [html.light_&]:text-rose-700">
+                                {tc.oldPrice.toLocaleString('vi-VN')} đ
+                              </span>
                               <span className="text-slate-400 font-bold">→</span>
-                              <strong className="text-white [html.light_&]:text-[#0D1B2A]">{String(gc.newValue)}</strong>
+                              <span className="text-emerald-400 font-bold text-sm [html.light_&]:text-emerald-700">
+                                {tc.newPrice.toLocaleString('vi-VN')} đ
+                              </span>
+                            </div>
+                          )}
+                          {tc.qtyChanged && (
+                            <div className="flex items-center gap-2">
+                              <span className="text-slate-400 [html.light_&]:text-slate-600">{isEnglish ? 'Quantity:' : 'Số lượng vé mở bán:'}</span>
+                              <span className="text-rose-300 line-through [html.light_&]:text-rose-700">
+                                {tc.oldQuantity.toLocaleString('vi-VN')} {isEnglish ? 'tickets' : 'vé'}
+                              </span>
+                              <span className="text-slate-400 font-bold">→</span>
+                              <span className="text-emerald-300 [html.light_&]:text-emerald-700 font-bold">
+                                {tc.newQuantity.toLocaleString('vi-VN')} {isEnglish ? 'tickets' : 'vé'}
+                              </span>
+                            </div>
+                          )}
+                          {tc.descChanged && (
+                            <div className="text-xs space-y-1 pt-1 border-t border-white/5 [html.light_&]:border-slate-200">
+                              <span className="text-slate-400 [html.light_&]:text-slate-600 block">{isEnglish ? 'Description:' : 'Mô tả hạng vé:'}</span>
+                              <div className="flex flex-wrap items-center gap-2">
+                                {tc.oldDescription && (
+                                  <span className="text-rose-300 line-through [html.light_&]:text-rose-700">{tc.oldDescription}</span>
+                                )}
+                                <span className="text-slate-400 font-bold">→</span>
+                                <span className="text-emerald-300 font-medium [html.light_&]:text-emerald-700">{tc.newDescription || (isEnglish ? 'Description removed' : 'Đã xóa mô tả')}</span>
+                              </div>
+                            </div>
+                          )}
+                          {tc.isAdded && (
+                            <div className="text-xs text-slate-300 [html.light_&]:text-slate-700 flex items-center gap-2">
+                              <span>{isEnglish ? 'Price:' : 'Giá mở bán:'} <strong className="text-emerald-400 [html.light_&]:text-emerald-700">{tc.newPrice.toLocaleString('vi-VN')} đ</strong></span>
+                              <span>•</span>
+                              <span>{isEnglish ? 'Qty:' : 'Số lượng:'} <strong className="text-white [html.light_&]:text-[#0D1B2A]">{tc.newQuantity.toLocaleString('vi-VN')} {isEnglish ? 'tickets' : 'vé'}</strong></span>
+                            </div>
+                          )}
+                          {tc.isRemoved && (
+                            <div className="text-xs text-rose-300 [html.light_&]:text-rose-700">
+                              {isEnglish
+                                ? `Ticket tier removed (Old price: ${tc.oldPrice.toLocaleString('vi-VN')} đ • Old qty: ${tc.oldQuantity.toLocaleString('vi-VN')} tickets)`
+                                : `Đã xóa hạng vé này khỏi sự kiện (Giá cũ: ${tc.oldPrice.toLocaleString('vi-VN')} đ • SL cũ: ${tc.oldQuantity.toLocaleString('vi-VN')} vé)`}
                             </div>
                           )}
                         </div>
                       ))}
                     </div>
-                  )}
-                </div>
-
-                {/* Revision Note Input & Action Buttons */}
-                <div className="pt-2 border-t border-white/10 [html.light_&]:border-slate-200 flex flex-col sm:flex-row items-center gap-2.5">
-                  <input
-                    type="text"
-                    value={revisionNote}
-                    onChange={(e) => setRevisionNote(e.target.value)}
-                    placeholder="Ghi chú duyệt sửa đổi (tuỳ chọn)..."
-                    className="flex-1 w-full h-9 rounded-lg border border-white/10 bg-black/30 px-3 text-xs text-white placeholder:text-slate-500 outline-none focus:border-white/25 [html.light_&]:bg-white [html.light_&]:border-slate-300 [html.light_&]:text-[#0D1B2A] [html.light_&]:placeholder:text-slate-400"
-                  />
-                  <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
-                    <button
-                      type="button"
-                      disabled={reviewRevisionMutation.isPending}
-                      onClick={() => handleReviewRevision('REJECT')}
-                      className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 rounded-lg border border-rose-500/25 bg-rose-500/10 hover:bg-rose-500/15 px-3.5 py-2 text-xs font-medium text-rose-300 transition disabled:opacity-50 cursor-pointer"
-                    >
-                      <Ban className="size-3.5" />
-                      <span>Từ chối sửa đổi</span>
-                    </button>
-                    <button
-                      type="button"
-                      disabled={reviewRevisionMutation.isPending}
-                      onClick={() => handleReviewRevision('APPROVE')}
-                      className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-semibold text-white shadow-sm transition disabled:opacity-50 cursor-pointer"
-                    >
-                      <CheckCircle2 className="size-3.5" />
-                      <span>Phê duyệt sửa đổi</span>
-                    </button>
                   </div>
                 </div>
+              )}
+
+                {/* 5. SESSION CHANGES (ONLY IF SESSIONS ACTUALLY CHANGED) */}
+                {revisionDetails?.sessionChanges && revisionDetails.sessionChanges.length > 0 && (
+                  <div id="rev-section-sessions" className="space-y-2.5 scroll-mt-24 pt-5 border-t border-[#263751] [html.light_&]:border-slate-200">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="grid size-7 place-items-center rounded-lg bg-indigo-500/15 text-indigo-300 border border-indigo-500/25 [html.light_&]:bg-indigo-50 [html.light_&]:text-indigo-700 [html.light_&]:border-indigo-200">
+                          <Calendar className="size-3.5" />
+                        </span>
+                        <h4 className="text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">
+                          {isEnglish ? `Session Schedule Changes (${revisionDetails.sessionChanges.length})` : `Điều chỉnh lịch trình suất diễn (${revisionDetails.sessionChanges.length})`}
+                        </h4>
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-white/10 bg-black/25 p-4 space-y-3 [html.light_&]:bg-white [html.light_&]:border-slate-200">
+                      <div className="grid gap-2.5">
+                        {revisionDetails.sessionChanges.map((sess, idx) => (
+                          <div key={idx} className="rounded-lg border border-white/10 bg-white/[0.02] p-3 text-xs space-y-2 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-white [html.light_&]:text-[#0D1B2A] text-sm">{sess.name}</span>
+                                {sess.nameChanged && sess.oldName && (
+                                  <span className="text-[11px] text-rose-300 line-through [html.light_&]:text-rose-700">
+                                    ({isEnglish ? 'Old name:' : 'Tên cũ:'} {sess.oldName})
+                                  </span>
+                                )}
+                              </div>
+                              <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold border ${
+                                sess.isRemoved
+                                  ? 'bg-rose-500/15 text-rose-300 border-rose-500/30'
+                                  : sess.isAdded
+                                    ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                                    : 'bg-indigo-500/15 text-indigo-300 border-indigo-500/30'
+                              }`}>
+                                {sess.typeLabel}
+                              </span>
+                            </div>
+
+                            {sess.timeChanged && sess.oldStartTime && (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                                <div className="rounded bg-rose-500/[0.06] border border-rose-500/20 p-2 text-slate-300 [html.light_&]:bg-rose-50 [html.light_&]:text-slate-700">
+                                  <span className="text-[10px] font-bold uppercase text-rose-300 [html.light_&]:text-rose-700 block">
+                                    {isEnglish ? 'Before revision' : 'Trước khi sửa'}
+                                  </span>
+                                  <span className="line-through">{formatDate(sess.oldStartTime)} — {formatDate(sess.oldEndTime)}</span>
+                                </div>
+                                <div className="rounded bg-emerald-500/[0.06] border border-emerald-500/25 p-2 text-white [html.light_&]:bg-emerald-50 [html.light_&]:text-[#0D1B2A]">
+                                  <span className="text-[10px] font-bold uppercase text-emerald-300 [html.light_&]:text-emerald-700 block">
+                                    {isEnglish ? 'After revision' : 'Sau khi sửa'}
+                                  </span>
+                                  <strong className="text-emerald-300 [html.light_&]:text-emerald-800">{formatDate(sess.startTime)} — {formatDate(sess.endTime)}</strong>
+                                </div>
+                              </div>
+                            )}
+
+                            {sess.isAdded && sess.startTime && (
+                              <div className="text-slate-300 [html.light_&]:text-slate-600 flex flex-wrap items-center gap-3">
+                                <span>{isEnglish ? 'Start:' : 'Bắt đầu:'} <strong className="text-emerald-300 [html.light_&]:text-emerald-700">{formatDate(sess.startTime)}</strong></span>
+                                <span>•</span>
+                                <span>{isEnglish ? 'End:' : 'Kết thúc:'} <strong className="text-emerald-300 [html.light_&]:text-emerald-700">{formatDate(sess.endTime)}</strong></span>
+                              </div>
+                            )}
+
+                            {sess.isRemoved && sess.oldStartTime && (
+                              <div className="text-rose-300/80 line-through [html.light_&]:text-rose-700">
+                                {isEnglish ? 'Deleted schedule:' : 'Lịch trình đã xóa:'} {formatDate(sess.oldStartTime)} — {formatDate(sess.oldEndTime)}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 6. GENERAL FIELDS & POLICIES CHANGES */}
+                {revisionDetails?.generalChanges && revisionDetails.generalChanges.length > 0 && (
+                  <div id="rev-section-general" className="space-y-2.5 scroll-mt-24 pt-5 border-t border-[#263751] [html.light_&]:border-slate-200">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="grid size-7 place-items-center rounded-lg bg-blue-500/15 text-blue-300 border border-blue-500/25 [html.light_&]:bg-blue-50 [html.light_&]:text-blue-700 [html.light_&]:border-blue-200">
+                          <Info className="size-3.5" />
+                        </span>
+                        <h4 className="text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">
+                          {isEnglish ? `General Info & Policies (${revisionDetails.generalChanges.length})` : `Thông tin chung & Chính sách (${revisionDetails.generalChanges.length})`}
+                        </h4>
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-white/10 bg-black/25 p-4 space-y-3 [html.light_&]:bg-white [html.light_&]:border-slate-200">
+                      <div className="grid gap-3">
+                      {revisionDetails.generalChanges.map((gc) => (
+                        <div
+                          key={gc.field}
+                          className="rounded-lg border border-white/10 bg-white/[0.02] p-3 text-xs space-y-2 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200"
+                        >
+                          <div className="font-bold text-white [html.light_&]:text-[#0D1B2A] text-xs sm:text-sm">
+                            {gc.label}
+                          </div>
+
+                          {gc.kind === 'text' && gc.wordDiff ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 leading-relaxed">
+                              <div className="rounded border border-rose-500/20 bg-rose-500/[0.04] p-2.5 [html.light_&]:bg-rose-50/50 [html.light_&]:border-rose-200">
+                                <span className="text-[10px] font-bold uppercase text-rose-300 [html.light_&]:text-rose-700 block mb-1">
+                                  {isEnglish ? 'Before revision' : 'Trước khi sửa'}
+                                </span>
+                                <div className="text-slate-300 [html.light_&]:text-slate-700 break-words">
+                                  {gc.wordDiff.oldTokens.map((tok, i) =>
+                                    tok.type === 'removed' ? (
+                                      <span key={i} className="bg-rose-500/25 text-rose-200 line-through px-1 rounded [html.light_&]:bg-rose-200 [html.light_&]:text-rose-900">
+                                        {tok.text}
+                                      </span>
+                                    ) : (
+                                      <span key={i}>{tok.text}</span>
+                                    )
+                                  )}
+                                </div>
+                              </div>
+                              <div className="rounded border border-emerald-500/25 bg-emerald-500/[0.04] p-2.5 [html.light_&]:bg-emerald-50/50 [html.light_&]:border-emerald-200">
+                                <span className="text-[10px] font-bold uppercase text-emerald-300 [html.light_&]:text-emerald-700 block mb-1">
+                                  {isEnglish ? 'After revision' : 'Sau khi sửa'}
+                                </span>
+                                <div className="text-white [html.light_&]:text-[#0D1B2A] break-words">
+                                  {gc.wordDiff.newTokens.map((tok, i) =>
+                                    tok.type === 'added' ? (
+                                      <span key={i} className="bg-emerald-500/25 text-emerald-200 font-bold px-1 rounded [html.light_&]:bg-emerald-200 [html.light_&]:text-emerald-950">
+                                        {tok.text}
+                                      </span>
+                                    ) : (
+                                      <span key={i}>{tok.text}</span>
+                                    )
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                              <div className="rounded border border-white/10 bg-black/20 p-2.5 [html.light_&]:bg-white [html.light_&]:border-slate-200">
+                                <span className="text-[10px] font-bold uppercase text-slate-400 [html.light_&]:text-slate-500 block mb-0.5">
+                                  {isEnglish ? 'Before revision' : 'Trước khi sửa'}
+                                </span>
+                                <span className="text-slate-300 line-through [html.light_&]:text-slate-600">{String(gc.oldValue)}</span>
+                              </div>
+                              <div className="rounded border border-emerald-500/25 bg-emerald-500/[0.04] p-2.5 [html.light_&]:bg-emerald-50/50 [html.light_&]:border-emerald-200">
+                                <span className="text-[10px] font-bold uppercase text-emerald-300 [html.light_&]:text-emerald-700 block mb-0.5">
+                                  {isEnglish ? 'After revision' : 'Sau khi sửa'}
+                                </span>
+                                <strong className="text-emerald-300 [html.light_&]:text-emerald-800">{String(gc.newValue)}</strong>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
               </div>
             </div>
           )}
@@ -2214,13 +3761,43 @@ export function AdminEventReviewDetailPage() {
           )}
 
           <div className="mb-8 overflow-hidden rounded-[32px] border border-white/5 bg-white/[0.02] shadow-[0_8px_32px_rgba(0,0,0,0.2)] backdrop-blur-xl [html.light_&]:bg-white [html.light_&]:border-[#C99A47]/30 [html.light_&]:shadow-md">
-            {event.banner_url ? (
+            {event.banner_url || event.thumbnail_url ? (
               <div className="p-4 pb-0">
-                <img
-                  src={event.banner_url}
-                  alt="Banner"
-                  className="h-72 w-full rounded-[24px] object-cover shadow-inner"
-                />
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                  {/* Thumbnail / Poster (Ảnh đại diện) */}
+                  {event.thumbnail_url && (
+                    <div className={`${event.banner_url ? 'md:col-span-4' : 'md:col-span-12'} relative group overflow-hidden rounded-[24px] border border-white/10 bg-black/40 shadow-inner`}>
+                      <div className="absolute top-3 left-3 z-10">
+                        <span className="rounded-full bg-black/65 backdrop-blur-md px-3 py-1 text-[11px] font-bold text-white border border-white/20 shadow-md">
+                          {isEnglish ? 'Thumbnail' : 'Ảnh đại diện'}
+                        </span>
+                      </div>
+                      <img
+                        src={event.thumbnail_url}
+                        alt="Thumbnail"
+                        className="h-72 w-full object-cover transition-transform duration-300 group-hover:scale-[1.02] cursor-pointer"
+                        onClick={() => setPreviewDoc({ name: isEnglish ? 'Thumbnail' : 'Ảnh đại diện', url: event.thumbnail_url, type: 'image/jpeg' })}
+                      />
+                    </div>
+                  )}
+
+                  {/* Banner (Ảnh bìa) */}
+                  {event.banner_url && (
+                    <div className={`${event.thumbnail_url ? 'md:col-span-8' : 'md:col-span-12'} relative group overflow-hidden rounded-[24px] border border-white/10 bg-black/40 shadow-inner`}>
+                      <div className="absolute top-3 left-3 z-10">
+                        <span className="rounded-full bg-black/65 backdrop-blur-md px-3 py-1 text-[11px] font-bold text-white border border-white/20 shadow-md">
+                          {isEnglish ? 'Banner' : 'Ảnh bìa'}
+                        </span>
+                      </div>
+                      <img
+                        src={event.banner_url}
+                        alt="Banner"
+                        className="h-72 w-full object-cover transition-transform duration-300 group-hover:scale-[1.02] cursor-pointer"
+                        onClick={() => setPreviewDoc({ name: isEnglish ? 'Banner' : 'Ảnh bìa', url: event.banner_url, type: 'image/jpeg' })}
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
             ) : (
               <div className="h-64">
@@ -2234,9 +3811,30 @@ export function AdminEventReviewDetailPage() {
                 {typeof event.title === 'string' ? (isEnglish ? (translatePhrase(event.title, 'en') || event.title) : event.title) : (isEnglish ? 'Event Details' : 'Chi tiết sự kiện')}
               </h2>
               {event.short_description && (
-                <p className="mb-8 text-base font-medium text-slate-400 [html.light_&]:text-slate-600">
+                <p className="mb-4 text-base font-medium text-slate-400 [html.light_&]:text-slate-600">
                   {typeof event.short_description === 'string' ? (isEnglish ? (translatePhrase(event.short_description, 'en') || event.short_description) : event.short_description) : ''}
                 </p>
+              )}
+
+              {/* Tags & Category */}
+              {(event.category_name || (Array.isArray(event.tags) && event.tags.length > 0)) && (
+                <div className="mb-6 flex flex-wrap items-center gap-2">
+                  {event.category_name && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-[#C99A47]/15 border border-[#C99A47]/30 px-3 py-1 text-xs font-bold text-[#E6C17A] [html.light_&]:bg-amber-50 [html.light_&]:text-amber-900 [html.light_&]:border-amber-300">
+                      {event.category_name}
+                    </span>
+                  )}
+                  {Array.isArray(event.tags) &&
+                    event.tags.map((tag, idx) => (
+                      <span
+                        key={`${tag}-${idx}`}
+                        className="inline-flex items-center gap-1 rounded-full bg-white/5 border border-white/10 px-2.5 py-1 text-xs font-medium text-slate-300 [html.light_&]:bg-slate-100 [html.light_&]:text-slate-700 [html.light_&]:border-slate-200"
+                      >
+                        <Tag className="size-3 text-[#C99A47]" />
+                        <span>#{tag}</span>
+                      </span>
+                    ))}
+                </div>
               )}
 
               <div className="mb-8 space-y-3.5">
@@ -2746,6 +4344,85 @@ export function AdminEventReviewDetailPage() {
                   )}
                 </div>
 
+                {/* Seat Map Section - Only for seated events (View only, non-interactive) */}
+                {hasSeatMap && (
+                  <div className="rounded-[24px] border border-white/5 bg-white/[0.02] p-5 shadow-inner space-y-4 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 [html.light_&]:border-slate-200 pb-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Armchair className="size-5 text-[#C99A47] shrink-0" />
+                        <h3 className="font-display text-base font-black text-white [html.light_&]:text-[#0D1B2A]">
+                          {isEnglish ? 'Seat Map' : 'Sơ đồ chỗ ngồi'}
+                        </h3>
+                        {sessionSeatsQuery.data?.seats?.length > 0 && (
+                          <span className="rounded-full bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-bold text-amber-300 border border-amber-500/20 [html.light_&]:bg-amber-50 [html.light_&]:text-amber-800 [html.light_&]:border-amber-200">
+                            {sessionSeatsQuery.data.seats.length} {isEnglish ? 'seats' : 'ghế'}
+                          </span>
+                        )}
+                        <span className="text-[11px] text-slate-400 font-medium italic [html.light_&]:text-slate-500">
+                          ({isEnglish ? 'View only - non-interactive' : 'Chỉ xem - Không thể thao tác'})
+                        </span>
+                      </div>
+
+                      {/* Multi-session picker if more than 1 seated session */}
+                      {seatedSessions.length > 1 && (
+                        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+                          {seatedSessions.map((sess, sIdx) => {
+                            const isSelected = String(sess.id) === effectiveSeatSessionId
+                            const rawTitle = sess.session_name?.trim() || ''
+                            const prefix = isEnglish ? 'Session' : 'Phiên'
+                            const label = rawTitle
+                              ? (/^phiên\s*\d+/i.test(rawTitle) ? rawTitle : `${prefix} ${sIdx + 1}: ${rawTitle}`)
+                              : `${prefix} ${sIdx + 1}`
+
+                            return (
+                              <button
+                                key={sess.id || sIdx}
+                                type="button"
+                                onClick={() => setSelectedSeatSessionId(String(sess.id))}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap cursor-pointer ${
+                                  isSelected
+                                    ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-sm font-black'
+                                    : 'bg-white/5 text-slate-200 border border-white/10 hover:text-white hover:bg-white/10 [html.light_&]:bg-white [html.light_&]:text-slate-800 [html.light_&]:border-slate-300'
+                                }`}
+                              >
+                                {label}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    {sessionSeatsQuery.isLoading ? (
+                      <div className="flex flex-col items-center justify-center py-12 gap-3 text-slate-400">
+                        <Loader2 className="size-6 animate-spin text-[#C99A47]" />
+                        <span className="text-xs">
+                          {isEnglish ? 'Loading seat map data...' : 'Đang tải dữ liệu sơ đồ chỗ ngồi...'}
+                        </span>
+                      </div>
+                    ) : sessionSeatsQuery.isError ? (
+                      <div className="py-8 text-center text-xs text-rose-400">
+                        {isEnglish ? 'Failed to load seat map data.' : 'Không thể tải dữ liệu sơ đồ chỗ ngồi.'}
+                      </div>
+                    ) : sessionSeatsQuery.data?.seats?.length > 0 ? (
+                      <div className="overflow-hidden rounded-2xl border border-white/10 bg-slate-950/80 p-3 shadow-inner [html.light_&]:bg-slate-900">
+                        <SeatMapCanvas
+                          seats={sessionSeatsQuery.data.seats}
+                          ticketTypes={event.ticket_types || []}
+                          selectedSeatIds={[]}
+                          seatMap={sessionSeatsQuery.data.seat_map}
+                          readOnly={true}
+                          centered={true}
+                        />
+                      </div>
+                    ) : (
+                      <p className="text-xs italic text-slate-500 py-4 text-center">
+                        {isEnglish ? 'No seat data configured for this session.' : 'Phiên này chưa có dữ liệu cấu hình ghế.'}
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 {/* Refund Policy */}
                 <div className="rounded-[24px] border border-white/5 bg-white/[0.02] p-5 shadow-inner space-y-4 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
                   <div className="flex items-center gap-2 border-b border-white/10 [html.light_&]:border-slate-200 pb-3">
@@ -2964,38 +4641,47 @@ export function AdminEventReviewDetailPage() {
 
                       <div className="space-y-4">
                         {/* 🔴 VI PHẠM ĐIỀU KHOẢN & CHÍNH SÁCH */}
-                        {generalPolicyViolations.length > 0 ? (
+                        {policyViolations.length > 0 ? (
                           <div className="space-y-2">
                             <div className="flex items-center justify-between">
                               <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-[#FF4569]">
                                 <ShieldAlert className="size-3.5 text-[#FF4569]" />
-                                {isEnglish ? 'Policy & Terms violations' : 'Vi phạm điều khoản & chính sách'} ({generalPolicyViolations.length})
+                                {isEnglish ? 'Policy & Terms violations' : 'Vi phạm điều khoản & chính sách'} ({policyViolations.length})
                               </span>
                             </div>
                             <div className="space-y-2">
-                              {generalPolicyViolations.map((v, idx) => (
+                              {policyViolations.map((v, idx) => (
                                 <PolicyViolationCard key={idx} item={v} onClick={handleWarningClick} />
                               ))}
                             </div>
                           </div>
+                        ) : (hasDocumentViolations || hasImageViolations) ? (
+                          <div className="flex items-center gap-2 py-1 text-sm text-[#FF4569] font-bold">
+                            <ShieldAlert className="size-4.5 text-[#FF4569] shrink-0" />
+                            <span>
+                              {isEnglish
+                                ? 'Policy violations detected in attached documents or images (see details below)'
+                                : 'Phát hiện vi phạm điều khoản ở tài liệu / hình ảnh đính kèm (xem chi tiết bên dưới)'}
+                            </span>
+                          </div>
                         ) : (
-                          <div className="flex items-center gap-2 rounded-xl border border-[#10B981]/30 bg-[#10B981]/10 px-3 py-2.5 text-xs text-[#10B981] font-medium">
-                            <ShieldCheck className="size-4 text-[#10B981] shrink-0" />
+                          <div className="flex items-center gap-2 py-1 text-sm text-[#10B981] font-bold">
+                            <ShieldCheck className="size-4.5 text-[#10B981] shrink-0" />
                             <span>{isEnglish ? 'No policy or terms violations detected (0 red flags)' : 'Điều khoản & chính sách nền tảng: Đạt chuẩn (0 vi phạm)'}</span>
                           </div>
                         )}
 
                         {/* 🟡 CẢNH BÁO ĐIỀU KHOẢN & LƯU Ý */}
-                        {generalPolicyWarnings.length > 0 && (
-                          <div className="space-y-2">
+                        {policyWarnings.length > 0 && (
+                          <div className="space-y-2 border-t border-[#263751] pt-4.5 [html.light_&]:border-slate-300">
                             <div className="flex items-center justify-between">
                               <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-[#F59E0B]">
                                 <AlertTriangle className="size-3.5 text-[#F59E0B]" />
-                                {isEnglish ? 'Policy warnings & notices' : 'Cảnh báo & lưu ý điều khoản'} ({generalPolicyWarnings.length})
+                                {isEnglish ? 'Policy warnings & notices' : 'Cảnh báo & lưu ý điều khoản'} ({policyWarnings.length})
                               </span>
                             </div>
                             <div className="space-y-2">
-                              {generalPolicyWarnings.map((w, idx) => (
+                              {policyWarnings.map((w, idx) => (
                                 <PolicyWarningCard key={idx} item={w} onClick={handleWarningClick} />
                               ))}
                             </div>
@@ -3004,36 +4690,42 @@ export function AdminEventReviewDetailPage() {
 
                         {/* 📝 SOÁT LỖI TIÊU ĐỀ, MÔ TẢ & CHÍNH TẢ */}
                         {aiData.content_review && (
-                          <ContentSpellingAuditCard
-                            contentReview={aiData.content_review}
-                            event={event}
-                            onClick={handleWarningClick}
-                          />
+                          <div className="border-t border-[#263751] pt-4.5 [html.light_&]:border-slate-300">
+                            <ContentSpellingAuditCard
+                              contentReview={aiData.content_review}
+                              event={event}
+                              onClick={handleWarningClick}
+                            />
+                          </div>
                         )}
 
                         {/* 📄 KIỂM DUYỆT TÀI LIỆU GIẤY PHÉP */}
                         {(aiData.document_review || aiData.document_analysis) && (
-                          <DocumentModerationAuditCard
-                            documentReview={aiData.document_review}
-                            documentAnalysis={aiData.document_analysis}
-                            onPreviewDoc={setPreviewDoc}
-                            onClick={handleWarningClick}
-                          />
+                          <div className="border-t border-[#263751] pt-4.5 [html.light_&]:border-slate-300">
+                            <DocumentModerationAuditCard
+                              documentReview={aiData.document_review}
+                              documentAnalysis={aiData.document_analysis}
+                              onPreviewDoc={setPreviewDoc}
+                              onClick={handleWarningClick}
+                            />
+                          </div>
                         )}
 
                         {/* 🖼️ KIỂM DUYỆT HÌNH ẢNH & OCR */}
                         {(aiData.image_review || aiData.vision_analysis) && (
-                          <ImageModerationAuditCard
-                            imageReview={aiData.image_review}
-                            visionAnalysis={aiData.vision_analysis}
-                            event={event}
-                            onClick={handleWarningClick}
-                          />
+                          <div className="border-t border-[#263751] pt-4.5 [html.light_&]:border-slate-300">
+                            <ImageModerationAuditCard
+                              imageReview={aiData.image_review}
+                              visionAnalysis={aiData.vision_analysis}
+                              event={event}
+                              onClick={handleWarningClick}
+                            />
+                          </div>
                         )}
 
                         {/* 🟢 COMPLIANT CHECKS */}
                         {aiData.compliant_checks && aiData.compliant_checks.length > 0 && (
-                          <div className="space-y-2">
+                          <div className="space-y-2 border-t border-[#263751] pt-4.5 [html.light_&]:border-slate-300">
                             <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-[#10B981]">
                               <CheckCircle2 className="size-3.5 text-[#10B981]" />
                               {isEnglish ? 'Compliant criteria' : 'Tiêu chí đạt chuẩn'} ({aiData.compliant_checks.length})
@@ -3048,7 +4740,7 @@ export function AdminEventReviewDetailPage() {
 
                         {/* 💡 SUGGESTIONS */}
                         {aiData.suggestions && aiData.suggestions.length > 0 && (
-                          <div className="space-y-2.5 pt-1">
+                          <div className="space-y-2.5 pt-4.5 border-t border-[#263751] [html.light_&]:border-slate-300">
                             <div className="flex items-center justify-between">
                               <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-[#E8B85D]">
                                 <Sparkles className="size-3.5 text-[#E8B85D]" />
@@ -3100,9 +4792,7 @@ export function AdminEventReviewDetailPage() {
                     title={isNoteExpanded ? (isEnglish ? 'Click to collapse notes' : 'Bấm để thu gọn ô ghi chú') : (isEnglish ? 'Click to expand notes' : 'Bấm để mở rộng ô ghi chú')}
                   >
                     <span>
-                      {isEnglish
-                        ? (hasNote ? 'Review notes' : 'Review notes (Optional)')
-                        : (hasNote ? 'Ghi chú kiểm duyệt' : 'Ghi chú kiểm duyệt (Tùy chọn)')}
+                      {isEnglish ? 'Review notes' : 'Ghi chú kiểm duyệt'}
                     </span>
                     {hasNote && (
                       <span className="rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-black px-2 py-0.5 border border-amber-500/30 animate-pulse">
@@ -3131,18 +4821,33 @@ export function AdminEventReviewDetailPage() {
                 </div>
 
                 {/* Expandable Note Textarea */}
-                {isNoteExpanded && (
-                  <div className="mb-2.5">
-                    <div className="mb-1 text-[10px] text-slate-400 [html.light_&]:text-slate-600">
-                      <span>{isEnglish ? 'Enter or click AI suggestions above to insert into notes' : 'Nhập hoặc bấm gợi ý AI ở trên để tự chèn vào ghi chú'}</span>
-                    </div>
-                    <textarea
-                      {...register('review_note')}
-                      placeholder={isEnglish ? 'Enter review notes to send to organizer...' : 'Nhập ghi chú gửi cho Ban tổ chức...'}
-                      className={`h-20 w-full resize-y rounded-xl border border-white/10 bg-black/50 p-2.5 text-xs font-medium text-white shadow-inner outline-none transition-all placeholder:text-slate-500 focus:border-amber-400/50 focus:bg-black/70 focus:ring-1 focus:ring-amber-400/50 [html.light_&]:bg-[#FAF5EC] [html.light_&]:border-[#C99A47]/30 [html.light_&]:text-[#0D1B2A] [html.light_&]:placeholder:text-slate-400 ${customScrollbar}`}
-                    />
-                  </div>
-                )}
+                <div className={`mb-2.5 ${isNoteExpanded ? 'block' : 'hidden'}`}>
+                  <textarea
+                    {...restReviewNoteRegister}
+                    ref={(el) => {
+                      reviewNoteRegisterRef(el)
+                      noteTextareaRef.current = el
+                    }}
+                    onChange={(e) => {
+                      reviewNoteRegisterOnChange(e)
+                      if (hasNoteError && e.target.value.trim()) {
+                        setHasNoteError(false)
+                      }
+                    }}
+                    placeholder={isEnglish ? 'Enter review notes to send to organizer...' : 'Nhập ghi chú gửi cho Ban tổ chức...'}
+                    className={`h-20 w-full resize-y rounded-xl border bg-black/50 p-2.5 text-xs font-medium text-white shadow-inner outline-none transition-all placeholder:text-slate-500 focus:bg-black/70 [html.light_&]:bg-[#FAF5EC] [html.light_&]:text-[#0D1B2A] [html.light_&]:placeholder:text-slate-400 ${customScrollbar} ${
+                      hasNoteError
+                        ? 'border-[#FF4569] ring-1 ring-[#FF4569]/50 focus:border-[#FF4569] focus:ring-[#FF4569]/60 [html.light_&]:border-rose-500'
+                        : 'border-white/10 focus:border-amber-400/50 focus:ring-1 focus:ring-amber-400/50 [html.light_&]:border-[#C99A47]/30'
+                    }`}
+                  />
+                  {hasNoteError && (
+                    <p className="mt-1.5 flex items-center gap-1.5 text-xs font-semibold text-[#FF4569] [html.light_&]:text-rose-600 animate-fadeIn">
+                      <AlertCircle className="size-3.5 shrink-0" />
+                      <span>{isEnglish ? 'Please specify the reason for rejection.' : 'Vui lòng điền rõ lý do từ chối.'}</span>
+                    </p>
+                  )}
+                </div>
 
                 {/* Decision Action Buttons */}
                 <div className="grid gap-2.5 grid-cols-2">
@@ -3251,18 +4956,16 @@ export function AdminEventReviewDetailPage() {
 }
 
 function DocumentPreviewModal({ doc, onClose }) {
-  if (!doc) return null
-
-  const isImage = doc.type?.includes('image') || /\.(jpg|jpeg|png|webp|gif|svg)($|\?)/i.test(doc.url) || /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(doc.name)
-  const isPdf = !isImage && (doc.type?.includes('pdf') || /\.pdf($|\?)/i.test(doc.url) || /\.pdf$/i.test(doc.name))
-  const isDocx = !isImage && !isPdf && (doc.type?.includes('word') || doc.type?.includes('officedocument') || /\.(docx?)($|\?)/i.test(doc.url) || /\.(docx?)$/i.test(doc.name))
+  const isImage = Boolean(doc) && (doc.type?.includes('image') || /\.(jpg|jpeg|png|webp|gif|svg)($|\?)/i.test(doc.url || '') || /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(doc.name || ''))
+  const isPdf = Boolean(doc) && !isImage && (doc.type?.includes('pdf') || /\.pdf($|\?)/i.test(doc.url || '') || /\.pdf$/i.test(doc.name || ''))
+  const isDocx = Boolean(doc) && !isImage && !isPdf && (doc.type?.includes('word') || doc.type?.includes('officedocument') || /\.(docx?)($|\?)/i.test(doc.url || '') || /\.(docx?)$/i.test(doc.name || ''))
 
   const [activeTab, setActiveTab] = useState('preview') // 'preview' | 'ai_text'
   const [pdfBlobUrl, setPdfBlobUrl] = useState(null)
   const [isLoadingPdf, setIsLoadingPdf] = useState(false)
   const [pdfLoadError, setPdfLoadError] = useState(null)
 
-  const [extractedText, setExtractedText] = useState(doc.extractedText || null)
+  const [extractedText, setExtractedText] = useState(doc?.extractedText || null)
   const [isLoadingText, setIsLoadingText] = useState(false)
   const [textExtractError, setTextExtractError] = useState(null)
   const [copied, setCopied] = useState(false)
@@ -3270,11 +4973,11 @@ function DocumentPreviewModal({ doc, onClose }) {
   // Reset tab and text when doc changes
   useEffect(() => {
     setActiveTab('preview')
-    setExtractedText(doc.extractedText || null)
+    setExtractedText(doc?.extractedText || null)
     setPdfBlobUrl(null)
     setPdfLoadError(null)
     setTextExtractError(null)
-  }, [doc.url, doc.name, doc.extractedText])
+  }, [doc?.url, doc?.name, doc?.extractedText])
 
   // 1. Fetch inline PDF blob for direct preview without forcing browser download
   useEffect(() => {
@@ -3346,6 +5049,8 @@ function DocumentPreviewModal({ doc, onClose }) {
 
   const wordCount = extractedText ? extractedText.trim().split(/\s+/).filter(Boolean).length : 0
   const charCount = extractedText ? extractedText.length : 0
+
+  if (!doc) return null
 
   return (
     <div

@@ -60,6 +60,28 @@ class SeatAllocationService {
     const isCenterPreferred = /(?:trung|giữa|giua|center)/i.test(options.preferredRow || '') || Boolean(options.isCenterPreferred);
     const requestedTicketTypeId = options.ticketTypeId || null;
 
+    // Parse excludeSeats into a normalized Set:
+    let excludeSeatsSet = null;
+    if (options.excludeSeats) {
+      const arr = Array.isArray(options.excludeSeats)
+        ? options.excludeSeats
+        : (options.excludeSeats instanceof Set ? [...options.excludeSeats] : [options.excludeSeats]);
+      excludeSeatsSet = new Set(
+        arr.map(s => {
+          const str = typeof s === 'string' ? s : (s?.label || s?.session_seat_id || s?.id || '');
+          return String(str).toUpperCase().replace(/[\s\-_]/g, '');
+        }).filter(Boolean)
+      );
+    }
+
+    // Parse specificSeats into an array of normalized seat strings:
+    const specificSeats = Array.isArray(options.specificSeats)
+      ? options.specificSeats.map(s => {
+          const str = typeof s === 'string' ? s : (s?.label || s?.session_seat_id || s?.id || '');
+          return String(str).toUpperCase().replace(/[\s\-_]/g, '');
+        }).filter(Boolean)
+      : null;
+
     // 1. FAST-FAIL: max_tickets_per_order
     if (rules.max_tickets_per_order && quantity > rules.max_tickets_per_order) {
       return {
@@ -150,15 +172,77 @@ class SeatAllocationService {
       horizontalPref = 'RIGHT';
     }
 
+    // STRATEGY 0: User requested specific seat(s) (e.g. ['A1', 'A2'] or ['A5'])
+    if (specificSeats && specificSeats.length > 0) {
+      const matchedSpecific = [];
+      const unavailableSpecific = [];
+      const missingSpecific = [];
+
+      for (const reqLabel of specificSeats) {
+        const found = (allSessionSeats || []).find(s => {
+          const sLabel = String(s.label || '').toUpperCase().replace(/[\s\-_]/g, '');
+          const sFull = (String(s.row_label || '') + String(s.seat_number || '')).toUpperCase().replace(/[\s\-_]/g, '');
+          const sId = String(s.id || '').toUpperCase();
+          const ssId = String(s.session_seat_id || '').toUpperCase();
+          return sLabel === reqLabel || sFull === reqLabel || sId === reqLabel || ssId === reqLabel;
+        });
+
+        if (!found) {
+          missingSpecific.push(reqLabel);
+        } else if (!isAvailableSeat(found)) {
+          unavailableSpecific.push(found.label || reqLabel);
+        } else if (requestedTicketTypeId && found.ticket_type_ids?.length > 0 && !found.ticket_type_ids.map(String).includes(String(requestedTicketTypeId))) {
+          unavailableSpecific.push(found.label || reqLabel);
+        } else {
+          matchedSpecific.push(found);
+        }
+      }
+
+      if (matchedSpecific.length === specificSeats.length) {
+        // Test seating rules with all requested specific seats
+        const { valid, issues } = testCandidate(matchedSpecific);
+        if (valid) {
+          selectedCandidate = matchedSpecific;
+          isPreferredRow = true;
+          note = `Eve đã chọn đúng các vị trí ghế ${matchedSpecific.map(s => s.label).join(', ')} theo yêu cầu của bạn rồi nè!`;
+        } else {
+          const ruleMsg = issues[0]?.message || 'Vị trí ghế này không thỏa mãn quy tắc sự kiện (để lại 1 ghế trống đơn lẻ hoặc không liền kề).';
+          return {
+            success: false,
+            code: 'SPECIFIC_SEATS_RULE_VIOLATION',
+            message: `Vị trí ghế bạn chọn không thỏa mãn quy định của Ban tổ chức: ${ruleMsg}. Bạn có thể chọn ghế khác hoặc để Eve chọn tự động giúp bạn nhé!`,
+            rules
+          };
+        }
+      } else if (unavailableSpecific.length > 0) {
+        return {
+          success: false,
+          code: 'SPECIFIC_SEATS_UNAVAILABLE',
+          message: `Ghế ${unavailableSpecific.join(', ')} hiện đã có người đặt trước hoặc đang được giữ chỗ. Eve có thể chọn các ghế trống khác gần đó cho bạn nhé!`,
+          unavailableSeats: unavailableSpecific
+        };
+      } else if (missingSpecific.length > 0) {
+        return {
+          success: false,
+          code: 'SPECIFIC_SEATS_NOT_FOUND',
+          message: `Không tìm thấy vị trí ghế ${missingSpecific.join(', ')} trên sơ đồ sự kiện. Bạn vui lòng kiểm tra lại số ghế nhé!`,
+          missingSeats: missingSpecific
+        };
+      }
+    }
+
     // STRATEGY A: User specified a preferred row (e.g. "Hàng C")
-    if (preferredRow && rowMap.has(preferredRow) && (!excludeRow || preferredRow !== excludeRow)) {
+    if (!selectedCandidate && preferredRow && rowMap.has(preferredRow) && (!excludeRow || preferredRow !== excludeRow)) {
       const rowSeats = rowMap.get(preferredRow);
       const physicalRow = physicalRowMap.get(preferredRow);
-      // First try to find strictly contiguous adjacent seats in the preferred row
-      const candidate = this._findBestContiguousSlice(rowSeats, quantity, testCandidate, physicalRow, horizontalPref, true);
+      // First try to find strictly contiguous adjacent seats in the preferred row (excluding excluded seats)
+      const candidate = this._findBestContiguousSlice(rowSeats, quantity, testCandidate, physicalRow, horizontalPref, true, excludeSeatsSet);
       if (candidate) {
         selectedCandidate = candidate;
         isPreferredRow = true;
+        if (excludeSeatsSet && excludeSeatsSet.size > 0) {
+          note = `Eve đã đổi sang các ghế ${candidate.map(s => s.label).join(', ')} khác cùng hàng ${preferredRow} cho bạn rồi nè!`;
+        }
       } else {
         // If preferred row does not have enough contiguous seats, search other rows for contiguous seats first!
         const otherRows = [...rowMap.keys()]
@@ -168,19 +252,21 @@ class SeatAllocationService {
         for (const rowName of otherRows) {
           const altSeats = rowMap.get(rowName);
           const altPhysicalRow = physicalRowMap.get(rowName);
-          const altCandidate = this._findBestContiguousSlice(altSeats, quantity, testCandidate, altPhysicalRow, horizontalPref, true);
+          const altCandidate = this._findBestContiguousSlice(altSeats, quantity, testCandidate, altPhysicalRow, horizontalPref, true, excludeSeatsSet);
           if (altCandidate) {
             selectedCandidate = altCandidate;
             isPreferredRow = false;
             alternativeRow = rowName;
-            note = `Hàng ${preferredRow} không còn đủ ${quantity} ghế liền kề nhau, Eve đã chọn ${quantity} ghế liền kề ở hàng ${rowName} đẹp nhất cho bạn!`;
+            note = (excludeSeatsSet && excludeSeatsSet.size > 0)
+              ? `Hàng ${preferredRow} không còn vị trí ghế liền kề nào khác phù hợp quy định, Eve đã đổi sang ${quantity} ghế ở hàng ${rowName} cho bạn!`
+              : `Hàng ${preferredRow} không còn đủ ${quantity} ghế liền kề nhau, Eve đã chọn ${quantity} ghế liền kề ở hàng ${rowName} đẹp nhất cho bạn!`;
             break;
           }
         }
 
         // If no row has contiguous seats, fall back to non-contiguous in preferred row if event rules allow
         if (!selectedCandidate && !rules.require_adjacent_seats && !rules.disallow_single_seat_left && rowSeats.length >= quantity) {
-          const fallbackCandidate = this._findBestContiguousSlice(rowSeats, quantity, testCandidate, physicalRow, horizontalPref, false);
+          const fallbackCandidate = this._findBestContiguousSlice(rowSeats, quantity, testCandidate, physicalRow, horizontalPref, false, excludeSeatsSet);
           if (fallbackCandidate) {
             selectedCandidate = fallbackCandidate;
             isPreferredRow = true;
@@ -216,12 +302,14 @@ class SeatAllocationService {
         if (excludeRow && rowName === excludeRow) continue; // skip excluded row when user asks for a different row
         const rowSeats = rowMap.get(rowName);
         const physicalRow = physicalRowMap.get(rowName);
-        const candidate = this._findBestContiguousSlice(rowSeats, quantity, testCandidate, physicalRow, horizontalPref, true);
+        const candidate = this._findBestContiguousSlice(rowSeats, quantity, testCandidate, physicalRow, horizontalPref, true, excludeSeatsSet);
         if (candidate) {
           selectedCandidate = candidate;
           isPreferredRow = false;
           alternativeRow = rowName;
-          if (excludeRow) {
+          if (excludeSeatsSet && excludeSeatsSet.size > 0) {
+            note = `Eve đã đổi sang các vị trí ghế ${candidate.map(s => s.label).join(', ')} khác cho bạn nè!`;
+          } else if (excludeRow) {
             note = `Eve đã đổi sang hàng ghế ${rowName} theo yêu cầu của bạn nè!`;
           } else if (preferredRow) {
             note = `Hàng ${preferredRow} không còn đủ ${quantity} ghế thỏa mãn quy định sự kiện, Eve đã chọn hàng ${rowName} đẹp nhất cho bạn!`;
@@ -237,7 +325,7 @@ class SeatAllocationService {
         for (const rowName of allRowNames) {
           const rowSeats = rowMap.get(rowName);
           const physicalRow = physicalRowMap.get(rowName);
-          const candidate = this._findBestContiguousSlice(rowSeats, quantity, testCandidate, physicalRow, horizontalPref, false);
+          const candidate = this._findBestContiguousSlice(rowSeats, quantity, testCandidate, physicalRow, horizontalPref, false, excludeSeatsSet);
           if (candidate) {
             selectedCandidate = candidate;
             isPreferredRow = (rowName === preferredRow);
@@ -357,7 +445,7 @@ class SeatAllocationService {
    * Prioritizes slices that are physically adjacent side-by-side.
    * Prioritizes slices closest to the center of the physical row by default (or left/right if preferred).
    */
-  _findBestContiguousSlice(rowSeats, quantity, validator, allPhysicalRowSeats = null, preference = 'CENTER', requireStrictContiguous = true) {
+  _findBestContiguousSlice(rowSeats, quantity, validator, allPhysicalRowSeats = null, preference = 'CENTER', requireStrictContiguous = true, excludeSeatsSet = null) {
     if (!rowSeats || rowSeats.length < quantity) return null;
 
     // Determine the physical row bounds and midpoint
@@ -373,6 +461,21 @@ class SeatAllocationService {
     // Sliding window of size `quantity`
     for (let i = 0; i <= rowSeats.length - quantity; i++) {
       const slice = rowSeats.slice(i, i + quantity);
+
+      // If any seat in slice is in excludeSeatsSet, skip this candidate slice
+      if (excludeSeatsSet && excludeSeatsSet.size > 0) {
+        const containsExcluded = slice.some(s => {
+          const normL = String(s.label || '').toUpperCase().replace(/[\s\-_]/g, '');
+          const normF = (String(s.row_label || '') + String(s.seat_number || '')).toUpperCase().replace(/[\s\-_]/g, '');
+          const normId = String(s.id || '').toUpperCase();
+          const normSsId = String(s.session_seat_id || '').toUpperCase();
+          return excludeSeatsSet.has(normL) || excludeSeatsSet.has(normF) || excludeSeatsSet.has(normId) || excludeSeatsSet.has(normSsId);
+        });
+        if (containsExcluded) {
+          continue;
+        }
+      }
+
       const isAdjacent = isSliceTrulyAdjacent(slice, sortedRef);
       if (requireStrictContiguous && !isAdjacent) {
         continue;

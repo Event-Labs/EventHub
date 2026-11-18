@@ -780,7 +780,6 @@ export function OrganizerVenueSeatMapsPage() {
   const navigate = useNavigate()
   const [seatMaps, setSeatMaps] = useState([])
   const [loading, setLoading] = useState(true)
-  const [message, setMessage] = useState('')
   const [editorOpen, setEditorOpen] = useState(false)
   const [editingSeatMapId, setEditingSeatMapId] = useState(null)
   const [previewOpen, setPreviewOpen] = useState(false)
@@ -805,9 +804,7 @@ export function OrganizerVenueSeatMapsPage() {
       setSeatMaps(maps)
     } catch (err) {
       console.error(err)
-      const message = 'Không thể tải dữ liệu sơ đồ ghế.'
-      setMessage(message)
-      toast.error(message)
+      toast.error('Không thể tải dữ liệu sơ đồ ghế.')
     } finally {
       setLoading(false)
     }
@@ -848,14 +845,11 @@ export function OrganizerVenueSeatMapsPage() {
     setSeatMapToDelete(null)
     try {
       await deleteSeatMap(seatMapId)
-      setMessage('Đã xóa sơ đồ ghế.')
       toast.success('Đã xóa sơ đồ ghế.')
       loadData()
     } catch (err) {
       console.error(err)
-      const message = getApiMessage(err, 'Không thể xóa sơ đồ ghế.')
-      setMessage(message)
-      toast.error(message)
+      toast.error(getApiMessage(err, 'Không thể xóa sơ đồ ghế.'))
     }
   }
 
@@ -891,22 +885,24 @@ export function OrganizerVenueSeatMapsPage() {
         </button>
       </div>
 
-      {message && <p className="mb-4 text-sm text-subtle font-semibold">{message}</p>}
-
       {loading ? (
         <div className="flex justify-center py-16">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
         </div>
+      ) : !seatMaps.length ? (
+        <p className="mt-4 text-center text-sm text-muted py-6 border border-dashed border-border-soft/30 rounded-xl bg-panel-soft/30">
+          Chưa có sơ đồ ghế. Nhấn &quot;Tạo sơ đồ mới&quot; để bắt đầu.
+        </p>
       ) : (
         <OrganizerTable
           minWidth="min-w-[840px]"
-          headers={['Tên sơ đồ', 'Loại', 'Cấu hình', { label: 'Tổng số ghế', align: 'center' }, 'Khu vực', 'Trạng thái', 'Thao tác']}
+          headers={['Tên sơ đồ', 'Loại', 'Cấu hình', { label: 'Tổng số ghế', align: 'center' }, { label: 'Khu vực', align: 'center' }, 'Trạng thái', 'Thao tác']}
           rows={seatMaps.map((sm) => [
             <span key="name" className="font-semibold text-white">{sm.name}</span>,
             <span key="type" className="whitespace-nowrap">{sm.layout_type}</span>,
             <span key="layout" className="whitespace-nowrap">{layoutLabel(sm)}</span>,
             <span key="seats" className="whitespace-nowrap font-mono text-center">{getSeatMapTotalSeats(sm)}</span>,
-            <span key="zones" className="whitespace-nowrap">{getSeatMapZoneCount(sm)}</span>,
+            <span key="zones" className="whitespace-nowrap font-mono text-center">{getSeatMapZoneCount(sm)}</span>,
             <StatusBadge key="status" status={sm.is_active ? 'ACTIVE' : 'INACTIVE'} />,
             <div key="actions" className="flex items-center justify-center gap-2 whitespace-nowrap">
               <TableActionButton
@@ -932,12 +928,6 @@ export function OrganizerVenueSeatMapsPage() {
         />
       )}
 
-      {!loading && !seatMaps.length && (
-        <p className="mt-4 text-center text-sm text-muted py-6 border border-dashed border-border-soft/30 rounded-xl bg-panel-soft/30">
-          Chưa có sơ đồ ghế. Nhấn &quot;Tạo sơ đồ mới&quot; để bắt đầu.
-        </p>
-      )}
-
       <SeatMapPreviewModal
         open={previewOpen}
         seatMapId={previewSeatMapId}
@@ -956,9 +946,8 @@ export function OrganizerVenueSeatMapsPage() {
           venueId={venueId}
           seatMapId={editingSeatMapId}
           onSave={() => {
-            const message = editingSeatMapId ? 'Đã cập nhật sơ đồ ghế.' : 'Đã tạo sơ đồ ghế mới.'
-            setMessage(message)
-            toast.success(message)
+            const successMsg = editingSeatMapId ? 'Đã cập nhật sơ đồ ghế.' : 'Đã tạo sơ đồ ghế mới.'
+            toast.success(successMsg)
             closeEditor()
             loadData()
           }}
