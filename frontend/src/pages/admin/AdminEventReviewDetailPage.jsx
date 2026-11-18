@@ -270,6 +270,22 @@ function StatusBanner({ recommendation, summary }) {
   return <AiExecutiveSummaryCard aiData={{ recommendation, summary }} />
 }
 
+const isImageIssue = (item) => {
+  if (!item) return false
+  const code = String(item.policy_code || '').toUpperCase()
+  const text = String(item.issue || item.message || (typeof item === 'string' ? item : ''))
+  return code === 'IMAGE_POLICY' || /\[(Vi phạm|Lưu ý) hình ảnh\]/i.test(text) || /ảnh đại diện|poster|ảnh bìa|banner/i.test(text)
+}
+
+const isDocIssue = (item) => {
+  if (!item) return false
+  const code = String(item.policy_code || '').toUpperCase()
+  const text = String(item.issue || item.message || (typeof item === 'string' ? item : ''))
+  return code === 'LEGAL_PERMIT_AUTHENTICITY' || /\[(Vi phạm|Lưu ý) tài liệu\]/i.test(text) || /giấy phép|tài liệu đính kèm/i.test(text)
+}
+
+const isGeneralPolicyIssue = (item) => !isImageIssue(item) && !isDocIssue(item)
+
 function PolicyFindingCard({ item, severity = 'CRITICAL', onClick }) {
   const { isEnglish } = useLanguage()
   const isCrit = severity === 'CRITICAL'
@@ -865,10 +881,14 @@ function ImageModerationAuditCard({ imageReview, visionAnalysis, event, onClick 
     return null
   }
 
-  const formatAnalysis = (text, source) => {
+  const formatAnalysis = (text, source, status, issues = []) => {
     if (!text || typeof text !== 'string') return ''
+    const hasIssues = status === 'VIOLATION' || status === 'WARNING' || (Array.isArray(issues) && issues.length > 0)
+    if (hasIssues && /(không chứa nội dung vi phạm|không phát hiện vi phạm|không vi phạm|phù hợp với chủ đề sự kiện)/i.test(text)) {
+      return ''
+    }
     if (/[\u0E00-\u0E7F\u1780-\u17FF\u0E80-\u0EFF\u1000-\u109F\u0900-\u097F]/.test(text) || /(.)\1{4,}/.test(text) || /(.{2,8})\1{3,}/.test(text)) {
-      return `${getSourceLabel(source)} có bố cục trực quan rõ nét, phù hợp với chủ đề sự kiện và không vi phạm quy chuẩn.`
+      return hasIssues ? '' : `${getSourceLabel(source)} có bố cục trực quan rõ nét, phù hợp với chủ đề sự kiện và không vi phạm quy chuẩn.`
     }
     return text
   }
@@ -932,9 +952,12 @@ function ImageModerationAuditCard({ imageReview, visionAnalysis, event, onClick 
                   {getStatusBadge(img.status)}
                 </div>
 
-                {img.analysis && (
-                  <p className="text-xs text-slate-300 leading-relaxed [html.light_&]:text-slate-600">{formatAnalysis(img.analysis, img.source)}</p>
-                )}
+                {(() => {
+                  const formatted = formatAnalysis(img.analysis, img.source, img.status, img.issues)
+                  return formatted ? (
+                    <p className="text-xs text-slate-300 leading-relaxed [html.light_&]:text-slate-600">{formatted}</p>
+                  ) : null
+                })()}
 
                 {/* Visual CoT OCR 4-step Reasoning & Extracted Texts */}
                 <VisualCoTOcrSection
@@ -1616,19 +1639,50 @@ export function AdminEventReviewDetailPage() {
   const handleCopyAllIssues = () => {
     if (!aiData) return
     const lines = []
-    if (aiData.critical_violations && aiData.critical_violations.length > 0) {
-      lines.push('=== VI PHẠM CHÍNH SÁCH ===')
-      aiData.critical_violations.forEach((v) => {
+
+    // 1. Vi phạm điều khoản & chính sách nền tảng
+    const policyCrits = (aiData.critical_violations || []).filter(isGeneralPolicyIssue)
+    if (policyCrits.length > 0) {
+      lines.push('=== VI PHẠM ĐIỀU KHOẢN & CHÍNH SÁCH ===')
+      policyCrits.forEach((v) => {
         lines.push(`- [${v.policy_code || 'VI PHẠM'}] ${v.issue || v.message || v}${v.highlighted_text ? ` (Trích dẫn: "${v.highlighted_text}")` : ''}`)
       })
     }
-    if (aiData.warnings && aiData.warnings.length > 0) {
+
+    const policyWarns = (aiData.warnings || []).filter(isGeneralPolicyIssue)
+    if (policyWarns.length > 0) {
       if (lines.length > 0) lines.push('')
-      lines.push('=== CẢNH BÁO CẦN LƯU Ý ===')
-      aiData.warnings.forEach((w) => {
+      lines.push('=== CẢNH BÁO ĐIỀU KHOẢN & LƯU Ý ===')
+      policyWarns.forEach((w) => {
         lines.push(`- [${w.policy_code || 'LƯU Ý'}] ${w.issue || w.message || w}${w.highlighted_text ? ` (Trích dẫn: "${w.highlighted_text}")` : ''}`)
       })
     }
+
+    // 2. Thẩm định tài liệu đính kèm
+    const docIssues = (aiData.document_review?.items || []).filter(d => d.status === 'VIOLATION' || d.status === 'WARNING')
+    if (docIssues.length > 0) {
+      if (lines.length > 0) lines.push('')
+      lines.push('=== THẨM ĐỊNH TÀI LIỆU GIẤY PHÉP ===')
+      docIssues.forEach(d => {
+        const docName = d.fileName || d.file_name || d.source || 'Tài liệu'
+        const reason = d.violation_type || (d.issues && d.issues[0]) || d.analysis || 'Không hợp lệ'
+        lines.push(`- [${d.status === 'VIOLATION' ? 'Vi phạm' : 'Lưu ý'} - ${docName}]: ${reason}${d.violating_location ? ` (Trích dẫn: "${d.violating_location}")` : ''}`)
+      })
+    }
+
+    // 3. Kiểm duyệt hình ảnh
+    const imageIssues = (aiData.image_review?.items || []).filter(i => (!i.source?.startsWith('PERMIT')) && (i.status === 'VIOLATION' || i.status === 'WARNING'))
+    if (imageIssues.length > 0) {
+      if (lines.length > 0) lines.push('')
+      lines.push('=== KIỂM DUYỆT HÌNH ẢNH ===')
+      imageIssues.forEach(img => {
+        const sourceLabel = img.source === 'MAIN_POSTER' ? 'Ảnh đại diện chính (Poster)' : img.source === 'COVER_BANNER' ? 'Ảnh bìa (Cover Banner)' : img.source
+        const issMsg = (img.issues && img.issues.length > 0) ? img.issues.join('; ') : (img.suggestion || 'Không đạt chuẩn')
+        lines.push(`- [${img.status === 'VIOLATION' ? 'Vi phạm' : 'Lưu ý'} - ${sourceLabel}]: ${issMsg}`)
+      })
+    }
+
+    // 4. Gợi ý điều chỉnh
     if (aiData.suggestions && aiData.suggestions.length > 0) {
       if (lines.length > 0) lines.push('')
       lines.push('=== GỢI Ý ĐIỀU CHỈNH ===')
@@ -1844,6 +1898,14 @@ export function AdminEventReviewDetailPage() {
   if (event?.cancel_request?.status === 'PENDING' || event?.status === 'CANCELLED') {
     return <AdminEventCancellationDetailPage />
   }
+
+  const generalPolicyViolations = useMemo(() => {
+    return (aiData?.critical_violations || []).filter(isGeneralPolicyIssue)
+  }, [aiData?.critical_violations])
+
+  const generalPolicyWarnings = useMemo(() => {
+    return (aiData?.warnings || []).filter(isGeneralPolicyIssue)
+  }, [aiData?.warnings])
 
   const totalIssuesCount = (aiData?.critical_violations?.length || 0) + (aiData?.warnings?.length || 0)
 
@@ -2901,17 +2963,17 @@ export function AdminEventReviewDetailPage() {
                       </div>
 
                       <div className="space-y-4">
-                        {/* 🔴 CRITICAL VIOLATIONS */}
-                        {aiData.critical_violations && aiData.critical_violations.length > 0 ? (
+                        {/* 🔴 VI PHẠM ĐIỀU KHOẢN & CHÍNH SÁCH */}
+                        {generalPolicyViolations.length > 0 ? (
                           <div className="space-y-2">
                             <div className="flex items-center justify-between">
                               <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-[#FF4569]">
                                 <ShieldAlert className="size-3.5 text-[#FF4569]" />
-                                {isEnglish ? 'Critical violations' : 'Vi phạm nghiêm trọng'} ({aiData.critical_violations.length})
+                                {isEnglish ? 'Policy & Terms violations' : 'Vi phạm điều khoản & chính sách'} ({generalPolicyViolations.length})
                               </span>
                             </div>
                             <div className="space-y-2">
-                              {aiData.critical_violations.map((v, idx) => (
+                              {generalPolicyViolations.map((v, idx) => (
                                 <PolicyViolationCard key={idx} item={v} onClick={handleWarningClick} />
                               ))}
                             </div>
@@ -2919,21 +2981,21 @@ export function AdminEventReviewDetailPage() {
                         ) : (
                           <div className="flex items-center gap-2 rounded-xl border border-[#10B981]/30 bg-[#10B981]/10 px-3 py-2.5 text-xs text-[#10B981] font-medium">
                             <ShieldCheck className="size-4 text-[#10B981] shrink-0" />
-                            <span>{isEnglish ? 'No critical policy violations detected (0 red flags)' : 'Không phát hiện vi phạm chính sách nghiêm trọng (0 lỗi đỏ)'}</span>
+                            <span>{isEnglish ? 'No policy or terms violations detected (0 red flags)' : 'Điều khoản & chính sách nền tảng: Đạt chuẩn (0 vi phạm)'}</span>
                           </div>
                         )}
 
-                        {/* 🟡 WARNINGS / CAUTIONS */}
-                        {aiData.warnings && aiData.warnings.length > 0 && (
+                        {/* 🟡 CẢNH BÁO ĐIỀU KHOẢN & LƯU Ý */}
+                        {generalPolicyWarnings.length > 0 && (
                           <div className="space-y-2">
                             <div className="flex items-center justify-between">
                               <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-[#F59E0B]">
                                 <AlertTriangle className="size-3.5 text-[#F59E0B]" />
-                                {isEnglish ? 'Warnings & Notices' : 'Cảnh báo & Cần lưu ý'} ({aiData.warnings.length})
+                                {isEnglish ? 'Policy warnings & notices' : 'Cảnh báo & lưu ý điều khoản'} ({generalPolicyWarnings.length})
                               </span>
                             </div>
                             <div className="space-y-2">
-                              {aiData.warnings.map((w, idx) => (
+                              {generalPolicyWarnings.map((w, idx) => (
                                 <PolicyWarningCard key={idx} item={w} onClick={handleWarningClick} />
                               ))}
                             </div>

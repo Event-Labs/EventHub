@@ -980,6 +980,19 @@ function buildValidatedImageReview(imageAnalysisResults = [], aiImageReview = nu
       status = 'WARNING';
     }
 
+    if (status === 'VIOLATION' || status === 'WARNING') {
+      if (/không chứa nội dung vi phạm|không vi phạm quy chuẩn|phù hợp với chủ đề|không phát hiện vi phạm/i.test(analysis)) {
+        const sourceName = img.source === 'MAIN_POSTER'
+          ? 'Ảnh đại diện chính (Poster)'
+          : img.source === 'COVER_BANNER'
+            ? 'Ảnh bìa (Cover Banner)'
+            : 'Ảnh trong bài viết mô tả';
+        analysis = (issues.length > 0)
+          ? issues.join('; ')
+          : `${sourceName} không đạt chuẩn kiểm duyệt hoặc chưa phù hợp với chủ đề sự kiện.`;
+      }
+    }
+
     if (isForeignOrGibberish(analysis) || analysis.length < 15) {
       const sourceName = img.source === 'MAIN_POSTER'
         ? 'Ảnh đại diện chính (Poster)'
@@ -1528,11 +1541,17 @@ function applyStage2Guardrails({
       ? cleanIssues.join('; ')
       : 'Hình ảnh chứa nội dung vi phạm tiêu chuẩn cộng đồng EventHub hoặc không phù hợp với chủ đề sự kiện.';
 
+    const quoteText = (cleanIssues.length > 0)
+      ? cleanIssues[0]
+      : (img.analysis && !/không chứa nội dung vi phạm|không vi phạm|phù hợp với chủ đề/i.test(img.analysis))
+        ? img.analysis.slice(0, 160)
+        : issueMsg.slice(0, 160);
+
     if (!nextCritical.some((v) => v.issue.includes(img.source) || v.issue.includes(sourceName))) {
       nextCritical.unshift({
         policy_code: 'IMAGE_POLICY',
         issue: `[Vi phạm hình ảnh] ${sourceName}: ${issueMsg}`,
-        highlighted_text: img.analysis ? img.analysis.slice(0, 160) : '',
+        highlighted_text: quoteText,
       });
     }
   });
@@ -1562,10 +1581,16 @@ function applyStage2Guardrails({
       !nextCritical.some((v) => v.issue.includes(img.source) || v.issue.includes(sourceName)) &&
       !nextWarnings.some((w) => w.issue.includes(img.source) || w.issue.includes(sourceName))
     ) {
+      const warnQuote = (cleanIssues.length > 0)
+        ? cleanIssues[0]
+        : (img.analysis && !/không chứa nội dung vi phạm|không vi phạm|phù hợp với chủ đề/i.test(img.analysis))
+          ? img.analysis.slice(0, 160)
+          : issueMsg.slice(0, 160);
+
       nextWarnings.push({
         policy_code: 'IMAGE_POLICY',
         issue: `[Lưu ý hình ảnh] ${sourceName}: ${issueMsg}`,
-        highlighted_text: img.analysis ? img.analysis.slice(0, 160) : '',
+        highlighted_text: warnQuote,
       });
     }
   });
