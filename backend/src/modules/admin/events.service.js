@@ -406,17 +406,17 @@ function inspectDocumentLegality(extractedText, fileName = '', event = {}) {
     });
   }
 
-  // 3. Tài liệu giả lập / Dữ liệu kiểm thử dùng để test (Mock test permit)
-  const mockTestPatterns = /(bản giả lập|tài liệu giả lập|môi trường kiểm thử|dữ liệu hư cấu|không phải giấy phép thật|không có giá trị pháp lý)/i;
-  if (mockTestPatterns.test(lowerText)) {
-    const mockMatch = cleanText.match(/(thông báo:\s*toàn bộ|tài liệu giả lập|bản giả lập|không phải giấy phép thật|dữ liệu hư cấu)[^.,\n]{0,120}/i);
+  // 3. Tài liệu mẫu / bản nháp / giả lập / dữ liệu kiểm thử không có giá trị pháp lý
+  const mockTestPatterns = /(bản giả lập|tài liệu giả lập|môi trường kiểm thử|dữ liệu hư cấu|không phải giấy phép thật|không có giá trị pháp lý|mẫu tham khảo|dự thảo văn bản|bản mẫu trình bày|mẫu này không thay thế giấy phép|không phải văn bản do cơ quan nhà nước|bản thử nghiệm|bản nháp|\bsample\b|\bdraft\b|chỉ dùng để tham khảo)/i;
+  if (mockTestPatterns.test(lowerText) || /(^|[_\-\s])(mau|sample|draft|template|demo|test)([_\-\s.]|$)/i.test(normalizedName)) {
+    const mockMatch = cleanText.match(/(mẫu tham khảo|dự thảo văn bản|không phải văn bản do cơ quan nhà nước|mẫu này không thay thế giấy phép|bản mẫu trình bày|thông báo:\s*toàn bộ|tài liệu giả lập|bản giả lập|không phải giấy phép thật|không có giá trị pháp lý|dữ liệu hư cấu|bản thử nghiệm|bản nháp|\bsample\b|\bdraft\b)[^.,\n]{0,120}/i);
     const violatingLocation = mockMatch ? `"${mockMatch[0].trim()}"` : cleanText.slice(0, 160);
 
     return buildIrrelevantDocumentResult({
       category: 'MOCK_TEST_DOCUMENT',
-      violationDetail: 'Tài liệu giả lập / Dữ liệu kiểm thử không có giá trị pháp lý',
+      violationDetail: 'Tài liệu mẫu / bản nháp / bản thử nghiệm không có giá trị pháp lý',
       violatingLocation,
-      reasonDetail: 'Tài liệu đính kèm là bản dữ liệu giả lập được tạo cho mục đích kiểm thử phần mềm, không phải giấy phép được cơ quan nhà nước ban hành.',
+      reasonDetail: 'Tài liệu đính kèm là bản mẫu tham khảo, dự thảo hoặc dữ liệu kiểm thử chưa được cơ quan có thẩm quyền ký duyệt/ban hành nên không có giá trị pháp lý.',
     });
   }
 
@@ -980,6 +980,19 @@ function buildValidatedImageReview(imageAnalysisResults = [], aiImageReview = nu
       status = 'WARNING';
     }
 
+    if (status === 'VIOLATION' || status === 'WARNING') {
+      if (/không chứa nội dung vi phạm|không vi phạm quy chuẩn|phù hợp với chủ đề|không phát hiện vi phạm/i.test(analysis)) {
+        const sourceName = img.source === 'MAIN_POSTER'
+          ? 'Ảnh đại diện chính (Poster)'
+          : img.source === 'COVER_BANNER'
+            ? 'Ảnh bìa (Cover Banner)'
+            : 'Ảnh trong bài viết mô tả';
+        analysis = (issues.length > 0)
+          ? issues.join('; ')
+          : `${sourceName} không đạt chuẩn kiểm duyệt hoặc chưa phù hợp với chủ đề sự kiện.`;
+      }
+    }
+
     if (isForeignOrGibberish(analysis) || analysis.length < 15) {
       const sourceName = img.source === 'MAIN_POSTER'
         ? 'Ảnh đại diện chính (Poster)'
@@ -1152,6 +1165,7 @@ function sanitizeCompliantChecks({
   const hasPermitViolationInList = allViolations.some((v) =>
     /giấy phép|pháp lý|permit|sách từ vựng|tài liệu đính kèm|tài liệu/i.test(v.issue) ||
     v.policy_code === 'LEGAL_PERMIT_AUTHENTICITY' ||
+    v.policy_code === 'DOCUMENT_LEGAL_VALIDITY' ||
     v.policy_code === 'INVALID_PERMIT_DOCUMENT'
   );
   const hasPermitViolation = (permitFiles.length === 0) || hasPermitItemViolation || hasPermitViolationInList;
@@ -1319,6 +1333,7 @@ function applyStage2Guardrails({
     const policyCode = String(item.policy_code || '').toUpperCase();
     const isMediaFinding =
       policyCode === 'LEGAL_PERMIT_AUTHENTICITY' ||
+      policyCode === 'DOCUMENT_LEGAL_VALIDITY' ||
       /\[Vi phạm tài liệu\]|\[Lưu ý tài liệu\]|\[Vi phạm hình ảnh\]|\[Lưu ý hình ảnh\]/i.test(issue);
 
     // 1. Lọc lỗi giả về hình ảnh (cả trong criticalViolations và warnings)
@@ -1359,6 +1374,7 @@ function applyStage2Guardrails({
     if (resolvedPermits.length === 0 && (!documentAnalysisResults || documentAnalysisResults.length === 0) && !isStrictPermit) {
       if (
         policyCode === 'LEGAL_PERMIT_AUTHENTICITY' ||
+        policyCode === 'DOCUMENT_LEGAL_VALIDITY' ||
         /(thiếu|chưa có|không có|chưa đính kèm|bổ sung|phải có|yêu cầu).{0,40}(giấy phép|chấp thuận|hồ sơ pháp lý|tài liệu pháp lý|permit)/i.test(issue)
       ) {
         return true;
@@ -1404,8 +1420,12 @@ function applyStage2Guardrails({
       v.issue.includes(doc.fileName || doc.source) || v.issue.includes('IRRELEVANT_OR_FAKE_DOCUMENT'),
     );
     if (!alreadyExists) {
+      const isSampleOrDraft = /mẫu|nháp|dự thảo|thử nghiệm|giả lập|không có giá trị pháp lý/i.test(`${violationText} ${locHighlight}`);
+      const docPolicyCode = (isSampleOrDraft && activeCodes.has('DOCUMENT_LEGAL_VALIDITY'))
+        ? 'DOCUMENT_LEGAL_VALIDITY'
+        : 'LEGAL_PERMIT_AUTHENTICITY';
       nextCritical.unshift({
-        policy_code: 'LEGAL_PERMIT_AUTHENTICITY',
+        policy_code: docPolicyCode,
         issue: issueMsg,
         highlighted_text: locHighlight,
       });
@@ -1425,8 +1445,12 @@ function applyStage2Guardrails({
       const docName = rawDoc.fileName || rawDoc.source || `PERMIT_DOCUMENT_${idx + 1}`;
       const reasonText = leg.reason || docViolationType || 'Tài liệu đính kèm không liên quan đến sự kiện hoặc không phải là văn bản pháp lý/giấy phép hợp lệ';
       if (!nextCritical.some((v) => v.issue.includes(docName) || v.issue.includes(reasonText))) {
+        const isMockOrDraft = leg.category === 'MOCK_TEST_DOCUMENT';
+        const docPolicyCode = (isMockOrDraft && activeCodes.has('DOCUMENT_LEGAL_VALIDITY'))
+          ? 'DOCUMENT_LEGAL_VALIDITY'
+          : 'LEGAL_PERMIT_AUTHENTICITY';
         nextCritical.unshift({
-          policy_code: 'LEGAL_PERMIT_AUTHENTICITY',
+          policy_code: docPolicyCode,
           issue: `[Vi phạm tài liệu] ${docName}: ${reasonText}`,
           highlighted_text: rawDoc.violatingLocation || leg.violatingLocation || (rawDoc.extractedText ? rawDoc.extractedText.slice(0, 160) : `Tên tệp: ${docName}`),
         });
@@ -1528,11 +1552,17 @@ function applyStage2Guardrails({
       ? cleanIssues.join('; ')
       : 'Hình ảnh chứa nội dung vi phạm tiêu chuẩn cộng đồng EventHub hoặc không phù hợp với chủ đề sự kiện.';
 
+    const quoteText = (cleanIssues.length > 0)
+      ? cleanIssues[0]
+      : (img.analysis && !/không chứa nội dung vi phạm|không vi phạm|phù hợp với chủ đề/i.test(img.analysis))
+        ? img.analysis.slice(0, 160)
+        : issueMsg.slice(0, 160);
+
     if (!nextCritical.some((v) => v.issue.includes(img.source) || v.issue.includes(sourceName))) {
       nextCritical.unshift({
         policy_code: 'IMAGE_POLICY',
         issue: `[Vi phạm hình ảnh] ${sourceName}: ${issueMsg}`,
-        highlighted_text: img.analysis ? img.analysis.slice(0, 160) : '',
+        highlighted_text: quoteText,
       });
     }
   });
@@ -1562,10 +1592,16 @@ function applyStage2Guardrails({
       !nextCritical.some((v) => v.issue.includes(img.source) || v.issue.includes(sourceName)) &&
       !nextWarnings.some((w) => w.issue.includes(img.source) || w.issue.includes(sourceName))
     ) {
+      const warnQuote = (cleanIssues.length > 0)
+        ? cleanIssues[0]
+        : (img.analysis && !/không chứa nội dung vi phạm|không vi phạm|phù hợp với chủ đề/i.test(img.analysis))
+          ? img.analysis.slice(0, 160)
+          : issueMsg.slice(0, 160);
+
       nextWarnings.push({
         policy_code: 'IMAGE_POLICY',
         issue: `[Lưu ý hình ảnh] ${sourceName}: ${issueMsg}`,
-        highlighted_text: img.analysis ? img.analysis.slice(0, 160) : '',
+        highlighted_text: warnQuote,
       });
     }
   });

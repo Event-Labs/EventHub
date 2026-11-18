@@ -1404,6 +1404,27 @@ function parseAiReviewData(aiData) {
   }
 }
 
+const isImageIssue = (item) => {
+  if (!item) return false
+  const code = String(item.policy_code || '').toUpperCase()
+  const text = String(item.issue || item.message || (typeof item === 'string' ? item : ''))
+  return code === 'IMAGE_POLICY' || /\[(Vi phạm|Lưu ý) hình ảnh\]/i.test(text) || /ảnh đại diện|poster|ảnh bìa|banner/i.test(text)
+}
+
+const isDocIssue = (item) => {
+  if (!item) return false
+  const code = String(item.policy_code || '').toUpperCase()
+  const text = String(item.issue || item.message || (typeof item === 'string' ? item : ''))
+  return (
+    code === 'LEGAL_PERMIT_AUTHENTICITY' ||
+    code === 'DOCUMENT_LEGAL_VALIDITY' ||
+    /\[(Vi phạm|Lưu ý) tài liệu\]/i.test(text) ||
+    /giấy phép|tài liệu đính kèm/i.test(text)
+  )
+}
+
+const isGeneralPolicyIssue = (item) => !isImageIssue(item) && !isDocIssue(item)
+
 function AiReviewAssistantCard({ event, onApplyFeedback }) {
   const toast = useToast()
   const queryClient = useQueryClient()
@@ -1447,6 +1468,22 @@ function AiReviewAssistantCard({ event, onApplyFeedback }) {
   const rawAiReview = reviewQuery.data || (event?.ai_recommendation ? { recommendation: event.ai_recommendation, warnings: event.ai_warnings } : null)
   const aiData = parseAiReviewData(rawAiReview)
 
+  const policyViolations = useMemo(() => {
+    return Array.isArray(aiData?.critical_violations) ? aiData.critical_violations : []
+  }, [aiData?.critical_violations])
+
+  const policyWarnings = useMemo(() => {
+    return Array.isArray(aiData?.warnings) ? aiData.warnings : []
+  }, [aiData?.warnings])
+
+  const generalPolicyViolations = useMemo(() => {
+    return policyViolations.filter(isGeneralPolicyIssue)
+  }, [policyViolations])
+
+  const generalPolicyWarnings = useMemo(() => {
+    return policyWarnings.filter(isGeneralPolicyIssue)
+  }, [policyWarnings])
+
   const getRecBadge = (rec) => {
     switch (rec) {
       case 'APPROVE':
@@ -1480,10 +1517,14 @@ function AiReviewAssistantCard({ event, onApplyFeedback }) {
     return src || 'Hình ảnh'
   }
 
-  const formatAnalysis = (text, source) => {
+  const formatAnalysis = (text, source, status, issues = []) => {
     if (!text || typeof text !== 'string') return ''
+    const hasIssues = status === 'VIOLATION' || status === 'WARNING' || (Array.isArray(issues) && issues.length > 0)
+    if (hasIssues && /(không chứa nội dung vi phạm|không phát hiện vi phạm|không vi phạm|phù hợp với chủ đề sự kiện)/i.test(text)) {
+      return ''
+    }
     if (/[\u0E00-\u0E7F\u1780-\u17FF\u0E80-\u0EFF\u1000-\u109F\u0900-\u097F]/.test(text) || /(.)\1{4,}/.test(text) || /(.{2,8})\1{3,}/.test(text)) {
-      return `${getImageSourceLabel(source)} có bố cục trực quan rõ nét, phù hợp với chủ đề sự kiện và không vi phạm quy chuẩn.`
+      return hasIssues ? '' : `${getImageSourceLabel(source)} có bố cục trực quan rõ nét, phù hợp với chủ đề sự kiện và không vi phạm quy chuẩn.`
     }
     return text
   }
@@ -1503,13 +1544,13 @@ function AiReviewAssistantCard({ event, onApplyFeedback }) {
   const handleApplyAll = () => {
     if (!aiData) return
     const lines = []
-    if (aiData.critical_violations?.length > 0) {
-      lines.push('=== VI PHẠM CHÍNH SÁCH ===')
-      aiData.critical_violations.forEach(v => lines.push(`- [VI PHẠM] ${v.issue}${v.highlighted_text ? ` (Trích: "${v.highlighted_text}")` : ''}`))
+    if (generalPolicyViolations.length > 0) {
+      lines.push('=== VI PHẠM ĐIỀU KHOẢN & CHÍNH SÁCH ===')
+      generalPolicyViolations.forEach(v => lines.push(`- [VI PHẠM] ${v.issue}${v.highlighted_text ? ` (Trích: "${v.highlighted_text}")` : ''}`))
     }
-    if (aiData.warnings?.length > 0) {
-      lines.push('=== LƯU Ý & CẢNH BÁO ===')
-      aiData.warnings.forEach(w => lines.push(`- [LƯU Ý] ${w.issue}${w.highlighted_text ? ` (Trích: "${w.highlighted_text}")` : ''}`))
+    if (generalPolicyWarnings.length > 0) {
+      lines.push('=== LƯU Ý & CẢNH BÁO ĐIỀU KHOẢN ===')
+      generalPolicyWarnings.forEach(w => lines.push(`- [LƯU Ý] ${w.issue}${w.highlighted_text ? ` (Trích: "${w.highlighted_text}")` : ''}`))
     }
     const docIssues = (aiData.document_review?.items || []).filter(d => d.status === 'VIOLATION' || d.status === 'WARNING')
     if (docIssues.length > 0) {
@@ -1775,8 +1816,8 @@ function AiReviewAssistantCard({ event, onApplyFeedback }) {
                           </div>
                           {getImageStatusBadge(img.status)}
                         </div>
-                        {img.analysis && (
-                          <p className="text-xs text-slate-300 leading-relaxed">{formatAnalysis(img.analysis, img.source)}</p>
+                        {img.analysis && formatAnalysis(img.analysis, img.source, img.status, img.issues) && (
+                          <p className="text-xs text-slate-300 leading-relaxed">{formatAnalysis(img.analysis, img.source, img.status, img.issues)}</p>
                         )}
                         {Array.isArray(img.issues) && img.issues.length > 0 && (
                           <div className="space-y-1 pt-1">
@@ -1816,14 +1857,14 @@ function AiReviewAssistantCard({ event, onApplyFeedback }) {
           </div>
 
           {/* 🔴 CRITICAL VIOLATIONS */}
-          {aiData.critical_violations && aiData.critical_violations.length > 0 && (
+          {policyViolations.length > 0 && (
             <div className="rounded-xl border border-rose-500/30 bg-rose-950/20 p-4 space-y-2.5">
               <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-rose-400">
                 <ShieldAlert className="size-4" />
-                Vi phạm chính sách nghiêm trọng ({aiData.critical_violations.length})
+                Vi phạm điều khoản & chính sách ({policyViolations.length})
               </span>
               <div className="space-y-2">
-                {aiData.critical_violations.map((v, idx) => (
+                {policyViolations.map((v, idx) => (
                   <button
                     key={idx}
                     type="button"
@@ -1843,14 +1884,14 @@ function AiReviewAssistantCard({ event, onApplyFeedback }) {
           )}
 
           {/* 🟡 WARNINGS */}
-          {aiData.warnings && aiData.warnings.length > 0 && (
+          {policyWarnings.length > 0 && (
             <div className="rounded-xl border border-amber-500/30 bg-amber-950/20 p-4 space-y-2.5">
               <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-amber-400">
                 <AlertTriangle className="size-4" />
-                Cảnh báo & Cần lưu ý ({aiData.warnings.length})
+                Cảnh báo & lưu ý điều khoản ({policyWarnings.length})
               </span>
               <div className="space-y-2">
-                {aiData.warnings.map((w, idx) => (
+                {policyWarnings.map((w, idx) => (
                   <button
                     key={idx}
                     type="button"
