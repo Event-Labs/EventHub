@@ -2,6 +2,7 @@ const ApiResponse = require('../../core/response/ApiResponse');
 const adminDevicesService = require('./devices.service');
 const {
   deviceIdParamSchema,
+  eventIdParamSchema,
   listDevicesQuerySchema,
   deviceHistoryQuerySchema,
   approveDeviceSchema,
@@ -28,6 +29,16 @@ class AdminDevicesController {
     try {
       const data = await adminDevicesService.listAssignableEvents();
       res.status(200).json(ApiResponse.success(data, 'Lấy danh sách sự kiện khả dụng thành công'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  listEventGates = async (req, res, next) => {
+    try {
+      const { eventId } = eventIdParamSchema.parse(req.params);
+      const data = await adminDevicesService.listEventGates(eventId);
+      res.status(200).json(ApiResponse.success(data, 'Lấy danh sách cổng sự kiện thành công'));
     } catch (err) {
       next(err);
     }

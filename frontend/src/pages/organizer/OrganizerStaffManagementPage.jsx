@@ -6,26 +6,34 @@ import {
   CheckCircle2,
   ChevronDown,
   Clock,
+  Cpu,
   DoorOpen,
   Edit2,
   Layers,
   Loader2,
   MailCheck,
   MailX,
+  Plus,
   Search,
   Trash2,
   UserCheck,
   UserPlus,
   Users,
+  Wifi,
+  WifiOff,
   X,
 } from 'lucide-react'
 import {
+  createEventGate,
+  deleteEventGate,
   deleteStaffInvitation,
   fetchOrganizerOperationsOverview,
   fetchStaffCandidates,
   inviteStaffToEvent,
   removeStaffFromEvent,
+  updateEventGate,
   updateEventStaff,
+  updateOrganizerEventDeviceGate,
 } from '@/services/operations.js'
 import { Badge, OrganizerPage, OrganizerPanel, StatCard, TableActionButton } from './OrganizerComponents.jsx'
 import { getApiMessage } from '@/lib/messages.js'
@@ -39,8 +47,8 @@ const getAutoLocale = () =>
     ? 'en-US'
     : 'vi-VN'
 
-const GATE_SUGGESTIONS_VI = ['Cổng A', 'Cổng B', 'Cổng C', 'Cổng VIP', 'Cổng chính', 'Cổng phụ', 'Tất cả cổng']
-const GATE_SUGGESTIONS_EN = ['Gate A', 'Gate B', 'Gate C', 'VIP Gate', 'Main Gate', 'Side Gate', 'All Gates']
+const GATE_PRESETS_VI = ['Cổng A', 'Cổng B', 'Cổng C', 'Cổng VIP', 'Cổng chính', 'Cổng phụ']
+const GATE_PRESETS_EN = ['Gate A', 'Gate B', 'Gate C', 'VIP Gate', 'Main Gate', 'Side Gate']
 
 const ZONE_SUGGESTIONS_VI = ['Khu VIP', 'Khán đài A', 'Khán đài B', 'Khu đứng GA', 'Tầng 1', 'Tầng 2', 'Khu sân khấu', 'Toàn bộ sự kiện']
 const ZONE_SUGGESTIONS_EN = ['VIP Area', 'Stand A', 'Stand B', 'GA Standing Area', '1st Floor', '2nd Floor', 'Stage Area', 'Entire Event']
@@ -76,6 +84,7 @@ function formatSessionTime(startTime, endTime, isEn = false) {
 }
 
 export function OrganizerStaffManagementPage() {
+  const { isEnglish } = useLanguage()
   const toast = useToast()
   const navigate = useNavigate()
   const [data, setData] = useState(null)
@@ -87,6 +96,12 @@ export function OrganizerStaffManagementPage() {
   const [editingStaff, setEditingStaff] = useState(null) // staff object for edit modal
   const [removeConfirm, setRemoveConfirm] = useState(null) // { staffId, staffName }
   const [deleteInviteConfirm, setDeleteInviteConfirm] = useState(null) // { invitationId, email }
+  const [deleteGateConfirm, setDeleteGateConfirm] = useState(null) // { gateId, gateName }
+  const [newGateName, setNewGateName] = useState('')
+  const [gateBusy, setGateBusy] = useState(false)
+  const [editingGateId, setEditingGateId] = useState(null)
+  const [editingGateName, setEditingGateName] = useState('')
+  const [updatingDeviceId, setUpdatingDeviceId] = useState(null)
 
   const loadData = async () => {
     setLoading(true)
@@ -117,7 +132,10 @@ export function OrganizerStaffManagementPage() {
   )
 
   const invitations = useMemo(
-    () => (data?.invitations || []).filter((i) => i.event_id === selectedEventId),
+    () =>
+      (data?.invitations || []).filter(
+        (i) => i.event_id === selectedEventId && String(i.status || '').toUpperCase() !== 'ACCEPTED',
+      ),
     [data?.invitations, selectedEventId],
   )
 
@@ -129,6 +147,16 @@ export function OrganizerStaffManagementPage() {
   const selectedEvent = useMemo(
     () => (data?.events || []).find((event) => event.id === selectedEventId),
     [data?.events, selectedEventId],
+  )
+
+  const selectedEventGates = useMemo(
+    () => (Array.isArray(selectedEvent?.gates) ? selectedEvent.gates : []),
+    [selectedEvent],
+  )
+
+  const selectedEventDevices = useMemo(
+    () => (Array.isArray(selectedEvent?.devices) ? selectedEvent.devices : []),
+    [selectedEvent],
   )
 
   const selectedEventManageable = isStaffManageableEvent(selectedEvent)
@@ -178,6 +206,68 @@ export function OrganizerStaffManagementPage() {
       toast.error(message)
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleAddGate = async (gateNameInput) => {
+    const trimmed = String(gateNameInput ?? newGateName).trim()
+    if (!trimmed || !selectedEventId || !selectedEventManageable) return
+    setGateBusy(true)
+    try {
+      await createEventGate(selectedEventId, { name: trimmed })
+      toast.success(isEnglish ? `Added gate "${trimmed}".` : `Đã lưu cổng "${trimmed}" cho sự kiện.`)
+      setNewGateName('')
+      await loadData()
+    } catch (err) {
+      toast.error(getApiMessage(err, isEnglish ? 'Failed to add gate.' : 'Không thể thêm cổng.'))
+    } finally {
+      setGateBusy(false)
+    }
+  }
+
+  const handleRenameGate = async (gateId) => {
+    const trimmed = editingGateName.trim()
+    if (!trimmed || !selectedEventId || !selectedEventManageable) return
+    setGateBusy(true)
+    try {
+      await updateEventGate(selectedEventId, gateId, { name: trimmed })
+      toast.success(isEnglish ? 'Gate name updated.' : 'Đã cập nhật tên cổng.')
+      setEditingGateId(null)
+      setEditingGateName('')
+      await loadData()
+    } catch (err) {
+      toast.error(getApiMessage(err, isEnglish ? 'Failed to update gate.' : 'Không thể cập nhật cổng.'))
+    } finally {
+      setGateBusy(false)
+    }
+  }
+
+  const handleDeleteGateConfirm = async () => {
+    if (!deleteGateConfirm || !selectedEventId) return
+    setSaving(true)
+    try {
+      await deleteEventGate(selectedEventId, deleteGateConfirm.gateId)
+      toast.success(isEnglish ? 'Gate deleted.' : `Đã xóa cổng "${deleteGateConfirm.gateName}".`)
+      setDeleteGateConfirm(null)
+      await loadData()
+    } catch (err) {
+      toast.error(getApiMessage(err, isEnglish ? 'Failed to delete gate.' : 'Không thể xóa cổng.'))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDeviceGateChange = async (deviceId, nextGateId) => {
+    if (!selectedEventId || !selectedEventManageable) return
+    setUpdatingDeviceId(deviceId)
+    try {
+      await updateOrganizerEventDeviceGate(selectedEventId, deviceId, nextGateId || null)
+      toast.success(isEnglish ? 'IoT device gate updated.' : 'Đã cập nhật cổng cho thiết bị IoT.')
+      await loadData()
+    } catch (err) {
+      toast.error(getApiMessage(err, isEnglish ? 'Failed to assign gate to IoT device.' : 'Không thể phân cổng cho thiết bị IoT.'))
+    } finally {
+      setUpdatingDeviceId(null)
     }
   }
 
@@ -283,6 +373,187 @@ export function OrganizerStaffManagementPage() {
         </OrganizerPanel>
       ) : (
         <>
+          {/* ── Event Gates Management ── */}
+          {selectedEventId && (
+            <section className="mb-7">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <h2 className="flex items-center gap-2 font-extrabold text-content">
+                  <DoorOpen className="size-5 text-purple-400" />
+                  {isEnglish ? 'Event Check-in Gates' : 'Quản lý Cổng check-in sự kiện'}
+                  <span className="ml-1 rounded-full bg-purple-500/15 px-2 py-0.5 text-xs font-bold text-purple-300">
+                    {selectedEventGates.length}
+                  </span>
+                </h2>
+                <span className="text-xs text-subtle">
+                  {isEnglish
+                    ? 'Gates saved here appear in dropdowns when assigning Staff and IoT devices.'
+                    : 'Các cổng lưu tại đây sẽ hiện trong dropdown khi phân công Staff và thiết bị IoT.'}
+                </span>
+              </div>
+
+              <OrganizerPanel className="space-y-4">
+                {selectedEventManageable && (
+                  <div className="space-y-2.5">
+                    <form
+                      className="flex flex-col gap-2 sm:flex-row"
+                      onSubmit={(e) => {
+                        e.preventDefault()
+                        handleAddGate()
+                      }}
+                    >
+                      <input
+                        type="text"
+                        value={newGateName}
+                        onChange={(e) => setNewGateName(e.target.value)}
+                        placeholder={
+                          isEnglish
+                            ? 'Enter gate name (e.g. Gate A, VIP Gate, Main Entrance)...'
+                            : 'Nhập tên cổng mới (VD: Cổng A, Cổng VIP, Cổng chính)...'
+                        }
+                        maxLength={100}
+                        disabled={gateBusy}
+                        className="h-10 flex-1 rounded-xl border border-white/15 bg-[#0d172e] px-3.5 text-sm text-white outline-none focus:border-primary placeholder:text-white/45"
+                      />
+                      <button
+                        type="submit"
+                        disabled={gateBusy || !newGateName.trim()}
+                        className="org-btn-primary shrink-0 disabled:opacity-50"
+                      >
+                        {gateBusy ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+                        {isEnglish ? 'Save Gate' : 'Thêm cổng'}
+                      </button>
+                    </form>
+
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-[11px] font-semibold text-slate-400 mr-1">
+                        {isEnglish ? 'Quick add:' : 'Thêm nhanh:'}
+                      </span>
+                      {(isEnglish ? GATE_PRESETS_EN : GATE_PRESETS_VI).map((preset) => {
+                        const alreadyExists = selectedEventGates.some(
+                          (g) => g.name.trim().toLowerCase() === preset.trim().toLowerCase(),
+                        )
+                        return (
+                          <button
+                            key={preset}
+                            type="button"
+                            disabled={gateBusy || alreadyExists}
+                            onClick={() => handleAddGate(preset)}
+                            className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold transition-colors ${
+                              alreadyExists
+                                ? 'border-emerald-500/30 bg-emerald-500/15 text-emerald-300 cursor-default'
+                                : 'border-white/15 bg-[#0d172e]/70 text-slate-300 hover:border-purple-400/60 hover:text-white cursor-pointer'
+                            }`}
+                          >
+                            {alreadyExists ? `✓ ${preset}` : `+ ${preset}`}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {selectedEventGates.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-white/10 py-6 text-center text-sm text-subtle">
+                    {isEnglish
+                      ? 'No gates configured yet. Add gates above so you can select them from a dropdown for Staff and IoT devices.'
+                      : 'Sự kiện chưa có cổng nào. Hãy thêm cổng ở trên để chọn nhanh bằng dropdown cho Staff và thiết bị IoT.'}
+                  </div>
+                ) : (
+                  <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                    {selectedEventGates.map((gate) => {
+                      const isEditing = editingGateId === gate.id
+                      return (
+                        <div
+                          key={gate.id}
+                          className="flex items-center justify-between gap-2 rounded-xl border border-white/10 bg-[#0d172e]/85 px-3.5 py-2.5"
+                        >
+                          {isEditing ? (
+                            <div className="flex flex-1 items-center gap-1.5 min-w-0">
+                              <input
+                                type="text"
+                                value={editingGateName}
+                                onChange={(e) => setEditingGateName(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault()
+                                    handleRenameGate(gate.id)
+                                  } else if (e.key === 'Escape') {
+                                    setEditingGateId(null)
+                                    setEditingGateName('')
+                                  }
+                                }}
+                                maxLength={100}
+                                autoFocus
+                                className="h-8 flex-1 min-w-0 rounded-lg border border-primary/50 bg-[#121b33] px-2.5 text-xs font-semibold text-white outline-none"
+                              />
+                              <button
+                                type="button"
+                                disabled={gateBusy || !editingGateName.trim()}
+                                onClick={() => handleRenameGate(gate.id)}
+                                className="grid size-7 shrink-0 place-items-center rounded-lg bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30"
+                                title={isEnglish ? 'Save' : 'Lưu'}
+                              >
+                                <Check className="size-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingGateId(null)
+                                  setEditingGateName('')
+                                }}
+                                className="grid size-7 shrink-0 place-items-center rounded-lg bg-white/10 text-slate-300 hover:bg-white/20"
+                                title={isEnglish ? 'Cancel' : 'Hủy'}
+                              >
+                                <X className="size-3.5" />
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="min-w-0">
+                                <p className="flex items-center gap-1.5 truncate text-sm font-bold text-white">
+                                  <DoorOpen className="size-3.5 shrink-0 text-purple-400" />
+                                  <span className="truncate">{gate.name}</span>
+                                </p>
+                                <p className="mt-0.5 text-[11px] text-slate-400">
+                                  {Number(gate.staff_count || 0)} {isEnglish ? 'staff' : 'nhân sự'} • {Number(gate.device_count || 0)} {isEnglish ? 'IoT' : 'thiết bị IoT'}
+                                </p>
+                              </div>
+                              {selectedEventManageable && (
+                                <div className="flex shrink-0 items-center gap-1">
+                                  <button
+                                    type="button"
+                                    disabled={gateBusy}
+                                    onClick={() => {
+                                      setEditingGateId(gate.id)
+                                      setEditingGateName(gate.name)
+                                    }}
+                                    className="grid size-7 place-items-center rounded-lg border border-white/10 bg-white/5 text-slate-300 hover:border-primary/50 hover:text-primary transition-colors"
+                                    title={isEnglish ? 'Rename gate' : 'Đổi tên cổng'}
+                                  >
+                                    <Edit2 className="size-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={gateBusy}
+                                    onClick={() => setDeleteGateConfirm({ gateId: gate.id, gateName: gate.name })}
+                                    className="grid size-7 place-items-center rounded-lg border border-white/10 bg-white/5 text-slate-300 hover:border-rose-400/50 hover:text-rose-400 transition-colors"
+                                    title={isEnglish ? 'Delete gate' : 'Xóa cổng'}
+                                  >
+                                    <Trash2 className="size-3.5" />
+                                  </button>
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </OrganizerPanel>
+            </section>
+          )}
+
           {/* ── Staff list ── */}
           <section className="mb-7">
             <h2 className="mb-3 flex items-center gap-2 font-extrabold text-content">
@@ -409,6 +680,105 @@ export function OrganizerStaffManagementPage() {
               </div>
             )}
           </section>
+
+          {/* ── IoT Devices for Selected Event (Gate Dropdown Assignment) ── */}
+          {selectedEventId && (
+            <section className="mb-7">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <h2 className="flex items-center gap-2 font-extrabold text-content">
+                  <Cpu className="size-5 text-cyan-400" />
+                  {isEnglish ? 'Event IoT Check-in Devices' : 'Thiết bị IoT của sự kiện'}
+                  <span className="ml-1 rounded-full bg-cyan-500/15 px-2 py-0.5 text-xs font-bold text-cyan-300">
+                    {selectedEventDevices.length}
+                  </span>
+                </h2>
+                <span className="text-xs text-subtle">
+                  {isEnglish
+                    ? 'Devices and staff assigned to the same gate share check-in history automatically.'
+                    : 'Thiết bị IoT và nhân sự được phân chung 1 cổng sẽ tự động đồng bộ lịch sử check-in của nhau.'}
+                </span>
+              </div>
+
+              {selectedEventDevices.length === 0 ? (
+                <OrganizerPanel className="py-7 text-center border-dashed">
+                  <Cpu className="mx-auto mb-2 size-8 text-muted" />
+                  <p className="text-sm text-subtle">
+                    {isEnglish
+                      ? 'No IoT devices are assigned to this event yet (Admin assigns devices in Check-in Devices).'
+                      : 'Chưa có thiết bị IoT nào được gán vào sự kiện này (Admin có thể gán thiết bị trong mục Thiết bị Check-in).'}
+                  </p>
+                </OrganizerPanel>
+              ) : (
+                <div className="w-full max-w-full min-w-0 overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
+                  <div className="w-full overflow-x-auto">
+                    <table className="w-full min-w-[720px] text-left text-sm">
+                      <thead className="border-b border-white/10 bg-[#172242] text-xs font-bold uppercase tracking-wider text-white">
+                        <tr>
+                          <th className="px-3.5 py-3">Thiết bị</th>
+                          <th className="px-3.5 py-3">Kết nối</th>
+                          <th className="px-3.5 py-3">Chế độ</th>
+                          <th className="px-3.5 py-3">Cổng phân công</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5 font-medium text-white">
+                        {selectedEventDevices.map((dev) => {
+                          const isBusy = updatingDeviceId === dev.id
+                          return (
+                            <tr key={dev.id} className="hover:bg-white/[0.02] transition-colors">
+                              <td className="px-3.5 py-3">
+                                <p className="font-bold text-white">{dev.name || dev.mac_address}</p>
+                                <p className="font-mono text-xs text-slate-400">{dev.mac_address}</p>
+                              </td>
+                              <td className="px-3.5 py-3">
+                                {dev.is_online ? (
+                                  <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/40 bg-emerald-500/15 px-2.5 py-0.5 text-xs font-bold text-emerald-300">
+                                    <Wifi className="size-3" />
+                                    Online
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-500/30 bg-slate-500/15 px-2.5 py-0.5 text-xs font-bold text-slate-400">
+                                    <WifiOff className="size-3" />
+                                    Offline
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-3.5 py-3">
+                                {dev.auto_confirm ? (
+                                  <Badge tone="cyan">{isEnglish ? 'Auto Check-in' : 'Tự động Check-in'}</Badge>
+                                ) : (
+                                  <Badge tone="slate">{isEnglish ? 'Verify Only' : 'Chỉ xác thực'}</Badge>
+                                )}
+                              </td>
+                              <td className="px-3.5 py-3">
+                                <div className="flex items-center gap-2 max-w-[260px]">
+                                  <select
+                                    value={dev.assigned_gate_id || ''}
+                                    onChange={(e) => handleDeviceGateChange(dev.id, e.target.value)}
+                                    disabled={!selectedEventManageable || isBusy || dev.status === 'REVOKED'}
+                                    className="h-9 w-full rounded-xl border border-white/15 bg-[#0d172e] px-3 text-xs font-semibold text-white outline-none focus:border-primary disabled:opacity-50"
+                                  >
+                                    <option value="" className="bg-[#0b1329] text-white">
+                                      {isEnglish ? 'All gates (Unassigned)' : 'Tất cả cổng (Chưa phân cổng)'}
+                                    </option>
+                                    {selectedEventGates.map((g) => (
+                                      <option key={g.id} value={g.id} className="bg-[#0b1329] text-white">
+                                        {g.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  {isBusy && <Loader2 className="size-4 shrink-0 animate-spin text-primary" />}
+                                </div>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
 
           {/* ── Invitations list ── */}
           <section>
@@ -550,6 +920,7 @@ export function OrganizerStaffManagementPage() {
           limitReached={limitReached}
           subscriptionName={plan?.name}
           perEventLimit={perEventLimit}
+          onGateCreated={loadData}
           onClose={() => setShowInviteModal(false)}
           onInvited={(invitation) => {
             if (invitation?.email_sent === false) {
@@ -569,6 +940,8 @@ export function OrganizerStaffManagementPage() {
           staff={editingStaff}
           eventId={selectedEventId}
           eventSessions={selectedEvent?.sessions || []}
+          eventGates={selectedEventGates}
+          onGateCreated={loadData}
           onClose={() => setEditingStaff(null)}
           onUpdated={() => {
             toast.success('Đã cập nhật phân công nhân sự thành công.')
@@ -603,13 +976,30 @@ export function OrganizerStaffManagementPage() {
           onCancel={() => setDeleteInviteConfirm(null)}
         />
       )}
+
+      {/* ── Delete gate confirm dialog ── */}
+      {deleteGateConfirm && (
+        <ConfirmDialog
+          title={isEnglish ? 'Delete Check-in Gate' : 'Xóa cổng check-in'}
+          message={
+            isEnglish
+              ? `Are you sure you want to delete gate "${deleteGateConfirm.gateName}"? Staff and IoT devices assigned to this gate will be reset to All gates.`
+              : `Bạn có chắc muốn xóa cổng "${deleteGateConfirm.gateName}" không? Nhân sự và thiết bị IoT đang gán vào cổng này sẽ trở về trạng thái Tất cả cổng.`
+          }
+          confirmLabel={isEnglish ? 'Delete Gate' : 'Xóa cổng'}
+          danger
+          loading={saving}
+          onConfirm={handleDeleteGateConfirm}
+          onCancel={() => setDeleteGateConfirm(null)}
+        />
+      )}
     </OrganizerPage>
   )
 }
 
 // ─── Edit Staff Modal ─────────────────────────────────────────────────────────
 
-function EditStaffModal({ staff, eventId, eventSessions = [], onClose, onUpdated }) {
+function EditStaffModal({ staff, eventId, eventSessions = [], eventGates = [], onGateCreated, onClose, onUpdated }) {
   const { isEnglish } = useLanguage()
   const toast = useToast()
   const initialSessionIds = useMemo(() => {
@@ -625,21 +1015,61 @@ function EditStaffModal({ staff, eventId, eventSessions = [], onClose, onUpdated
     return []
   }, [staff])
 
+  const initialGateId = useMemo(() => {
+    if (staff.gate_id && eventGates.some((g) => g.id === staff.gate_id)) {
+      return staff.gate_id
+    }
+    if (staff.gate) {
+      const matched = eventGates.find(
+        (g) => g.name.trim().toLowerCase() === String(staff.gate).trim().toLowerCase(),
+      )
+      if (matched) return matched.id
+    }
+    return ''
+  }, [staff.gate_id, staff.gate, eventGates])
+
   const [form, setForm] = useState({
     staff_role: staff.staff_role || 'Check-in',
     session_ids: initialSessionIds,
-    gate: staff.gate || '',
+    gate_id: initialGateId,
     zone: staff.zone || '',
   })
   const [saving, setSaving] = useState(false)
+  const [quickGateName, setQuickGateName] = useState('')
+  const [addingQuickGate, setAddingQuickGate] = useState(false)
+  const [localGates, setLocalGates] = useState(eventGates)
+
+  useEffect(() => {
+    setLocalGates(eventGates)
+  }, [eventGates])
+
+  const handleQuickAddGate = async () => {
+    const trimmed = quickGateName.trim()
+    if (!trimmed || !eventId) return
+    setAddingQuickGate(true)
+    try {
+      const created = await createEventGate(eventId, { name: trimmed })
+      setLocalGates((prev) => [...prev, created])
+      setForm((f) => ({ ...f, gate_id: created.id }))
+      setQuickGateName('')
+      toast.success(isEnglish ? `Added gate "${created.name}".` : `Đã thêm cổng "${created.name}".`)
+      if (onGateCreated) onGateCreated()
+    } catch (err) {
+      toast.error(getApiMessage(err, isEnglish ? 'Failed to add gate.' : 'Không thể thêm cổng.'))
+    } finally {
+      setAddingQuickGate(false)
+    }
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setSaving(true)
     try {
+      const selectedGateObj = localGates.find((g) => g.id === form.gate_id)
       await updateEventStaff(eventId, staff.staff_id, {
         staff_role: form.staff_role.trim() || null,
-        gate: form.gate.trim() || null,
+        gate_id: form.gate_id || null,
+        gate: selectedGateObj ? selectedGateObj.name : null,
         zone: form.zone.trim() || null,
         session_id: form.session_ids.length === 1 ? form.session_ids[0] : null,
         session_ids: form.session_ids.length > 0 ? form.session_ids : null,
@@ -794,36 +1224,55 @@ function EditStaffModal({ staff, eventId, eventSessions = [], onClose, onUpdated
               <div className="space-y-2">
                 <label className="grid gap-1.5 text-sm font-bold text-white">
                   {isEnglish ? 'Check-in / assignment gate' : 'Cổng check-in / phân công'}
-                  <input
-                    className="h-10 rounded-xl border border-white/15 bg-[#0d172e] px-3 text-sm text-white outline-none focus:border-primary placeholder:text-white/50"
-                    placeholder={isEnglish ? 'For example: Gate A, VIP Gate... (leave blank for all gates)' : 'VD: Cổng A, Cổng VIP... (để trống nếu phụ trách tất cả)'}
-                    value={form.gate}
-                    onChange={(e) => setForm((f) => ({ ...f, gate: e.target.value }))}
+                  <select
+                    className="h-10 w-full rounded-xl border border-white/15 bg-[#0d172e] px-3 text-sm font-medium text-white outline-none focus:border-primary disabled:opacity-50"
+                    value={form.gate_id}
+                    onChange={(e) => setForm((f) => ({ ...f, gate_id: e.target.value }))}
                     disabled={saving}
-                  />
+                  >
+                    <option value="" className="bg-[#0b1329] text-white">
+                      {isEnglish ? 'All gates (No restriction)' : 'Tất cả cổng (Không giới hạn)'}
+                    </option>
+                    {localGates.map((g) => (
+                      <option key={g.id} value={g.id} className="bg-[#0b1329] text-white">
+                        {g.name}
+                      </option>
+                    ))}
+                  </select>
                 </label>
-                <div className="flex flex-wrap gap-1.5">
-                  {(isEnglish ? GATE_SUGGESTIONS_EN : GATE_SUGGESTIONS_VI).map((suggestion, idx) => {
-                    const isAllOption = idx === (isEnglish ? GATE_SUGGESTIONS_EN : GATE_SUGGESTIONS_VI).length - 1
-                    const isSelected = isAllOption
-                      ? !form.gate
-                      : form.gate === suggestion || form.gate === GATE_SUGGESTIONS_VI[idx] || form.gate === GATE_SUGGESTIONS_EN[idx]
-                    return (
-                      <button
-                        key={suggestion}
-                        type="button"
-                        className={`rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-colors cursor-pointer ${
-                          isSelected
-                            ? 'border-primary bg-primary/20 text-primary font-bold shadow-sm shadow-primary/20'
-                            : 'border-white/15 bg-[#0d172e]/60 text-slate-300 hover:border-primary/40 hover:text-white'
-                        }`}
-                        onClick={() => setForm((f) => ({ ...f, gate: isAllOption ? '' : suggestion }))}
-                      >
-                        {suggestion}
-                      </button>
-                    )
-                  })}
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="text"
+                    value={quickGateName}
+                    onChange={(e) => setQuickGateName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        handleQuickAddGate()
+                      }
+                    }}
+                    placeholder={isEnglish ? 'Quick add new gate...' : 'Thêm nhanh cổng mới...'}
+                    maxLength={100}
+                    disabled={saving || addingQuickGate}
+                    className="h-8 flex-1 min-w-0 rounded-lg border border-white/10 bg-[#0d172e]/70 px-2.5 text-xs text-white outline-none focus:border-primary placeholder:text-slate-400"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleQuickAddGate}
+                    disabled={saving || addingQuickGate || !quickGateName.trim()}
+                    className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg border border-primary/40 bg-primary/15 px-2.5 text-xs font-bold text-primary hover:bg-primary/25 disabled:opacity-40"
+                  >
+                    {addingQuickGate ? <Loader2 className="size-3 animate-spin" /> : <Plus className="size-3" />}
+                    {isEnglish ? 'Add' : 'Lưu'}
+                  </button>
                 </div>
+                {localGates.length === 0 && (
+                  <p className="text-[11px] text-amber-300/90">
+                    {isEnglish
+                      ? 'No gates saved for this event yet. Add one above to select it.'
+                      : 'Sự kiện chưa có cổng nào trong DB. Hãy thêm nhanh ở ô trên.'}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -890,6 +1339,7 @@ function InviteStaffModal({
   limitReached,
   subscriptionName,
   perEventLimit,
+  onGateCreated,
   onClose,
   onInvited,
 }) {
@@ -903,18 +1353,51 @@ function InviteStaffModal({
     session_ids: [],
     email: '',
     staff_role: 'Check-in',
-    gate: '',
+    gate_id: '',
     zone: '',
   })
   const [candidateSearch, setCandidateSearch] = useState('')
   const [candidates, setCandidates] = useState([])
   const [saving, setSaving] = useState(false)
+  const [quickGateName, setQuickGateName] = useState('')
+  const [addingQuickGate, setAddingQuickGate] = useState(false)
+  const [extraGatesByEvent, setExtraGatesByEvent] = useState({})
 
   const currentEvent = useMemo(
     () => events.find((ev) => ev.id === form.event_id),
     [events, form.event_id],
   )
   const eventSessions = currentEvent?.sessions || []
+  const eventGates = useMemo(() => {
+    const base = Array.isArray(currentEvent?.gates) ? currentEvent.gates : []
+    const extra = extraGatesByEvent[form.event_id] || []
+    const map = new Map()
+    for (const g of [...base, ...extra]) {
+      if (g?.id) map.set(g.id, g)
+    }
+    return Array.from(map.values())
+  }, [currentEvent?.gates, extraGatesByEvent, form.event_id])
+
+  const handleQuickAddGate = async () => {
+    const trimmed = quickGateName.trim()
+    if (!trimmed || !form.event_id) return
+    setAddingQuickGate(true)
+    try {
+      const created = await createEventGate(form.event_id, { name: trimmed })
+      setExtraGatesByEvent((prev) => ({
+        ...prev,
+        [form.event_id]: [...(prev[form.event_id] || []), created],
+      }))
+      setForm((f) => ({ ...f, gate_id: created.id }))
+      setQuickGateName('')
+      toast.success(isEnglish ? `Added gate "${created.name}".` : `Đã thêm cổng "${created.name}".`)
+      if (onGateCreated) onGateCreated()
+    } catch (err) {
+      toast.error(getApiMessage(err, isEnglish ? 'Failed to add gate.' : 'Không thể thêm cổng.'))
+    } finally {
+      setAddingQuickGate(false)
+    }
+  }
 
   // Debounced candidate search
   useEffect(() => {
@@ -941,13 +1424,15 @@ function InviteStaffModal({
     if (!form.event_id || !form.email.trim()) return
     setSaving(true)
     try {
+      const selectedGateObj = eventGates.find((g) => g.id === form.gate_id)
       const invitation = await inviteStaffToEvent({
         event_id: form.event_id,
         session_id: form.session_ids.length === 1 ? form.session_ids[0] : null,
         session_ids: form.session_ids.length > 0 ? form.session_ids : null,
         email: form.email.trim(),
         staff_role: form.staff_role.trim() || null,
-        gate: form.gate.trim() || null,
+        gate_id: form.gate_id || null,
+        gate: selectedGateObj ? selectedGateObj.name : null,
         zone: form.zone.trim() || null,
       })
       onInvited(invitation)
@@ -998,7 +1483,7 @@ function InviteStaffModal({
                 className="h-10 min-w-0 w-full truncate rounded-xl border border-white/15 bg-[#0d172e] px-3 pr-9 text-sm font-medium text-white shadow-sm outline-none focus:border-primary"
                 title={events.find((ev) => ev.id === form.event_id)?.title || ''}
                 value={form.event_id}
-                onChange={(e) => setForm((f) => ({ ...f, event_id: e.target.value, session_ids: [] }))}
+                onChange={(e) => setForm((f) => ({ ...f, event_id: e.target.value, session_ids: [], gate_id: '' }))}
                 required
                 disabled={events.length === 0}
               >
@@ -1170,37 +1655,55 @@ function InviteStaffModal({
               <div className="space-y-2">
                 <label className="grid gap-1.5 text-sm font-bold text-white">
                   {isEnglish ? 'Check-in / assignment gate' : 'Cổng check-in / phân công'}
-                  <input
-                    className="h-10 rounded-xl border border-white/15 bg-[#0d172e] px-3 text-sm text-white outline-none focus:border-primary placeholder:text-white/50"
-                    placeholder={isEnglish ? 'For example: Gate A, VIP Gate, Main Gate... (leave blank for all gates)' : 'VD: Cổng A, Cổng VIP, Cổng chính... (để trống nếu phụ trách tất cả)'}
-                    value={form.gate}
-                    onChange={(e) => setForm((f) => ({ ...f, gate: e.target.value }))}
-                    disabled={saving}
-                  />
+                  <select
+                    className="h-10 w-full rounded-xl border border-white/15 bg-[#0d172e] px-3 text-sm font-medium text-white outline-none focus:border-primary disabled:opacity-50"
+                    value={form.gate_id}
+                    onChange={(e) => setForm((f) => ({ ...f, gate_id: e.target.value }))}
+                    disabled={saving || !form.event_id}
+                  >
+                    <option value="" className="bg-[#0b1329] text-white">
+                      {isEnglish ? 'All gates (No restriction)' : 'Tất cả cổng (Không giới hạn)'}
+                    </option>
+                    {eventGates.map((g) => (
+                      <option key={g.id} value={g.id} className="bg-[#0b1329] text-white">
+                        {g.name}
+                      </option>
+                    ))}
+                  </select>
                 </label>
-                {/* Quick suggestions for gate */}
-                <div className="flex flex-wrap gap-1.5">
-                  {(isEnglish ? GATE_SUGGESTIONS_EN : GATE_SUGGESTIONS_VI).map((suggestion, idx) => {
-                    const isAllOption = idx === (isEnglish ? GATE_SUGGESTIONS_EN : GATE_SUGGESTIONS_VI).length - 1
-                    const isSelected = isAllOption
-                      ? !form.gate
-                      : form.gate === suggestion || form.gate === GATE_SUGGESTIONS_VI[idx] || form.gate === GATE_SUGGESTIONS_EN[idx]
-                    return (
-                      <button
-                        key={suggestion}
-                        type="button"
-                        className={`rounded-full border px-2.5 py-0.5 text-[11px] font-medium transition-colors cursor-pointer ${
-                          isSelected
-                            ? 'border-primary bg-primary/20 text-primary font-bold shadow-sm shadow-primary/20'
-                            : 'border-white/15 bg-[#0d172e]/60 text-slate-300 hover:border-primary/40 hover:text-white'
-                        }`}
-                        onClick={() => setForm((f) => ({ ...f, gate: isAllOption ? '' : suggestion }))}
-                      >
-                        {suggestion}
-                      </button>
-                    )
-                  })}
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="text"
+                    value={quickGateName}
+                    onChange={(e) => setQuickGateName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        handleQuickAddGate()
+                      }
+                    }}
+                    placeholder={isEnglish ? 'Quick add new gate...' : 'Thêm nhanh cổng mới...'}
+                    maxLength={100}
+                    disabled={saving || addingQuickGate || !form.event_id}
+                    className="h-8 flex-1 min-w-0 rounded-lg border border-white/10 bg-[#0d172e]/70 px-2.5 text-xs text-white outline-none focus:border-primary placeholder:text-slate-400"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleQuickAddGate}
+                    disabled={saving || addingQuickGate || !form.event_id || !quickGateName.trim()}
+                    className="inline-flex h-8 shrink-0 items-center gap-1 rounded-lg border border-primary/40 bg-primary/15 px-2.5 text-xs font-bold text-primary hover:bg-primary/25 disabled:opacity-40"
+                  >
+                    {addingQuickGate ? <Loader2 className="size-3 animate-spin" /> : <Plus className="size-3" />}
+                    {isEnglish ? 'Add' : 'Lưu'}
+                  </button>
                 </div>
+                {eventGates.length === 0 && (
+                  <p className="text-[11px] text-amber-300/90">
+                    {isEnglish
+                      ? 'No gates saved for this event yet. Add one above to select it.'
+                      : 'Sự kiện chưa có cổng nào trong DB. Hãy thêm nhanh ở ô trên.'}
+                  </p>
+                )}
               </div>
 
               {/* Zone column */}

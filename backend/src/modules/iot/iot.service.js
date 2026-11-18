@@ -21,13 +21,20 @@ async function generateUniquePairingCode() {
 }
 
 function buildDeviceConfigPayload(device) {
-  return {
+  const payload = {
     assigned_event_id: device?.assigned_event_id || null,
     event_code: device?.event_code || null,
     event_name: device?.event_name || null,
     auto_confirm: Boolean(device?.auto_confirm),
     config_version: Number(device?.config_version || 1),
   };
+
+  if (device && ('assigned_gate_id' in device || 'assigned_gate' in device)) {
+    payload.assigned_gate_id = device.assigned_gate_id || null;
+    payload.gate_name = device.assigned_gate || null;
+  }
+
+  return payload;
 }
 
 class IotService {
@@ -193,19 +200,24 @@ class IotService {
       }
 
       const claimedDevice = claimResult.device;
+      const claimBody = {
+        success: true,
+        status: 'ACTIVE',
+        device_id: claimedDevice.id,
+        device_secret: claimResult.deviceSecret,
+        assigned_event_id: claimedDevice.assigned_event_id || null,
+        event_code: claimedDevice.event_code || null,
+        event_name: claimedDevice.event_name || null,
+        auto_confirm: Boolean(claimedDevice.auto_confirm),
+        config_version: Number(claimedDevice.config_version || 1),
+      };
+      if ('assigned_gate_id' in claimedDevice || 'assigned_gate' in claimedDevice) {
+        claimBody.assigned_gate_id = claimedDevice.assigned_gate_id || null;
+        claimBody.gate_name = claimedDevice.assigned_gate || null;
+      }
       return {
         httpStatus: 200,
-        body: {
-          success: true,
-          status: 'ACTIVE',
-          device_id: claimedDevice.id,
-          device_secret: claimResult.deviceSecret,
-          assigned_event_id: claimedDevice.assigned_event_id || null,
-          event_code: claimedDevice.event_code || null,
-          event_name: claimedDevice.event_name || null,
-          auto_confirm: Boolean(claimedDevice.auto_confirm),
-          config_version: Number(claimedDevice.config_version || 1),
-        },
+        body: claimBody,
       };
     }
 
@@ -301,7 +313,7 @@ class IotService {
 
     if (device?.id && typeof iotRepository.recordScanLog === 'function') {
       try {
-        await iotRepository.recordScanLog({
+        const logPayload = {
           deviceId: device.id,
           eventId: _logMeta?.eventId ?? device.assigned_event_id ?? null,
           ticketId: _logMeta?.ticketId ?? null,
@@ -312,7 +324,12 @@ class IotService {
           success: Boolean(body.success),
           message: body.message || null,
           attendeeName: _logMeta?.attendeeName ?? null,
-        });
+        };
+        if (device.assigned_gate_id || device.assigned_gate) {
+          logPayload.gateId = device.assigned_gate_id || null;
+          logPayload.gateName = device.assigned_gate || null;
+        }
+        await iotRepository.recordScanLog(logPayload);
       } catch (_err) {
         // Không làm hỏng phản hồi quét vé nếu ghi lịch sử gặp lỗi tạm thời
       }
@@ -329,30 +346,50 @@ class IotService {
 
   async getDeviceHistory(device, query = {}) {
     const eventFilter = query.event_only && device.assigned_event_id ? device.assigned_event_id : '';
+    const hasSharedGate = Boolean(
+      device?.assigned_event_id && (device?.assigned_gate_id || device?.assigned_gate),
+    );
+    const sharedGateOptions = hasSharedGate
+      ? {
+          includeSharedGate: true,
+          assignedEventId: device.assigned_event_id,
+          assignedGateId: device.assigned_gate_id || null,
+          assignedGate: device.assigned_gate || null,
+        }
+      : {};
+
+    const sourceFilter = query.source && query.source !== 'ALL' ? query.source : undefined;
+    const queryOptions = {
+      page: query.page || 1,
+      limit: query.limit || 10,
+      result: query.result || 'ALL',
+      eventId: eventFilter,
+      ...sharedGateOptions,
+    };
+    if (sourceFilter) {
+      queryOptions.source = sourceFilter;
+    }
+
     const [history, stats] = await Promise.all([
-      iotRepository.queryDeviceHistory(device.id, {
-        page: query.page || 1,
-        limit: query.limit || 10,
-        result: query.result || 'ALL',
-        eventId: eventFilter,
-      }),
-      iotRepository.getDeviceHistoryStats(device.id),
+      iotRepository.queryDeviceHistory(device.id, queryOptions),
+      hasSharedGate
+        ? iotRepository.getDeviceHistoryStats(device.id, sharedGateOptions)
+        : iotRepository.getDeviceHistoryStats(device.id),
     ]);
 
-    return {
-      httpStatus: 200,
-      body: {
-        success: true,
-        device_id: device.id,
-        device_name: device.name || null,
-        pagination: {
-          page: history.page,
-          limit: history.limit,
-          total: history.total,
-          has_more: history.page * history.limit < history.total,
-        },
-        stats,
-        items: history.items.map((item) => ({
+    const responseBody = {
+      success: true,
+      device_id: device.id,
+      device_name: device.name || null,
+      pagination: {
+        page: history.page,
+        limit: history.limit,
+        total: history.total,
+        has_more: history.page * history.limit < history.total,
+      },
+      stats,
+      items: history.items.map((item) => {
+        const mapped = {
           id: item.id,
           ticket_code: item.ticket_code || null,
           attendee_name: item.attendee_name || null,
@@ -364,8 +401,25 @@ class IotService {
           success: Boolean(item.success),
           message: item.message || null,
           scanned_at: item.scanned_at,
-        })),
-      },
+        };
+        if (item.source !== undefined) mapped.source = item.source;
+        if (item.actor_name !== undefined) mapped.actor_name = item.actor_name;
+        if (item.gate_name !== undefined) mapped.gate_name = item.gate_name;
+        if (item.ticket_type_name !== undefined) mapped.ticket_type_name = item.ticket_type_name;
+        if (item.seat_label !== undefined) mapped.seat = item.seat_label;
+        return mapped;
+      }),
+    };
+
+    if (hasSharedGate) {
+      responseBody.assigned_gate_id = device.assigned_gate_id || null;
+      responseBody.gate_name = device.assigned_gate || null;
+      responseBody.shared_gate_history = true;
+    }
+
+    return {
+      httpStatus: 200,
+      body: responseBody,
     };
   }
 }

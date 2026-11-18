@@ -32,6 +32,7 @@ function formatDateTime(value) {
 
 function checkInMethodLabel(method) {
   const isEn = getAutoLocale() === 'en-US'
+  if (method === 'ESP32_QR') return isEn ? 'IoT Device (QR)' : 'Thiết bị IoT (QR)'
   if (method === 'QR') return isEn ? 'QR Scan' : 'Quét mã QR'
   return isEn ? 'Manual' : 'Thủ công'
 }
@@ -259,13 +260,16 @@ export function StaffEventDetailPage() {
 
       <div className="mt-5">
         <StaffTable
-          headers={['Thời gian', 'Người tham dự', 'Loại vé', 'Phương thức', 'Nhân sự thực hiện']}
+          headers={['Thời gian', 'Người tham dự', 'Loại vé', 'Cổng', 'Phương thức', 'Thực hiện bởi']}
           rows={(report.recent_checkins || []).map((item) => [
             formatDateTime(item.checked_in_at),
             item.attendee_name,
             item.ticket_type_name,
+            item.checked_in_gate ? <Badge key={`${item.id}-gate`} tone="purple">{item.checked_in_gate}</Badge> : '—',
             checkInMethodLabel(item.method),
-            item.checked_in_by_name || 'Chưa xác định',
+            item.checked_in_by_name
+              ? `${item.checkin_source === 'IOT' ? '[IoT] ' : ''}${item.checked_in_by_name}`
+              : 'Chưa xác định',
           ])}
         />
       </div>

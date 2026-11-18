@@ -1,20 +1,26 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertOctagon,
   AlertTriangle,
   Camera,
   CameraOff,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Clock3,
+  Cpu,
   DoorOpen,
   Layers,
   Loader2,
   QrCode,
+  RefreshCw,
   RotateCcw,
   Search,
   ShieldAlert,
   TicketCheck,
   UserCheck,
+  Wifi,
+  WifiOff,
   XCircle,
 } from 'lucide-react'
 import { BrowserQRCodeReader } from '@zxing/browser'
@@ -24,7 +30,10 @@ import {
   searchStaffTickets,
   verifyStaffTicketByQr,
 } from '@/services/tickets.js'
-import { fetchAssignedStaffEvents } from '@/services/operations.js'
+import {
+  fetchAssignedStaffEvents,
+  fetchStaffGateCheckInHistory,
+} from '@/services/operations.js'
 import { Modal } from '@/components/Modal.jsx'
 import { StaffPage, StaffPanel } from './StaffComponents.jsx'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
@@ -182,7 +191,11 @@ function normalizeTicket(ticket) {
     seat: ticket.seat?.label || null,
     status: ticket.status,
     checkedInAt: ticket.checked_in_at,
-    checkedInBy: ticket.checked_in_by?.name || ticket.checked_in_by?.email || (isEnglish ? 'Current staff' : 'Nhân sự hiện tại'),
+    checkedInGate: ticket.checked_in_gate || null,
+    checkedInBySource: ticket.checked_in_by?.source || null,
+    checkedInBy: ticket.checked_in_by?.name
+      ? (ticket.checked_in_by?.source === 'IOT' ? `${ticket.checked_in_by.name} (IoT)` : ticket.checked_in_by.name)
+      : ticket.checked_in_by?.email || (isEnglish ? 'Current staff' : 'Nhân sự hiện tại'),
   }
 }
 
@@ -226,6 +239,7 @@ export function StaffQrCheckInPage() {
   const [resultTicket, setResultTicket] = useState(null)
   const [scanError, setScanError] = useState(null)
   const [recentTickets, setRecentTickets] = useState([])
+  const [historyRefreshKey, setHistoryRefreshKey] = useState(0)
   const [ticketPanelMessage, setTicketPanelMessage] = useState('')
   const [ticketNoticeCountdown, setTicketNoticeCountdown] = useState(0)
   const [assignedEvents, setAssignedEvents] = useState([])
@@ -247,7 +261,8 @@ export function StaffQrCheckInPage() {
   const showSuccess = (ticket) => {
     setResultTicket(ticket)
     setScanError(null)
-    setRecentTickets((current) => [ticket, ...current.filter((item) => item.id !== ticket.id)].slice(0, 5))
+    setRecentTickets((current) => [ticket, ...current.filter((item) => item.id !== ticket.id)].slice(0, 10))
+    setHistoryRefreshKey((k) => k + 1)
   }
 
   const stopCamera = () => {
@@ -375,6 +390,8 @@ export function StaffQrCheckInPage() {
       window.setTimeout(() => {
         processingRef.current = false
       }, 2000)
+    } finally {
+      setHistoryRefreshKey((v) => v + 1)
     }
   }
 
@@ -415,6 +432,7 @@ export function StaffQrCheckInPage() {
       setQrMessage(rawMessage)
       setCheckInState('error')
       processingRef.current = false
+      setHistoryRefreshKey((v) => v + 1)
     }
   }
 
@@ -567,62 +585,62 @@ export function StaffQrCheckInPage() {
         </div>
       </Modal>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_390px]">
-        <div className="space-y-5">
-          {assignedEvents.length > 0 && (
-            <StaffPanel className="!py-3.5">
-              <p className="text-xs font-bold uppercase text-white">Vị trí phân công của bạn</p>
-              <div className="mt-2.5 flex flex-wrap gap-2">
-                {assignedEvents.map((event) => (
-                  <div
-                    key={event.id}
-                    className="flex flex-wrap items-center gap-2 text-xs"
-                  >
-                    <span className="font-bold text-content">{isEnglish ? (translatePhrase(event.title, 'en') || event.title) : event.title}</span>
-                    <span className="rounded-md bg-primary/10 px-2 py-0.5 font-bold text-primary">
-                      {event.staff_role || 'Nhân sự'}
+      <div className="space-y-5">
+        {assignedEvents.length > 0 && (
+          <StaffPanel className="!py-3.5">
+            <p className="text-xs font-bold uppercase text-white">Vị trí phân công của bạn</p>
+            <div className="mt-2.5 flex flex-wrap gap-2">
+              {assignedEvents.map((event) => (
+                <div
+                  key={event.id}
+                  className="flex flex-wrap items-center gap-2 text-xs"
+                >
+                  <span className="font-bold text-content">{isEnglish ? (translatePhrase(event.title, 'en') || event.title) : event.title}</span>
+                  <span className="rounded-md bg-primary/10 px-2 py-0.5 font-bold text-primary">
+                    {event.staff_role || 'Nhân sự'}
+                  </span>
+                  {event.gate ? (
+                    <span className="inline-flex items-center gap-1 rounded-md bg-purple-500/15 px-2 py-0.5 font-bold text-purple-400">
+                      <DoorOpen className="size-3" />
+                      Cổng: {event.gate}
                     </span>
-                    {event.gate ? (
-                      <span className="inline-flex items-center gap-1 rounded-md bg-purple-500/15 px-2 py-0.5 font-bold text-purple-400">
-                        <DoorOpen className="size-3" />
-                        Cổng: {event.gate}
-                      </span>
-                    ) : (
-                      <span className="rounded-md bg-white/5 px-2 py-0.5 text-muted">Tất cả cổng</span>
-                    )}
-                    {event.zone && (
-                      <span className="inline-flex items-center gap-1 rounded-md bg-indigo-500/15 px-2 py-0.5 font-bold text-indigo-400">
-                        <Layers className="size-3" />
-                        Khu vực: {event.zone}
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </StaffPanel>
-          )}
-
-          <StaffPanel>
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <p className="text-xs font-bold uppercase text-white">Soát vé bằng mã QR</p>
-                <h3 className="mt-1 text-lg font-extrabold text-content">Quét vé bằng camera máy tính</h3>
-                <p className="mt-1 text-sm text-subtle">{cameraMessage}</p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button className="admin-secondary" onClick={stopCamera} disabled={cameraState !== 'active'}>
-                  <CameraOff className="size-4" />
-                  Tắt camera
-                </button>
-                <button className="admin-primary" onClick={startCamera} disabled={cameraState === 'opening'}>
-                  {cameraState === 'opening' ? <Loader2 className="size-4 animate-spin" /> : <Camera className="size-4" />}
-                  Bật camera
-                </button>
-              </div>
+                  ) : (
+                    <span className="rounded-md bg-white/5 px-2 py-0.5 text-muted">Tất cả cổng</span>
+                  )}
+                  {event.zone && (
+                    <span className="inline-flex items-center gap-1 rounded-md bg-indigo-500/15 px-2 py-0.5 font-bold text-indigo-400">
+                      <Layers className="size-3" />
+                      Khu vực: {event.zone}
+                    </span>
+                  )}
+                </div>
+              ))}
             </div>
           </StaffPanel>
+        )}
 
-          <div className="relative grid min-h-[520px] overflow-hidden rounded-2xl border border-border-soft/20 bg-black text-white shadow-sm">
+        <StaffPanel>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="text-xs font-bold uppercase text-white">Soát vé bằng mã QR</p>
+              <h3 className="mt-1 text-lg font-extrabold text-content">Quét vé bằng camera máy tính</h3>
+              <p className="mt-1 text-sm text-subtle">{cameraMessage}</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button className="admin-secondary" onClick={stopCamera} disabled={cameraState !== 'active'}>
+                <CameraOff className="size-4" />
+                Tắt camera
+              </button>
+              <button className="admin-primary" onClick={startCamera} disabled={cameraState === 'opening'}>
+                {cameraState === 'opening' ? <Loader2 className="size-4 animate-spin" /> : <Camera className="size-4" />}
+                Bật camera
+              </button>
+            </div>
+          </div>
+        </StaffPanel>
+
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_390px] xl:items-stretch">
+          <div className="relative grid min-h-[520px] h-full overflow-hidden rounded-2xl border border-border-soft/20 bg-black text-white shadow-sm">
             <video
               ref={videoRef}
               className="h-full min-h-[520px] w-full object-cover"
@@ -700,45 +718,38 @@ export function StaffQrCheckInPage() {
               )}
             </div>
           </div>
+
+          <aside className="flex flex-col min-w-0">
+            {normalizedResult ? (
+              <ResultPanel
+                ticket={normalizedResult}
+                onClear={resetQrScan}
+                className="h-full flex flex-col justify-between"
+              />
+            ) : scanError && !normalizedScanned ? (
+              <ErrorPanel
+                error={scanError}
+                onClear={resetQrScan}
+                className="h-full flex flex-col justify-center"
+              />
+            ) : (
+              <SelectedTicketPanel
+                ticket={normalizedScanned}
+                onCheckIn={confirmQrCheckIn}
+                checking={checkInState === 'checking'}
+                onClear={resetQrScan}
+                emptyMessage="Quét mã QR để xem thông tin vé trước khi xác nhận soát vé."
+                scanError={scanError}
+                className="h-full flex flex-col justify-between"
+              />
+            )}
+          </aside>
         </div>
 
-        <aside className="space-y-5">
-          {normalizedResult ? (
-            <ResultPanel ticket={normalizedResult} onClear={resetQrScan} />
-          ) : scanError && !normalizedScanned ? (
-            <ErrorPanel error={scanError} onClear={resetQrScan} />
-          ) : (
-            <SelectedTicketPanel
-              ticket={normalizedScanned}
-              onCheckIn={confirmQrCheckIn}
-              checking={checkInState === 'checking'}
-              onClear={resetQrScan}
-              emptyMessage="Quét mã QR để xem thông tin vé trước khi xác nhận soát vé."
-              scanError={scanError}
-            />
-          )}
-          <StaffPanel>
-            <h3 className="font-bold text-content">Lượt soát vé gần đây</h3>
-            {recentTickets.length === 0 ? (
-              <p className="mt-3 text-sm text-subtle">Chưa có lượt soát vé trong phiên này.</p>
-            ) : (
-              <div className="mt-4 space-y-3">
-                {recentTickets.map((ticket) => {
-                  const normalized = normalizeTicket(ticket)
-                  return (
-                    <div key={ticket.id} className="flex items-start justify-between gap-3 rounded-xl border border-border-soft/20 bg-panel-soft/30 p-3">
-                      <div>
-                        <p className="text-sm font-bold text-content">{normalized.displayPrimaryName}</p>
-                        <p className="text-xs text-subtle">{normalized.ticketCode}</p>
-                      </div>
-                      <CheckCircle2 className="size-4 shrink-0 text-success" />
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </StaffPanel>
-        </aside>
+        <SharedGateCheckInHistoryPanel
+          localRecentTickets={recentTickets}
+          refreshKey={historyRefreshKey}
+        />
       </div>
     </StaffPage>
   )
@@ -756,6 +767,7 @@ export function ManualCheckInPage() {
   const [selectedTicket, setSelectedTicket] = useState(null)
   const [checkInState, setCheckInState] = useState('idle')
   const [resultTicket, setResultTicket] = useState(null)
+  const [historyRefreshKey, setHistoryRefreshKey] = useState(0)
 
   const updateManualField = (field, value) => {
     if (field === 'eventId') {
@@ -883,6 +895,7 @@ export function ManualCheckInPage() {
       setResultTicket(checkedTicket)
       setSelectedTicket(checkedTicket)
       setSearchResults((current) => current.map((item) => (item.id === checkedTicket.id ? checkedTicket : item)))
+      setHistoryRefreshKey((k) => k + 1)
       setSearchMessage('Check-in thành công.')
       setCheckInState('success')
     } catch (error) {
@@ -935,6 +948,11 @@ export function ManualCheckInPage() {
               checking={checkInState === 'checking'}
             />
           )}
+          <SharedGateCheckInHistoryPanel
+            eventId={manualForm.eventId || undefined}
+            refreshKey={historyRefreshKey}
+            compact
+          />
         </aside>
       </div>
     </StaffPage>
@@ -1115,11 +1133,11 @@ function ManualInput({ label, value, onChange, placeholder, disabled = false }) 
   )
 }
 
-function ResultPanel({ ticket, onClear }) {
+function ResultPanel({ ticket, onClear, className = '' }) {
   const { isEnglish } = useLanguage()
   if (!ticket) {
     return (
-      <StaffPanel className="text-center overflow-hidden">
+      <StaffPanel className={`text-center overflow-hidden ${className}`}>
         <TicketCheck className="mx-auto size-14 text-white/60" />
         <h3 className="mt-4 text-lg font-extrabold text-white">Kết quả soát vé</h3>
         <p className="mt-2 text-sm text-white/80">Thông tin vé đã soát thành công sẽ hiển thị tại đây.</p>
@@ -1128,38 +1146,41 @@ function ResultPanel({ ticket, onClear }) {
   }
 
   return (
-    <StaffPanel className="overflow-hidden border border-success/40 bg-success/[0.03]">
-      <div className="flex items-start gap-3 min-w-0">
-        <CheckCircle2 className="mt-1 size-6 shrink-0 text-success" />
-        <div className="min-w-0">
-          <p className="text-xs font-black uppercase text-success tracking-wide">Soát vé thành công</p>
-          <h3 className="mt-1 text-lg sm:text-xl font-black font-mono tracking-wider text-[#E6C17A] drop-shadow-[0_1px_6px_rgba(201,154,71,0.35)] truncate">
-            {ticket.ticketCode}
-          </h3>
+    <StaffPanel className={`overflow-hidden border border-success/40 bg-success/[0.03] ${className}`}>
+      <div>
+        <div className="flex items-start gap-3 min-w-0">
+          <CheckCircle2 className="mt-1 size-6 shrink-0 text-success" />
+          <div className="min-w-0">
+            <p className="text-xs font-black uppercase text-success tracking-wide">Soát vé thành công</p>
+            <h3 className="mt-1 text-lg sm:text-xl font-black font-mono tracking-wider text-[#E6C17A] drop-shadow-[0_1px_6px_rgba(201,154,71,0.35)] truncate">
+              {ticket.ticketCode}
+            </h3>
+          </div>
         </div>
-      </div>
-      <div className="mt-5 space-y-3 text-sm">
-        <InfoRow label="Sự kiện" value={ticket.eventName} />
-        <InfoRow label="Hạng vé" value={ticket.ticketType} />
-        {ticket.seat && <InfoRow label="Ghế ngồi" value={ticket.seat} />}
-        <InfoRow
-          label="Người tham dự"
-          value={ticket.attendeeName || ticket.displayPrimaryName || ticket.buyerName}
-        />
-        <InfoRow
-          label="Email"
-          value={
-            ticket.isDifferentAttendee
-              ? (ticket.attendeeEmail || 'Chưa cung cấp')
-              : (ticket.buyerEmail || 'Chưa cung cấp')
-          }
-        />
-        {!ticket.isDifferentAttendee && ticket.buyerPhone && (
-          <InfoRow label="Số điện thoại" value={ticket.buyerPhone} />
-        )}
-        <InfoRow label="Trạng thái" value={ticketStatusLabel(ticket, isEnglish)} tone="success" />
-        <InfoRow label="Thời gian" value={formatDateTime(ticket.checkedInAt)} tone="success" />
-        <InfoRow label="Check-in bởi" value={ticket.checkedInBy} />
+        <div className="mt-5 space-y-3 text-sm">
+          <InfoRow label="Sự kiện" value={ticket.eventName} />
+          <InfoRow label="Hạng vé" value={ticket.ticketType} />
+          {ticket.seat && <InfoRow label="Ghế ngồi" value={ticket.seat} />}
+          <InfoRow
+            label="Người tham dự"
+            value={ticket.attendeeName || ticket.displayPrimaryName || ticket.buyerName}
+          />
+          <InfoRow
+            label="Email"
+            value={
+              ticket.isDifferentAttendee
+                ? (ticket.attendeeEmail || 'Chưa cung cấp')
+                : (ticket.buyerEmail || 'Chưa cung cấp')
+            }
+          />
+          {!ticket.isDifferentAttendee && ticket.buyerPhone && (
+            <InfoRow label="Số điện thoại" value={ticket.buyerPhone} />
+          )}
+          <InfoRow label="Trạng thái" value={ticketStatusLabel(ticket, isEnglish)} tone="success" />
+          <InfoRow label="Thời gian" value={formatDateTime(ticket.checkedInAt)} tone="success" />
+          <InfoRow label="Check-in bởi" value={ticket.checkedInBy} />
+          {ticket.checkedInGate && <InfoRow label="Cổng" value={ticket.checkedInGate} />}
+        </div>
       </div>
       {onClear && (
         <button className="admin-secondary mt-5 w-full" onClick={onClear} type="button">
@@ -1171,7 +1192,7 @@ function ResultPanel({ ticket, onClear }) {
   )
 }
 
-function SelectedTicketPanel({ ticket, onCheckIn, checking, onClear, emptyMessage, scanError }) {
+function SelectedTicketPanel({ ticket, onCheckIn, checking, onClear, emptyMessage, scanError, className = '' }) {
   const { isEnglish } = useLanguage()
   const isCheckedIn = isTicketCheckedIn(ticket)
   const isInvalid = ticket?.status && ticket.status !== 'VALID'
@@ -1179,11 +1200,43 @@ function SelectedTicketPanel({ ticket, onCheckIn, checking, onClear, emptyMessag
 
   if (!ticket) {
     return (
-      <StaffPanel className="overflow-hidden">
-        <div className="flex gap-3">
-          <ShieldAlert className="mt-1 size-5 shrink-0 text-warning" />
-          <p className="text-sm text-white/90">
-            {emptyMessage || 'Kết quả tìm kiếm thủ công chỉ hiển thị vé thuộc sự kiện bạn được phân công.'}
+      <StaffPanel className={`overflow-hidden ${className}`}>
+        <div>
+          <div className="flex items-start justify-between gap-3 min-w-0">
+            <div className="min-w-0">
+              <p className="text-xs font-bold uppercase text-white tracking-wider">
+                {isEnglish ? 'Ticket Information' : 'Thông tin vé'}
+              </p>
+              <h3 className="mt-1 text-lg sm:text-xl font-extrabold text-white/75 truncate">
+                {isEnglish ? 'Not Checked-in' : 'Chưa soát vé'}
+              </h3>
+            </div>
+            <span className="shrink-0 rounded-full border border-border-soft/40 bg-panel-soft px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wide text-subtle">
+              {isEnglish ? 'Not Checked-in' : 'Chưa soát vé'}
+            </span>
+          </div>
+
+          <div className="mt-4 space-y-3 text-sm">
+            <InfoRow label="Sự kiện" value="—" />
+            <InfoRow label="Hạng vé" value="—" />
+            <InfoRow label="Người tham dự" value="—" />
+            <InfoRow label="Email" value="—" />
+            <InfoRow
+              label="Trạng thái vé"
+              value={isEnglish ? 'Not Checked-in' : 'Chưa soát vé'}
+              tone="tertiary"
+            />
+            <InfoRow
+              label="Thời gian soát vé"
+              value={isEnglish ? 'Not Checked-in' : 'Chưa soát vé'}
+            />
+          </div>
+        </div>
+
+        <div className="mt-5 flex items-start gap-2.5 rounded-xl border border-border-soft/20 bg-panel-soft/40 px-3.5 py-3">
+          <ShieldAlert className="mt-0.5 size-4 shrink-0 text-warning" />
+          <p className="text-xs leading-relaxed text-white/80">
+            {emptyMessage || 'Quét mã QR hoặc chọn vé để hiển thị thông tin chi tiết.'}
           </p>
         </div>
       </StaffPanel>
@@ -1194,88 +1247,61 @@ function SelectedTicketPanel({ ticket, onCheckIn, checking, onClear, emptyMessag
     <StaffPanel
       className={`overflow-hidden transition-all duration-300 ${
         hasProblem ? 'border border-error/50 bg-error/[0.04] shadow-md shadow-error/10' : ''
-      }`}
+      } ${className}`}
     >
-      {/* Alert banner if ticket is already checked in */}
-      {isCheckedIn && (
-        <div className="mb-4 rounded-xl border border-error/60 bg-error/20 p-3.5 text-left text-error shadow-sm">
-          <div className="flex items-start gap-2.5">
-            <XCircle className="size-5 shrink-0 mt-0.5 text-error" />
-            <div>
-              <p className="text-xs font-black uppercase tracking-wider text-error">
-                Cảnh báo: Vé đã được sử dụng!
-              </p>
-              <p className="mt-1 text-xs leading-relaxed text-red-200">
-                Vé này đã được soát vào lúc <b>{formatDateTime(ticket.checkedInAt)}</b>
-                {ticket.checkedInBy ? ` bởi ${ticket.checkedInBy}` : ''}. Không hợp lệ để vào cổng lại.
-              </p>
-            </div>
+      <div>
+        <div className="flex items-start justify-between gap-3 min-w-0">
+          <div className="min-w-0">
+            <p className="text-xs font-bold uppercase text-white tracking-wider">Vé đang chọn</p>
+            <h3 className="mt-1 text-lg sm:text-xl font-black font-mono tracking-wider text-[#E6C17A] drop-shadow-[0_1px_6px_rgba(201,154,71,0.35)] truncate">
+              {ticket.ticketCode}
+            </h3>
           </div>
+          <span
+            className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wide ${statusTone(
+              ticket.status,
+              ticket,
+            )}`}
+          >
+            {ticketStatusLabel(ticket, isEnglish)}
+          </span>
         </div>
-      )}
-
-      {/* Alert banner if ticket is invalid and not checked in */}
-      {isInvalid && !isCheckedIn && (
-        <div className="mb-4 rounded-xl border border-error/60 bg-error/20 p-3.5 text-left text-error shadow-sm">
-          <div className="flex items-start gap-2.5">
-            <AlertTriangle className="size-5 shrink-0 mt-0.5 text-error" />
-            <div>
-              <p className="text-xs font-black uppercase tracking-wider text-error">
-                Cảnh báo: Vé không hợp lệ ({ticketStatusLabel(ticket, isEnglish)})
-              </p>
-              <p className="mt-1 text-xs leading-relaxed text-red-200">
-                {scanError?.message || 'Vé này ở trạng thái không thể soát vé. Vui lòng kiểm tra lại.'}
-              </p>
-            </div>
-          </div>
+        <div className="mt-4 space-y-3 text-sm">
+          <InfoRow label="Sự kiện" value={ticket.eventName} />
+          <InfoRow label="Hạng vé" value={ticket.ticketType} />
+          {ticket.seat && <InfoRow label="Ghế ngồi" value={ticket.seat} />}
+          <InfoRow
+            label="Người tham dự"
+            value={ticket.attendeeName || ticket.displayPrimaryName || ticket.buyerName}
+          />
+          <InfoRow
+            label="Email"
+            value={
+              ticket.isDifferentAttendee
+                ? (ticket.attendeeEmail || 'Chưa cung cấp')
+                : (ticket.buyerEmail || 'Chưa cung cấp')
+            }
+          />
+          {!ticket.isDifferentAttendee && ticket.buyerPhone && (
+            <InfoRow label="Số điện thoại" value={ticket.buyerPhone} />
+          )}
+          <InfoRow
+            label="Trạng thái vé"
+            value={ticketStatusLabel(ticket, isEnglish)}
+            tone={isCheckedIn || isInvalid ? 'error' : 'tertiary'}
+          />
+          <InfoRow
+            label="Thời gian soát vé"
+            value={ticket.checkedInAt ? formatDateTime(ticket.checkedInAt) : 'Chưa soát vé'}
+            tone={isCheckedIn ? 'error' : 'default'}
+          />
+          {isCheckedIn && ticket.checkedInBy && (
+            <InfoRow label="Check-in bởi" value={ticket.checkedInBy} tone="error" />
+          )}
+          {isCheckedIn && ticket.checkedInGate && (
+            <InfoRow label="Cổng" value={ticket.checkedInGate} />
+          )}
         </div>
-      )}
-
-      <div className="flex items-start justify-between gap-3 min-w-0">
-        <div className="min-w-0">
-          <p className="text-xs font-bold uppercase text-white tracking-wider">Vé đang chọn</p>
-          <h3 className="mt-1 text-lg sm:text-xl font-black font-mono tracking-wider text-[#E6C17A] drop-shadow-[0_1px_6px_rgba(201,154,71,0.35)] truncate">
-            {ticket.ticketCode}
-          </h3>
-        </div>
-        <span
-          className={`shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wide ${statusTone(
-            ticket.status,
-            ticket,
-          )}`}
-        >
-          {ticketStatusLabel(ticket, isEnglish)}
-        </span>
-      </div>
-      <div className="mt-4 space-y-3 text-sm">
-        <InfoRow label="Sự kiện" value={ticket.eventName} />
-        <InfoRow label="Hạng vé" value={ticket.ticketType} />
-        {ticket.seat && <InfoRow label="Ghế ngồi" value={ticket.seat} />}
-        <InfoRow
-          label="Người tham dự"
-          value={ticket.attendeeName || ticket.displayPrimaryName || ticket.buyerName}
-        />
-        <InfoRow
-          label="Email"
-          value={
-            ticket.isDifferentAttendee
-              ? (ticket.attendeeEmail || 'Chưa cung cấp')
-              : (ticket.buyerEmail || 'Chưa cung cấp')
-          }
-        />
-        {!ticket.isDifferentAttendee && ticket.buyerPhone && (
-          <InfoRow label="Số điện thoại" value={ticket.buyerPhone} />
-        )}
-        <InfoRow
-          label="Trạng thái vé"
-          value={ticketStatusLabel(ticket, isEnglish)}
-          tone={isCheckedIn || isInvalid ? 'error' : 'tertiary'}
-        />
-        <InfoRow
-          label="Thời gian soát vé"
-          value={ticket.checkedInAt ? formatDateTime(ticket.checkedInAt) : 'Chưa soát vé'}
-          tone={isCheckedIn ? 'error' : 'default'}
-        />
       </div>
       <div className="mt-5 grid gap-2">
         {canCheckInTicket(ticket) && (
@@ -1300,12 +1326,12 @@ function SelectedTicketPanel({ ticket, onCheckIn, checking, onClear, emptyMessag
   )
 }
 
-function ErrorPanel({ error, onClear }) {
+function ErrorPanel({ error, onClear, className = '' }) {
   const isDifferentEvent = error?.type === 'DIFFERENT_EVENT'
   const isUsed = error?.type === 'USED'
 
   return (
-    <StaffPanel className="overflow-hidden border border-error/50 bg-error/[0.06] p-6 text-center shadow-lg shadow-error/10">
+    <StaffPanel className={`overflow-hidden border border-error/50 bg-error/[0.06] p-6 text-center shadow-lg shadow-error/10 ${className}`}>
       <div className="mx-auto grid size-16 place-items-center rounded-2xl border border-error/50 bg-error/20 text-error shadow-[0_4px_20px_rgba(239,68,68,0.25)]">
         {isDifferentEvent ? (
           <AlertOctagon className="size-8 text-error" />
@@ -1373,6 +1399,539 @@ function InfoRow({ label, value, strong = false, tone = 'default', breakAll = fa
         {value}
       </span>
     </div>
+  )
+}
+
+function getGateScanResultMeta(result, resultMessage, isEnglish) {
+  const code = String(result || 'OK').toUpperCase()
+  if (code === 'OK') {
+    return {
+      kind: 'ok',
+      label: isEnglish ? 'Checked in' : 'Đã check-in',
+      badgeClass: 'border-emerald-400/35 bg-emerald-500/15 text-emerald-300',
+    }
+  }
+  if (code === 'VERIFIED') {
+    return {
+      kind: 'verified',
+      label: isEnglish ? 'Verified only' : 'Chỉ xác thực',
+      badgeClass: 'border-amber-400/35 bg-amber-500/15 text-amber-300',
+    }
+  }
+  const errorMap = {
+    USED: isEnglish ? 'Already used' : 'Vé đã dùng',
+    NOT_FOUND: isEnglish ? 'Not found' : 'Không tìm thấy',
+    WRONG_EVENT: isEnglish ? 'Wrong event' : 'Sai sự kiện',
+    INVALID_QR: isEnglish ? 'Invalid QR' : 'QR không hợp lệ',
+    NOT_OPEN: isEnglish ? 'Not open yet' : 'Chưa đến giờ',
+    EXPIRED: isEnglish ? 'Expired' : 'Đã hết hạn',
+    REFUND_IN_PROGRESS: isEnglish ? 'Refunding' : 'Đang hoàn tiền',
+    INVALID_ORDER: isEnglish ? 'Unpaid order' : 'Chưa thanh toán',
+    FORBIDDEN: isEnglish ? 'Forbidden' : 'Không được phép',
+    INVALID: isEnglish ? 'Invalid' : 'Không hợp lệ',
+    CANCELLED: isEnglish ? 'Cancelled' : 'Đã hủy',
+  }
+  return {
+    kind: 'error',
+    label: errorMap[code] || resultMessage || code,
+    badgeClass: 'border-rose-400/35 bg-rose-500/15 text-rose-300',
+  }
+}
+
+function buildPaginationPages(currentPage, totalPages) {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, idx) => idx + 1)
+  }
+  const pages = [1]
+  const start = Math.max(2, currentPage - 1)
+  const end = Math.min(totalPages - 1, currentPage + 1)
+  if (start > 2) pages.push('ellipsis-left')
+  for (let p = start; p <= end; p += 1) pages.push(p)
+  if (end < totalPages - 1) pages.push('ellipsis-right')
+  pages.push(totalPages)
+  return pages
+}
+
+function SharedGateCheckInHistoryPanel({ eventId, localRecentTickets = [], refreshKey = 0, compact = false }) {
+  const { isEnglish } = useLanguage()
+  const [data, setData] = useState({
+    assignments: [],
+    items: [],
+    counts: { all: 0, staff: 0, iot: 0 },
+    pagination: { page: 1, limit: 10, total: 0, total_pages: 1, has_more: false },
+  })
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [resultFilter, setResultFilter] = useState('OK')
+  const [sourceFilter, setSourceFilter] = useState('ALL')
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
+
+  const loadHistory = useCallback(async (manual = false) => {
+    if (manual) setRefreshing(true)
+    try {
+      const res = await fetchStaffGateCheckInHistory({
+        ...(eventId ? { event_id: eventId } : {}),
+        page,
+        limit: pageSize,
+        result: resultFilter,
+        source: sourceFilter,
+      })
+      if (res) {
+        const items = Array.isArray(res.items) ? res.items : []
+        const pagination = res.pagination || {
+          page,
+          limit: pageSize,
+          total: items.length,
+          total_pages: 1,
+          has_more: false,
+        }
+        const counts = res.counts || {
+          all: pagination.total ?? items.length,
+          staff: items.filter((i) => i.source !== 'IOT').length,
+          iot: items.filter((i) => i.source === 'IOT').length,
+        }
+        setData({
+          assignments: Array.isArray(res.assignments) ? res.assignments : [],
+          items,
+          counts,
+          pagination,
+        })
+        if (pagination.total_pages && page > pagination.total_pages) {
+          setPage(pagination.total_pages)
+        }
+      }
+    } catch {
+      // Keep last known history silently when polling
+    } finally {
+      setLoading(false)
+      if (manual) setRefreshing(false)
+    }
+  }, [eventId, page, pageSize, resultFilter, sourceFilter])
+
+  useEffect(() => {
+    loadHistory(false)
+    const timer = window.setInterval(() => {
+      loadHistory(false)
+    }, 5000)
+    return () => window.clearInterval(timer)
+  }, [loadHistory, refreshKey])
+
+  const handleChangeResultFilter = (nextResult) => {
+    if (nextResult === resultFilter) return
+    setResultFilter(nextResult)
+    setPage(1)
+  }
+
+  const handleChangeSourceFilter = (nextSource) => {
+    if (nextSource === sourceFilter) return
+    setSourceFilter(nextSource)
+    setPage(1)
+  }
+
+  const handleChangePageSize = (nextSize) => {
+    const parsed = Number(nextSize) || 10
+    if (parsed === pageSize) return
+    setPageSize(parsed)
+    setPage(1)
+  }
+
+  const sharedDevices = useMemo(() => {
+    const map = new Map()
+    for (const assignment of data.assignments || []) {
+      for (const dev of assignment.shared_devices || []) {
+        if (dev?.id && !map.has(dev.id)) {
+          map.set(dev.id, dev)
+        }
+      }
+    }
+    return Array.from(map.values())
+  }, [data.assignments])
+
+  const activeGates = useMemo(() => {
+    const set = new Set()
+    for (const assignment of data.assignments || []) {
+      if (assignment.gate) set.add(assignment.gate)
+    }
+    return Array.from(set)
+  }, [data.assignments])
+
+  const mergedItems = useMemo(() => {
+    const seenKeys = new Set()
+    const seenOkTicketKeys = new Set()
+    const list = []
+
+    for (const item of data.items || []) {
+      const normalizedResult = String(item.result || 'OK').toUpperCase()
+      const rowKey = resultFilter === 'ALL'
+        ? `${item.source || 'STAFF'}-${item.id}-${normalizedResult}`
+        : (item.ticket_id || item.ticket_code || item.id)
+      if (!rowKey || seenKeys.has(rowKey)) continue
+      seenKeys.add(rowKey)
+      if (normalizedResult === 'OK') {
+        if (item.ticket_id) seenOkTicketKeys.add(item.ticket_id)
+        if (item.ticket_code) seenOkTicketKeys.add(item.ticket_code)
+      }
+      list.push({
+        ...item,
+        result: normalizedResult,
+      })
+    }
+
+    if (page === 1 && sourceFilter !== 'IOT') {
+      for (const ticket of localRecentTickets || []) {
+        const ticketIdKey = ticket?.id
+        const ticketCodeKey = ticket?.ticket_code
+        if (
+          (ticketIdKey && seenOkTicketKeys.has(ticketIdKey)) ||
+          (ticketCodeKey && seenOkTicketKeys.has(ticketCodeKey))
+        ) {
+          continue
+        }
+        if (ticketIdKey) seenOkTicketKeys.add(ticketIdKey)
+        if (ticketCodeKey) seenOkTicketKeys.add(ticketCodeKey)
+        const normalized = normalizeTicket(ticket)
+        list.unshift({
+          id: ticket.id || ticket.ticket_code,
+          ticket_id: ticket.id,
+          ticket_code: normalized.ticketCode,
+          attendee_name: normalized.displayPrimaryName,
+          ticket_type_name: normalized.ticketType,
+          seat_label: normalized.seat || null,
+          event_title: normalized.eventName,
+          source: normalized.checkedInBySource || 'STAFF',
+          actor_name: normalized.checkedInBy,
+          is_self: normalized.checkedInBySource !== 'IOT',
+          gate_name: normalized.checkedInGate || null,
+          result: 'OK',
+          result_message: null,
+          checked_in_at: normalized.checkedInAt || new Date().toISOString(),
+        })
+      }
+    }
+
+    return list.slice(0, pageSize)
+  }, [data.items, localRecentTickets, resultFilter, page, pageSize, sourceFilter])
+
+  const filteredItems = mergedItems
+  const totalCount = data.pagination?.total ?? filteredItems.length
+  const totalPages = Math.max(1, data.pagination?.total_pages || Math.ceil(totalCount / pageSize) || 1)
+  const allCount = data.counts?.all ?? totalCount
+  const staffCount = data.counts?.staff ?? 0
+  const iotCount = data.counts?.iot ?? 0
+  const rangeStart = totalCount === 0 ? 0 : (page - 1) * pageSize + 1
+  const rangeEnd = totalCount === 0 ? 0 : Math.min(totalCount, (page - 1) * pageSize + filteredItems.length)
+  const pageNumbers = useMemo(() => buildPaginationPages(page, totalPages), [page, totalPages])
+
+  return (
+    <StaffPanel>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="font-bold text-content flex flex-wrap items-center gap-2">
+            <span>{isEnglish ? 'Gate Check-in History' : 'Lịch sử soát vé cùng cổng'}</span>
+            <span className="rounded-full bg-primary/15 px-2.5 py-0.5 text-[11px] font-bold text-primary">
+              {totalCount}{' '}
+              {resultFilter === 'ALL'
+                ? (isEnglish ? 'scans' : 'lượt quét')
+                : (isEnglish ? 'tickets' : 'vé')}
+            </span>
+            {activeGates.length > 0 && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-purple-400/35 bg-purple-500/15 px-2.5 py-0.5 text-[11px] font-bold text-purple-300">
+                <DoorOpen className="size-3 shrink-0" />
+                {activeGates.join(', ')}
+              </span>
+            )}
+          </h3>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="inline-flex rounded-lg border border-border-soft/30 bg-panel-soft/60 p-0.5 text-[11px] font-bold">
+            {[
+              { id: 'OK', label: isEnglish ? 'Checked-in (OK)' : 'Đã check-in (OK)' },
+              { id: 'ALL', label: isEnglish ? 'All scans' : 'Tất cả lượt quét' },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => handleChangeResultFilter(tab.id)}
+                className={`rounded-md px-2.5 py-1 transition-colors ${
+                  resultFilter === tab.id
+                    ? 'bg-emerald-400 text-slate-950 font-extrabold'
+                    : 'text-subtle hover:text-white'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="inline-flex rounded-lg border border-border-soft/30 bg-panel-soft/60 p-0.5 text-[11px] font-bold">
+            {[
+              { id: 'ALL', label: `${isEnglish ? 'All' : 'Tất cả'} (${allCount})` },
+              { id: 'STAFF', label: `Staff (${staffCount})` },
+              { id: 'IOT', label: `IoT (${iotCount})` },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => handleChangeSourceFilter(tab.id)}
+                className={`rounded-md px-2.5 py-1 transition-colors ${
+                  sourceFilter === tab.id
+                    ? 'bg-primary text-slate-950 font-extrabold'
+                    : 'text-subtle hover:text-white'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => loadHistory(true)}
+            className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-border-soft/30 bg-panel-soft/60 text-subtle hover:border-primary/50 hover:text-primary transition-colors"
+            title={isEnglish ? 'Refresh history' : 'Làm mới lịch sử'}
+          >
+            <RefreshCw className={`size-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
+      </div>
+
+      {sharedDevices.length > 0 && (
+        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-cyan-500/25 bg-cyan-500/10 px-3 py-2">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-cyan-300">
+            {isEnglish ? 'Synced IoT devices:' : 'Thiết bị IoT chung cổng:'}
+          </span>
+          <div className="flex flex-wrap gap-1.5">
+            {sharedDevices.map((dev) => (
+              <span
+                key={dev.id}
+                className="inline-flex items-center gap-1 rounded-full border border-cyan-400/30 bg-[#0d172e]/75 px-2.5 py-0.5 text-[11px] font-semibold text-white"
+              >
+                <Cpu className="size-3 text-cyan-400" />
+                <span>{dev.name}</span>
+                {dev.is_online ? (
+                  <Wifi className="size-3 text-emerald-400" />
+                ) : (
+                  <WifiOff className="size-3 text-slate-400" />
+                )}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {loading && filteredItems.length === 0 ? (
+        <div className="mt-4 flex items-center gap-2 text-xs text-subtle">
+          <Loader2 className="size-3.5 animate-spin" />
+          <span>{isEnglish ? 'Loading check-in history...' : 'Đang tải lịch sử check-in từ cơ sở dữ liệu...'}</span>
+        </div>
+      ) : filteredItems.length === 0 ? (
+        <p className="mt-4 text-center text-sm text-subtle py-6">
+          {isEnglish
+            ? 'No check-ins recorded at this gate yet.'
+            : 'Chưa có lượt check-in nào phù hợp tại cổng này.'}
+        </p>
+      ) : compact ? (
+        <div className="mt-3 max-h-[380px] space-y-2.5 overflow-y-auto pr-1">
+          {filteredItems.map((item) => {
+            const isIot = item.source === 'IOT'
+            const resultMeta = getGateScanResultMeta(item.result, item.result_message, isEnglish)
+            return (
+              <div
+                key={`${item.source}-${item.id}-${item.result || 'OK'}`}
+                className={`rounded-xl border p-3 transition-colors ${
+                  isIot
+                    ? 'border-cyan-400/25 bg-cyan-500/[0.06]'
+                    : 'border-border-soft/20 bg-panel-soft/30'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold text-content">{item.attendee_name || '—'}</p>
+                    <p className="truncate font-mono text-xs text-[#E6C17A]">
+                      {item.ticket_code}
+                      {item.ticket_type_name ? ` · ${item.ticket_type_name}` : ''}
+                      {item.seat_label ? ` · ${item.seat_label}` : ''}
+                    </p>
+                  </div>
+                  <span className={`inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[10px] font-bold ${resultMeta.badgeClass}`}>
+                    {resultMeta.label}
+                  </span>
+                </div>
+
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-1.5 text-[11px]">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {isIot ? (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-cyan-400/35 bg-cyan-500/15 px-2 py-0.5 font-bold text-cyan-300">
+                        <Cpu className="size-3" />
+                        IoT • {item.actor_name}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/35 bg-emerald-500/15 px-2 py-0.5 font-bold text-emerald-300">
+                        <UserCheck className="size-3" />
+                        {item.is_self ? (isEnglish ? 'You' : 'Bạn') : `Staff • ${item.actor_name}`}
+                      </span>
+                    )}
+                    {item.gate_name && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-purple-500/15 px-2 py-0.5 font-semibold text-purple-300">
+                        <DoorOpen className="size-3" />
+                        {item.gate_name}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-subtle">{formatDateTime(item.checked_in_at)}</span>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      ) : (
+        <div className="mt-4 max-h-[340px] overflow-auto rounded-xl border border-border-soft/25">
+          <table className="w-full min-w-[780px] text-left text-xs">
+            <thead className="sticky top-0 z-10 border-b border-border-soft/25 bg-[#121c38] text-[11px] font-bold uppercase tracking-wider text-slate-300">
+              <tr>
+                <th className="px-3.5 py-2.5">{isEnglish ? 'Time' : 'Thời gian'}</th>
+                <th className="px-3.5 py-2.5">{isEnglish ? 'Attendee' : 'Người tham dự'}</th>
+                <th className="px-3.5 py-2.5">{isEnglish ? 'Ticket Code' : 'Mã vé'}</th>
+                <th className="px-3.5 py-2.5">{isEnglish ? 'Tier / Seat' : 'Hạng vé / Ghế'}</th>
+                <th className="px-3.5 py-2.5">{isEnglish ? 'Gate' : 'Cổng'}</th>
+                <th className="px-3.5 py-2.5">{isEnglish ? 'Source' : 'Nguồn check-in'}</th>
+                <th className="px-3.5 py-2.5">{isEnglish ? 'Status' : 'Trạng thái'}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5 text-sm">
+              {filteredItems.map((item) => {
+                const isIot = item.source === 'IOT'
+                const tierAndSeat = [item.ticket_type_name, item.seat_label ? `Ghế ${item.seat_label}` : null]
+                  .filter(Boolean)
+                  .join(' • ')
+                const resultMeta = getGateScanResultMeta(item.result, item.result_message, isEnglish)
+                return (
+                  <tr
+                    key={`${item.source}-${item.id}-${item.result || 'OK'}`}
+                    className={`transition-colors ${
+                      isIot ? 'bg-cyan-500/[0.04] hover:bg-cyan-500/[0.08]' : 'hover:bg-white/[0.03]'
+                    }`}
+                  >
+                    <td className="px-3.5 py-2.5 whitespace-nowrap text-xs font-mono text-subtle">
+                      {formatDateTime(item.checked_in_at)}
+                    </td>
+                    <td className="px-3.5 py-2.5 font-bold text-content">
+                      {item.attendee_name || '—'}
+                    </td>
+                    <td className="px-3.5 py-2.5 font-mono text-xs font-bold text-[#E6C17A] whitespace-nowrap">
+                      {item.ticket_code || '—'}
+                    </td>
+                    <td className="px-3.5 py-2.5 text-xs text-slate-300">
+                      {tierAndSeat || '—'}
+                    </td>
+                    <td className="px-3.5 py-2.5 whitespace-nowrap">
+                      {item.gate_name ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-purple-500/15 px-2.5 py-0.5 text-[11px] font-bold text-purple-300">
+                          <DoorOpen className="size-3" />
+                          {item.gate_name}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted">—</span>
+                      )}
+                    </td>
+                    <td className="px-3.5 py-2.5 whitespace-nowrap">
+                      {isIot ? (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-cyan-400/35 bg-cyan-500/15 px-2.5 py-0.5 text-[11px] font-bold text-cyan-300">
+                          <Cpu className="size-3" />
+                          IoT • {item.actor_name}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/35 bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-bold text-emerald-300">
+                          <UserCheck className="size-3" />
+                          {item.is_self ? (isEnglish ? 'You' : 'Bạn') : `Staff • ${item.actor_name}`}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-3.5 py-2.5 whitespace-nowrap">
+                      <span
+                        className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-bold ${resultMeta.badgeClass}`}
+                        title={item.result_message || resultMeta.label}
+                      >
+                        {resultMeta.label}
+                      </span>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {totalCount > 0 && (
+        <div className="mt-3.5 flex flex-wrap items-center justify-between gap-3 border-t border-border-soft/20 pt-3 text-xs">
+          <div className="flex flex-wrap items-center gap-2 text-subtle">
+            <span>
+              {isEnglish
+                ? `Showing ${rangeStart}–${rangeEnd} of ${totalCount}`
+                : `Hiển thị ${rangeStart}–${rangeEnd} / ${totalCount}`}
+            </span>
+            <select
+              value={pageSize}
+              onChange={(e) => handleChangePageSize(e.target.value)}
+              className="rounded-lg border border-border-soft/30 bg-panel-soft/70 px-2 py-1 text-xs font-semibold text-content outline-none focus:border-primary/60"
+              aria-label={isEnglish ? 'Rows per page' : 'Số dòng mỗi trang'}
+            >
+              {[10, 20, 50].map((size) => (
+                <option key={size} value={size} className="bg-[#0f172a] text-white">
+                  {size} / {isEnglish ? 'page' : 'trang'}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              className="inline-flex items-center gap-1 rounded-lg border border-border-soft/30 bg-panel-soft/60 px-2.5 py-1 font-semibold text-content transition-colors hover:border-primary/50 hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <ChevronLeft className="size-3.5" />
+              <span>{isEnglish ? 'Prev' : 'Trước'}</span>
+            </button>
+
+            {pageNumbers.map((p) =>
+              typeof p === 'string' ? (
+                <span key={p} className="px-1.5 text-subtle">
+                  …
+                </span>
+              ) : (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setPage(p)}
+                  className={`min-w-7 rounded-lg px-2 py-1 font-bold transition-colors ${
+                    p === page
+                      ? 'bg-primary text-slate-950'
+                      : 'border border-border-soft/25 bg-panel-soft/50 text-subtle hover:border-primary/40 hover:text-white'
+                  }`}
+                >
+                  {p}
+                </button>
+              ),
+            )}
+
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+              className="inline-flex items-center gap-1 rounded-lg border border-border-soft/30 bg-panel-soft/60 px-2.5 py-1 font-semibold text-content transition-colors hover:border-primary/50 hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <span>{isEnglish ? 'Next' : 'Sau'}</span>
+              <ChevronRight className="size-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+    </StaffPanel>
   )
 }
 

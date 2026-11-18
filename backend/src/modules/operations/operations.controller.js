@@ -5,7 +5,14 @@ const {
   updateStaffAssignmentSchema,
   invitationIdParamSchema,
   removeStaffSchema,
+  eventIdParamSchema,
+  eventGateParamSchema,
+  createEventGateSchema,
+  updateEventGateSchema,
+  eventDeviceParamSchema,
+  updateEventDeviceGateSchema,
   eventIdQuerySchema,
+  gateHistoryQuerySchema,
 } = require('./operations.validation');
 
 class OperationsController {
@@ -45,12 +52,71 @@ class OperationsController {
         eventId: params.eventId,
         staffId: params.staffId,
         staffRole: payload.staff_role,
+        gateId: payload.gate_id,
         gate: payload.gate,
         zone: payload.zone,
         sessionId: payload.session_id,
         sessionIds: payload.session_ids,
       });
       res.status(200).json(ApiResponse.success(data, 'Staff assignment updated successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  listEventGates = async (req, res, next) => {
+    try {
+      const { eventId } = eventIdParamSchema.parse(req.params);
+      const data = await operationsService.listEventGates(req.user.sub, eventId);
+      res.status(200).json(ApiResponse.success(data, 'Event gates fetched successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  createEventGate = async (req, res, next) => {
+    try {
+      const { eventId } = eventIdParamSchema.parse(req.params);
+      const payload = createEventGateSchema.parse(req.body);
+      const data = await operationsService.createEventGate(req.user.sub, eventId, payload);
+      res.status(201).json(ApiResponse.success(data, 'Event gate created successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  updateEventGate = async (req, res, next) => {
+    try {
+      const { eventId, gateId } = eventGateParamSchema.parse(req.params);
+      const payload = updateEventGateSchema.parse(req.body);
+      const data = await operationsService.updateEventGate(req.user.sub, eventId, gateId, payload);
+      res.status(200).json(ApiResponse.success(data, 'Event gate updated successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  deleteEventGate = async (req, res, next) => {
+    try {
+      const { eventId, gateId } = eventGateParamSchema.parse(req.params);
+      const data = await operationsService.deleteEventGate(req.user.sub, eventId, gateId);
+      res.status(200).json(ApiResponse.success(data, 'Event gate deleted successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  updateEventDeviceGate = async (req, res, next) => {
+    try {
+      const { eventId, deviceId } = eventDeviceParamSchema.parse(req.params);
+      const payload = updateEventDeviceGateSchema.parse(req.body);
+      const data = await operationsService.updateOrganizerEventDeviceGate(
+        req.user.sub,
+        eventId,
+        deviceId,
+        payload.assigned_gate_id,
+      );
+      res.status(200).json(ApiResponse.success(data, 'Device gate updated successfully'));
     } catch (error) {
       next(error);
     }
@@ -99,6 +165,22 @@ class OperationsController {
       const query = eventIdQuerySchema.parse(req.query);
       const data = await operationsService.getStaffCheckInReport(req.user.sub, query.event_id || null);
       res.status(200).json(ApiResponse.success(data, 'Staff check-in report fetched successfully'));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  staffGateCheckInHistory = async (req, res, next) => {
+    try {
+      const query = gateHistoryQuerySchema.parse(req.query);
+      const data = await operationsService.getStaffGateCheckInHistory(req.user.sub, {
+        eventId: query.event_id || null,
+        page: query.page,
+        limit: query.limit,
+        result: query.result,
+        source: query.source,
+      });
+      res.status(200).json(ApiResponse.success(data, 'Staff gate check-in history fetched successfully'));
     } catch (error) {
       next(error);
     }
