@@ -110,7 +110,14 @@ describe('EventHub AI Chatbot Comprehensive Test Suite', () => {
       expect(aiAssistantService.isOutOfScopeQuery('Kể cho tôi một câu chuyện ma rùng rợn')).toBe(true);
     });
 
-    test('TC-OOS-07: Should NOT flag legitimate EventHub events or categories as Out-of-Scope', () => {
+    test('TC-OOS-07: Should detect Physical Goods, Clothing & E-commerce requests as Out-of-Scope', () => {
+      expect(aiAssistantService.isOutOfScopeQuery('hãy đặt giúp tôi 1 chiếc áo sơ mi trắng')).toBe(true);
+      expect(aiAssistantService.isOutOfScopeQuery('mua giúp tôi cái áo khoác')).toBe(true);
+      expect(aiAssistantService.isOutOfScopeQuery('đặt mua điện thoại iphone 15')).toBe(true);
+      expect(aiAssistantService.isOutOfScopeQuery('giao cho tôi ly trà sữa trân châu')).toBe(true);
+    });
+
+    test('TC-OOS-08: Should NOT flag legitimate EventHub events or categories as Out-of-Scope', () => {
       expect(aiAssistantService.isOutOfScopeQuery('Có workshop làm bánh nào không?')).toBe(false);
       expect(aiAssistantService.isOutOfScopeQuery('Sự kiện âm nhạc nào đang hot?')).toBe(false);
       expect(aiAssistantService.isOutOfScopeQuery('Triển lãm tranh vẽ ở đâu?')).toBe(false);
@@ -195,6 +202,21 @@ describe('EventHub AI Chatbot Comprehensive Test Suite', () => {
       expect(scrubbed).not.toContain('disallow_single_seat_left');
       expect(scrubbed).toContain('Ghế liền kề');
       expect(scrubbed).toContain('cùng một hàng');
+
+      // Leaked tool calling phrases
+      const toolMsg = 'Eve đã gọi tool mở sơ đồ ghế cho bạn để chọn vị trí nè.';
+      const cleanedTool = aiAssistantService.scrubTechnicalJargon(toolMsg);
+      expect(cleanedTool).not.toContain('gọi tool');
+      expect(cleanedTool).not.toContain('tool');
+      expect(cleanedTool).toContain('Eve đã mở sơ đồ ghế');
+    });
+
+    test('TC-SYS-11: stripMixedEnglishInVietnamese should strip hallucinated English filler phrases from Vietnamese messages', () => {
+      const rawMixed = 'Dạ Eve đã giúp bạn dừng quy trình đặt vé cho sự kiện "GARDEN ART". Now, let\'s see what other events are available for you!\n\nBạn có muốn xem chi tiết sự kiện khác không?';
+      const cleaned = aiAssistantService.stripMixedEnglishInVietnamese(rawMixed);
+      expect(cleaned).not.toContain("Now, let's see what other events are available for you!");
+      expect(cleaned).toContain('Dạ Eve đã giúp bạn dừng quy trình đặt vé cho sự kiện "GARDEN ART".');
+      expect(cleaned).toContain('Bạn có muốn xem chi tiết sự kiện khác không?');
     });
   });
 
@@ -362,6 +384,23 @@ describe('EventHub AI Chatbot Comprehensive Test Suite', () => {
       expect(aiAssistantService.isSystemFaqQuery('EventHub có cho thuê loa đài và âm thanh ánh sáng không?')).toBe(true);
       expect(aiAssistantService.isSystemFaqQuery('Tôi muốn tài trợ cho concert này thì liên hệ thế nào?')).toBe(true);
       expect(aiAssistantService.isSystemFaqQuery('Hợp tác tổ chức sự kiện trọn gói')).toBe(true);
+    });
+
+    test('TC-FLEX-05: Should handle Vietnamese Telex keyboard typing errors for foreign words (pỏche, wokshop, concẻt)', () => {
+      const mockEvents = [
+        { id: '1', title: 'Không gian Trải nghiệm Porsche tại Đà Nẵng', slug: 'khong-gian-trai-nghiem-porsche-tai-a-nang-mrucqut0', isOnSale: true },
+        { id: '2', title: 'Xoay Tròn Concert - Hoàng Dũng', slug: 'xoay-tron-concert-hoang-dung-mrwida3r', isOnSale: true }
+      ];
+
+      // "pỏche" (p-o-r-c-h-e with Telex)
+      const porscheMatch = aiAssistantService.findMatchingPublishedEvent('đặt giúp tôi 2 vé sự kiện pỏche', mockEvents, { allowSemanticTopic: true });
+      expect(porscheMatch).not.toBeNull();
+      expect(porscheMatch.slug).toBe('khong-gian-trai-nghiem-porsche-tai-a-nang-mrucqut0');
+
+      // "concẻt" (c-o-n-c-e-r-t with Telex)
+      const concertMatch = aiAssistantService.findMatchingPublishedEvent('đặt vé concẻt hoàng dũng', mockEvents, { allowSemanticTopic: true });
+      expect(concertMatch).not.toBeNull();
+      expect(concertMatch.slug).toBe('xoay-tron-concert-hoang-dung-mrwida3r');
     });
   });
 
@@ -595,6 +634,23 @@ describe('EventHub AI Chatbot Comprehensive Test Suite', () => {
       spyFindEvents.mockRestore();
       spyEventDetail.mockRestore();
       spyExecTool.mockRestore();
+    });
+
+    test('TC-FAST-08: Specific seat adjustment requests (e.g. "đổi sang B7, B8") must NOT trigger event cancellation', () => {
+      const seatAdjustPhrases = [
+        'đổi sang B7, B8',
+        'chuyển sang C1, C2',
+        'lấy ghế A5',
+        'đổi sang B',
+        'đổi sang hàng C',
+        'chuyển qua H10, H11'
+      ];
+
+      for (const phrase of seatAdjustPhrases) {
+        const detected = aiAssistantService.detectEventChangeIntent(phrase);
+        expect(detected.isChange).toBe(false);
+        expect(detected.targetQuery).toBeFalsy();
+      }
     });
   });
 });
