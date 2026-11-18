@@ -1500,29 +1500,62 @@ export function BookingReviewPage() {
 
   const availablePromos = promosQuery.data || []
 
-  const handleApplyPromo = (rawCode) => {
+  useEffect(() => {
+    if (promosQuery.isSuccess && promoCode) {
+      const found = availablePromos.find((p) => String(p.code).trim().toUpperCase() === String(promoCode).trim().toUpperCase())
+      if (found) {
+        if (!selectedPromo) setSelectedPromo(found)
+      } else {
+        setPromoCode('')
+        setSelectedPromo(null)
+        setPromoInput('')
+      }
+    }
+  }, [promosQuery.isSuccess, availablePromos, promoCode, selectedPromo])
+
+  const handleApplyPromo = async (rawCode) => {
     const code = (rawCode ?? promoInput).trim().toUpperCase()
     if (!code) {
-      toast.error('Vui lòng nhập mã khuyến mãi.')
+      toast.error(isEnglish ? 'Please enter a promo code.' : 'Vui lòng nhập mã khuyến mãi.')
       return
     }
-    const found = availablePromos.find((p) => String(p.code).toUpperCase() === code)
+
+    let promos = availablePromos
+    if (promosQuery.isLoading) {
+      try {
+        const res = await promosQuery.refetch()
+        promos = res.data || []
+      } catch (err) {
+        // fallback
+      }
+    }
+
+    const found = promos.find((p) => String(p.code).trim().toUpperCase() === code)
     const subtotal = cartTotal(cart)
 
     if (found) {
       if (!isPromoUsable(found, subtotal)) {
-        toast.error(`Đơn hàng cần tối thiểu ${formatPrice(found.min_order_value || 0)} để áp dụng mã này.`)
+        toast.error(
+          isEnglish
+            ? `Order requires a minimum of ${formatPrice(found.min_order_value || 0, isEnglish)} to apply this code.`
+            : `Đơn hàng cần tối thiểu ${formatPrice(found.min_order_value || 0)} để áp dụng mã này.`
+        )
         return
       }
       setPromoCode(found.code)
       setSelectedPromo(found)
       setPromoInput(found.code)
-      toast.success(`Đã áp dụng mã giảm giá ${found.code}!`)
+      toast.success(
+        isEnglish
+          ? `Promo code ${found.code} applied successfully!`
+          : `Áp dụng mã khuyến mãi ${found.code} thành công!`
+      )
     } else {
-      setPromoCode(code)
-      setSelectedPromo(null)
-      setPromoInput(code)
-      toast.info(`Đã lưu mã khuyến mãi: ${code}. Hệ thống sẽ đối soát khi thanh toán.`)
+      toast.error(
+        isEnglish
+          ? 'Promo code is invalid or unavailable.'
+          : 'Mã khuyến mãi không khả dụng hoặc không chính xác.'
+      )
     }
   }
 
@@ -2610,7 +2643,11 @@ function OrderCard({
         </div>
       ) : null}
 
-      <Line label={isEnglish ? `Total ${(cart?.items || []).reduce((sum, item) => sum + item.quantity, 0)} tickets` : `Tổng cộng ${(cart?.items || []).reduce((sum, item) => sum + item.quantity, 0)} vé`} value={formatPrice(cartTotal(cart), isEnglish)} large />
+      <Line
+        label={isEnglish ? `Total ${(cart?.items || []).reduce((sum, item) => sum + item.quantity, 0)} tickets` : `Tổng cộng ${(cart?.items || []).reduce((sum, item) => sum + item.quantity, 0)} vé`}
+        value={formatPrice(cartTotal(cart), isEnglish)}
+        large={promoDiscount(cart) <= 0}
+      />
       {promoDiscount(cart) > 0 && (
         <Line label={isEnglish ? 'Discount' : 'Giảm giá'} value={`-${formatPrice(promoDiscount(cart), isEnglish)}`} tone="discount" />
       )}
@@ -2807,6 +2844,8 @@ function isPromoUsable(promo, subtotal) {
 }
 
 function OrganizerVoucherModal({ promoCode, setPromoCode, selectedPromo, setSelectedPromo, setPromoInput, cart, onClose }) {
+  const { isEnglish } = useLanguage()
+  const toast = useToast()
   const subtotal = cartTotal(cart)
   const promosQuery = useQuery({
     queryKey: ['available-event-promos', cart?.eventId],
@@ -2843,6 +2882,11 @@ function OrganizerVoucherModal({ promoCode, setPromoCode, selectedPromo, setSele
       setPromoCode(tempSelected.code)
       setSelectedPromo(tempSelected)
       setPromoInput?.(tempSelected.code)
+      toast.success(
+        isEnglish
+          ? `Promo code ${tempSelected.code} applied successfully!`
+          : `Áp dụng mã khuyến mãi ${tempSelected.code} thành công!`
+      )
     } else {
       setPromoCode('')
       setSelectedPromo(null)

@@ -272,14 +272,8 @@ export function EventDetailPage() {
   useEffect(() => {
     if (isHoldingForThisEvent && activeDraft?.selectedSession?.id && !selectedSessionId) {
       setSelectedSessionId(activeDraft.selectedSession.id)
-    } else if (event?.sessions?.length === 1 && !selectedSessionId) {
-      const singleSession = event.sessions[0]
-      const expired = isPastTime(singleSession?.end_time || getEventEndTime(event), currentTime)
-      if (!expired && !isPaused && !isCancelled && !isSuspended && !isEnded) {
-        setSelectedSessionId(singleSession.id)
-      }
     }
-  }, [isHoldingForThisEvent, activeDraft?.selectedSession?.id, selectedSessionId, event, currentTime, isPaused, isCancelled, isSuspended, isEnded])
+  }, [isHoldingForThisEvent, activeDraft?.selectedSession?.id, selectedSessionId])
 
   const handleBook = () => {
     if (requireLogin()) return
@@ -554,9 +548,9 @@ export function EventDetailPage() {
                 style={
                   !overviewOpen && isOverviewOverflowing
                     ? {
-                        WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 45%, transparent 100%)',
-                        maskImage: 'linear-gradient(to bottom, black 0%, black 45%, transparent 100%)',
-                      }
+                      WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 45%, transparent 100%)',
+                      maskImage: 'linear-gradient(to bottom, black 0%, black 45%, transparent 100%)',
+                    }
                     : undefined
                 }
               >
