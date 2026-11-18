@@ -372,7 +372,7 @@ function buildConfiguredLayout(seats, seatMap) {
     stage: stage ? normalizeElement(stage) : null,
     standingAreas: standingAreas.map(normalizeElement),
     auxiliaryElements: auxiliaryElements.map(normalizeElement),
-    canvasBg: config.canvasBg || '#0F172A',
+    canvasBg: (!config.canvasBg || isLightColor(config.canvasBg)) ? '#0F172A' : config.canvasBg,
   }
 }
 
@@ -1636,7 +1636,8 @@ export function SeatMapCanvas({
   const contentWidth = xyLayout?.width || fallbackWidth
   const contentHeight = xyLayout?.height || fallbackHeight
 
-  const canvasBg = configuredLayout?.canvasBg || (typeof seatMap?.config === 'object' ? seatMap?.config?.canvasBg : '#0F172A')
+  const rawCanvasBg = configuredLayout?.canvasBg || (typeof seatMap?.config === 'object' ? seatMap?.config?.canvasBg : '#0F172A')
+  const canvasBg = (!rawCanvasBg || isLightColor(rawCanvasBg)) ? '#0F172A' : rawCanvasBg
   const isLightCanvas = isLightColor(canvasBg)
 
   function applyZoomToCanvas(nextZoom) {

@@ -202,6 +202,33 @@ function normalizeSeatingRules(raw) {
   }
 }
 
+function isLightColor(color) {
+  if (!color || typeof color !== 'string') return false
+  const clean = color.replace('#', '').trim().toLowerCase()
+  if (['fff', 'ffffff', 'white', 'f8fafc', 'f1f5f9', 'e2e8f0', 'cbd5e1'].includes(clean)) return true
+  if (clean.length < 3) return false
+  let r, g, b
+  if (clean.length === 3) {
+    r = parseInt(clean[0] + clean[0], 16)
+    g = parseInt(clean[1] + clean[1], 16)
+    b = parseInt(clean[2] + clean[2], 16)
+  } else {
+    r = parseInt(clean.substring(0, 2), 16)
+    g = parseInt(clean.substring(2, 4), 16)
+    b = parseInt(clean.substring(4, 6), 16)
+  }
+  if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) return false
+  const yiq = (r * 299 + g * 587 + b * 114) / 1000
+  return yiq >= 140
+}
+
+function resolveDarkCanvasBg(canvasBg) {
+  if (!canvasBg || isLightColor(canvasBg)) {
+    return '#0F172A'
+  }
+  return canvasBg
+}
+
 function buildSeatLayout(seats, seatMap) {
   const positioned = (seats || []).filter((seat) => Number.isFinite(Number(seat.x_position)) && Number.isFinite(Number(seat.y_position)))
   if (!positioned.length) return null
@@ -269,7 +296,7 @@ function buildSeatLayout(seats, seatMap) {
       h: Number(area.h),
       rotation: Number(area.rotation || 0),
     })),
-    canvasBg: config.canvasBg || '#0F172A',
+    canvasBg: resolveDarkCanvasBg(config.canvasBg || config.canvas_theme || seatMap?.canvas_bg),
   }
 }
 
@@ -3258,6 +3285,8 @@ function stageShapeStyle(shape) {
 function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat, onSelectStandingArea, seatZoom, colsCount, seatMap, invalidSeatId, pausedTicketTypeIds }) {
   const { isEnglish } = useLanguage()
   const metrics = seatMapMetrics(seats, seatMap)
+  const rawCanvasBg = metrics?.canvasBg || seatMap?.config?.canvasBg
+  const canvasBg = resolveDarkCanvasBg(rawCanvasBg)
   const renderSeat = (seat, style = {}) => {
     const selected = selectedSeatIds.includes(seat.session_seat_id)
     const mappedTicketTypeIds = seat.ticket_type_ids || []
@@ -3370,7 +3399,7 @@ function SeatMapCanvas({ seats, ticketTypes, selectedSeatIds, onToggleSeat, onSe
       style={{
         width: metrics.width * seatZoom,
         height: metrics.height * seatZoom,
-        backgroundColor: metrics.canvasBg,
+        backgroundColor: canvasBg,
         backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.08) 1px, transparent 1px)',
         backgroundSize: `${20 * seatZoom}px ${20 * seatZoom}px`,
       }}
