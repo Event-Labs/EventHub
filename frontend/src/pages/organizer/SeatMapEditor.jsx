@@ -4,6 +4,10 @@ import {
   AlertCircle,
   AlignCenterHorizontal,
   AlignCenterVertical,
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+  ArrowUp,
   Ban,
   Check,
   CheckSquare,
@@ -15,12 +19,15 @@ import {
   Grid,
   GripVertical,
   Hand,
+  Hash,
+  ListOrdered,
   Loader2,
   Lock,
   Minus,
   MousePointer2,
   Paintbrush,
   Palette,
+  Pencil,
   Plus,
   RotateCcw,
   RotateCw,
@@ -105,11 +112,11 @@ function RenameModal({ isOpen, title, initialValue, onSave, onClose }) {
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in">
-      <div className="w-full max-w-md rounded-2xl border border-border-soft/40 bg-surface p-6 shadow-2xl space-y-4 text-content">
-        <h3 className="text-base font-extrabold text-content">{title || (isEnglish ? 'Rename' : 'Đổi tên')}</h3>
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="w-full max-w-md rounded-2xl border-2 border-[#C99A47]/40 bg-[#0b1329] p-6 shadow-2xl shadow-black/95 ring-1 ring-white/10 space-y-4 text-white">
+        <h3 className="text-base font-black text-white">{title || (isEnglish ? 'Rename' : 'Đổi tên')}</h3>
         <div>
-          <label className="text-xs text-subtle font-semibold mb-1 block">{isEnglish ? 'New display name:' : 'Tên hiển thị mới:'}</label>
+          <label className="text-xs text-white font-bold mb-1.5 block">{isEnglish ? 'New display name:' : 'Tên hiển thị mới:'}</label>
           <input
             type="text"
             value={val}
@@ -121,15 +128,15 @@ function RenameModal({ isOpen, title, initialValue, onSave, onClose }) {
               if (e.key === 'Escape') onClose()
             }}
             placeholder={isEnglish ? 'Enter new name...' : 'Nhập tên mới...'}
-            className="w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3.5 py-2.5 text-sm font-bold text-content outline-none focus:border-tertiary shadow-inner"
+            className="w-full rounded-xl border border-white/20 bg-[#162238] px-3.5 py-2.5 text-sm font-bold text-white outline-none focus:border-[#E6C17A] focus:ring-1 focus:ring-[#E6C17A]/40 shadow-inner"
             autoFocus
           />
         </div>
-        <div className="flex items-center justify-end gap-2 pt-2">
+        <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/10">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl px-4 py-2 text-xs font-semibold text-subtle hover:bg-panel-soft hover:text-content transition"
+            className="rounded-xl border border-white/20 px-4 py-2 text-xs font-bold text-slate-300 hover:bg-white/10 hover:text-white transition cursor-pointer"
           >
             {isEnglish ? 'Cancel' : 'Hủy'}
           </button>
@@ -138,9 +145,488 @@ function RenameModal({ isOpen, title, initialValue, onSave, onClose }) {
             onClick={() => {
               if (val.trim()) onSave(val.trim())
             }}
-            className="org-btn-primary px-5 py-2 text-xs"
+            className="px-5 py-2 rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] text-xs font-black shadow-lg shadow-[#C99A47]/30 hover:opacity-95 transition cursor-pointer"
           >
             {isEnglish ? 'Save changes' : 'Lưu thay đổi'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function SingleSeatModal({ isOpen, seat, allSeats, isAppendOnly = false, existingSeatIds = new Set(), onSave, onClose }) {
+  const { isEnglish } = useLanguage()
+  const [rowLabel, setRowLabel] = useState('')
+  const [seatNumber, setSeatNumber] = useState('')
+
+  useEffect(() => {
+    if (seat) {
+      setRowLabel(seat.rowLabel || '')
+      setSeatNumber(seat.seatNumber || '')
+    }
+  }, [seat, isOpen])
+
+  if (!isOpen || !seat) return null
+
+  const isLocked = isAppendOnly && existingSeatIds.has(String(seat.localId))
+
+  const cleanRow = rowLabel.trim().toUpperCase()
+  const cleanNum = seatNumber.trim()
+  const isDuplicate = allSeats?.some(
+    (s) => s.localId !== seat.localId && (s.rowLabel || '').trim().toUpperCase() === cleanRow && String(s.seatNumber || '').trim() === cleanNum
+  )
+
+  const handleSubmit = (e) => {
+    e?.preventDefault()
+    if (isLocked) return
+    if (!cleanRow || !cleanNum) return
+    onSave({
+      localId: seat.localId,
+      rowLabel: cleanRow,
+      seatNumber: cleanNum,
+    })
+  }
+
+  return (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="w-full max-w-sm rounded-2xl border-2 border-[#C99A47]/50 bg-[#0b1329] p-6 shadow-2xl shadow-black/95 ring-1 ring-white/10 space-y-4 text-white">
+        <div className="flex items-center justify-between border-b border-white/10 pb-3.5">
+          <div className="flex items-center gap-2.5">
+            <div className="size-9 rounded-xl bg-[#C99A47]/20 border border-[#C99A47]/40 flex items-center justify-center text-[#E6C17A]">
+              <Pencil className="size-4" />
+            </div>
+            <div>
+              <h3 className="text-base font-black text-white">
+                {isEnglish ? 'Edit Seat Name' : 'Chỉnh sửa tên ghế'}
+              </h3>
+              <p className="text-xs text-white/80">
+                {isEnglish ? `Seat code: ${seat.rowLabel}${seat.seatNumber}` : `Mã ghế: ${seat.rowLabel}${seat.seatNumber}`}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="size-8 flex items-center justify-center rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition cursor-pointer"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+
+        {/* Live Preview */}
+        <div className="flex items-center justify-center py-2.5">
+          <div className="flex flex-col items-center gap-1.5">
+            <span className="text-[11px] font-black uppercase tracking-wider text-white">
+              {isEnglish ? 'Preview on Canvas' : 'Hiển thị trên sơ đồ'}
+            </span>
+            <div className="h-12 min-w-20 px-4 rounded-xl bg-[#162238] border-2 border-[#E6C17A] flex items-center justify-center text-lg font-black text-white shadow-xl shadow-[#C99A47]/20">
+              {cleanRow || '?'}{cleanNum || '?'}
+            </div>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-white font-bold mb-1.5 block">
+                {isEnglish ? 'Row / Prefix:' : 'Hàng / Tiền tố:'}
+              </label>
+              <input
+                type="text"
+                value={rowLabel}
+                onChange={(e) => setRowLabel(e.target.value.toUpperCase())}
+                disabled={isLocked}
+                placeholder="A, B, VIP..."
+                className="w-full rounded-xl border border-white/20 bg-[#162238] px-3.5 py-2.5 text-sm font-black text-white uppercase outline-none focus:border-[#E6C17A] focus:ring-1 focus:ring-[#E6C17A]/40 shadow-inner disabled:opacity-50"
+                autoFocus
+              />
+            </div>
+            <div>
+              <label className="text-xs text-white font-bold mb-1.5 block">
+                {isEnglish ? 'Seat Number:' : 'Số ghế:'}
+              </label>
+              <input
+                type="text"
+                value={seatNumber}
+                onChange={(e) => setSeatNumber(e.target.value)}
+                disabled={isLocked}
+                placeholder="1, 2, 10..."
+                className="w-full rounded-xl border border-white/20 bg-[#162238] px-3.5 py-2.5 text-sm font-black text-white outline-none focus:border-[#E6C17A] focus:ring-1 focus:ring-[#E6C17A]/40 shadow-inner disabled:opacity-50"
+              />
+            </div>
+          </div>
+
+          {isDuplicate && (
+            <div className="flex items-center gap-2 p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-300 text-xs font-medium">
+              <AlertCircle className="size-4 shrink-0" />
+              <span>{isEnglish ? 'Warning: Another seat already has this name!' : 'Cảnh báo: Đã có ghế khác mang tên này!'}</span>
+            </div>
+          )}
+
+          {isLocked && (
+            <div className="flex items-center gap-2 p-2.5 rounded-xl bg-red-500/15 border border-red-500/40 text-red-300 text-xs font-medium">
+              <Lock className="size-3.5 shrink-0" />
+              <span>{isEnglish ? 'Locked in append-only mode.' : 'Ghế cũ đã phát hành vé - Không thể sửa tên.'}</span>
+            </div>
+          )}
+
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/10">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-xl border border-white/20 px-4 py-2 text-xs font-bold text-slate-300 hover:bg-white/10 hover:text-white transition cursor-pointer"
+            >
+              {isEnglish ? 'Cancel' : 'Hủy'}
+            </button>
+            <button
+              type="submit"
+              disabled={isLocked || !cleanRow || !cleanNum}
+              className="px-5 py-2 rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] text-xs font-black shadow-lg shadow-[#C99A47]/30 hover:opacity-95 transition disabled:opacity-50 cursor-pointer"
+            >
+              {isEnglish ? 'Save' : 'Lưu tên ghế'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+function BatchSeatRenameModal({
+  isOpen,
+  selectedSeats = [],
+  allSeats = [],
+  isAppendOnly = false,
+  existingSeatIds = new Set(),
+  onSave,
+  onClose,
+}) {
+  const { isEnglish } = useLanguage()
+  const [mode, setMode] = useState('SEQUENCE') // 'SEQUENCE' | 'AUTO_ROWS' | 'ROW_ONLY' | 'NUMBER_ONLY'
+  const [prefix, setPrefix] = useState('A')
+  const [startNumber, setStartNumber] = useState(1)
+  const [step, setStep] = useState(1)
+  const [direction, setDirection] = useState('LTR') // 'LTR' | 'RTL' | 'TTB' | 'BTT'
+
+  useEffect(() => {
+    if (selectedSeats.length > 0 && isOpen) {
+      const first = selectedSeats[0]
+      if (first.rowLabel) setPrefix(first.rowLabel)
+      if (first.seatNumber && !isNaN(Number(first.seatNumber))) {
+        setStartNumber(Number(first.seatNumber) || 1)
+      } else {
+        setStartNumber(1)
+      }
+    }
+  }, [selectedSeats, isOpen])
+
+  if (!isOpen || selectedSeats.length === 0) return null
+
+  // Sort seats based on direction
+  const sortedSeats = [...selectedSeats].sort((a, b) => {
+    if (direction === 'LTR') return a.x - b.x || a.y - b.y
+    if (direction === 'RTL') return b.x - a.x || a.y - b.y
+    if (direction === 'TTB') return a.y - b.y || a.x - b.x
+    if (direction === 'BTT') return b.y - a.y || a.x - b.x
+    return 0
+  })
+
+  let finalPreview = []
+  if (mode === 'AUTO_ROWS') {
+    const tolerance = 28 * 0.7
+    const sortedByY = [...sortedSeats].sort((a, b) => a.y - b.y || a.x - b.x)
+    const groups = []
+    for (const s of sortedByY) {
+      let placed = false
+      for (const g of groups) {
+        if (Math.abs(g[0].y - s.y) <= tolerance) {
+          g.push(s)
+          placed = true
+          break
+        }
+      }
+      if (!placed) groups.push([s])
+    }
+    groups.sort((g1, g2) => g1[0].y - g2[0].y)
+
+    const trimmedPrefix = prefix.trim().toUpperCase()
+    const isSingleLetter = trimmedPrefix.length === 1 && trimmedPrefix >= 'A' && trimmedPrefix <= 'Z'
+    const baseCode = isSingleLetter ? trimmedPrefix.charCodeAt(0) - 65 : 0
+
+    const autoMapped = []
+    groups.forEach((group, rIdx) => {
+      if (direction === 'RTL') group.sort((a, b) => b.x - a.x)
+      else group.sort((a, b) => a.x - b.x)
+
+      const rowLabel = isSingleLetter ? rowLabelForIndex(baseCode + rIdx) : `${trimmedPrefix}-${rIdx + 1}`
+      group.forEach((s, cIdx) => {
+        const isLocked = isAppendOnly && existingSeatIds.has(String(s.localId))
+        if (isLocked) {
+          autoMapped.push({ ...s, isLocked: true })
+        } else {
+          const num = Number(startNumber) + cIdx * Number(step)
+          autoMapped.push({ ...s, rowLabel, seatNumber: String(num) })
+        }
+      })
+    })
+    finalPreview = autoMapped
+  } else {
+    finalPreview = sortedSeats.map((seat, idx) => {
+      const isLocked = isAppendOnly && existingSeatIds.has(String(seat.localId))
+      if (isLocked) return { ...seat, isLocked: true }
+      if (mode === 'SEQUENCE') {
+        const num = Number(startNumber) + idx * Number(step)
+        return { ...seat, rowLabel: prefix.trim().toUpperCase(), seatNumber: String(num) }
+      }
+      if (mode === 'ROW_ONLY') {
+        return { ...seat, rowLabel: prefix.trim().toUpperCase() }
+      }
+      if (mode === 'NUMBER_ONLY') {
+        const num = Number(startNumber) + idx * Number(step)
+        return { ...seat, seatNumber: String(num) }
+      }
+      return seat
+    })
+  }
+
+  const handleApply = () => {
+    onSave(finalPreview)
+  }
+
+  return (
+    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="w-full max-w-lg rounded-2xl border-2 border-[#C99A47]/50 bg-[#0b1329] p-6 shadow-2xl shadow-black/95 ring-1 ring-white/10 space-y-4 text-white max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between border-b border-white/10 pb-3.5">
+          <div className="flex items-center gap-2.5">
+            <div className="size-9 rounded-xl bg-gradient-to-br from-[#C99A47]/30 to-[#E6C17A]/20 border border-[#C99A47]/40 flex items-center justify-center text-[#E6C17A]">
+              <ListOrdered className="size-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-black text-white">
+                {isEnglish ? 'Batch Rename & Renumber' : 'Đổi tên & Đánh số hàng loạt'}
+              </h3>
+              <p className="text-xs text-white/80">
+                {isEnglish ? `Applying to ${selectedSeats.length} selected seats` : `Áp dụng cho ${selectedSeats.length} ghế đang chọn`}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="size-8 flex items-center justify-center rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition cursor-pointer"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
+
+        {/* Mode Selector Tabs */}
+        <div className="space-y-1.5">
+          <label className="text-xs text-white font-bold block">
+            {isEnglish ? 'Renumbering Method:' : 'Phương thức đánh số:'}
+          </label>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 p-1 rounded-xl bg-[#162238] border border-white/15">
+            <button
+              type="button"
+              onClick={() => setMode('SEQUENCE')}
+              className={`py-2 px-2 rounded-lg text-xs font-bold transition text-center cursor-pointer ${
+                mode === 'SEQUENCE'
+                  ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md font-black'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              {isEnglish ? '1 Row (1..N)' : 'Một hàng (1..N)'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('AUTO_ROWS')}
+              className={`py-2 px-2 rounded-lg text-xs font-bold transition text-center cursor-pointer ${
+                mode === 'AUTO_ROWS'
+                  ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md font-black'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              {isEnglish ? 'Multi-row (A,B..)' : 'Từng hàng (A, B, C..)'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('ROW_ONLY')}
+              className={`py-2 px-2 rounded-lg text-xs font-bold transition text-center cursor-pointer ${
+                mode === 'ROW_ONLY'
+                  ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md font-black'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              {isEnglish ? 'Row only' : 'Chỉ đổi Hàng'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('NUMBER_ONLY')}
+              className={`py-2 px-2 rounded-lg text-xs font-bold transition text-center cursor-pointer ${
+                mode === 'NUMBER_ONLY'
+                  ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md font-black'
+                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              {isEnglish ? 'Number only' : 'Chỉ đổi Số'}
+            </button>
+          </div>
+        </div>
+
+        {/* Inputs */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {mode !== 'NUMBER_ONLY' && (
+            <div>
+              <label className="text-xs text-white font-bold mb-1.5 block">
+                {mode === 'AUTO_ROWS'
+                  ? (isEnglish ? 'Starting Row:' : 'Hàng bắt đầu:')
+                  : (isEnglish ? 'Row / Prefix:' : 'Tên Hàng / Tiền tố:')}
+              </label>
+              <input
+                type="text"
+                value={prefix}
+                onChange={(e) => setPrefix(e.target.value.toUpperCase())}
+                placeholder="A, VIP..."
+                className="w-full rounded-xl border border-white/20 bg-[#162238] px-3.5 py-2.5 text-sm font-black text-white uppercase outline-none focus:border-[#E6C17A] focus:ring-1 focus:ring-[#E6C17A]/40 shadow-inner"
+              />
+            </div>
+          )}
+
+          {mode !== 'ROW_ONLY' && (
+            <>
+              <div>
+                <label className="text-xs text-white font-bold mb-1.5 block">
+                  {isEnglish ? 'Start Number:' : 'Số bắt đầu:'}
+                </label>
+                <input
+                  type="number"
+                  value={startNumber}
+                  onChange={(e) => setStartNumber(Number(e.target.value))}
+                  className="w-full rounded-xl border border-white/20 bg-[#162238] px-3.5 py-2.5 text-sm font-black text-white outline-none focus:border-[#E6C17A] focus:ring-1 focus:ring-[#E6C17A]/40 shadow-inner"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs text-white font-bold mb-1.5 block">
+                  {isEnglish ? 'Step (Increment):' : 'Bước nhảy (+):'}
+                </label>
+                <select
+                  value={step}
+                  onChange={(e) => setStep(Number(e.target.value))}
+                  className="w-full rounded-xl border border-white/20 bg-[#162238] px-3.5 py-2.5 text-sm font-black text-white outline-none focus:border-[#E6C17A] focus:ring-1 focus:ring-[#E6C17A]/40"
+                >
+                  <option value={1}>1 (1, 2, 3, 4...)</option>
+                  <option value={2}>2 (Chẵn/Lẻ: 1, 3, 5... hoặc 2, 4, 6...)</option>
+                </select>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Direction Selector */}
+        {mode !== 'ROW_ONLY' && (
+          <div className="space-y-1.5">
+            <label className="text-xs text-white font-bold block">
+              {isEnglish ? 'Ordering Direction:' : 'Thứ tự đánh số:'}
+            </label>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <button
+                type="button"
+                onClick={() => setDirection('LTR')}
+                className={`flex items-center justify-center gap-1.5 p-2 rounded-xl border text-xs font-bold transition cursor-pointer ${
+                  direction === 'LTR'
+                    ? 'border-[#E6C17A] bg-[#C99A47]/20 text-[#E6C17A]'
+                    : 'border-white/15 bg-[#162238] text-slate-400 hover:text-white'
+                }`}
+              >
+                <ArrowRight className="size-3.5" />
+                <span>Trái ➜ Phải</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setDirection('RTL')}
+                className={`flex items-center justify-center gap-1.5 p-2 rounded-xl border text-xs font-bold transition cursor-pointer ${
+                  direction === 'RTL'
+                    ? 'border-[#E6C17A] bg-[#C99A47]/20 text-[#E6C17A]'
+                    : 'border-white/15 bg-[#162238] text-slate-400 hover:text-white'
+                }`}
+              >
+                <ArrowLeft className="size-3.5" />
+                <span>Phải ➜ Trái</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setDirection('TTB')}
+                className={`flex items-center justify-center gap-1.5 p-2 rounded-xl border text-xs font-bold transition cursor-pointer ${
+                  direction === 'TTB'
+                    ? 'border-[#E6C17A] bg-[#C99A47]/20 text-[#E6C17A]'
+                    : 'border-white/15 bg-[#162238] text-slate-400 hover:text-white'
+                }`}
+              >
+                <ArrowDown className="size-3.5" />
+                <span>Trên ➜ Dưới</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setDirection('BTT')}
+                className={`flex items-center justify-center gap-1.5 p-2 rounded-xl border text-xs font-bold transition cursor-pointer ${
+                  direction === 'BTT'
+                    ? 'border-[#E6C17A] bg-[#C99A47]/20 text-[#E6C17A]'
+                    : 'border-white/15 bg-[#162238] text-slate-400 hover:text-white'
+                }`}
+              >
+                <ArrowUp className="size-3.5" />
+                <span>Dưới ➜ Trên</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Live Preview Box */}
+        <div className="rounded-xl border border-white/15 bg-[#162238]/60 p-3.5 space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-bold text-white">{isEnglish ? 'Preview result:' : 'Xem trước kết quả:'}</span>
+            <span className="font-extrabold text-[#E6C17A]">
+              {finalPreview.length} {isEnglish ? 'seats' : 'ghế'}
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto p-2 bg-[#0b1329] rounded-lg border border-white/15 text-xs font-mono font-bold">
+            {finalPreview.slice(0, 30).map((s, idx) => (
+              <span
+                key={idx}
+                className="px-2 py-0.5 rounded-md bg-[#162238] border border-white/20 text-white"
+              >
+                {s.rowLabel}{s.seatNumber}
+              </span>
+            ))}
+            {finalPreview.length > 30 && (
+              <span className="px-2 py-0.5 text-slate-400 font-sans font-semibold">
+                +{finalPreview.length - 30} ghế nữa...
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/10">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-xl border border-white/20 px-4 py-2 text-xs font-bold text-slate-300 hover:bg-white/10 hover:text-white transition cursor-pointer"
+          >
+            {isEnglish ? 'Cancel' : 'Hủy'}
+          </button>
+          <button
+            type="button"
+            onClick={handleApply}
+            className="flex items-center gap-1.5 py-2.5 px-6 rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] text-xs font-black hover:opacity-95 transition shadow-lg shadow-[#C99A47]/30 cursor-pointer"
+          >
+            <Check className="size-4" />
+            <span>
+              {isEnglish
+                ? `Apply to ${selectedSeats.length} seats`
+                : `Áp dụng cho ${selectedSeats.length} ghế`}
+            </span>
           </button>
         </div>
       </div>
@@ -603,7 +1089,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
   const seatCounter = useRef(1)
 
   const [tool, setTool] = useState('SELECT')
-  const [layoutType, setLayoutType] = useState('GRID')
+  const [layoutType, setLayoutType] = useState('FREEFORM')
   const [activeZoneId, setActiveZoneId] = useState(null)
   const [selectedIds, setSelectedIds] = useState(new Set())
   const [zoom, setZoom] = useState(1)
@@ -665,6 +1151,10 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
   }, [selectedIds.size])
 
   const [renameModalState, setRenameModalState] = useState({ isOpen: false, title: '', initialValue: '', onSave: null })
+  const [singleSeatModalSeat, setSingleSeatModalSeat] = useState(null)
+  const [isBatchRenameOpen, setIsBatchRenameOpen] = useState(false)
+  const [quickRowInput, setQuickRowInput] = useState('')
+  const [quickStartNumber, setQuickStartNumber] = useState(1)
 
   const [stageConfig, setStageConfig] = useState({
     position: 'HIDDEN',
@@ -871,7 +1361,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
             }
           }
         }
-      } catch (e) {}
+      } catch (e) { }
 
       // Khi tạo sơ đồ mới (!seatMapId), khởi tạo canvas trống hoàn toàn (không có sân khấu và không có lưới ghế sẵn)
       isInitialLoadedRef.current = true
@@ -1449,6 +1939,97 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
     toast.success(`Đã tự động đánh lại số thứ tự cho toàn bộ ${renumbered.length} ghế (A1..An)!`)
   }, [seats, saveHistory, toast])
 
+  const updateSingleSeat = useCallback(
+    (seatId, { rowLabel, seatNumber }) => {
+      if (isAppendOnly && existingSeatIds.has(String(seatId))) {
+        toast.warning(isEnglish ? 'Cannot edit existing seats in append-only mode.' : 'Không thể chỉnh sửa ghế cũ trong chế độ bổ sung.')
+        return
+      }
+      saveHistory()
+      setSeats((prev) =>
+        prev.map((s) => {
+          if (s.localId !== seatId) return s
+          return {
+            ...s,
+            rowLabel: rowLabel !== undefined ? String(rowLabel).trim().toUpperCase() : s.rowLabel,
+            seatNumber: seatNumber !== undefined ? String(seatNumber).trim() : s.seatNumber,
+          }
+        })
+      )
+    },
+    [saveHistory, isAppendOnly, existingSeatIds, toast, isEnglish]
+  )
+
+  const applyBatchRename = useCallback(
+    (updatedSeats) => {
+      saveHistory()
+      const updateMap = new Map()
+      updatedSeats.forEach((s) => {
+        updateMap.set(s.localId, { rowLabel: s.rowLabel, seatNumber: s.seatNumber })
+      })
+
+      let skippedLocked = 0
+      setSeats((prev) =>
+        prev.map((s) => {
+          if (!updateMap.has(s.localId)) return s
+          if (isAppendOnly && existingSeatIds.has(String(s.localId))) {
+            skippedLocked++
+            return s
+          }
+          const updated = updateMap.get(s.localId)
+          return {
+            ...s,
+            rowLabel: updated.rowLabel,
+            seatNumber: updated.seatNumber,
+          }
+        })
+      )
+
+      if (skippedLocked > 0) {
+        toast.info(
+          isEnglish
+            ? `Updated new seats (${skippedLocked} existing seats skipped).`
+            : `Đã cập nhật các ghế mới (bỏ qua ${skippedLocked} ghế cũ để bảo vệ vé đã phát hành).`
+        )
+      } else {
+        toast.success(
+          isEnglish
+            ? `Updated names and numbers for ${updatedSeats.length} seats!`
+            : `Đã cập nhật tên và số thứ tự cho ${updatedSeats.length} ghế!`
+        )
+      }
+    },
+    [saveHistory, isAppendOnly, existingSeatIds, toast, isEnglish]
+  )
+
+  const quickRenumberSelectedLTR = useCallback(
+    (rowPrefix, startNum = 1) => {
+      if (selectedIds.size === 0) return
+      const targetSeats = seats.filter((s) => selectedIds.has(s.localId))
+      const sorted = [...targetSeats].sort((a, b) => a.x - b.x || a.y - b.y)
+      const mapped = sorted.map((s, idx) => ({
+        ...s,
+        rowLabel: rowPrefix ? rowPrefix.trim().toUpperCase() : s.rowLabel,
+        seatNumber: String(Number(startNum) + idx),
+      }))
+      applyBatchRename(mapped)
+    },
+    [selectedIds, seats, applyBatchRename]
+  )
+
+  const handleSeatDoubleClick = useCallback(
+    (e, seat) => {
+      e.stopPropagation()
+      if (isAppendOnly && existingSeatIds.has(String(seat.localId))) {
+        toast.warning(isEnglish ? 'Cannot rename locked seats in append-only mode.' : 'Không thể đổi tên ghế cũ trong chế độ bổ sung.')
+        return
+      }
+      setSelectedIds(new Set([seat.localId]))
+      setSingleSeatModalSeat(seat)
+    },
+    [isAppendOnly, existingSeatIds, toast, isEnglish]
+  )
+
   const applyZoneToSelected = useCallback(
     (zoneId) => {
       if (!selectedIds.size) return
@@ -1645,6 +2226,26 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
         }
       }
 
+      if (e.key === 'F2' || (key === 'r' && !isCtrl && !e.altKey && !e.metaKey)) {
+        if (selectedIds.size === 1) {
+          e.preventDefault()
+          const s = seats.find((item) => selectedIds.has(item.localId))
+          if (s) {
+            if (isAppendOnly && existingSeatIds.has(String(s.localId))) {
+              toast.warning(isEnglish ? 'Cannot rename locked seats in append-only mode.' : 'Không thể đổi tên ghế cũ trong chế độ bổ sung.')
+            } else {
+              setSingleSeatModalSeat(s)
+            }
+          }
+          return
+        }
+        if (selectedIds.size > 1) {
+          e.preventDefault()
+          setIsBatchRenameOpen(true)
+          return
+        }
+      }
+
       if (key === 'delete' || key === 'backspace' || e.code === 'Delete' || e.code === 'Backspace') {
         if (selectedIds.size > 0 || selectedShapeId) {
           e.preventDefault()
@@ -1659,7 +2260,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
       }
       if (!isCtrl && !e.altKey) {
         const matched = tools.find((t) => t.shortcut.toLowerCase() === key)
-        if (matched && !(matched.freeformOnly && layoutType === 'GRID')) {
+        if (matched) {
           setTool(matched.id)
           if (matched.id === 'PAINT') {
             setSidebarTab('ZONES')
@@ -1689,6 +2290,10 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
     activeZoneId,
     handleSave,
     sidebarOpen,
+    seats,
+    isAppendOnly,
+    existingSeatIds,
+    isEnglish,
   ])
 
   function toSVGPoint(e) {
@@ -2702,7 +3307,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
         : await createSeatMap(venueId, payload)
       try {
         localStorage.removeItem(AUTOSAVE_KEY)
-      } catch (e) {}
+      } catch (e) { }
       setAutoSaveStatus('SAVED')
       if (isAppendOnly) {
         toast.success(
@@ -2726,7 +3331,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
     }
   }
 
-  const visibleTools = tools.filter((t) => !(t.freeformOnly && layoutType === 'GRID'))
+  const visibleTools = tools
 
   if (loading) {
     return createPortal(
@@ -2755,6 +3360,30 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
       <RenameModal
         {...renameModalState}
         onClose={() => setRenameModalState({ isOpen: false, title: '', initialValue: '', onSave: null })}
+      />
+      <SingleSeatModal
+        isOpen={Boolean(singleSeatModalSeat)}
+        seat={singleSeatModalSeat}
+        allSeats={seats}
+        isAppendOnly={isAppendOnly}
+        existingSeatIds={existingSeatIds}
+        onSave={(data) => {
+          updateSingleSeat(data.localId, { rowLabel: data.rowLabel, seatNumber: data.seatNumber })
+          setSingleSeatModalSeat(null)
+        }}
+        onClose={() => setSingleSeatModalSeat(null)}
+      />
+      <BatchSeatRenameModal
+        isOpen={isBatchRenameOpen}
+        selectedSeats={seats.filter((s) => selectedIds.has(s.localId))}
+        allSeats={seats}
+        isAppendOnly={isAppendOnly}
+        existingSeatIds={existingSeatIds}
+        onSave={(updatedList) => {
+          applyBatchRename(updatedList)
+          setIsBatchRenameOpen(false)
+        }}
+        onClose={() => setIsBatchRenameOpen(false)}
       />
 
       {/* Header */}
@@ -2861,9 +3490,8 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
       <div className="relative flex flex-1 overflow-hidden">
         {/* Sidebar */}
         <aside
-          className={`relative flex flex-col border-r border-border-soft/30 bg-surface/90 backdrop-blur-sm text-content overflow-hidden transition-[width] duration-300 ease-in-out z-20 ${
-            sidebarOpen ? 'w-[340px] shrink-0' : 'w-0 shrink-0 border-r-0'
-          }`}
+          className={`relative flex flex-col border-r border-border-soft/30 bg-surface/90 backdrop-blur-sm text-content overflow-hidden transition-[width] duration-300 ease-in-out z-20 ${sidebarOpen ? 'w-[340px] shrink-0' : 'w-0 shrink-0 border-r-0'
+            }`}
         >
           <div className="flex h-full w-[340px] flex-col overflow-hidden">
             {/* Navigation Tabs */}
@@ -2881,12 +3509,16 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                     <button
                       key={tab.id}
                       type="button"
-                      onClick={() => setSidebarTab(tab.id)}
-                      className={`flex flex-col items-center justify-center gap-1 px-1 py-2 text-[11px] font-bold rounded-lg transition-all ${
-                        active
+                      onClick={() => {
+                        setSidebarTab(tab.id)
+                        if (tab.id === 'GRID') {
+                          setLayoutType('FREEFORM')
+                        }
+                      }}
+                      className={`flex flex-col items-center justify-center gap-1 px-1 py-2 text-[11px] font-bold rounded-lg transition-all ${active
                           ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md shadow-[#C99A47]/30 font-black'
                           : 'text-subtle hover:text-content hover:bg-panel-soft'
-                      }`}
+                        }`}
                     >
                       <IconComp className="size-4 shrink-0" />
                       <span className="whitespace-nowrap tracking-tight leading-none text-center">
@@ -2899,458 +3531,455 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {/* TAB 1: SÂN KHẤU & PRESETS */}
-            {sidebarTab === 'STAGE' && (
-              <div className="space-y-4">
-                <section className="rounded-xl border border-[#C99A47]/30 p-3.5 bg-[#C99A47]/5 space-y-3.5">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-bold uppercase tracking-wide text-white">
-                      {isEnglish ? 'Stage Configuration' : 'Cấu hình sân khấu'}
-                    </p>
-                    {stageConfig.position !== 'HIDDEN' && (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 font-semibold border border-blue-500/30">
-                        {isEnglish ? 'Visible' : 'Đang hiển thị'}
-                      </span>
-                    )}
-                  </div>
-
-                  {stageConfig.position === 'HIDDEN' ? (
-                    <div className="rounded-xl border border-dashed border-[#C99A47]/40 bg-[#C99A47]/5 p-3 text-center space-y-2.5">
-                      <p className="text-xs text-subtle">
-                        {isEnglish
-                          ? 'The main stage is currently hidden (not on the map).'
-                          : 'Sân khấu chính hiện đang bị ẩn (chưa có trên sơ đồ).'}
+              {/* TAB 1: SÂN KHẤU & PRESETS */}
+              {sidebarTab === 'STAGE' && (
+                <div className="space-y-4">
+                  <section className="rounded-xl border border-[#C99A47]/30 p-3.5 bg-[#C99A47]/5 space-y-3.5">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-bold uppercase tracking-wide text-white">
+                        {isEnglish ? 'Stage Configuration' : 'Cấu hình sân khấu'}
                       </p>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          saveHistory()
-                          setStageConfig((c) => ({
-                            ...c,
-                            position: 'TOP',
-                            shape: 'RECTANGLE',
-                            color: '#3B82F6',
-                            label: c.label || (isEnglish ? 'MAIN STAGE' : 'SÂN KHẤU CHÍNH'),
-                            x: 0,
-                            y: 0,
-                            w: 900,
-                            h: 52,
-                            rotation: 0,
-                          }))
-                          setSelectedShapeId('STAGE')
-                          setSelectedIds(new Set())
-                          toast.success(isEnglish ? 'Added main stage to the map!' : 'Đã thêm sân khấu chính vào sơ đồ!')
-                        }}
-                        className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs shadow-md transition cursor-pointer"
-                      >
-                        <Plus className="size-4" />
-                        <span>{isEnglish ? 'Add Main Stage' : 'Thêm sân khấu chính'}</span>
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <label className="text-sm text-subtle block">
-                        {isEnglish ? 'Display Name' : 'Tên hiển thị'}
-                        <input
-                          type="text"
-                          value={stageConfig.label}
-                          onChange={(e) => setStageConfig((c) => ({ ...c, label: e.target.value }))}
-                          className="mt-1.5 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3.5 py-2 text-base font-bold text-content outline-none focus:border-primary"
-                        />
-                      </label>
-
-                      <label className="text-sm text-subtle block">
-                        {isEnglish ? 'Stage Block Shape' : 'Hình dạng khối sân khấu'}
-                        <select
-                          value={stageConfig.shape || 'RECTANGLE'}
-                          onChange={(e) => setStageConfig((c) => ({ ...c, shape: e.target.value }))}
-                          className="mt-1.5 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3.5 py-2 text-base text-content outline-none focus:border-primary"
-                        >
-                          {stageShapes.map((s) => (
-                            <option key={s.id} value={s.id}>
-                              {s.label}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-
-                      <div>
-                        <label className="text-sm text-subtle block mb-1.5">{isEnglish ? 'Stage Color' : 'Màu sắc sân khấu'}</label>
-                        <div className="flex items-center gap-2.5">
-                          <input
-                            type="color"
-                            value={stageConfig.color || '#3B82F6'}
-                            onChange={(e) => setStageConfig((c) => ({ ...c, color: e.target.value }))}
-                            className="h-9 w-11 cursor-pointer rounded border-0 bg-transparent p-0"
-                          />
-                          <div className="flex flex-wrap gap-1.5">
-                            {['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#64748B'].map((hex) => (
-                              <button
-                                key={hex}
-                                type="button"
-                                onClick={() => setStageConfig((c) => ({ ...c, color: hex }))}
-                                className="size-6 rounded-full border border-white/20 transition-transform hover:scale-110"
-                                style={{ backgroundColor: hex }}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-
-                      <label className="text-sm text-subtle block">
-                        {isEnglish ? 'Position' : 'Vị trí'}
-                        <select
-                          value={stageConfig.position}
-                          onChange={(e) => setStageConfig((c) => ({ ...c, position: e.target.value }))}
-                          className="mt-1.5 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3.5 py-2 text-base text-content outline-none focus:border-primary"
-                        >
-                          <option value="TOP">{isEnglish ? 'Top' : 'Bên trên'}</option>
-                          <option value="BOTTOM">{isEnglish ? 'Bottom' : 'Bên dưới'}</option>
-                          <option value="LEFT">{isEnglish ? 'Left' : 'Trái'}</option>
-                          <option value="RIGHT">{isEnglish ? 'Right' : 'Phải'}</option>
-                          <option value="CUSTOM">{isEnglish ? 'Custom (Drag & Drop)' : 'Tuỳ chỉnh (Kéo thả)'}</option>
-                          <option value="HIDDEN">{isEnglish ? 'Hide Stage' : 'Ẩn sân khấu'}</option>
-                        </select>
-                      </label>
-
-                      {stageConfig.position === 'CUSTOM' && (
-                        <div className="grid grid-cols-3 gap-2 pt-1">
-                          <label className="text-xs text-subtle">
-                            {isEnglish ? 'Width' : 'Ngang'}
-                            <input type="number" value={stageConfig.w} onChange={(e) => setStageConfig(c => ({ ...c, w: Number(e.target.value) }))} className="mt-1 w-full rounded-md border border-border-soft/40 bg-surface px-1.5 py-1 text-sm text-content outline-none focus:border-primary" />
-                          </label>
-                          <label className="text-xs text-subtle">
-                            {isEnglish ? 'Height' : 'Dọc'}
-                            <input type="number" value={stageConfig.h} onChange={(e) => setStageConfig(c => ({ ...c, h: Number(e.target.value) }))} className="mt-1 w-full rounded-md border border-border-soft/40 bg-surface px-1.5 py-1 text-sm text-content outline-none focus:border-primary" />
-                          </label>
-                          <label className="text-xs text-subtle">
-                            {isEnglish ? 'Rotate (°)' : 'Xoay (°)'}
-                            <input type="number" value={stageConfig.rotation || 0} onChange={(e) => setStageConfig(c => ({ ...c, rotation: Number(e.target.value) }))} className="mt-1 w-full rounded-md border border-border-soft/40 bg-surface px-1.5 py-1 text-sm text-content outline-none focus:border-primary" />
-                          </label>
-                        </div>
+                      {stageConfig.position !== 'HIDDEN' && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 font-semibold border border-blue-500/30">
+                          {isEnglish ? 'Visible' : 'Đang hiển thị'}
+                        </span>
                       )}
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          saveHistory()
-                          setStageConfig((c) => ({ ...c, position: 'HIDDEN' }))
-                          if (selectedShapeId === 'STAGE') setSelectedShapeId(null)
-                          toast.info(isEnglish ? 'Stage hidden from map (Delete/Backspace)' : 'Đã ẩn sân khấu khỏi sơ đồ (Delete/Backspace)')
-                        }}
-                        className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl border border-error/40 bg-error/10 text-error hover:bg-error/20 font-bold text-xs transition cursor-pointer"
-                      >
-                        <Trash2 className="size-3.5" />
-                        <span>{isEnglish ? 'Hide / Remove Main Stage' : 'Ẩn / Xóa sân khấu chính'}</span>
-                      </button>
-                    </>
-                  )}
-
-                  {/* Các nút thêm vật thể phụ */}
-                  <div className="space-y-2 pt-1 border-t border-border-soft/20">
-                    <p className="text-xs font-bold uppercase tracking-wide text-white">{isEnglish ? 'Auxiliary Objects & Screens' : 'Vật thể phụ & Màn hình'}</p>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          saveHistory()
-                          const newId = `aux-${newLocalId()}`
-                          setAuxElements(p => [...p, { id: newId, type: 'AUX_STAGE', label: isEnglish ? 'Aux Stage' : 'Sân khấu phụ', x: 300, y: 300, w: 180, h: 40 }])
-                          setSelectedShapeId(newId)
-                          setSelectedIds(new Set())
-                          toast.success(isEnglish ? 'Added Aux Stage' : 'Đã thêm Sân khấu phụ')
-                        }}
-                        className="flex items-center gap-1.5 p-2 rounded-xl border border-border-soft/40 hover:bg-panel-soft transition justify-center text-xs font-semibold bg-surface text-content shadow-sm cursor-pointer"
-                      >
-                        <Plus className="w-3.5 h-3.5 text-tertiary" /> {isEnglish ? 'Aux Stage' : 'Sân phụ'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          saveHistory()
-                          const newId = `aux-${newLocalId()}`
-                          setAuxElements(p => [...p, { id: newId, type: 'SCREEN', label: isEnglish ? 'LED Screen' : 'Màn hình LED', x: 300, y: 300, w: 120, h: 20 }])
-                          setSelectedShapeId(newId)
-                          setSelectedIds(new Set())
-                          toast.success(isEnglish ? 'Added LED Screen' : 'Đã thêm Màn hình LED')
-                        }}
-                        className="flex items-center gap-1.5 p-2 rounded-xl border border-border-soft/40 hover:bg-panel-soft transition justify-center text-xs font-semibold bg-surface text-content shadow-sm cursor-pointer"
-                      >
-                        <Plus className="w-3.5 h-3.5 text-tertiary" /> {isEnglish ? 'LED Screen' : 'Màn hình'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          saveHistory()
-                          const newId = `aux-${newLocalId()}`
-                          setAuxElements(p => [...p, { id: newId, type: 'FOH', label: 'FOH Kỹ thuật', x: 300, y: 300, w: 100, h: 40 }])
-                          setSelectedShapeId(newId)
-                          setSelectedIds(new Set())
-                          toast.success('Đã thêm FOH Kỹ thuật')
-                        }}
-                        className="flex items-center gap-1.5 p-2 rounded-xl border border-border-soft/40 hover:bg-panel-soft transition justify-center text-xs font-semibold bg-surface text-content shadow-sm cursor-pointer"
-                      >
-                        <Plus className="w-3.5 h-3.5 text-tertiary" /> FOH
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          saveHistory()
-                          const newId = `aux-${newLocalId()}`
-                          setAuxElements(p => [...p, { id: newId, type: 'ENTRANCE', label: 'Cổng vào', x: 300, y: 300, w: 90, h: 30 }])
-                          setSelectedShapeId(newId)
-                          setSelectedIds(new Set())
-                          toast.success('Đã thêm Cổng vào')
-                        }}
-                        className="flex items-center gap-1.5 p-2 rounded-xl border border-border-soft/40 hover:bg-panel-soft transition justify-center text-xs font-semibold bg-surface text-content shadow-sm cursor-pointer"
-                      >
-                        <Plus className="w-3.5 h-3.5 text-tertiary" /> Cổng vào
-                      </button>
                     </div>
-                    {auxElements.length > 0 && (
-                      <div className="space-y-1.5 pt-1">
-                        {auxElements.map(a => (
-                          <div key={a.id} className="flex flex-col gap-1.5 p-2.5 rounded-xl bg-surface border border-border-soft/30 text-content shadow-sm">
-                            <div className="flex items-center justify-between">
-                              <input
-                                type="text"
-                                value={isEnglish ? (translatePhrase(a.label, 'en') || a.label) : a.label}
-                                onChange={(e) => setAuxElements(p => p.map(x => x.id === a.id ? { ...x, label: e.target.value } : x))}
-                                className="bg-transparent font-bold px-1 w-32 outline-none border-b border-border-soft/40 focus:border-tertiary text-xs"
-                              />
-                              <button type="button" onClick={() => setAuxElements(p => p.filter(x => x.id !== a.id))} title={isEnglish ? "Delete" : "Xóa"} className="p-1 hover:bg-panel-soft rounded text-muted hover:text-error transition"><Trash2 className="w-3.5 h-3.5" /></button>
+
+                    {stageConfig.position === 'HIDDEN' ? (
+                      <div className="rounded-xl border border-dashed border-[#C99A47]/40 bg-[#C99A47]/5 p-3 text-center space-y-2.5">
+                        <p className="text-xs text-subtle">
+                          {isEnglish
+                            ? 'The main stage is currently hidden (not on the map).'
+                            : 'Sân khấu chính hiện đang bị ẩn (chưa có trên sơ đồ).'}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            saveHistory()
+                            setStageConfig((c) => ({
+                              ...c,
+                              position: 'TOP',
+                              shape: 'RECTANGLE',
+                              color: '#3B82F6',
+                              label: c.label || (isEnglish ? 'MAIN STAGE' : 'SÂN KHẤU CHÍNH'),
+                              x: 0,
+                              y: 0,
+                              w: 900,
+                              h: 52,
+                              rotation: 0,
+                            }))
+                            setSelectedShapeId('STAGE')
+                            setSelectedIds(new Set())
+                            toast.success(isEnglish ? 'Added main stage to the map!' : 'Đã thêm sân khấu chính vào sơ đồ!')
+                          }}
+                          className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs shadow-md transition cursor-pointer"
+                        >
+                          <Plus className="size-4" />
+                          <span>{isEnglish ? 'Add Main Stage' : 'Thêm sân khấu chính'}</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <label className="text-sm text-subtle block">
+                          {isEnglish ? 'Display Name' : 'Tên hiển thị'}
+                          <input
+                            type="text"
+                            value={stageConfig.label}
+                            onChange={(e) => setStageConfig((c) => ({ ...c, label: e.target.value }))}
+                            className="mt-1.5 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3.5 py-2 text-base font-bold text-content outline-none focus:border-primary"
+                          />
+                        </label>
+
+                        <label className="text-sm text-subtle block">
+                          {isEnglish ? 'Stage Block Shape' : 'Hình dạng khối sân khấu'}
+                          <select
+                            value={stageConfig.shape || 'RECTANGLE'}
+                            onChange={(e) => setStageConfig((c) => ({ ...c, shape: e.target.value }))}
+                            className="mt-1.5 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3.5 py-2 text-base text-content outline-none focus:border-primary"
+                          >
+                            {stageShapes.map((s) => (
+                              <option key={s.id} value={s.id}>
+                                {s.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+
+                        <div>
+                          <label className="text-sm text-subtle block mb-1.5">{isEnglish ? 'Stage Color' : 'Màu sắc sân khấu'}</label>
+                          <div className="flex items-center gap-2.5">
+                            <input
+                              type="color"
+                              value={stageConfig.color || '#3B82F6'}
+                              onChange={(e) => setStageConfig((c) => ({ ...c, color: e.target.value }))}
+                              className="h-9 w-11 cursor-pointer rounded border-0 bg-transparent p-0"
+                            />
+                            <div className="flex flex-wrap gap-1.5">
+                              {['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#64748B'].map((hex) => (
+                                <button
+                                  key={hex}
+                                  type="button"
+                                  onClick={() => setStageConfig((c) => ({ ...c, color: hex }))}
+                                  className="size-6 rounded-full border border-white/20 transition-transform hover:scale-110"
+                                  style={{ backgroundColor: hex }}
+                                />
+                              ))}
                             </div>
                           </div>
-                        ))}
-                      </div>
+                        </div>
+
+                        <label className="text-sm text-subtle block">
+                          {isEnglish ? 'Position' : 'Vị trí'}
+                          <select
+                            value={stageConfig.position}
+                            onChange={(e) => setStageConfig((c) => ({ ...c, position: e.target.value }))}
+                            className="mt-1.5 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3.5 py-2 text-base text-content outline-none focus:border-primary"
+                          >
+                            <option value="TOP">{isEnglish ? 'Top' : 'Bên trên'}</option>
+                            <option value="BOTTOM">{isEnglish ? 'Bottom' : 'Bên dưới'}</option>
+                            <option value="LEFT">{isEnglish ? 'Left' : 'Trái'}</option>
+                            <option value="RIGHT">{isEnglish ? 'Right' : 'Phải'}</option>
+                            <option value="CUSTOM">{isEnglish ? 'Custom (Drag & Drop)' : 'Tuỳ chỉnh (Kéo thả)'}</option>
+                            <option value="HIDDEN">{isEnglish ? 'Hide Stage' : 'Ẩn sân khấu'}</option>
+                          </select>
+                        </label>
+
+                        {stageConfig.position === 'CUSTOM' && (
+                          <div className="grid grid-cols-3 gap-2 pt-1">
+                            <label className="text-xs text-subtle">
+                              {isEnglish ? 'Width' : 'Ngang'}
+                              <input type="number" value={stageConfig.w} onChange={(e) => setStageConfig(c => ({ ...c, w: Number(e.target.value) }))} className="mt-1 w-full rounded-md border border-border-soft/40 bg-surface px-1.5 py-1 text-sm text-content outline-none focus:border-primary" />
+                            </label>
+                            <label className="text-xs text-subtle">
+                              {isEnglish ? 'Height' : 'Dọc'}
+                              <input type="number" value={stageConfig.h} onChange={(e) => setStageConfig(c => ({ ...c, h: Number(e.target.value) }))} className="mt-1 w-full rounded-md border border-border-soft/40 bg-surface px-1.5 py-1 text-sm text-content outline-none focus:border-primary" />
+                            </label>
+                            <label className="text-xs text-subtle">
+                              {isEnglish ? 'Rotate (°)' : 'Xoay (°)'}
+                              <input type="number" value={stageConfig.rotation || 0} onChange={(e) => setStageConfig(c => ({ ...c, rotation: Number(e.target.value) }))} className="mt-1 w-full rounded-md border border-border-soft/40 bg-surface px-1.5 py-1 text-sm text-content outline-none focus:border-primary" />
+                            </label>
+                          </div>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            saveHistory()
+                            setStageConfig((c) => ({ ...c, position: 'HIDDEN' }))
+                            if (selectedShapeId === 'STAGE') setSelectedShapeId(null)
+                            toast.info(isEnglish ? 'Stage hidden from map (Delete/Backspace)' : 'Đã ẩn sân khấu khỏi sơ đồ (Delete/Backspace)')
+                          }}
+                          className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl border border-error/40 bg-error/10 text-error hover:bg-error/20 font-bold text-xs transition cursor-pointer"
+                        >
+                          <Trash2 className="size-3.5" />
+                          <span>{isEnglish ? 'Hide / Remove Main Stage' : 'Ẩn / Xóa sân khấu chính'}</span>
+                        </button>
+                      </>
                     )}
-                  </div>
-                </section>
 
-                {/* Mẫu có sẵn */}
-                <section className="rounded-xl border border-border-soft/20 p-3.5 bg-panel-soft/10 space-y-2">
-                  <p className="text-xs font-bold uppercase tracking-wide text-white">
-                    {isEnglish ? 'Quick Presets & AI' : 'Mẫu thiết kế nhanh & AI'}
-                  </p>
-                  <div className="grid grid-cols-1 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => aiFileInputRef.current?.click()}
-                      disabled={aiGenerating}
-                      className="flex flex-col items-center justify-center gap-1 rounded-xl border border-[#C99A47]/60 bg-gradient-to-r from-[#C99A47]/15 to-[#E6C17A]/10 p-3 text-center hover:border-[#E6C17A] hover:from-[#C99A47]/25 hover:to-[#E6C17A]/20 transition disabled:opacity-50"
-                    >
-                      <span className="flex items-center gap-1.5 text-sm font-extrabold text-[#E6C17A]">
-                        <Sparkles className="size-4" />
-                        {aiGenerating ? (isEnglish ? 'AI analyzing image...' : 'AI đang phân tích ảnh...') : (isEnglish ? 'Import map from image' : 'Nhập sơ đồ từ ảnh')}
-                      </span>
-                      <span className="text-[11px] text-subtle">
-                        {isEnglish ? 'Auto-detect seats, stage, zones & standing areas' : 'Tự động nhận diện ghế, sân khấu, khu vực & vùng đứng'}
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => applyPreset('THEATER')}
-                      className="flex flex-col items-center justify-center gap-1 rounded-xl border border-border-soft/30 bg-surface p-3 text-center hover:border-[#C99A47] hover:bg-[#C99A47]/5 transition"
-                    >
-                      <span className="text-base font-bold text-white">{isEnglish ? 'Theater / Hall' : 'Nhà hát / Hội trường'}</span>
-                      <span className="text-xs text-muted">{isEnglish ? 'Square + 200 seats' : 'Vuông + 200 ghế'}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => applyPreset('T_STAGE')}
-                      className="flex flex-col items-center justify-center gap-1 rounded-xl border border-border-soft/30 bg-surface p-3 text-center hover:border-[#C99A47] hover:bg-[#C99A47]/5 transition"
-                    >
-                      <span className="text-base font-bold text-white">{isEnglish ? 'Concert Stage T' : 'Concert Sân khấu T'}</span>
-                      <span className="text-xs text-muted">{isEnglish ? 'T-Stage + Standing + Seats' : 'Sân T + Đứng + Ghế'}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => applyPreset('FESTIVAL')}
-                      className="flex flex-col items-center justify-center gap-1 rounded-xl border border-border-soft/30 bg-surface p-3 text-center hover:border-[#C99A47] hover:bg-[#C99A47]/5 transition"
-                    >
-                      <span className="text-base font-bold text-white">{isEnglish ? 'Mixed Festival' : 'Festival Hỗn hợp'}</span>
-                      <span className="text-xs text-muted">{isEnglish ? 'Semi-circle + Standing Area' : 'Bán nguyệt + Vùng đứng'}</span>
-                    </button>
-                  </div>
-                </section>
-              </div>
-            )}
-
-            {/* TAB 2: KHU VỰC & VÙNG ĐỨNG */}
-            {sidebarTab === 'ZONES' && (
-              <div className="space-y-3">
-                {/* Sub Tab Switcher: Khối & Vùng đứng vs Phân hạng vé */}
-                <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-panel-soft/60 border border-border-soft/30 text-xs font-bold">
-                  <button
-                    type="button"
-                    onClick={() => setZoneSubTab('STANDING')}
-                    className={`py-1.5 px-2 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                      zoneSubTab === 'STANDING'
-                        ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-sm font-black'
-                        : 'text-subtle hover:text-content'
-                    }`}
-                  >
-                    <Shapes className="size-3.5" />
-                    <span>{isEnglish ? `Blocks & Standing (${standingAreas.length})` : `Khối & Vùng đứng (${standingAreas.length})`}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setZoneSubTab('ZONES')}
-                    className={`py-1.5 px-2 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                      zoneSubTab === 'ZONES'
-                        ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-sm font-black'
-                        : 'text-subtle hover:text-content'
-                    }`}
-                  >
-                    <Users className="size-3.5" />
-                    <span>{isEnglish ? `Ticket Zones (${zones.length})` : `Phân hạng vé (${zones.length})`}</span>
-                  </button>
-                </div>
-
-                {/* SUBTAB 1: KHỐI & VÙNG ĐỨNG */}
-                {zoneSubTab === 'STANDING' && (
-                  <div className="space-y-3">
-                    <section className="rounded-xl border border-[#C99A47]/30 p-3 bg-[#C99A47]/5 space-y-2.5">
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs font-bold uppercase tracking-wide text-white">
-                          {isEnglish ? 'Add Blocks & Standing Areas' : 'Thêm khối & Vùng đứng'}
-                        </p>
-                        <span className="text-[10px] text-[#E6C17A] font-semibold">
-                          {standingAreas.length} {isEnglish ? 'blocks' : 'khối'}
-                        </span>
-                      </div>
-
-                      {/* 4 quick shape buttons */}
-                      <div className="grid grid-cols-4 gap-1.5">
+                    {/* Các nút thêm vật thể phụ */}
+                    <div className="space-y-2 pt-1 border-t border-border-soft/20">
+                      <p className="text-xs font-bold uppercase tracking-wide text-white">{isEnglish ? 'Auxiliary Objects & Screens' : 'Vật thể phụ & Màn hình'}</p>
+                      <div className="grid grid-cols-2 gap-2">
                         <button
                           type="button"
-                          onClick={() => addStandingArea('RECTANGLE')}
-                          className="flex flex-col items-center justify-center gap-1 p-2 rounded-xl border border-dashed border-[#C99A47]/50 hover:border-[#E6C17A] bg-[#C99A47]/10 hover:bg-[#C99A47]/20 transition cursor-pointer"
-                          title={isEnglish ? 'Add rectangle block / standard standing area' : 'Thêm khối chữ nhật / Vùng đứng tiêu chuẩn'}
+                          onClick={() => {
+                            saveHistory()
+                            const newId = `aux-${newLocalId()}`
+                            setAuxElements(p => [...p, { id: newId, type: 'AUX_STAGE', label: isEnglish ? 'Aux Stage' : 'Sân khấu phụ', x: 300, y: 300, w: 180, h: 40 }])
+                            setSelectedShapeId(newId)
+                            setSelectedIds(new Set())
+                            toast.success(isEnglish ? 'Added Aux Stage' : 'Đã thêm Sân khấu phụ')
+                          }}
+                          className="flex items-center gap-1.5 p-2 rounded-xl border border-border-soft/40 hover:bg-panel-soft transition justify-center text-xs font-semibold bg-surface text-content shadow-sm cursor-pointer"
                         >
-                          <div className="w-4 h-3 border-2 border-[#E6C17A] rounded-xs" />
-                          <span className="text-[10px] font-bold text-[#E6C17A]">{isEnglish ? 'Rectangle' : 'Chữ nhật'}</span>
+                          <Plus className="w-3.5 h-3.5 text-tertiary" /> {isEnglish ? 'Aux Stage' : 'Sân phụ'}
                         </button>
                         <button
                           type="button"
-                          onClick={() => addStandingArea('TRIANGLE')}
-                          className="flex flex-col items-center justify-center gap-1 p-2 rounded-xl border border-dashed border-[#C99A47]/50 hover:border-[#E6C17A] bg-[#C99A47]/10 hover:bg-[#C99A47]/20 transition cursor-pointer"
-                          title={isEnglish ? 'Add triangle block (drag 3 vertices)' : 'Thêm khối tam giác (kéo 3 đỉnh tùy biến)'}
+                          onClick={() => {
+                            saveHistory()
+                            const newId = `aux-${newLocalId()}`
+                            setAuxElements(p => [...p, { id: newId, type: 'SCREEN', label: isEnglish ? 'LED Screen' : 'Màn hình LED', x: 300, y: 300, w: 120, h: 20 }])
+                            setSelectedShapeId(newId)
+                            setSelectedIds(new Set())
+                            toast.success(isEnglish ? 'Added LED Screen' : 'Đã thêm Màn hình LED')
+                          }}
+                          className="flex items-center gap-1.5 p-2 rounded-xl border border-border-soft/40 hover:bg-panel-soft transition justify-center text-xs font-semibold bg-surface text-content shadow-sm cursor-pointer"
                         >
-                          <div className="w-0 h-0 border-l-[7px] border-l-transparent border-r-[7px] border-r-transparent border-b-[12px] border-b-[#E6C17A]" />
-                          <span className="text-[10px] font-bold text-[#E6C17A]">{isEnglish ? 'Triangle' : 'Tam giác'}</span>
+                          <Plus className="w-3.5 h-3.5 text-tertiary" /> {isEnglish ? 'LED Screen' : 'Màn hình'}
                         </button>
                         <button
                           type="button"
-                          onClick={() => addStandingArea('CIRCLE')}
-                          className="flex flex-col items-center justify-center gap-1 p-2 rounded-xl border border-dashed border-[#C99A47]/50 hover:border-[#E6C17A] bg-[#C99A47]/10 hover:bg-[#C99A47]/20 transition cursor-pointer"
-                          title={isEnglish ? 'Add circle / ellipse block' : 'Thêm khối hình tròn / Ellipse'}
+                          onClick={() => {
+                            saveHistory()
+                            const newId = `aux-${newLocalId()}`
+                            setAuxElements(p => [...p, { id: newId, type: 'FOH', label: 'FOH Kỹ thuật', x: 300, y: 300, w: 100, h: 40 }])
+                            setSelectedShapeId(newId)
+                            setSelectedIds(new Set())
+                            toast.success('Đã thêm FOH Kỹ thuật')
+                          }}
+                          className="flex items-center gap-1.5 p-2 rounded-xl border border-border-soft/40 hover:bg-panel-soft transition justify-center text-xs font-semibold bg-surface text-content shadow-sm cursor-pointer"
                         >
-                          <div className="size-3.5 rounded-full border-2 border-[#E6C17A]" />
-                          <span className="text-[10px] font-bold text-[#E6C17A]">{isEnglish ? 'Circle' : 'Hình tròn'}</span>
+                          <Plus className="w-3.5 h-3.5 text-tertiary" /> FOH
                         </button>
                         <button
                           type="button"
-                          onClick={() => addStandingArea('DIAMOND')}
-                          className="flex flex-col items-center justify-center gap-1 p-2 rounded-xl border border-dashed border-[#C99A47]/50 hover:border-[#E6C17A] bg-[#C99A47]/10 hover:bg-[#C99A47]/20 transition cursor-pointer"
-                          title={isEnglish ? 'Add diamond block' : 'Thêm khối hình thoi'}
+                          onClick={() => {
+                            saveHistory()
+                            const newId = `aux-${newLocalId()}`
+                            setAuxElements(p => [...p, { id: newId, type: 'ENTRANCE', label: 'Cổng vào', x: 300, y: 300, w: 90, h: 30 }])
+                            setSelectedShapeId(newId)
+                            setSelectedIds(new Set())
+                            toast.success('Đã thêm Cổng vào')
+                          }}
+                          className="flex items-center gap-1.5 p-2 rounded-xl border border-border-soft/40 hover:bg-panel-soft transition justify-center text-xs font-semibold bg-surface text-content shadow-sm cursor-pointer"
                         >
-                          <div className="size-3 border-2 border-[#E6C17A] rotate-45" />
-                          <span className="text-[10px] font-bold text-[#E6C17A]">{isEnglish ? 'Diamond' : 'Hình thoi'}</span>
+                          <Plus className="w-3.5 h-3.5 text-tertiary" /> Cổng vào
                         </button>
                       </div>
-
-                      <p className="text-[11px] text-subtle leading-relaxed">
-                        {isEnglish
-                          ? 'Create general admission standing areas or geometric shapes. Drag directly on the canvas to rotate, resize, or move.'
-                          : 'Tạo các vùng đứng tự do hoặc khối hình học. Có thể kéo chuột trực tiếp trên sơ đồ để xoay, chỉnh kích thước hoặc dịch chuyển.'}
-                      </p>
-                    </section>
-
-                    {/* Danh sách các khối */}
-                    <div className="space-y-2">
-                      {standingAreas.length === 0 ? (
-                        <p className="py-3 text-center text-xs text-muted border border-dashed border-border-soft/30 rounded-xl">
-                          {isEnglish
-                            ? 'No blocks or standing areas yet. Click the shape buttons above to add.'
-                            : 'Chưa có khối hoặc vùng đứng nào. Nhấp vào các nút hình học phía trên để thêm.'}
-                        </p>
-                      ) : (
-                        standingAreas.map((area) => {
-                          const isSelected = selectedShapeId === area.id
-                          return (
-                            <div
-                              key={area.id}
-                              onClick={() => {
-                                setSelectedShapeId(area.id)
-                                setSelectedIds(new Set())
-                              }}
-                              className={`p-2.5 rounded-xl border transition-all cursor-pointer space-y-2 ${
-                                isSelected
-                                  ? 'border-[#E6C17A] bg-gradient-to-r from-[#C99A47]/15 to-[#E6C17A]/20 shadow-md ring-1 ring-[#C99A47]/40'
-                                  : 'border-border-soft/40 bg-surface/90 hover:border-border-soft/70'
-                              }`}
-                            >
-                              <div className="flex items-center gap-2">
+                      {auxElements.length > 0 && (
+                        <div className="space-y-1.5 pt-1">
+                          {auxElements.map(a => (
+                            <div key={a.id} className="flex flex-col gap-1.5 p-2.5 rounded-xl bg-surface border border-border-soft/30 text-content shadow-sm">
+                              <div className="flex items-center justify-between">
                                 <input
                                   type="text"
-                                  value={isEnglish ? (translatePhrase(area.name, 'en') || area.name) : area.name}
-                                  onClick={(e) => e.stopPropagation()}
-                                  onChange={(e) =>
-                                    setStandingAreas((prev) =>
-                                      prev.map((a) => (a.id === area.id ? { ...a, name: e.target.value } : a)),
-                                    )
-                                  }
-                                  className="bg-transparent font-bold text-sm text-content outline-none border-b border-transparent focus:border-[#E6C17A] flex-1 min-w-0"
-                                  placeholder={isEnglish ? 'Standing area name...' : 'Tên vùng đứng...'}
+                                  value={isEnglish ? (translatePhrase(a.label, 'en') || a.label) : a.label}
+                                  onChange={(e) => setAuxElements(p => p.map(x => x.id === a.id ? { ...x, label: e.target.value } : x))}
+                                  className="bg-transparent font-bold px-1 w-32 outline-none border-b border-border-soft/40 focus:border-tertiary text-xs"
                                 />
-                                <input
-                                  type="color"
-                                  value={area.color || '#EF4444'}
-                                  onClick={(e) => e.stopPropagation()}
-                                  onChange={(e) =>
-                                    setStandingAreas((prev) =>
-                                      prev.map((a) => (a.id === area.id ? { ...a, color: e.target.value } : a)),
-                                    )
-                                  }
-                                  className="h-6 w-7 cursor-pointer rounded border-0 bg-transparent p-0 shrink-0"
-                                  title={isEnglish ? 'Select color' : 'Chọn màu sắc'}
-                                />
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    duplicateSelected()
-                                  }}
-                                  className="text-subtle hover:text-[#E6C17A] transition p-1.5 shrink-0 rounded hover:bg-panel-soft"
-                                  title={isEnglish ? 'Duplicate this block (Ctrl+D)' : 'Nhân bản khối này (Ctrl+D)'}
-                                >
-                                  <Copy className="size-3.5" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    deleteStandingArea(area.id)
-                                  }}
-                                  className="text-subtle hover:text-error transition p-1.5 shrink-0 rounded hover:bg-error/10"
-                                  title={isEnglish ? 'Delete block (Delete)' : 'Xóa khối (Delete)'}
-                                >
-                                  <Trash2 className="size-3.5" />
-                                </button>
+                                <button type="button" onClick={() => setAuxElements(p => p.filter(x => x.id !== a.id))} title={isEnglish ? "Delete" : "Xóa"} className="p-1 hover:bg-panel-soft rounded text-muted hover:text-error transition"><Trash2 className="w-3.5 h-3.5" /></button>
                               </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </section>
 
-                              <div>
-                                <select
-                                  value={area.shape || 'RECTANGLE'}
-                                  onClick={(e) => e.stopPropagation()}
-                                  onChange={(e) => {
-                                    saveHistory()
-                                    const newShape = e.target.value
-                                    setStandingAreas((prev) =>
-                                      prev.map((a) =>
-                                        a.id === area.id
-                                          ? {
+                  {/* Mẫu có sẵn */}
+                  <section className="rounded-xl border border-border-soft/20 p-3.5 bg-panel-soft/10 space-y-2">
+                    <p className="text-xs font-bold uppercase tracking-wide text-white">
+                      {isEnglish ? 'Quick Presets & AI' : 'Mẫu thiết kế nhanh & AI'}
+                    </p>
+                    <div className="grid grid-cols-1 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => aiFileInputRef.current?.click()}
+                        disabled={aiGenerating}
+                        className="flex flex-col items-center justify-center gap-1 rounded-xl border border-[#C99A47]/60 bg-gradient-to-r from-[#C99A47]/15 to-[#E6C17A]/10 p-3 text-center hover:border-[#E6C17A] hover:from-[#C99A47]/25 hover:to-[#E6C17A]/20 transition disabled:opacity-50"
+                      >
+                        <span className="flex items-center gap-1.5 text-sm font-extrabold text-[#E6C17A]">
+                          <Sparkles className="size-4" />
+                          {aiGenerating ? (isEnglish ? 'AI analyzing image...' : 'AI đang phân tích ảnh...') : (isEnglish ? 'Import map from image' : 'Nhập sơ đồ từ ảnh')}
+                        </span>
+                        <span className="text-[11px] text-subtle">
+                          {isEnglish ? 'Auto-detect seats, stage, zones & standing areas' : 'Tự động nhận diện ghế, sân khấu, khu vực & vùng đứng'}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyPreset('THEATER')}
+                        className="flex flex-col items-center justify-center gap-1 rounded-xl border border-border-soft/30 bg-surface p-3 text-center hover:border-[#C99A47] hover:bg-[#C99A47]/5 transition"
+                      >
+                        <span className="text-base font-bold text-white">{isEnglish ? 'Theater / Hall' : 'Nhà hát / Hội trường'}</span>
+                        <span className="text-xs text-muted">{isEnglish ? 'Square + 200 seats' : 'Vuông + 200 ghế'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyPreset('T_STAGE')}
+                        className="flex flex-col items-center justify-center gap-1 rounded-xl border border-border-soft/30 bg-surface p-3 text-center hover:border-[#C99A47] hover:bg-[#C99A47]/5 transition"
+                      >
+                        <span className="text-base font-bold text-white">{isEnglish ? 'Concert Stage T' : 'Concert Sân khấu T'}</span>
+                        <span className="text-xs text-muted">{isEnglish ? 'T-Stage + Standing + Seats' : 'Sân T + Đứng + Ghế'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyPreset('FESTIVAL')}
+                        className="flex flex-col items-center justify-center gap-1 rounded-xl border border-border-soft/30 bg-surface p-3 text-center hover:border-[#C99A47] hover:bg-[#C99A47]/5 transition"
+                      >
+                        <span className="text-base font-bold text-white">{isEnglish ? 'Mixed Festival' : 'Festival Hỗn hợp'}</span>
+                        <span className="text-xs text-muted">{isEnglish ? 'Semi-circle + Standing Area' : 'Bán nguyệt + Vùng đứng'}</span>
+                      </button>
+                    </div>
+                  </section>
+                </div>
+              )}
+
+              {/* TAB 2: KHU VỰC & VÙNG ĐỨNG */}
+              {sidebarTab === 'ZONES' && (
+                <div className="space-y-3">
+                  {/* Sub Tab Switcher: Khối & Vùng đứng vs Phân hạng vé */}
+                  <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-panel-soft/60 border border-border-soft/30 text-xs font-bold">
+                    <button
+                      type="button"
+                      onClick={() => setZoneSubTab('STANDING')}
+                      className={`py-1.5 px-2 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${zoneSubTab === 'STANDING'
+                          ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-sm font-black'
+                          : 'text-subtle hover:text-content'
+                        }`}
+                    >
+                      <Shapes className="size-3.5" />
+                      <span>{isEnglish ? `Blocks & Standing (${standingAreas.length})` : `Khối & Vùng đứng (${standingAreas.length})`}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setZoneSubTab('ZONES')}
+                      className={`py-1.5 px-2 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${zoneSubTab === 'ZONES'
+                          ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-sm font-black'
+                          : 'text-subtle hover:text-content'
+                        }`}
+                    >
+                      <Users className="size-3.5" />
+                      <span>{isEnglish ? `Ticket Zones (${zones.length})` : `Phân hạng vé (${zones.length})`}</span>
+                    </button>
+                  </div>
+
+                  {/* SUBTAB 1: KHỐI & VÙNG ĐỨNG */}
+                  {zoneSubTab === 'STANDING' && (
+                    <div className="space-y-3">
+                      <section className="rounded-xl border border-[#C99A47]/30 p-3 bg-[#C99A47]/5 space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-bold uppercase tracking-wide text-white">
+                            {isEnglish ? 'Add Blocks & Standing Areas' : 'Thêm khối & Vùng đứng'}
+                          </p>
+                          <span className="text-[10px] text-[#E6C17A] font-semibold">
+                            {standingAreas.length} {isEnglish ? 'blocks' : 'khối'}
+                          </span>
+                        </div>
+
+                        {/* 4 quick shape buttons */}
+                        <div className="grid grid-cols-4 gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => addStandingArea('RECTANGLE')}
+                            className="flex flex-col items-center justify-center gap-1 p-2 rounded-xl border border-dashed border-[#C99A47]/50 hover:border-[#E6C17A] bg-[#C99A47]/10 hover:bg-[#C99A47]/20 transition cursor-pointer"
+                            title={isEnglish ? 'Add rectangle block / standard standing area' : 'Thêm khối chữ nhật / Vùng đứng tiêu chuẩn'}
+                          >
+                            <div className="w-4 h-3 border-2 border-[#E6C17A] rounded-xs" />
+                            <span className="text-[10px] font-bold text-[#E6C17A]">{isEnglish ? 'Rectangle' : 'Chữ nhật'}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => addStandingArea('TRIANGLE')}
+                            className="flex flex-col items-center justify-center gap-1 p-2 rounded-xl border border-dashed border-[#C99A47]/50 hover:border-[#E6C17A] bg-[#C99A47]/10 hover:bg-[#C99A47]/20 transition cursor-pointer"
+                            title={isEnglish ? 'Add triangle block (drag 3 vertices)' : 'Thêm khối tam giác (kéo 3 đỉnh tùy biến)'}
+                          >
+                            <div className="w-0 h-0 border-l-[7px] border-l-transparent border-r-[7px] border-r-transparent border-b-[12px] border-b-[#E6C17A]" />
+                            <span className="text-[10px] font-bold text-[#E6C17A]">{isEnglish ? 'Triangle' : 'Tam giác'}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => addStandingArea('CIRCLE')}
+                            className="flex flex-col items-center justify-center gap-1 p-2 rounded-xl border border-dashed border-[#C99A47]/50 hover:border-[#E6C17A] bg-[#C99A47]/10 hover:bg-[#C99A47]/20 transition cursor-pointer"
+                            title={isEnglish ? 'Add circle / ellipse block' : 'Thêm khối hình tròn / Ellipse'}
+                          >
+                            <div className="size-3.5 rounded-full border-2 border-[#E6C17A]" />
+                            <span className="text-[10px] font-bold text-[#E6C17A]">{isEnglish ? 'Circle' : 'Hình tròn'}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => addStandingArea('DIAMOND')}
+                            className="flex flex-col items-center justify-center gap-1 p-2 rounded-xl border border-dashed border-[#C99A47]/50 hover:border-[#E6C17A] bg-[#C99A47]/10 hover:bg-[#C99A47]/20 transition cursor-pointer"
+                            title={isEnglish ? 'Add diamond block' : 'Thêm khối hình thoi'}
+                          >
+                            <div className="size-3 border-2 border-[#E6C17A] rotate-45" />
+                            <span className="text-[10px] font-bold text-[#E6C17A]">{isEnglish ? 'Diamond' : 'Hình thoi'}</span>
+                          </button>
+                        </div>
+
+                        <p className="text-[11px] text-subtle leading-relaxed">
+                          {isEnglish
+                            ? 'Create general admission standing areas or geometric shapes. Drag directly on the canvas to rotate, resize, or move.'
+                            : 'Tạo các vùng đứng tự do hoặc khối hình học. Có thể kéo chuột trực tiếp trên sơ đồ để xoay, chỉnh kích thước hoặc dịch chuyển.'}
+                        </p>
+                      </section>
+
+                      {/* Danh sách các khối */}
+                      <div className="space-y-2">
+                        {standingAreas.length === 0 ? (
+                          <p className="py-3 text-center text-xs text-muted border border-dashed border-border-soft/30 rounded-xl">
+                            {isEnglish
+                              ? 'No blocks or standing areas yet. Click the shape buttons above to add.'
+                              : 'Chưa có khối hoặc vùng đứng nào. Nhấp vào các nút hình học phía trên để thêm.'}
+                          </p>
+                        ) : (
+                          standingAreas.map((area) => {
+                            const isSelected = selectedShapeId === area.id
+                            return (
+                              <div
+                                key={area.id}
+                                onClick={() => {
+                                  setSelectedShapeId(area.id)
+                                  setSelectedIds(new Set())
+                                }}
+                                className={`p-2.5 rounded-xl border transition-all cursor-pointer space-y-2 ${isSelected
+                                    ? 'border-[#E6C17A] bg-gradient-to-r from-[#C99A47]/15 to-[#E6C17A]/20 shadow-md ring-1 ring-[#C99A47]/40'
+                                    : 'border-border-soft/40 bg-surface/90 hover:border-border-soft/70'
+                                  }`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="text"
+                                    value={isEnglish ? (translatePhrase(area.name, 'en') || area.name) : area.name}
+                                    onClick={(e) => e.stopPropagation()}
+                                    onChange={(e) =>
+                                      setStandingAreas((prev) =>
+                                        prev.map((a) => (a.id === area.id ? { ...a, name: e.target.value } : a)),
+                                      )
+                                    }
+                                    className="bg-transparent font-bold text-sm text-content outline-none border-b border-transparent focus:border-[#E6C17A] flex-1 min-w-0"
+                                    placeholder={isEnglish ? 'Standing area name...' : 'Tên vùng đứng...'}
+                                  />
+                                  <input
+                                    type="color"
+                                    value={area.color || '#EF4444'}
+                                    onClick={(e) => e.stopPropagation()}
+                                    onChange={(e) =>
+                                      setStandingAreas((prev) =>
+                                        prev.map((a) => (a.id === area.id ? { ...a, color: e.target.value } : a)),
+                                      )
+                                    }
+                                    className="h-6 w-7 cursor-pointer rounded border-0 bg-transparent p-0 shrink-0"
+                                    title={isEnglish ? 'Select color' : 'Chọn màu sắc'}
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      duplicateSelected()
+                                    }}
+                                    className="text-subtle hover:text-[#E6C17A] transition p-1.5 shrink-0 rounded hover:bg-panel-soft"
+                                    title={isEnglish ? 'Duplicate this block (Ctrl+D)' : 'Nhân bản khối này (Ctrl+D)'}
+                                  >
+                                    <Copy className="size-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      deleteStandingArea(area.id)
+                                    }}
+                                    className="text-subtle hover:text-error transition p-1.5 shrink-0 rounded hover:bg-error/10"
+                                    title={isEnglish ? 'Delete block (Delete)' : 'Xóa khối (Delete)'}
+                                  >
+                                    <Trash2 className="size-3.5" />
+                                  </button>
+                                </div>
+
+                                <div>
+                                  <select
+                                    value={area.shape || 'RECTANGLE'}
+                                    onClick={(e) => e.stopPropagation()}
+                                    onChange={(e) => {
+                                      saveHistory()
+                                      const newShape = e.target.value
+                                      setStandingAreas((prev) =>
+                                        prev.map((a) =>
+                                          a.id === area.id
+                                            ? {
                                               ...a,
                                               shape: newShape,
                                               trianglePoints:
@@ -3358,602 +3987,661 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                                                   ? a.trianglePoints || [{ x: 0.5, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }]
                                                   : a.trianglePoints,
                                             }
-                                          : a,
-                                      ),
-                                    )
-                                  }}
-                                  className="w-full rounded-lg border border-border-soft/50 bg-panel-soft px-2.5 py-1.5 text-xs font-semibold text-content outline-none cursor-pointer focus:border-[#E6C17A]"
-                                >
-                                  <option value="RECTANGLE">{isEnglish ? 'Rectangle' : 'Chữ nhật'}</option>
-                                  <option value="TRIANGLE">{isEnglish ? 'Triangle' : 'Tam giác'}</option>
-                                  <option value="CIRCLE">{isEnglish ? 'Circle' : 'Hình tròn'}</option>
-                                  <option value="DIAMOND">{isEnglish ? 'Diamond' : 'Hình thoi'}</option>
-                                </select>
-                              </div>
-
-                              <div className="grid grid-cols-2 gap-2 items-center text-xs">
-                                <div className="flex items-center gap-1.5 rounded-lg border border-border-soft/50 bg-panel-soft px-2.5 py-1.5" title={isEnglish ? 'Capacity (people)' : 'Sức chứa (người)'}>
-                                  <Users className="size-3.5 text-subtle shrink-0" />
-                                  <input
-                                    type="number"
-                                    min={1}
-                                    value={area.capacity}
-                                    onClick={(e) => e.stopPropagation()}
-                                    onChange={(e) =>
-                                      setStandingAreas((prev) =>
-                                        prev.map((a) => (a.id === area.id ? { ...a, capacity: Number(e.target.value) } : a)),
-                                      )
-                                    }
-                                    className="w-full bg-transparent text-xs font-semibold text-content outline-none text-right min-w-0"
-                                  />
-                                </div>
-
-                                <div className="flex items-center justify-center gap-1.5 rounded-lg border border-border-soft/50 bg-panel-soft px-2 py-1.5 text-xs text-subtle" title={isEnglish ? 'Size W × H' : 'Kích thước W × H'}>
-                                  <input
-                                    type="number"
-                                    value={area.w}
-                                    onClick={(e) => e.stopPropagation()}
-                                    onChange={(e) =>
-                                      setStandingAreas((prev) =>
-                                        prev.map((a) => (a.id === area.id ? { ...a, w: Number(e.target.value) } : a)),
-                                      )
-                                    }
-                                    className="w-full min-w-0 bg-transparent text-xs font-semibold text-content outline-none text-center"
-                                  />
-                                  <span className="text-subtle font-medium">×</span>
-                                  <input
-                                    type="number"
-                                    value={area.h}
-                                    onClick={(e) => e.stopPropagation()}
-                                    onChange={(e) =>
-                                      setStandingAreas((prev) =>
-                                        prev.map((a) => (a.id === area.id ? { ...a, h: Number(e.target.value) } : a)),
-                                      )
-                                    }
-                                    className="w-full min-w-0 bg-transparent text-xs font-semibold text-content outline-none text-center"
-                                  />
-                                </div>
-                              </div>
-
-                              {area.shape === 'TRIANGLE' && (
-                                <div className="flex flex-wrap items-center gap-1.5 text-xs pt-1.5 border-t border-border-soft/20">
-                                  <span className="text-subtle font-semibold">{isEnglish ? 'Preset:' : 'Mẫu:'}</span>
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      saveHistory()
-                                      setStandingAreas((prev) =>
-                                        prev.map((a) => (a.id === area.id ? { ...a, trianglePoints: [{ x: 0.5, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }] } : a)),
-                                      )
-                                    }}
-                                    className="px-2 py-1 rounded-md bg-panel-soft hover:bg-tertiary/20 text-xs font-bold border border-border-soft/30"
-                                  >
-                                    {isEnglish ? 'Isosceles' : 'Cân'}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      saveHistory()
-                                      setStandingAreas((prev) =>
-                                        prev.map((a) => (a.id === area.id ? { ...a, trianglePoints: [{ x: 0, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }] } : a)),
-                                      )
-                                    }}
-                                    className="px-2 py-1 rounded-md bg-panel-soft hover:bg-tertiary/20 text-xs font-bold border border-border-soft/30"
-                                  >
-                                    {isEnglish ? 'Left Right' : 'Vuông trái'}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      saveHistory()
-                                      setStandingAreas((prev) =>
-                                        prev.map((a) => (a.id === area.id ? { ...a, trianglePoints: [{ x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }] } : a)),
-                                      )
-                                    }}
-                                    className="px-2 py-1 rounded-md bg-panel-soft hover:bg-tertiary/20 text-xs font-bold border border-border-soft/30"
-                                  >
-                                    {isEnglish ? 'Right Right' : 'Vuông phải'}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      saveHistory()
-                                      const cur = getTrianglePoints(area)
-                                      setStandingAreas((prev) =>
-                                        prev.map((a) =>
-                                          a.id === area.id
-                                            ? { ...a, trianglePoints: cur.map((p) => ({ x: p.x, y: 1 - p.y })) }
                                             : a,
                                         ),
                                       )
                                     }}
-                                    className="px-1.5 py-0.5 rounded bg-panel-soft hover:bg-tertiary/20 font-bold border border-border-soft/30"
+                                    className="w-full rounded-lg border border-border-soft/50 bg-panel-soft px-2.5 py-1.5 text-xs font-semibold text-content outline-none cursor-pointer focus:border-[#E6C17A]"
                                   >
-                                    {isEnglish ? 'Flip Vert' : 'Lật dọc'}
-                                  </button>
+                                    <option value="RECTANGLE">{isEnglish ? 'Rectangle' : 'Chữ nhật'}</option>
+                                    <option value="TRIANGLE">{isEnglish ? 'Triangle' : 'Tam giác'}</option>
+                                    <option value="CIRCLE">{isEnglish ? 'Circle' : 'Hình tròn'}</option>
+                                    <option value="DIAMOND">{isEnglish ? 'Diamond' : 'Hình thoi'}</option>
+                                  </select>
                                 </div>
-                              )}
+
+                                <div className="grid grid-cols-2 gap-2 items-center text-xs">
+                                  <div className="flex items-center gap-1.5 rounded-lg border border-border-soft/50 bg-panel-soft px-2.5 py-1.5" title={isEnglish ? 'Capacity (people)' : 'Sức chứa (người)'}>
+                                    <Users className="size-3.5 text-subtle shrink-0" />
+                                    <input
+                                      type="number"
+                                      min={1}
+                                      value={area.capacity}
+                                      onClick={(e) => e.stopPropagation()}
+                                      onChange={(e) =>
+                                        setStandingAreas((prev) =>
+                                          prev.map((a) => (a.id === area.id ? { ...a, capacity: Number(e.target.value) } : a)),
+                                        )
+                                      }
+                                      className="w-full bg-transparent text-xs font-semibold text-content outline-none text-right min-w-0"
+                                    />
+                                  </div>
+
+                                  <div className="flex items-center justify-center gap-1.5 rounded-lg border border-border-soft/50 bg-panel-soft px-2 py-1.5 text-xs text-subtle" title={isEnglish ? 'Size W × H' : 'Kích thước W × H'}>
+                                    <input
+                                      type="number"
+                                      value={area.w}
+                                      onClick={(e) => e.stopPropagation()}
+                                      onChange={(e) =>
+                                        setStandingAreas((prev) =>
+                                          prev.map((a) => (a.id === area.id ? { ...a, w: Number(e.target.value) } : a)),
+                                        )
+                                      }
+                                      className="w-full min-w-0 bg-transparent text-xs font-semibold text-content outline-none text-center"
+                                    />
+                                    <span className="text-subtle font-medium">×</span>
+                                    <input
+                                      type="number"
+                                      value={area.h}
+                                      onClick={(e) => e.stopPropagation()}
+                                      onChange={(e) =>
+                                        setStandingAreas((prev) =>
+                                          prev.map((a) => (a.id === area.id ? { ...a, h: Number(e.target.value) } : a)),
+                                        )
+                                      }
+                                      className="w-full min-w-0 bg-transparent text-xs font-semibold text-content outline-none text-center"
+                                    />
+                                  </div>
+                                </div>
+
+                                {area.shape === 'TRIANGLE' && (
+                                  <div className="flex flex-wrap items-center gap-1.5 text-xs pt-1.5 border-t border-border-soft/20">
+                                    <span className="text-subtle font-semibold">{isEnglish ? 'Preset:' : 'Mẫu:'}</span>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        saveHistory()
+                                        setStandingAreas((prev) =>
+                                          prev.map((a) => (a.id === area.id ? { ...a, trianglePoints: [{ x: 0.5, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }] } : a)),
+                                        )
+                                      }}
+                                      className="px-2 py-1 rounded-md bg-panel-soft hover:bg-tertiary/20 text-xs font-bold border border-border-soft/30"
+                                    >
+                                      {isEnglish ? 'Isosceles' : 'Cân'}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        saveHistory()
+                                        setStandingAreas((prev) =>
+                                          prev.map((a) => (a.id === area.id ? { ...a, trianglePoints: [{ x: 0, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }] } : a)),
+                                        )
+                                      }}
+                                      className="px-2 py-1 rounded-md bg-panel-soft hover:bg-tertiary/20 text-xs font-bold border border-border-soft/30"
+                                    >
+                                      {isEnglish ? 'Left Right' : 'Vuông trái'}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        saveHistory()
+                                        setStandingAreas((prev) =>
+                                          prev.map((a) => (a.id === area.id ? { ...a, trianglePoints: [{ x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }] } : a)),
+                                        )
+                                      }}
+                                      className="px-2 py-1 rounded-md bg-panel-soft hover:bg-tertiary/20 text-xs font-bold border border-border-soft/30"
+                                    >
+                                      {isEnglish ? 'Right Right' : 'Vuông phải'}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        saveHistory()
+                                        const cur = getTrianglePoints(area)
+                                        setStandingAreas((prev) =>
+                                          prev.map((a) =>
+                                            a.id === area.id
+                                              ? { ...a, trianglePoints: cur.map((p) => ({ x: p.x, y: 1 - p.y })) }
+                                              : a,
+                                          ),
+                                        )
+                                      }}
+                                      className="px-1.5 py-0.5 rounded bg-panel-soft hover:bg-tertiary/20 font-bold border border-border-soft/30"
+                                    >
+                                      {isEnglish ? 'Flip Vert' : 'Lật dọc'}
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* SUBTAB 2: PHÂN HẠNG VÉ GHẾ */}
+                  {zoneSubTab === 'ZONES' && (
+                    <section className="rounded-xl border border-border-soft/20 p-3 bg-panel-soft/10 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-bold uppercase tracking-wide text-white">
+                          {isEnglish ? 'Ticket Zones (Seated)' : 'Phân hạng vé ghế ngồi'}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={addZone}
+                          className="flex items-center gap-1 rounded-lg border border-[#C99A47]/60 bg-[#C99A47]/10 hover:bg-[#C99A47]/20 px-2.5 py-1 text-xs font-bold text-[#E6C17A] hover:text-white transition cursor-pointer"
+                        >
+                          <Plus className="size-3" /> {isEnglish ? 'Add Zone' : 'Thêm hạng vé'}
+                        </button>
+                      </div>
+
+                      <div className="space-y-2">
+                        {zones.length === 0 && (
+                          <p className="py-3 text-center text-xs text-muted border border-dashed border-border-soft/30 rounded-xl">
+                            {isEnglish ? 'No seat zones yet. Click "Add Zone" to create.' : 'Chưa có khu vực ghế nào. Nhấp "Thêm hạng vé" để tạo.'}
+                          </p>
+                        )}
+                        {zones.map((zone) => {
+                          const count = seats.filter((s) => s.zoneLocalId === zone.localId).length
+                          const isActive = activeZoneId === zone.localId
+                          return (
+                            <div
+                              key={zone.localId}
+                              onClick={() => {
+                                setActiveZoneId(isActive ? null : zone.localId)
+                                if (selectedIds.size > 0) applyZoneToSelected(zone.localId)
+                              }}
+                              className={`flex items-center justify-between rounded-xl border p-2.5 transition cursor-pointer ${isActive
+                                ? 'border-[#E6C17A] bg-gradient-to-r from-[#C99A47]/20 to-[#E6C17A]/25 text-white shadow-sm ring-1 ring-[#C99A47]/40'
+                                : 'border-border-soft/30 bg-surface hover:border-border-soft/60'
+                                }`}
+                            >
+                              <div className="flex items-center gap-2 flex-1 min-w-0">
+                                <input
+                                  type="color"
+                                  value={zone.color}
+                                  onClick={(e) => e.stopPropagation()}
+                                  onChange={(e) =>
+                                    setZones((prev) =>
+                                      prev.map((z) => (z.localId === zone.localId ? { ...z, color: e.target.value } : z)),
+                                    )
+                                  }
+                                  className="h-6 w-6 shrink-0 cursor-pointer rounded-full border-0 bg-transparent p-0"
+                                />
+                                <input
+                                  type="text"
+                                  value={isEnglish ? (translatePhrase(zone.name, 'en') || zone.name) : zone.name}
+                                  onClick={(e) => e.stopPropagation()}
+                                  disabled={isAppendOnly && existingZoneIds.has(String(zone.localId))}
+                                  onChange={(e) =>
+                                    setZones((prev) =>
+                                      prev.map((z) => (z.localId === zone.localId ? { ...z, name: e.target.value } : z)),
+                                    )
+                                  }
+                                  className={`bg-transparent font-bold text-xs text-content outline-none border-b border-transparent focus:border-tertiary truncate flex-1 ${isAppendOnly && existingZoneIds.has(String(zone.localId)) ? 'opacity-70 cursor-not-allowed' : ''
+                                    }`}
+                                />
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[11px] font-bold text-subtle">{count} {isEnglish ? 'seats' : 'ghế'}</span>
+                                {selectedIds.size > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      applyZoneToSelected(zone.localId)
+                                    }}
+                                    className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary/20 text-primary hover:bg-primary/30"
+                                    title={isEnglish ? 'Assign to selected seats' : 'Gán cho các ghế đang chọn'}
+                                  >
+                                    {isEnglish ? 'Assign' : 'Gán'}
+                                  </button>
+                                )}
+                                {(!isAppendOnly || !existingZoneIds.has(String(zone.localId))) ? (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      deleteZone(zone.localId)
+                                    }}
+                                    className="text-muted hover:text-error transition p-1"
+                                    title={isEnglish ? 'Delete ticket zone' : 'Xóa khu vực vé'}
+                                  >
+                                    <Trash2 className="size-3.5" />
+                                  </button>
+                                ) : (
+                                  <span title={isEnglish ? 'Zone locked (Issued tickets protection)' : 'Khu vực cố định (Bảo vệ vé đã phát hành)'}>
+                                    <Lock className="size-3 text-amber-400" />
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           )
-                        })
-                      )}
-                    </div>
-                  </div>
-                )}
+                        })}
+                      </div>
+                    </section>
+                  )}
+                </div>
+              )}
 
-                {/* SUBTAB 2: PHÂN HẠNG VÉ GHẾ */}
-                {zoneSubTab === 'ZONES' && (
-                  <section className="rounded-xl border border-border-soft/20 p-3 bg-panel-soft/10 space-y-3">
+              {/* TAB 3: QUẢN LÝ LƯỚI GHẾ */}
+              {sidebarTab === 'GRID' && (
+                <div className="space-y-4">
+                  {/* 1. VẼ GHẾ TỰ DO */}
+                  <section className="rounded-xl border border-[#C99A47]/30 p-3.5 bg-[#C99A47]/5 space-y-3">
                     <div className="flex items-center justify-between">
                       <p className="text-xs font-bold uppercase tracking-wide text-white">
-                        {isEnglish ? 'Ticket Zones (Seated)' : 'Phân hạng vé ghế ngồi'}
+                        {isEnglish ? 'Draw Freeform Seats' : 'Vẽ ghế tự do'}
                       </p>
+                      <span className="text-[10px] text-[#E6C17A] font-semibold">
+                        {isEnglish ? 'Click to place' : 'Click để đặt ghế'}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setTool((prev) => (prev === 'ADD' ? 'SELECT' : 'ADD'))}
+                      className={`w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer shadow-sm ${tool === 'ADD'
+                          ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] border-[#E6C17A] shadow-[0_0_14px_rgba(201,154,71,0.35)]'
+                          : 'border-[#C99A47]/50 bg-[#C99A47]/10 text-[#E6C17A] hover:bg-[#C99A47]/20 hover:border-[#E6C17A]'
+                        }`}
+                    >
+                      <Plus className="size-4" />
+                      <span>
+                        {tool === 'ADD'
+                          ? (isEnglish ? 'Drawing Active: Click canvas to place seat' : 'Đang bật vẽ ghế')
+                          : (isEnglish ? 'Draw Single Seat (Key A)' : 'Vẽ ghế tự do (Phím A)')}
+                      </span>
+                    </button>
+                    <p className="text-[11px] text-subtle leading-relaxed">
+                      {isEnglish
+                        ? 'Click anywhere on canvas to place a new seat. Press V or click again to return to selection mode.'
+                        : 'Khi bật, click vào bất kỳ vị trí nào trên sơ đồ để đặt ghế mới. Bấm phím V để quay lại chế độ chọn.'}
+                    </p>
+                  </section>
+
+                  {/* 2. TẠO LƯỚI NHANH */}
+                  <section className="rounded-xl border border-[#C99A47]/30 p-3 bg-[#C99A47]/5 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-bold uppercase tracking-wide text-white">
+                        {isEnglish ? 'Quick Grid & Blocks' : 'Tạo lưới nhanh'}
+                      </p>
+                      <span className="text-[10px] text-[#E6C17A] font-semibold">
+                        {isEnglish ? 'Place seat blocks' : 'Thêm cụm ghế'}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1.5">
                       <button
                         type="button"
-                        onClick={addZone}
-                        className="flex items-center gap-1 rounded-lg border border-[#C99A47]/60 bg-[#C99A47]/10 hover:bg-[#C99A47]/20 px-2.5 py-1 text-xs font-bold text-[#E6C17A] hover:text-white transition cursor-pointer"
+                        onClick={() => addSeatBlock(3, 8)}
+                        className="p-2 rounded-xl border border-dashed border-[#C99A47]/50 hover:border-[#E6C17A] bg-[#C99A47]/10 hover:bg-[#C99A47]/20 flex flex-col items-center justify-center gap-0.5 text-center transition cursor-pointer"
                       >
-                        <Plus className="size-3" /> {isEnglish ? 'Add Zone' : 'Thêm hạng vé'}
+                        <span className="text-xs font-bold text-[#E6C17A]">+ Khối 3×8</span>
+                        <span className="text-[10px] text-muted">{isEnglish ? '24 seats' : '24 ghế'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => addSeatBlock(5, 10)}
+                        className="p-2 rounded-xl border border-dashed border-[#C99A47]/50 hover:border-[#E6C17A] bg-[#C99A47]/10 hover:bg-[#C99A47]/20 flex flex-col items-center justify-center gap-0.5 text-center transition cursor-pointer"
+                      >
+                        <span className="text-xs font-bold text-[#E6C17A]">+ Khối 5×10</span>
+                        <span className="text-[10px] text-muted">{isEnglish ? '50 seats' : '50 ghế'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => addSeatBlock(8, 12)}
+                        className="p-2 rounded-xl border border-dashed border-[#C99A47]/50 hover:border-[#E6C17A] bg-[#C99A47]/10 hover:bg-[#C99A47]/20 flex flex-col items-center justify-center gap-0.5 text-center transition cursor-pointer"
+                      >
+                        <span className="text-xs font-bold text-[#E6C17A]">+ Khối 8×12</span>
+                        <span className="text-[10px] text-muted">{isEnglish ? '96 seats' : '96 ghế'}</span>
                       </button>
                     </div>
 
-                    <div className="space-y-2">
-                      {zones.length === 0 && (
-                        <p className="py-3 text-center text-xs text-muted border border-dashed border-border-soft/30 rounded-xl">
-                          {isEnglish ? 'No seat zones yet. Click "Add Zone" to create.' : 'Chưa có khu vực ghế nào. Nhấp "Thêm hạng vé" để tạo.'}
-                        </p>
+                    {/* Custom block input & Add button */}
+                    <div className="pt-2 border-t border-border-soft/20 space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-subtle font-medium">
+                          {isEnglish ? 'Custom size:' : 'Kích thước tùy chỉnh:'}
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1 bg-panel-soft px-2 py-1 rounded-lg border border-border-soft/40">
+                            <input
+                              type="number"
+                              min={1}
+                              max={30}
+                              value={customBlockRows}
+                              onChange={(e) => setCustomBlockRows(Math.max(1, Number(e.target.value)))}
+                              className="w-8 bg-transparent text-xs text-white font-bold text-center outline-none"
+                              title={isEnglish ? 'Rows' : 'Số hàng'}
+                            />
+                            <span className="text-[10px] text-muted">{isEnglish ? 'r' : 'hàng'}</span>
+                          </div>
+                          <span className="text-xs text-muted font-bold">×</span>
+                          <div className="flex items-center gap-1 bg-panel-soft px-2 py-1 rounded-lg border border-border-soft/40">
+                            <input
+                              type="number"
+                              min={1}
+                              max={50}
+                              value={customBlockCols}
+                              onChange={(e) => setCustomBlockCols(Math.max(1, Number(e.target.value)))}
+                              className="w-8 bg-transparent text-xs text-white font-bold text-center outline-none"
+                              title={isEnglish ? 'Columns' : 'Số cột'}
+                            />
+                            <span className="text-[10px] text-muted">{isEnglish ? 'c' : 'cột'}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => addSeatBlock(customBlockRows, customBlockCols)}
+                        className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] text-xs font-black hover:opacity-95 transition shadow-sm cursor-pointer"
+                      >
+                        <Plus className="size-3.5" />
+                        <span>
+                          {isEnglish
+                            ? `Add block (${customBlockRows * customBlockCols} seats)`
+                            : `Thêm khối (${customBlockRows * customBlockCols} ghế)`}
+                        </span>
+                      </button>
+                    </div>
+                  </section>
+
+                  {/* ĐỔI TÊN & ĐÁNH SỐ GHẾ (Chỉnh sửa đơn lẻ & Thao tác nhanh) */}
+                  <section className="rounded-xl border border-border-soft/20 p-3 bg-panel-soft/10 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-bold uppercase tracking-wide text-white flex items-center gap-1.5">
+                        <ListOrdered className="size-3.5 text-[#E6C17A]" />
+                        <span>{isEnglish ? 'Seat Naming & Numbering' : 'Đổi tên & Đánh số ghế'}</span>
+                      </p>
+                      {selectedIds.size > 0 && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-[#C99A47]/20 text-[#E6C17A] border border-[#C99A47]/30">
+                          {selectedIds.size} {isEnglish ? 'selected' : 'đang chọn'}
+                        </span>
                       )}
-                      {zones.map((zone) => {
-                        const count = seats.filter((s) => s.zoneLocalId === zone.localId).length
-                        const isActive = activeZoneId === zone.localId
-                        return (
-                          <div
-                            key={zone.localId}
-                            onClick={() => {
-                              setActiveZoneId(isActive ? null : zone.localId)
-                              if (selectedIds.size > 0) applyZoneToSelected(zone.localId)
-                            }}
-                            className={`flex items-center justify-between rounded-xl border p-2.5 transition cursor-pointer ${isActive
-                              ? 'border-[#E6C17A] bg-gradient-to-r from-[#C99A47]/20 to-[#E6C17A]/25 text-white shadow-sm ring-1 ring-[#C99A47]/40'
-                              : 'border-border-soft/30 bg-surface hover:border-border-soft/60'
-                              }`}
-                          >
-                            <div className="flex items-center gap-2 flex-1 min-w-0">
-                              <input
-                                type="color"
-                                value={zone.color}
-                                onClick={(e) => e.stopPropagation()}
-                                onChange={(e) =>
-                                  setZones((prev) =>
-                                    prev.map((z) => (z.localId === zone.localId ? { ...z, color: e.target.value } : z)),
-                                  )
-                                }
-                                className="h-6 w-6 shrink-0 cursor-pointer rounded-full border-0 bg-transparent p-0"
-                              />
+                    </div>
+
+                    {selectedIds.size === 1 && (() => {
+                      const single = seats.find((s) => selectedIds.has(s.localId))
+                      if (!single) return null
+                      const isLocked = isAppendOnly && existingSeatIds.has(String(single.localId))
+                      return (
+                        <div className="space-y-2 p-2.5 rounded-xl bg-surface/70 border border-border-soft/30">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-subtle font-semibold">
+                              {isEnglish ? 'Selected Seat:' : 'Ghế đang chọn:'}
+                            </span>
+                            <span className="px-2 py-0.5 rounded-md bg-primary/20 text-primary border border-primary/30 text-xs font-black">
+                              {single.rowLabel}{single.seatNumber}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="text-[10px] text-subtle font-bold block mb-1">
+                                {isEnglish ? 'Row / Prefix:' : 'Hàng / Tiền tố:'}
+                              </label>
                               <input
                                 type="text"
-                                value={isEnglish ? (translatePhrase(zone.name, 'en') || zone.name) : zone.name}
-                                onClick={(e) => e.stopPropagation()}
-                                disabled={isAppendOnly && existingZoneIds.has(String(zone.localId))}
-                                onChange={(e) =>
-                                  setZones((prev) =>
-                                    prev.map((z) => (z.localId === zone.localId ? { ...z, name: e.target.value } : z)),
-                                  )
-                                }
-                                className={`bg-transparent font-bold text-xs text-content outline-none border-b border-transparent focus:border-tertiary truncate flex-1 ${
-                                  isAppendOnly && existingZoneIds.has(String(zone.localId)) ? 'opacity-70 cursor-not-allowed' : ''
-                                }`}
+                                value={single.rowLabel || ''}
+                                onChange={(e) => updateSingleSeat(single.localId, { rowLabel: e.target.value.toUpperCase() })}
+                                disabled={isLocked}
+                                placeholder="A, B..."
+                                className="w-full rounded-lg border border-border-soft/40 bg-panel-soft px-2.5 py-1.5 text-xs font-black uppercase text-white outline-none focus:border-[#E6C17A] disabled:opacity-50"
                               />
                             </div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-[11px] font-bold text-subtle">{count} {isEnglish ? 'seats' : 'ghế'}</span>
-                              {selectedIds.size > 0 && (
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    applyZoneToSelected(zone.localId)
-                                  }}
-                                  className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-primary/20 text-primary hover:bg-primary/30"
-                                  title={isEnglish ? 'Assign to selected seats' : 'Gán cho các ghế đang chọn'}
-                                >
-                                  {isEnglish ? 'Assign' : 'Gán'}
-                                </button>
-                              )}
-                              {(!isAppendOnly || !existingZoneIds.has(String(zone.localId))) ? (
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    deleteZone(zone.localId)
-                                  }}
-                                  className="text-muted hover:text-error transition p-1"
-                                  title={isEnglish ? 'Delete ticket zone' : 'Xóa khu vực vé'}
-                                >
-                                  <Trash2 className="size-3.5" />
-                                </button>
-                              ) : (
-                                <span title={isEnglish ? 'Zone locked (Issued tickets protection)' : 'Khu vực cố định (Bảo vệ vé đã phát hành)'}>
-                                  <Lock className="size-3 text-amber-400" />
-                                </span>
-                              )}
+                            <div>
+                              <label className="text-[10px] text-subtle font-bold block mb-1">
+                                {isEnglish ? 'Seat Number:' : 'Số ghế:'}
+                              </label>
+                              <input
+                                type="text"
+                                value={single.seatNumber || ''}
+                                onChange={(e) => updateSingleSeat(single.localId, { seatNumber: e.target.value })}
+                                disabled={isLocked}
+                                placeholder="1, 2..."
+                                className="w-full rounded-lg border border-border-soft/40 bg-panel-soft px-2.5 py-1.5 text-xs font-black text-white outline-none focus:border-[#E6C17A] disabled:opacity-50"
+                              />
                             </div>
                           </div>
+                          <button
+                            type="button"
+                            onClick={() => setSingleSeatModalSeat(single)}
+                            disabled={isLocked}
+                            className="w-full py-1.5 rounded-lg border border-border-soft/40 bg-panel-soft hover:bg-panel-soft/80 text-xs font-bold text-white transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                          >
+                            <Pencil className="size-3" />
+                            <span>{isEnglish ? 'Edit Details...' : 'Chỉnh sửa chi tiết...'}</span>
+                          </button>
+                        </div>
+                      )
+                    })()}
+
+                    {selectedIds.size > 1 && (
+                      <div className="space-y-2 p-2.5 rounded-xl bg-surface/70 border border-border-soft/30">
+                        <button
+                          type="button"
+                          onClick={() => setIsBatchRenameOpen(true)}
+                          className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] text-xs font-black hover:opacity-95 transition shadow-sm flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          <ListOrdered className="size-4" />
+                          <span>{isEnglish ? `Batch Rename (${selectedIds.size} seats)...` : `Đổi tên hàng loạt (${selectedIds.size} ghế)...`}</span>
+                        </button>
+
+                        {/* Quick fast numbering */}
+                        <div className="pt-1.5 border-t border-border-soft/20 space-y-1.5">
+                          <p className="text-[10px] text-subtle font-bold uppercase tracking-wider">
+                            {isEnglish ? 'Quick Numbering (Left ➜ Right):' : 'Đánh số nhanh (Trái ➜ Phải):'}
+                          </p>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            <input
+                              type="text"
+                              value={quickRowInput}
+                              onChange={(e) => setQuickRowInput(e.target.value.toUpperCase())}
+                              placeholder={isEnglish ? 'Row (e.g. B)' : 'Hàng (VD: B)'}
+                              className="rounded-lg border border-border-soft/40 bg-panel-soft px-2 py-1.5 text-xs font-black uppercase text-white outline-none focus:border-[#E6C17A]"
+                            />
+                            <input
+                              type="number"
+                              min={1}
+                              value={quickStartNumber}
+                              onChange={(e) => setQuickStartNumber(Number(e.target.value) || 1)}
+                              placeholder={isEnglish ? 'Start (1)' : 'Số bắt đầu (1)'}
+                              className="rounded-lg border border-border-soft/40 bg-panel-soft px-2 py-1.5 text-xs font-black text-white outline-none focus:border-[#E6C17A]"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => quickRenumberSelectedLTR(quickRowInput, quickStartNumber)}
+                            className="w-full py-1.5 rounded-lg border border-[#C99A47]/40 bg-[#C99A47]/10 hover:bg-[#C99A47]/20 text-[#E6C17A] text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer"
+                          >
+                            <ArrowRight className="size-3" />
+                            <span>{isEnglish ? 'Apply 1..N' : 'Áp dụng đánh số 1..N'}</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedIds.size === 0 && (
+                      <p className="text-[11px] text-subtle italic">
+                        {isEnglish
+                          ? 'Click or select seats on canvas to edit name or batch renumber.'
+                          : 'Nhấp chọn hoặc quét chọn ghế trên sơ đồ để sửa tên hoặc đánh số nhanh.'}
+                      </p>
+                    )}
+                  </section>
+
+                  {/* Tiện ích căn chỉnh & Đánh số */}
+                  <section className="rounded-xl border border-border-soft/20 p-3 bg-panel-soft/10 space-y-2.5">
+                    <p className="text-xs font-bold uppercase tracking-wide text-white">
+                      {isEnglish ? 'Align & Renumber Tools' : 'Tiện ích căn chỉnh & Đánh số'}
+                    </p>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      <button
+                        type="button"
+                        onClick={autoAlignAllSeats}
+                        className="flex items-center justify-center rounded-xl border border-primary/40 bg-primary/10 hover:bg-primary/20 py-2 px-2 text-xs font-bold text-primary transition cursor-pointer text-center"
+                        title={isEnglish ? 'Auto align all seats' : 'Tự động căn thẳng hàng toàn bộ ghế'}
+                      >
+                        {isEnglish ? 'Auto Align' : 'Tự căn hàng'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={renumberSeats}
+                        className="flex items-center justify-center rounded-xl border border-[#C99A47]/40 bg-[#C99A47]/10 hover:bg-[#C99A47]/20 py-2 px-2 text-xs font-bold text-[#E6C17A] transition cursor-pointer text-center"
+                        title={isEnglish ? 'Renumber all seats A1..An from top to bottom' : 'Tự động đánh lại số thứ tự A1..An từ trên xuống dưới'}
+                      >
+                        {isEnglish ? 'Renumber A-Z' : 'Đánh lại số A-Z'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={alignSelectedHorizontal}
+                        disabled={!selectedIds.size}
+                        className="flex items-center justify-center rounded-xl border border-border-soft/30 bg-surface hover:bg-panel-soft py-2 px-2 text-xs font-semibold text-content transition disabled:opacity-40 cursor-pointer text-center"
+                      >
+                        {isEnglish ? 'Align Horiz' : 'Căn ngang'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={alignSelectedVertical}
+                        disabled={!selectedIds.size}
+                        className="flex items-center justify-center rounded-xl border border-border-soft/30 bg-surface hover:bg-panel-soft py-2 px-2 text-xs font-semibold text-content transition disabled:opacity-40 cursor-pointer text-center"
+                      >
+                        {isEnglish ? 'Align Vert' : 'Căn dọc'}
+                      </button>
+                    </div>
+                  </section>
+
+                  <section className="rounded-xl border border-border-soft/20 p-3.5 bg-panel-soft/10 space-y-2">
+                    <p className="text-xs font-bold uppercase tracking-wide text-white">
+                      {isEnglish ? 'Quick Seat Actions' : 'Thao tác nhanh ghế'}
+                    </p>
+                    <div className="grid grid-cols-1 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedIds(new Set(seats.map((s) => s.localId)))}
+                        className="rounded-xl border border-border-soft/30 bg-surface py-2 text-xs font-semibold text-content hover:bg-panel-soft transition"
+                      >
+                        {isEnglish ? `Select all seats (${seats.length})` : `Chọn tất cả ghế (${seats.length})`}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedIds(new Set())}
+                        className="rounded-xl border border-border-soft/30 bg-surface py-2 text-xs font-semibold text-content hover:bg-panel-soft transition"
+                      >
+                        {isEnglish ? 'Deselect all' : 'Bỏ chọn tất cả'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={disableSelected}
+                        disabled={!selectedIds.size}
+                        className="rounded-xl border border-error/30 bg-error/10 py-2 text-xs font-bold text-error hover:bg-error/20 transition disabled:opacity-50"
+                      >
+                        {isEnglish ? `Disable (${selectedIds.size}) selected seats` : `Vô hiệu hóa (${selectedIds.size}) ghế đang chọn`}
+                      </button>
+                    </div>
+                  </section>
+                </div>
+              )}
+
+              {/* TAB 4: GIAO DIỆN & NỀN */}
+              {sidebarTab === 'THEMES' && (
+                <div className="space-y-4">
+                  <section className="rounded-xl border border-border-soft/20 p-3.5 bg-panel-soft/10 space-y-3">
+                    <p className="text-xs font-bold uppercase tracking-wide text-white">
+                      {isEnglish ? 'Canvas Background Color' : 'Màu nền Canvas'}
+                    </p>
+                    <div className="grid grid-cols-1 gap-2">
+                      {canvasThemes.map((t) => {
+                        const isSelected = canvasBg === t.color
+                        return (
+                          <label
+                            key={t.id}
+                            className={`flex items-center justify-between rounded-xl border px-3 py-2.5 transition cursor-pointer ${isSelected
+                              ? 'border-[#E6C17A] bg-[#C99A47]/10 text-white shadow-sm ring-1 ring-[#C99A47]/40'
+                              : 'border-border-soft/30 bg-surface text-subtle hover:border-border-soft/60 hover:text-content hover:bg-panel-soft/30'
+                              }`}
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <input
+                                type="radio"
+                                name="canvasTheme"
+                                value={t.color}
+                                checked={isSelected}
+                                onChange={() => setCanvasBg(t.color)}
+                                className="sr-only"
+                              />
+                              <div
+                                className={`size-4 rounded-full border-2 shrink-0 flex items-center justify-center transition-all ${isSelected
+                                  ? 'border-[#E6C17A] bg-[#C99A47]/20'
+                                  : 'border-border-soft/60 bg-transparent'
+                                  }`}
+                              >
+                                {isSelected && (
+                                  <div className="size-2 rounded-full bg-gradient-to-r from-[#C99A47] to-[#E6C17A] shadow-xs" />
+                                )}
+                              </div>
+                              <span className="text-sm font-semibold">{t.label}</span>
+                            </div>
+                            <div
+                              className="size-4 rounded-full border border-white/20 shrink-0"
+                              style={{ backgroundColor: t.color }}
+                              title={isEnglish ? `Color code: ${t.color}` : `Mã màu: ${t.color}`}
+                            />
+                          </label>
                         )
                       })}
                     </div>
+
+                    <div className="pt-2 border-t border-border-soft/20 flex items-center justify-between">
+                      <span className="text-sm font-semibold text-white">{isEnglish ? 'Custom Color:' : 'Màu tự chọn:'}</span>
+                      <input
+                        type="color"
+                        value={canvasBg}
+                        onChange={(e) => setCanvasBg(e.target.value)}
+                        className="h-8 w-12 cursor-pointer rounded border-0 bg-transparent p-0"
+                      />
+                    </div>
                   </section>
-                )}
-              </div>
-            )}
 
-            {/* TAB 3: QUẢN LÝ LƯỚI GHẾ */}
-            {sidebarTab === 'GRID' && (
-              <div className="space-y-4">
-                <section className="rounded-xl border border-border-soft/20 p-3.5 bg-panel-soft/10 space-y-3">
-                  <p className="text-xs font-bold uppercase tracking-wide text-white">
-                    {isEnglish ? 'Layout Type & Grid Setup' : 'Loại Layout & Tạo lưới'}
-                  </p>
-                  <div className="grid grid-cols-3 gap-1.5">
-                    {[
-                      ['GRID', isEnglish ? 'Fixed Grid' : 'Lưới cố định'],
-                      ['FREEFORM', isEnglish ? 'Freeform' : 'Vẽ tự do'],
-                      ['MIXED', isEnglish ? 'Mixed' : 'Hỗn hợp'],
-                    ].map(([type, label]) => (
-                      <button
-                        key={type}
-                        type="button"
-                        onClick={() => setLayoutType(type)}
-                        className={`rounded-xl px-1.5 py-2 text-xs font-bold transition-all border text-center leading-tight ${layoutType === type
-                          ? 'border-[#C99A47] text-[#E6C17A] bg-[#C99A47]/10 shadow-sm'
-                          : 'border-border-soft/30 bg-panel-soft text-subtle hover:bg-panel-soft/80 hover:text-content hover:border-border-soft/60'
-                          }`}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-
-                  {layoutType === 'GRID' && (
-                    <div className="space-y-2 pt-2 border-t border-border-soft/20">
-                      <div className="grid grid-cols-2 gap-2">
-                        <label className="text-sm font-semibold text-white block">
-                          {isEnglish ? 'Rows' : 'Số Hàng'}
-                          <input
-                            type="number"
-                            min={1}
-                            max={50}
-                            value={gridConfig.rows}
-                            onChange={(e) => setGridConfig((g) => ({ ...g, rows: Number(e.target.value) }))}
-                            className="mt-1.5 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 py-2 text-base font-bold text-white outline-none focus:border-primary"
-                          />
-                        </label>
-                        <label className="text-sm font-semibold text-white block">
-                          {isEnglish ? 'Columns' : 'Số Cột'}
-                          <input
-                            type="number"
-                            min={1}
-                            max={100}
-                            value={gridConfig.cols}
-                            onChange={(e) => setGridConfig((g) => ({ ...g, cols: Number(e.target.value) }))}
-                            className="mt-1.5 w-full rounded-xl border border-border-soft/40 bg-panel-soft px-3 py-2 text-base font-bold text-white outline-none focus:border-primary"
-                          />
-                        </label>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={generateGrid}
-                        className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-[#C99A47]/50 bg-[#C99A47]/10 hover:bg-[#C99A47]/20 hover:border-[#E6C17A] py-2.5 px-3 text-xs font-bold text-[#E6C17A] hover:text-white transition-all cursor-pointer"
-                      >
-                        <RotateCcw className="size-3.5" />
-                        {isEnglish ? `Recreate seat grid (${gridConfig.rows * gridConfig.cols} seats)` : `Tạo lại lưới ghế (${gridConfig.rows * gridConfig.cols} ghế)`}
-                      </button>
-                    </div>
-                  )}
-
-                  {layoutType === 'FREEFORM' && (
-                    <div className="pt-2 border-t border-border-soft/20 text-xs text-subtle space-y-2">
-                      <p className="text-[11px] leading-relaxed">
-                        {isEnglish
-                          ? 'Freeform mode lets you place seats anywhere. Click "Add Seat" on the toolbar or add blocks below, then drag them freely.'
-                          : 'Chế độ Vẽ tự do cho phép đặt ghế tự do tại mọi vị trí. Bạn có thể kích hoạt công cụ "Vẽ ghế" hoặc thêm cụm ghế bên dưới rồi kéo thả tùy ý.'}
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => setTool('ADD')}
-                        className={`w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl border text-xs font-bold transition cursor-pointer ${
-                          tool === 'ADD'
-                            ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] border-[#E6C17A]'
-                            : 'border-[#C99A47]/50 bg-[#C99A47]/10 text-[#E6C17A] hover:bg-[#C99A47]/20'
-                        }`}
-                      >
-                        <Plus className="size-3.5" />
-                        {isEnglish ? 'Activate "Add Seat" tool' : 'Kích hoạt công cụ "Vẽ ghế"'}
-                      </button>
-                    </div>
-                  )}
-
-                  {layoutType === 'MIXED' && (
-                    <div className="pt-2 border-t border-border-soft/20 text-xs text-subtle space-y-1.5">
-                      <p className="text-[11px] leading-relaxed">
-                        {isEnglish
-                          ? 'Mixed mode combines seat grids and standing areas. Use seat blocks below or switch to the Zones tab to add standing areas.'
-                          : 'Chế độ Hỗn hợp kết hợp cả lưới ghế lẫn vùng đứng. Sử dụng cụm ghế bên dưới hoặc chuyển sang tab "Khu vực" để thêm vùng đứng.'}
-                      </p>
-                    </div>
-                  )}
-                </section>
-
-                {/* Thêm cụm ghế nhanh */}
-                <section className="rounded-xl border border-[#C99A47]/30 p-3 bg-[#C99A47]/5 space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-bold uppercase tracking-wide text-white">
-                      {isEnglish ? 'Quick Seat Blocks' : 'Thêm cụm ghế nhanh'}
+                  <section className="rounded-xl border border-border-soft/20 p-3.5 bg-panel-soft/10 space-y-2">
+                    <label className="flex cursor-pointer items-center gap-2.5 text-sm font-semibold text-white">
+                      <input
+                        type="checkbox"
+                        checked={snapEnabled}
+                        onChange={(e) => setSnapEnabled(e.target.checked)}
+                        className="size-4 rounded border-border-soft/40 bg-panel-soft accent-[#C99A47]"
+                      />
+                      {isEnglish ? 'Snap to Grid Alignment' : 'Căn chỉnh Lưới Snap'}
+                    </label>
+                    <p className="text-xs leading-relaxed text-subtle">
+                      {isEnglish
+                        ? 'Automatically snap seats and objects to grid cells when dragging.'
+                        : 'Tự động hít vị trí ghế & vật thể theo ô lưới khi kéo thả.'}
                     </p>
-                    <span className="text-[10px] text-[#E6C17A] font-semibold">
-                      {isEnglish ? 'Free block layout' : 'Tự do ghép khối'}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => addSeatBlock(3, 8)}
-                      className="p-2 rounded-xl border border-dashed border-[#C99A47]/50 hover:border-[#E6C17A] bg-[#C99A47]/10 hover:bg-[#C99A47]/20 flex flex-col items-center justify-center gap-0.5 text-center transition cursor-pointer"
-                    >
-                      <span className="text-xs font-bold text-[#E6C17A]">+ Khối 3×8</span>
-                      <span className="text-[10px] text-muted">{isEnglish ? '24 seats' : '24 ghế'}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => addSeatBlock(5, 10)}
-                      className="p-2 rounded-xl border border-dashed border-[#C99A47]/50 hover:border-[#E6C17A] bg-[#C99A47]/10 hover:bg-[#C99A47]/20 flex flex-col items-center justify-center gap-0.5 text-center transition cursor-pointer"
-                    >
-                      <span className="text-xs font-bold text-[#E6C17A]">+ Khối 5×10</span>
-                      <span className="text-[10px] text-muted">{isEnglish ? '50 seats' : '50 ghế'}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => addSeatBlock(8, 12)}
-                      className="p-2 rounded-xl border border-dashed border-[#C99A47]/50 hover:border-[#E6C17A] bg-[#C99A47]/10 hover:bg-[#C99A47]/20 flex flex-col items-center justify-center gap-0.5 text-center transition cursor-pointer"
-                    >
-                      <span className="text-xs font-bold text-[#E6C17A]">+ Khối 8×12</span>
-                      <span className="text-[10px] text-muted">{isEnglish ? '96 seats' : '96 ghế'}</span>
-                    </button>
-                  </div>
-
-                  {/* Custom block input & Add button */}
-                  <div className="pt-2 border-t border-border-soft/20 space-y-2">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-subtle font-medium">
-                        {isEnglish ? 'Custom size:' : 'Kích thước tùy chỉnh:'}
-                      </span>
-                      <div className="flex items-center gap-1.5">
-                        <div className="flex items-center gap-1 bg-panel-soft px-2 py-1 rounded-lg border border-border-soft/40">
-                          <input
-                            type="number"
-                            min={1}
-                            max={30}
-                            value={customBlockRows}
-                            onChange={(e) => setCustomBlockRows(Math.max(1, Number(e.target.value)))}
-                            className="w-8 bg-transparent text-xs text-white font-bold text-center outline-none"
-                            title={isEnglish ? 'Rows' : 'Số hàng'}
-                          />
-                          <span className="text-[10px] text-muted">{isEnglish ? 'r' : 'hàng'}</span>
-                        </div>
-                        <span className="text-xs text-muted font-bold">×</span>
-                        <div className="flex items-center gap-1 bg-panel-soft px-2 py-1 rounded-lg border border-border-soft/40">
-                          <input
-                            type="number"
-                            min={1}
-                            max={50}
-                            value={customBlockCols}
-                            onChange={(e) => setCustomBlockCols(Math.max(1, Number(e.target.value)))}
-                            className="w-8 bg-transparent text-xs text-white font-bold text-center outline-none"
-                            title={isEnglish ? 'Columns' : 'Số cột'}
-                          />
-                          <span className="text-[10px] text-muted">{isEnglish ? 'c' : 'cột'}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => addSeatBlock(customBlockRows, customBlockCols)}
-                      className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] text-xs font-black hover:opacity-95 transition shadow-sm cursor-pointer"
-                    >
-                      <Plus className="size-3.5" />
-                      <span>
-                        {isEnglish
-                          ? `Add block (${customBlockRows * customBlockCols} seats)`
-                          : `Thêm khối (${customBlockRows * customBlockCols} ghế)`}
-                      </span>
-                    </button>
-                  </div>
-                </section>
-
-                {/* Tiện ích căn chỉnh & Đánh số */}
-                <section className="rounded-xl border border-border-soft/20 p-3 bg-panel-soft/10 space-y-2.5">
-                  <p className="text-xs font-bold uppercase tracking-wide text-white">
-                    {isEnglish ? 'Align & Renumber Tools' : 'Tiện ích căn chỉnh & Đánh số'}
-                  </p>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    <button
-                      type="button"
-                      onClick={autoAlignAllSeats}
-                      className="flex items-center justify-center rounded-xl border border-primary/40 bg-primary/10 hover:bg-primary/20 py-2 px-2 text-xs font-bold text-primary transition cursor-pointer text-center"
-                      title={isEnglish ? 'Auto align all seats' : 'Tự động căn thẳng hàng toàn bộ ghế'}
-                    >
-                      {isEnglish ? 'Auto Align' : 'Tự căn hàng'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={renumberSeats}
-                      className="flex items-center justify-center rounded-xl border border-[#C99A47]/40 bg-[#C99A47]/10 hover:bg-[#C99A47]/20 py-2 px-2 text-xs font-bold text-[#E6C17A] transition cursor-pointer text-center"
-                      title={isEnglish ? 'Renumber all seats A1..An from top to bottom' : 'Tự động đánh lại số thứ tự A1..An từ trên xuống dưới'}
-                    >
-                      {isEnglish ? 'Renumber A-Z' : 'Đánh lại số A-Z'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={alignSelectedHorizontal}
-                      disabled={!selectedIds.size}
-                      className="flex items-center justify-center rounded-xl border border-border-soft/30 bg-surface hover:bg-panel-soft py-2 px-2 text-xs font-semibold text-content transition disabled:opacity-40 cursor-pointer text-center"
-                    >
-                      {isEnglish ? 'Align Horiz' : 'Căn ngang'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={alignSelectedVertical}
-                      disabled={!selectedIds.size}
-                      className="flex items-center justify-center rounded-xl border border-border-soft/30 bg-surface hover:bg-panel-soft py-2 px-2 text-xs font-semibold text-content transition disabled:opacity-40 cursor-pointer text-center"
-                    >
-                      {isEnglish ? 'Align Vert' : 'Căn dọc'}
-                    </button>
-                  </div>
-                </section>
-
-                <section className="rounded-xl border border-border-soft/20 p-3.5 bg-panel-soft/10 space-y-2">
-                  <p className="text-xs font-bold uppercase tracking-wide text-white">
-                    {isEnglish ? 'Quick Seat Actions' : 'Thao tác nhanh ghế'}
-                  </p>
-                  <div className="grid grid-cols-1 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedIds(new Set(seats.map((s) => s.localId)))}
-                      className="rounded-xl border border-border-soft/30 bg-surface py-2 text-xs font-semibold text-content hover:bg-panel-soft transition"
-                    >
-                      {isEnglish ? `Select all seats (${seats.length})` : `Chọn tất cả ghế (${seats.length})`}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedIds(new Set())}
-                      className="rounded-xl border border-border-soft/30 bg-surface py-2 text-xs font-semibold text-content hover:bg-panel-soft transition"
-                    >
-                      {isEnglish ? 'Deselect all' : 'Bỏ chọn tất cả'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={disableSelected}
-                      disabled={!selectedIds.size}
-                      className="rounded-xl border border-error/30 bg-error/10 py-2 text-xs font-bold text-error hover:bg-error/20 transition disabled:opacity-50"
-                    >
-                      {isEnglish ? `Disable (${selectedIds.size}) selected seats` : `Vô hiệu hóa (${selectedIds.size}) ghế đang chọn`}
-                    </button>
-                  </div>
-                </section>
-              </div>
-            )}
-
-            {/* TAB 4: GIAO DIỆN & NỀN */}
-            {sidebarTab === 'THEMES' && (
-              <div className="space-y-4">
-                <section className="rounded-xl border border-border-soft/20 p-3.5 bg-panel-soft/10 space-y-3">
-                  <p className="text-xs font-bold uppercase tracking-wide text-white">
-                    {isEnglish ? 'Canvas Background Color' : 'Màu nền Canvas'}
-                  </p>
-                  <div className="grid grid-cols-1 gap-2">
-                    {canvasThemes.map((t) => {
-                      const isSelected = canvasBg === t.color
-                      return (
-                        <label
-                          key={t.id}
-                          className={`flex items-center justify-between rounded-xl border px-3 py-2.5 transition cursor-pointer ${isSelected
-                              ? 'border-[#E6C17A] bg-[#C99A47]/10 text-white shadow-sm ring-1 ring-[#C99A47]/40'
-                              : 'border-border-soft/30 bg-surface text-subtle hover:border-border-soft/60 hover:text-content hover:bg-panel-soft/30'
-                            }`}
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <input
-                              type="radio"
-                              name="canvasTheme"
-                              value={t.color}
-                              checked={isSelected}
-                              onChange={() => setCanvasBg(t.color)}
-                              className="sr-only"
-                            />
-                            <div
-                              className={`size-4 rounded-full border-2 shrink-0 flex items-center justify-center transition-all ${isSelected
-                                  ? 'border-[#E6C17A] bg-[#C99A47]/20'
-                                  : 'border-border-soft/60 bg-transparent'
-                                }`}
-                            >
-                              {isSelected && (
-                                <div className="size-2 rounded-full bg-gradient-to-r from-[#C99A47] to-[#E6C17A] shadow-xs" />
-                              )}
-                            </div>
-                            <span className="text-sm font-semibold">{t.label}</span>
-                          </div>
-                          <div
-                            className="size-4 rounded-full border border-white/20 shrink-0"
-                            style={{ backgroundColor: t.color }}
-                            title={isEnglish ? `Color code: ${t.color}` : `Mã màu: ${t.color}`}
-                          />
-                        </label>
-                      )
-                    })}
-                  </div>
-
-                  <div className="pt-2 border-t border-border-soft/20 flex items-center justify-between">
-                    <span className="text-sm font-semibold text-white">{isEnglish ? 'Custom Color:' : 'Màu tự chọn:'}</span>
-                    <input
-                      type="color"
-                      value={canvasBg}
-                      onChange={(e) => setCanvasBg(e.target.value)}
-                      className="h-8 w-12 cursor-pointer rounded border-0 bg-transparent p-0"
-                    />
-                  </div>
-                </section>
-
-                <section className="rounded-xl border border-border-soft/20 p-3.5 bg-panel-soft/10 space-y-2">
-                  <label className="flex cursor-pointer items-center gap-2.5 text-sm font-semibold text-white">
-                    <input
-                      type="checkbox"
-                      checked={snapEnabled}
-                      onChange={(e) => setSnapEnabled(e.target.checked)}
-                      className="size-4 rounded border-border-soft/40 bg-panel-soft accent-[#C99A47]"
-                    />
-                    {isEnglish ? 'Snap to Grid Alignment' : 'Căn chỉnh Lưới Snap'}
-                  </label>
-                  <p className="text-xs leading-relaxed text-subtle">
-                    {isEnglish
-                      ? 'Automatically snap seats and objects to grid cells when dragging.'
-                      : 'Tự động hít vị trí ghế & vật thể theo ô lưới khi kéo thả.'}
-                  </p>
-                </section>
-              </div>
-            )}
+                  </section>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      </aside>
+        </aside>
 
-      {/* Toggle Collapse/Expand Button on Outer Border */}
-      <button
-        type="button"
-        onClick={() => {
-          setToolbarExpandedManual(null)
-          setSidebarOpen((prev) => !prev)
-        }}
-        title={
-          sidebarOpen
-            ? (isEnglish ? 'Collapse sidebar (Shortcut: [ or Ctrl+B)' : 'Thu gọn thanh bên để tiện vẽ (Phím tắt: [ hoặc Ctrl+B)')
-            : (isEnglish ? 'Expand sidebar (Shortcut: [ or Ctrl+B)' : 'Mở rộng thanh bên cấu hình (Phím tắt: [ hoặc Ctrl+B)')
-        }
-        className={`group absolute top-1/2 -translate-y-1/2 z-30 flex h-14 w-6 items-center justify-center rounded-r-xl border border-l-0 shadow-2xl transition-all duration-300 cursor-pointer select-none ${
-          sidebarOpen
-            ? 'left-[340px] border-[#C99A47]/40 bg-[#0D1B2A]/95 text-[#C99A47] hover:w-7 hover:bg-[#C99A47] hover:text-[#0D1B2A] shadow-black/50'
-            : 'left-0 border-[#C99A47]/60 bg-[#0D1B2A] text-[#C99A47] hover:w-7 hover:bg-[#C99A47] hover:text-[#0D1B2A] shadow-black/70 animate-pulse-subtle'
-        }`}
-        aria-label={sidebarOpen ? (isEnglish ? 'Collapse configuration panel' : 'Thu gọn bảng cấu hình') : (isEnglish ? 'Expand configuration panel' : 'Mở bảng cấu hình')}
-      >
-        {sidebarOpen ? (
-          <ChevronLeft className="size-4 shrink-0 transition-transform group-hover:scale-110" />
-        ) : (
-          <ChevronRight className="size-4 shrink-0 transition-transform group-hover:scale-110" />
-        )}
-      </button>
+        {/* Toggle Collapse/Expand Button on Outer Border */}
+        <button
+          type="button"
+          onClick={() => {
+            setToolbarExpandedManual(null)
+            setSidebarOpen((prev) => !prev)
+          }}
+          title={
+            sidebarOpen
+              ? (isEnglish ? 'Collapse sidebar (Shortcut: [ or Ctrl+B)' : 'Thu gọn thanh bên để tiện vẽ (Phím tắt: [ hoặc Ctrl+B)')
+              : (isEnglish ? 'Expand sidebar (Shortcut: [ or Ctrl+B)' : 'Mở rộng thanh bên cấu hình (Phím tắt: [ hoặc Ctrl+B)')
+          }
+          className={`group absolute top-1/2 -translate-y-1/2 z-30 flex h-14 w-6 items-center justify-center rounded-r-xl border border-l-0 shadow-2xl transition-all duration-300 cursor-pointer select-none ${sidebarOpen
+              ? 'left-[340px] border-[#C99A47]/40 bg-[#0D1B2A]/95 text-[#C99A47] hover:w-7 hover:bg-[#C99A47] hover:text-[#0D1B2A] shadow-black/50'
+              : 'left-0 border-[#C99A47]/60 bg-[#0D1B2A] text-[#C99A47] hover:w-7 hover:bg-[#C99A47] hover:text-[#0D1B2A] shadow-black/70 animate-pulse-subtle'
+            }`}
+          aria-label={sidebarOpen ? (isEnglish ? 'Collapse configuration panel' : 'Thu gọn bảng cấu hình') : (isEnglish ? 'Expand configuration panel' : 'Mở bảng cấu hình')}
+        >
+          {sidebarOpen ? (
+            <ChevronLeft className="size-4 shrink-0 transition-transform group-hover:scale-110" />
+          ) : (
+            <ChevronRight className="size-4 shrink-0 transition-transform group-hover:scale-110" />
+          )}
+        </button>
 
         {/* Main Canvas Container */}
         <main ref={canvasContainerRef} className="relative flex flex-1 flex-col overflow-hidden">
@@ -3983,7 +4671,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                 <button
                   type="button"
                   onClick={() => {
-                    try { localStorage.removeItem(AUTOSAVE_KEY) } catch (e) {}
+                    try { localStorage.removeItem(AUTOSAVE_KEY) } catch (e) { }
                     setRecoveredDraft(null)
                   }}
                   className="rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 px-2.5 py-1 font-bold transition cursor-pointer"
@@ -3998,28 +4686,23 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
           <div
             ref={toolbarRef}
             style={toolbarPos ? { left: `${toolbarPos.x}px`, top: `${toolbarPos.y}px`, transform: 'none', position: 'absolute' } : undefined}
-            className={`z-10 flex ${
-              !sidebarOpen
+            className={`z-10 flex ${!sidebarOpen
                 ? 'flex-row items-center flex-nowrap'
                 : isToolbarExpanded
                   ? 'flex-col items-start'
                   : 'flex-row items-center flex-wrap'
-            } gap-2 transition-all duration-300 ease-in-out max-w-[calc(100%-2rem)] ${
-              toolbarPos
+              } gap-2 transition-all duration-300 ease-in-out max-w-[calc(100%-2rem)] ${toolbarPos
                 ? 'absolute pointer-events-auto'
-                : `absolute pointer-events-none ${recoveredDraft ? 'top-16' : 'top-4'} ${
-                    sidebarOpen ? 'left-4 translate-x-0' : 'left-1/2 -translate-x-1/2'
-                  }`
-            }`}
+                : `absolute pointer-events-none ${recoveredDraft ? 'top-16' : 'top-4'} ${sidebarOpen ? 'left-4 translate-x-0' : 'left-1/2 -translate-x-1/2'
+                }`
+              }`}
           >
             {/* Floating Toolbar */}
-            <div className={`pointer-events-auto h-11 sm:h-12 flex items-center rounded-2xl border shadow-2xl backdrop-blur-md transition-all duration-300 max-w-full ${
-              isToolbarExpanded ? 'gap-2 sm:gap-3 p-1.5 sm:p-2 sm:px-2.5' : 'gap-1.5 p-1.5 sm:px-2'
-            } ${
-              isLightCanvas
+            <div className={`pointer-events-auto h-11 sm:h-12 flex items-center rounded-2xl border shadow-2xl backdrop-blur-md transition-all duration-300 max-w-full ${isToolbarExpanded ? 'gap-2 sm:gap-3 p-1.5 sm:p-2 sm:px-2.5' : 'gap-1.5 p-1.5 sm:px-2'
+              } ${isLightCanvas
                 ? 'border-slate-300 bg-white/95 text-slate-800 shadow-xl shadow-slate-900/10'
                 : 'border-border-soft/40 bg-surface/90 text-content'
-            }`}>
+              }`}>
               <div
                 className="flex items-center text-subtle hover:text-content cursor-grab active:cursor-grabbing px-1 py-1 select-none shrink-0"
                 onMouseDown={makeDraggable(setToolbarPos, toolbarRef)}
@@ -4031,9 +4714,8 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
               >
                 <GripVertical className="size-4" />
               </div>
-              <div className={`flex items-center border-r transition-all duration-300 ${
-                isToolbarExpanded ? 'gap-1 sm:gap-1.5 pr-2 sm:pr-2.5' : 'gap-1 pr-1.5'
-              } ${isLightCanvas ? 'border-slate-300' : 'border-border-soft/30'}`}>
+              <div className={`flex items-center border-r transition-all duration-300 ${isToolbarExpanded ? 'gap-1 sm:gap-1.5 pr-2 sm:pr-2.5' : 'gap-1 pr-1.5'
+                } ${isLightCanvas ? 'border-slate-300' : 'border-border-soft/30'}`}>
                 {visibleTools.map((t) => {
                   const IconComp = t.icon
                   const isActive = tool === t.id
@@ -4050,17 +4732,16 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                         }
                       }}
                       title={`${t.label} (${t.shortcut})`}
-                      className={`shrink-0 flex items-center gap-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                        isToolbarExpanded
+                      className={`shrink-0 flex items-center gap-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${isToolbarExpanded
                           ? 'px-2.5 sm:px-3 py-2'
                           : isActive
                             ? 'px-2.5 py-1.5'
                             : 'p-1.5'
-                      } ${isActive
-                        ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md shadow-[#C99A47]/30 font-black'
-                        : isLightCanvas
-                          ? 'text-slate-700 hover:bg-slate-100 hover:text-slate-950 font-bold'
-                          : 'text-subtle hover:bg-panel-soft hover:text-content'
+                        } ${isActive
+                          ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md shadow-[#C99A47]/30 font-black'
+                          : isLightCanvas
+                            ? 'text-slate-700 hover:bg-slate-100 hover:text-slate-950 font-bold'
+                            : 'text-subtle hover:bg-panel-soft hover:text-content'
                         }`}
                     >
                       <IconComp className="size-4 shrink-0" />
@@ -4073,21 +4754,18 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
               </div>
 
               {/* Quick Actions: Quay lại (Undo), Tiếp tục (Redo), Chọn hết, Sao chép, Dán */}
-              <div className={`flex items-center border-r transition-all duration-300 ${
-                isToolbarExpanded ? 'gap-1 sm:gap-1.5 pr-2 sm:pr-2.5' : 'gap-0.5 pr-1.5'
-              } ${isLightCanvas ? 'border-slate-300' : 'border-border-soft/30'}`}>
+              <div className={`flex items-center border-r transition-all duration-300 ${isToolbarExpanded ? 'gap-1 sm:gap-1.5 pr-2 sm:pr-2.5' : 'gap-0.5 pr-1.5'
+                } ${isLightCanvas ? 'border-slate-300' : 'border-border-soft/30'}`}>
                 <button
                   type="button"
                   onClick={undo}
                   disabled={!canUndo}
                   title={isEnglish ? 'Undo previous action (Ctrl+Z)' : 'Quay lại thao tác trước đó (Ctrl+Z)'}
-                  className={`shrink-0 flex items-center gap-1.5 rounded-xl text-xs font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer ${
-                    canShowQuickActionLabels ? 'px-2.5 sm:px-3 py-2' : 'p-1.5'
-                  } ${
-                    isLightCanvas
+                  className={`shrink-0 flex items-center gap-1.5 rounded-xl text-xs font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer ${canShowQuickActionLabels ? 'px-2.5 sm:px-3 py-2' : 'p-1.5'
+                    } ${isLightCanvas
                       ? 'text-slate-700 hover:bg-slate-100 hover:text-slate-950 font-bold'
                       : 'text-subtle hover:bg-panel-soft hover:text-content'
-                  }`}
+                    }`}
                 >
                   <RotateCcw className="size-4 shrink-0" />
                   {canShowQuickActionLabels && <span className="whitespace-nowrap">{isEnglish ? 'Undo' : 'Quay lại'}</span>}
@@ -4097,13 +4775,11 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                   onClick={redo}
                   disabled={!canRedo}
                   title={isEnglish ? 'Redo next action (Ctrl+Y or Ctrl+Shift+Z)' : 'Quay lại thao tác sau đó (Ctrl+Y hoặc Ctrl+Shift+Z)'}
-                  className={`shrink-0 flex items-center gap-1.5 rounded-xl text-xs font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer ${
-                    canShowQuickActionLabels ? 'px-2.5 sm:px-3 py-2' : 'p-1.5'
-                  } ${
-                    isLightCanvas
+                  className={`shrink-0 flex items-center gap-1.5 rounded-xl text-xs font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer ${canShowQuickActionLabels ? 'px-2.5 sm:px-3 py-2' : 'p-1.5'
+                    } ${isLightCanvas
                       ? 'text-slate-700 hover:bg-slate-100 hover:text-slate-950 font-bold'
                       : 'text-subtle hover:bg-panel-soft hover:text-content'
-                  }`}
+                    }`}
                 >
                   <RotateCw className="size-4 shrink-0" />
                   {canShowQuickActionLabels && <span className="whitespace-nowrap">{isEnglish ? 'Redo' : 'Tiếp tục'}</span>}
@@ -4112,13 +4788,11 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                   type="button"
                   onClick={selectAll}
                   title={isEnglish ? 'Select all seats (Ctrl+A)' : 'Chọn tất cả ghế (Ctrl+A)'}
-                  className={`shrink-0 flex items-center gap-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    canShowQuickActionLabels ? 'px-2.5 sm:px-3 py-2' : 'p-1.5'
-                  } ${
-                    isLightCanvas
+                  className={`shrink-0 flex items-center gap-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${canShowQuickActionLabels ? 'px-2.5 sm:px-3 py-2' : 'p-1.5'
+                    } ${isLightCanvas
                       ? 'text-slate-700 hover:bg-slate-100 hover:text-slate-950 font-bold'
                       : 'text-subtle hover:bg-panel-soft hover:text-content'
-                  }`}
+                    }`}
                 >
                   <CheckSquare className="size-4 shrink-0" />
                   {canShowQuickActionLabels && <span className="whitespace-nowrap">{isEnglish ? 'Select All' : 'Chọn hết'}</span>}
@@ -4127,13 +4801,11 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                   type="button"
                   onClick={copySelected}
                   title={isEnglish ? 'Copy (Ctrl+C)' : 'Sao chép (Ctrl+C)'}
-                  className={`shrink-0 flex items-center gap-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    canShowQuickActionLabels ? 'px-2.5 sm:px-3 py-2' : 'p-1.5'
-                  } ${
-                    isLightCanvas
+                  className={`shrink-0 flex items-center gap-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${canShowQuickActionLabels ? 'px-2.5 sm:px-3 py-2' : 'p-1.5'
+                    } ${isLightCanvas
                       ? 'text-slate-700 hover:bg-slate-100 hover:text-slate-950 font-bold'
                       : 'text-subtle hover:bg-panel-soft hover:text-content'
-                  }`}
+                    }`}
                 >
                   <Copy className="size-4 shrink-0" />
                   {canShowQuickActionLabels && <span className="whitespace-nowrap">{isEnglish ? 'Copy' : 'Sao chép'}</span>}
@@ -4142,13 +4814,11 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                   type="button"
                   onClick={cutSelected}
                   title="Cắt (Ctrl+X)"
-                  className={`shrink-0 flex items-center gap-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    canShowQuickActionLabels ? 'px-2.5 sm:px-3 py-2' : 'p-1.5'
-                  } ${
-                    isLightCanvas
+                  className={`shrink-0 flex items-center gap-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${canShowQuickActionLabels ? 'px-2.5 sm:px-3 py-2' : 'p-1.5'
+                    } ${isLightCanvas
                       ? 'text-slate-700 hover:bg-slate-100 hover:text-slate-950 font-bold'
                       : 'text-subtle hover:bg-panel-soft hover:text-content'
-                  }`}
+                    }`}
                 >
                   <Scissors className="size-4 shrink-0" />
                   {canShowQuickActionLabels && <span className="whitespace-nowrap">Cắt</span>}
@@ -4157,13 +4827,11 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                   type="button"
                   onClick={duplicateSelected}
                   title="Nhân bản (Ctrl+D)"
-                  className={`shrink-0 flex items-center gap-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    canShowQuickActionLabels ? 'px-2.5 sm:px-3 py-2' : 'p-1.5'
-                  } ${
-                    isLightCanvas
+                  className={`shrink-0 flex items-center gap-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${canShowQuickActionLabels ? 'px-2.5 sm:px-3 py-2' : 'p-1.5'
+                    } ${isLightCanvas
                       ? 'text-slate-700 hover:bg-slate-100 hover:text-slate-950 font-bold'
                       : 'text-subtle hover:bg-panel-soft hover:text-content'
-                  }`}
+                    }`}
                 >
                   <Plus className="size-4 shrink-0" />
                   {canShowQuickActionLabels && <span className="whitespace-nowrap">Nhân bản</span>}
@@ -4172,13 +4840,11 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                   type="button"
                   onClick={pasteCopied}
                   title={isEnglish ? 'Paste (Ctrl+V)' : 'Dán (Ctrl+V)'}
-                  className={`shrink-0 flex items-center gap-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    canShowQuickActionLabels ? 'px-2.5 sm:px-3 py-2' : 'p-1.5'
-                  } ${
-                    isLightCanvas
+                  className={`shrink-0 flex items-center gap-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${canShowQuickActionLabels ? 'px-2.5 sm:px-3 py-2' : 'p-1.5'
+                    } ${isLightCanvas
                       ? 'text-slate-700 hover:bg-slate-100 hover:text-slate-950 font-bold'
                       : 'text-subtle hover:bg-panel-soft hover:text-content'
-                  }`}
+                    }`}
                 >
                   <ClipboardPaste className="size-4 shrink-0" />
                   {canShowQuickActionLabels && <span className="whitespace-nowrap">{isEnglish ? 'Paste' : 'Dán'}</span>}
@@ -4187,9 +4853,8 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
 
               {/* Quick Paint zone selector */}
               {tool === 'PAINT' && zones.length > 0 && (
-                <div className={`shrink-0 flex items-center transition-all duration-300 ${
-                  isToolbarExpanded ? 'gap-2 pl-2' : 'gap-1.5 pl-1'
-                }`}>
+                <div className={`shrink-0 flex items-center transition-all duration-300 ${isToolbarExpanded ? 'gap-2 pl-2' : 'gap-1.5 pl-1'
+                  }`}>
                   {canShowPaintText ? (
                     <span className={`text-xs sm:text-sm font-extrabold whitespace-nowrap ${isLightCanvas ? 'text-slate-800' : 'text-subtle'}`}>
                       {isEnglish ? 'Paint Zone:' : 'Tô khu vực:'}
@@ -4210,7 +4875,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                         className={`size-5 sm:size-6 rounded-full border-2 transition-transform shrink-0 cursor-pointer ${activeZoneId === z.localId
                           ? isLightCanvas ? 'scale-115 border-slate-900 shadow-md ring-2 ring-[#C99A47]' : 'scale-115 border-white shadow-md'
                           : isLightCanvas ? 'border-slate-400/50 shadow-xs opacity-90 hover:opacity-100 hover:scale-105' : 'border-transparent opacity-80 hover:opacity-100'
-                        }`}
+                          }`}
                         style={{ backgroundColor: z.color }}
                       />
                     ))}
@@ -4238,19 +4903,16 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
 
             {/* Contextual Selection Action Bar for Seats */}
             {selectedIds.size > 0 && (
-              <div className={`pointer-events-auto h-11 sm:h-12 flex items-center rounded-2xl border shadow-2xl backdrop-blur-md transition-all duration-200 select-none shrink-0 ${
-                isToolbarExpanded ? 'gap-1.5 sm:gap-2 p-1.5 sm:p-2 sm:px-2.5' : 'gap-1 p-1.5 sm:px-2'
-              } ${
-                isLightCanvas
+              <div className={`pointer-events-auto h-11 sm:h-12 flex items-center rounded-2xl border shadow-2xl backdrop-blur-md transition-all duration-200 select-none shrink-0 ${isToolbarExpanded ? 'gap-1.5 sm:gap-2 p-1.5 sm:p-2 sm:px-2.5' : 'gap-1 p-1.5 sm:px-2'
+                } ${isLightCanvas
                   ? 'border-slate-300 bg-white/95 text-slate-800 shadow-xl shadow-slate-900/10'
                   : 'border-border-soft/40 bg-surface/90 text-content'
-              }`}>
+                }`}>
                 {/* Badge count */}
-                <div className={`h-7 sm:h-8 flex items-center gap-1 px-2.5 rounded-xl text-xs font-bold shrink-0 ${
-                  isLightCanvas
+                <div className={`h-7 sm:h-8 flex items-center gap-1 px-2.5 rounded-xl text-xs font-bold shrink-0 ${isLightCanvas
                     ? 'bg-slate-100 text-slate-800 border border-slate-300'
                     : 'bg-panel-soft text-white border border-border-soft/40'
-                }`}>
+                  }`}>
                   <span className="font-extrabold">{selectedIds.size}</span>
                   <span className={`text-[11px] font-medium ${isLightCanvas ? 'text-slate-600' : 'text-subtle'}`}>
                     {isEnglish ? 'seats' : 'ghế'}
@@ -4276,6 +4938,67 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                   </div>
                 )}
 
+                {/* Quick Seat Name Editing / Renumbering */}
+                {selectedIds.size === 1 && (() => {
+                  const singleSeat = seats.find((s) => selectedIds.has(s.localId))
+                  if (!singleSeat) return null
+                  const isLocked = isAppendOnly && existingSeatIds.has(String(singleSeat.localId))
+                  return (
+                    <div className={`flex items-center gap-1.5 px-2 border-l shrink-0 ${isLightCanvas ? 'border-slate-300' : 'border-border-soft/30'}`}>
+                      <span className={`text-[11px] font-bold hidden sm:inline ${isLightCanvas ? 'text-slate-600' : 'text-subtle'}`}>
+                        {isEnglish ? 'Seat:' : 'Ghế:'}
+                      </span>
+                      <input
+                        type="text"
+                        value={singleSeat.rowLabel || ''}
+                        onChange={(e) => updateSingleSeat(singleSeat.localId, { rowLabel: e.target.value.toUpperCase() })}
+                        disabled={isLocked}
+                        title={isEnglish ? 'Row / Prefix' : 'Hàng / Tiền tố'}
+                        placeholder="Hàng"
+                        className={`h-7 w-12 rounded-lg border px-1 text-center text-xs font-black uppercase outline-none focus:border-[#E6C17A] ${
+                          isLightCanvas ? 'border-slate-300 bg-slate-100 text-slate-900' : 'border-border-soft/40 bg-panel-soft text-white'
+                        } disabled:opacity-50`}
+                      />
+                      <input
+                        type="text"
+                        value={singleSeat.seatNumber || ''}
+                        onChange={(e) => updateSingleSeat(singleSeat.localId, { seatNumber: e.target.value })}
+                        disabled={isLocked}
+                        title={isEnglish ? 'Seat Number' : 'Số ghế'}
+                        placeholder="Số"
+                        className={`h-7 w-14 rounded-lg border px-1 text-center text-xs font-black outline-none focus:border-[#E6C17A] ${
+                          isLightCanvas ? 'border-slate-300 bg-slate-100 text-slate-900' : 'border-border-soft/40 bg-panel-soft text-white'
+                        } disabled:opacity-50`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setSingleSeatModalSeat(singleSeat)}
+                        disabled={isLocked}
+                        title={isEnglish ? 'Edit seat name in detail' : 'Chỉnh sửa chi tiết tên ghế'}
+                        className={`size-7 flex items-center justify-center rounded-lg transition cursor-pointer ${
+                          isLightCanvas ? 'text-slate-700 hover:bg-slate-100' : 'text-subtle hover:bg-panel-soft hover:text-white'
+                        } disabled:opacity-40`}
+                      >
+                        <Pencil className="size-3.5" />
+                      </button>
+                    </div>
+                  )
+                })()}
+
+                {selectedIds.size > 1 && (
+                  <div className={`flex items-center gap-1.5 px-2 border-l shrink-0 ${isLightCanvas ? 'border-slate-300' : 'border-border-soft/30'}`}>
+                    <button
+                      type="button"
+                      onClick={() => setIsBatchRenameOpen(true)}
+                      className="h-7 sm:h-8 flex items-center gap-1.5 px-2.5 rounded-xl bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] text-xs font-black hover:opacity-95 shadow-md shadow-[#C99A47]/20 transition cursor-pointer"
+                      title={isEnglish ? 'Batch rename & renumber selected seats' : 'Đổi tên & Đánh số hàng loạt cho các ghế đang chọn'}
+                    >
+                      <ListOrdered className="size-4 shrink-0" />
+                      <span className="whitespace-nowrap">{isEnglish ? 'Rename / Renumber' : 'Đổi tên & Đánh số'}</span>
+                    </button>
+                  </div>
+                )}
+
                 {/* Alignment & Grid Tools */}
                 <div className={`flex items-center gap-1 border-l px-1.5 shrink-0 ${isLightCanvas ? 'border-slate-300' : 'border-border-soft/30'}`}>
                   <button
@@ -4284,15 +5007,13 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                       alignSelectedHorizontal()
                       setActiveSeatAction('ALIGN_H')
                     }}
-                    className={`shrink-0 flex items-center gap-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                      activeSeatAction === 'ALIGN_H'
+                    className={`shrink-0 flex items-center gap-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeSeatAction === 'ALIGN_H'
                         ? 'h-7 sm:h-8 px-2.5 bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md shadow-[#C99A47]/30 font-black'
-                        : `size-7 sm:size-8 justify-center ${
-                            isLightCanvas
-                              ? 'text-slate-700 hover:bg-slate-100 hover:text-slate-950'
-                              : 'text-subtle hover:bg-panel-soft hover:text-white'
-                          }`
-                    }`}
+                        : `size-7 sm:size-8 justify-center ${isLightCanvas
+                          ? 'text-slate-700 hover:bg-slate-100 hover:text-slate-950'
+                          : 'text-subtle hover:bg-panel-soft hover:text-white'
+                        }`
+                      }`}
                     title={isEnglish ? 'Align horizontally' : 'Căn ngang'}
                   >
                     <AlignCenterHorizontal className="size-4 shrink-0" />
@@ -4306,15 +5027,13 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                       alignSelectedVertical()
                       setActiveSeatAction('ALIGN_V')
                     }}
-                    className={`shrink-0 flex items-center gap-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                      activeSeatAction === 'ALIGN_V'
+                    className={`shrink-0 flex items-center gap-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeSeatAction === 'ALIGN_V'
                         ? 'h-7 sm:h-8 px-2.5 bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md shadow-[#C99A47]/30 font-black'
-                        : `size-7 sm:size-8 justify-center ${
-                            isLightCanvas
-                              ? 'text-slate-700 hover:bg-slate-100 hover:text-slate-950'
-                              : 'text-subtle hover:bg-panel-soft hover:text-white'
-                          }`
-                    }`}
+                        : `size-7 sm:size-8 justify-center ${isLightCanvas
+                          ? 'text-slate-700 hover:bg-slate-100 hover:text-slate-950'
+                          : 'text-subtle hover:bg-panel-soft hover:text-white'
+                        }`
+                      }`}
                     title={isEnglish ? 'Align vertically' : 'Căn dọc'}
                   >
                     <AlignCenterVertical className="size-4 shrink-0" />
@@ -4328,15 +5047,13 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                       snapSelectedToGrid()
                       setActiveSeatAction('SNAP_GRID')
                     }}
-                    className={`shrink-0 flex items-center gap-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                      activeSeatAction === 'SNAP_GRID'
+                    className={`shrink-0 flex items-center gap-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeSeatAction === 'SNAP_GRID'
                         ? 'h-7 sm:h-8 px-2.5 bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md shadow-[#C99A47]/30 font-black'
-                        : `size-7 sm:size-8 justify-center ${
-                            isLightCanvas
-                              ? 'text-slate-700 hover:bg-slate-100 hover:text-slate-950'
-                              : 'text-subtle hover:bg-panel-soft hover:text-white'
-                          }`
-                    }`}
+                        : `size-7 sm:size-8 justify-center ${isLightCanvas
+                          ? 'text-slate-700 hover:bg-slate-100 hover:text-slate-950'
+                          : 'text-subtle hover:bg-panel-soft hover:text-white'
+                        }`
+                      }`}
                     title={isEnglish ? 'Snap to grid' : 'Hít lưới'}
                   >
                     <Grid className="size-4 shrink-0" />
@@ -4350,15 +5067,13 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                       autoAlignSelected()
                       setActiveSeatAction('AUTO_ALIGN')
                     }}
-                    className={`shrink-0 flex items-center gap-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                      activeSeatAction === 'AUTO_ALIGN'
+                    className={`shrink-0 flex items-center gap-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeSeatAction === 'AUTO_ALIGN'
                         ? 'h-7 sm:h-8 px-2.5 bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md shadow-[#C99A47]/30 font-black'
-                        : `size-7 sm:size-8 justify-center ${
-                            isLightCanvas
-                              ? 'text-slate-700 hover:bg-slate-100 hover:text-slate-950'
-                              : 'text-subtle hover:bg-panel-soft hover:text-white'
-                          }`
-                    }`}
+                        : `size-7 sm:size-8 justify-center ${isLightCanvas
+                          ? 'text-slate-700 hover:bg-slate-100 hover:text-slate-950'
+                          : 'text-subtle hover:bg-panel-soft hover:text-white'
+                        }`
+                      }`}
                     title={isEnglish ? 'Auto align' : 'Tự động căn hàng'}
                   >
                     <Sparkles className="size-4 shrink-0" />
@@ -4378,15 +5093,13 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                       <button
                         type="button"
                         onClick={disableSelected}
-                        className={`shrink-0 flex items-center gap-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                          isAllSelectedDisabled
+                        className={`shrink-0 flex items-center gap-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${isAllSelectedDisabled
                             ? 'h-7 sm:h-8 px-2.5 bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/50 shadow-md font-black'
-                            : `size-7 sm:size-8 justify-center ${
-                                isLightCanvas
-                                  ? 'text-slate-700 hover:bg-amber-100 hover:text-amber-700'
-                                  : 'text-subtle hover:bg-warning/20 hover:text-amber-400'
-                              }`
-                        }`}
+                            : `size-7 sm:size-8 justify-center ${isLightCanvas
+                              ? 'text-slate-700 hover:bg-amber-100 hover:text-amber-700'
+                              : 'text-subtle hover:bg-warning/20 hover:text-amber-400'
+                            }`
+                          }`}
                         title={isEnglish ? 'Disable / Enable seats' : 'Vô hiệu hóa / Bật lại ghế'}
                       >
                         <Ban className="size-4 shrink-0" />
@@ -4399,11 +5112,10 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                   <button
                     type="button"
                     onClick={deleteSelected}
-                    className={`size-7 sm:size-8 flex items-center justify-center rounded-xl transition cursor-pointer shrink-0 ${
-                      isLightCanvas
+                    className={`size-7 sm:size-8 flex items-center justify-center rounded-xl transition cursor-pointer shrink-0 ${isLightCanvas
                         ? 'text-slate-700 hover:bg-red-100 hover:text-red-700 hover:scale-105 active:scale-95'
                         : 'text-subtle hover:bg-error/20 hover:text-error hover:scale-105 active:scale-95'
-                    }`}
+                      }`}
                     title={isEnglish ? 'Delete seats (Backspace/Delete)' : 'Xóa ghế (Backspace/Delete)'}
                   >
                     <Trash2 className="size-4" />
@@ -4414,11 +5126,10 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                       setSelectedIds(new Set())
                       setActiveSeatAction(null)
                     }}
-                    className={`size-7 sm:size-8 flex items-center justify-center rounded-xl transition cursor-pointer shrink-0 ${
-                      isLightCanvas
+                    className={`size-7 sm:size-8 flex items-center justify-center rounded-xl transition cursor-pointer shrink-0 ${isLightCanvas
                         ? 'text-slate-700 hover:bg-slate-100 hover:text-slate-950 hover:scale-105 active:scale-95'
                         : 'text-subtle hover:bg-panel-soft hover:text-white hover:scale-105 active:scale-95'
-                    }`}
+                      }`}
                     title={isEnglish ? 'Deselect all (Esc)' : 'Bỏ chọn tất cả (Esc)'}
                   >
                     <X className="size-4" />
@@ -4436,11 +5147,10 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                   ref={shapeInspectorRef}
                   onMouseDown={makeDraggable(setShapeInspectorPos, shapeInspectorRef)}
                   style={shapeInspectorPos ? { left: `${shapeInspectorPos.x}px`, top: `${shapeInspectorPos.y}px`, right: 'auto', bottom: 'auto' } : undefined}
-                  className={`absolute ${shapeInspectorPos ? '' : 'top-4 right-4'} z-20 flex items-center gap-2 rounded-2xl border px-2.5 py-1.5 shadow-2xl backdrop-blur-md select-none cursor-grab active:cursor-grabbing ${
-                    isLightCanvas
+                  className={`absolute ${shapeInspectorPos ? '' : 'top-4 right-4'} z-20 flex items-center gap-2 rounded-2xl border px-2.5 py-1.5 shadow-2xl backdrop-blur-md select-none cursor-grab active:cursor-grabbing ${isLightCanvas
                       ? 'border-primary/50 bg-white/95 text-slate-800 shadow-slate-900/15'
                       : 'border-primary/40 bg-surface/95 text-content'
-                  }`}
+                    }`}
                 >
                   <div
                     className="flex items-center text-subtle hover:text-content cursor-grab active:cursor-grabbing pr-0.5 select-none"
@@ -4461,9 +5171,8 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                         if (e.key === 'Enter' || e.key === 'Escape') e.currentTarget.blur()
                       }}
                       placeholder={isEnglish ? 'Enter stage name...' : 'Nhập tên sân khấu...'}
-                      className={`rounded-xl border px-3 py-1.5 text-xs font-bold outline-none focus:border-primary w-48 shadow-inner ${
-                        isLightCanvas ? 'border-slate-300 bg-slate-100 text-slate-900' : 'border-border-soft/40 bg-panel-soft text-content'
-                      }`}
+                      className={`rounded-xl border px-3 py-1.5 text-xs font-bold outline-none focus:border-primary w-48 shadow-inner ${isLightCanvas ? 'border-slate-300 bg-slate-100 text-slate-900' : 'border-border-soft/40 bg-panel-soft text-content'
+                        }`}
                     />
                     <input
                       type="color"
@@ -4475,9 +5184,8 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                     <select
                       value={stageConfig.shape || 'RECTANGLE'}
                       onChange={(e) => setStageConfig((c) => ({ ...c, shape: e.target.value }))}
-                      className={`rounded-xl border px-2 py-1.5 text-xs font-bold outline-none focus:border-primary ${
-                        isLightCanvas ? 'border-slate-300 bg-slate-100 text-slate-900' : 'border-border-soft/40 bg-panel-soft text-content'
-                      }`}
+                      className={`rounded-xl border px-2 py-1.5 text-xs font-bold outline-none focus:border-primary ${isLightCanvas ? 'border-slate-300 bg-slate-100 text-slate-900' : 'border-border-soft/40 bg-panel-soft text-content'
+                        }`}
                     >
                       {stageShapes.map((s) => (
                         <option key={s.id} value={s.id}>{s.label}</option>
@@ -4486,9 +5194,8 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                     <button
                       type="button"
                       onClick={duplicateSelected}
-                      className={`p-1.5 rounded-lg border transition cursor-pointer ${
-                        isLightCanvas ? 'border-[#C99A47]/40 bg-[#C99A47]/10 text-slate-800 hover:bg-[#C99A47]/20' : 'border-[#C99A47]/30 bg-[#C99A47]/10 text-[#E6C17A] hover:bg-[#C99A47]/20'
-                      }`}
+                      className={`p-1.5 rounded-lg border transition cursor-pointer ${isLightCanvas ? 'border-[#C99A47]/40 bg-[#C99A47]/10 text-slate-800 hover:bg-[#C99A47]/20' : 'border-[#C99A47]/30 bg-[#C99A47]/10 text-[#E6C17A] hover:bg-[#C99A47]/20'
+                        }`}
                       title="Tạo sân khấu phụ (Ctrl+D)"
                     >
                       <Plus className="size-3.5" />
@@ -4519,11 +5226,10 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                   ref={shapeInspectorRef}
                   onMouseDown={makeDraggable(setShapeInspectorPos, shapeInspectorRef)}
                   style={shapeInspectorPos ? { left: `${shapeInspectorPos.x}px`, top: `${shapeInspectorPos.y}px`, right: 'auto', bottom: 'auto' } : undefined}
-                  className={`absolute ${shapeInspectorPos ? '' : 'top-4 right-4'} z-20 flex flex-col gap-1.5 rounded-2xl border px-2.5 py-1.5 shadow-2xl backdrop-blur-md select-none cursor-grab active:cursor-grabbing ${
-                    isLightCanvas
+                  className={`absolute ${shapeInspectorPos ? '' : 'top-4 right-4'} z-20 flex flex-col gap-1.5 rounded-2xl border px-2.5 py-1.5 shadow-2xl backdrop-blur-md select-none cursor-grab active:cursor-grabbing ${isLightCanvas
                       ? 'border-tertiary/50 bg-white/95 text-slate-800 shadow-slate-900/15'
                       : 'border-tertiary/40 bg-surface/95 text-content'
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center gap-2 cursor-default">
                     <div
@@ -4544,9 +5250,8 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                         if (e.key === 'Enter' || e.key === 'Escape') e.currentTarget.blur()
                       }}
                       placeholder={isEnglish ? "Standing area name..." : "Tên vùng đứng..."}
-                      className={`rounded-xl border px-3 py-1.5 text-xs font-bold outline-none focus:border-tertiary w-36 shadow-inner ${
-                        isLightCanvas ? 'border-slate-300 bg-slate-100 text-slate-900' : 'border-border-soft/40 bg-panel-soft text-content'
-                      }`}
+                      className={`rounded-xl border px-3 py-1.5 text-xs font-bold outline-none focus:border-tertiary w-36 shadow-inner ${isLightCanvas ? 'border-slate-300 bg-slate-100 text-slate-900' : 'border-border-soft/40 bg-panel-soft text-content'
+                        }`}
                     />
                     <label className={`text-xs font-bold flex items-center gap-1.5 ${isLightCanvas ? 'text-slate-600' : 'text-subtle'}`}>
                       {isEnglish ? 'Capacity:' : 'Sức chứa:'}
@@ -4558,9 +5263,8 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' || e.key === 'Escape') e.currentTarget.blur()
                         }}
-                        className={`w-16 rounded-xl border px-2.5 py-1 text-xs font-bold outline-none focus:border-tertiary ${
-                          isLightCanvas ? 'border-slate-300 bg-slate-100 text-slate-900' : 'border-border-soft/40 bg-panel-soft text-content'
-                        }`}
+                        className={`w-16 rounded-xl border px-2.5 py-1 text-xs font-bold outline-none focus:border-tertiary ${isLightCanvas ? 'border-slate-300 bg-slate-100 text-slate-900' : 'border-border-soft/40 bg-panel-soft text-content'
+                          }`}
                       />
                     </label>
                     <input
@@ -4579,20 +5283,19 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                           prev.map((a) =>
                             String(a.id) === String(standingItem.id)
                               ? {
-                                  ...a,
-                                  shape: newShape,
-                                  trianglePoints:
-                                    newShape === 'TRIANGLE'
-                                      ? a.trianglePoints || [{ x: 0.5, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }]
-                                      : a.trianglePoints,
-                                }
+                                ...a,
+                                shape: newShape,
+                                trianglePoints:
+                                  newShape === 'TRIANGLE'
+                                    ? a.trianglePoints || [{ x: 0.5, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }]
+                                    : a.trianglePoints,
+                              }
                               : a,
                           ),
                         )
                       }}
-                      className={`rounded-xl border px-2.5 py-1.5 text-xs font-bold outline-none focus:border-primary ${
-                        isLightCanvas ? 'border-slate-300 bg-slate-100 text-slate-900' : 'border-border-soft/40 bg-panel-soft text-content'
-                      }`}
+                      className={`rounded-xl border px-2.5 py-1.5 text-xs font-bold outline-none focus:border-primary ${isLightCanvas ? 'border-slate-300 bg-slate-100 text-slate-900' : 'border-border-soft/40 bg-panel-soft text-content'
+                        }`}
                       title={isEnglish ? "Block shape" : "Hình dạng khối"}
                     >
                       <option value="RECTANGLE">{isEnglish ? 'Rectangle' : 'Chữ nhật'}</option>
@@ -4603,9 +5306,8 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                     <button
                       type="button"
                       onClick={duplicateSelected}
-                      className={`p-1.5 rounded-lg border transition cursor-pointer ${
-                        isLightCanvas ? 'border-[#C99A47]/40 bg-[#C99A47]/10 text-slate-800 hover:bg-[#C99A47]/20' : 'border-[#C99A47]/30 bg-[#C99A47]/10 text-[#E6C17A] hover:bg-[#C99A47]/20'
-                      }`}
+                      className={`p-1.5 rounded-lg border transition cursor-pointer ${isLightCanvas ? 'border-[#C99A47]/40 bg-[#C99A47]/10 text-slate-800 hover:bg-[#C99A47]/20' : 'border-[#C99A47]/30 bg-[#C99A47]/10 text-[#E6C17A] hover:bg-[#C99A47]/20'
+                        }`}
                       title="Nhân bản khối này (Ctrl+D)"
                     >
                       <Plus className="size-3.5" />
@@ -4691,9 +5393,9 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                             prev.map((a) =>
                               String(a.id) === String(standingItem.id)
                                 ? {
-                                    ...a,
-                                    trianglePoints: cur.map((p) => ({ x: p.x, y: 1 - p.y })),
-                                  }
+                                  ...a,
+                                  trianglePoints: cur.map((p) => ({ x: p.x, y: 1 - p.y })),
+                                }
                                 : a,
                             ),
                           )
@@ -4716,11 +5418,10 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                   ref={shapeInspectorRef}
                   onMouseDown={makeDraggable(setShapeInspectorPos, shapeInspectorRef)}
                   style={shapeInspectorPos ? { left: `${shapeInspectorPos.x}px`, top: `${shapeInspectorPos.y}px`, right: 'auto', bottom: 'auto' } : undefined}
-                  className={`absolute ${shapeInspectorPos ? '' : 'top-4 right-4'} z-20 flex items-center gap-2.5 rounded-2xl border p-3 shadow-2xl backdrop-blur-md select-none cursor-grab active:cursor-grabbing ${
-                    isLightCanvas
+                  className={`absolute ${shapeInspectorPos ? '' : 'top-4 right-4'} z-20 flex items-center gap-2.5 rounded-2xl border p-3 shadow-2xl backdrop-blur-md select-none cursor-grab active:cursor-grabbing ${isLightCanvas
                       ? 'border-slate-300 bg-white/95 text-slate-800 shadow-slate-900/15'
                       : 'border-border-soft/40 bg-surface/95 text-content'
-                  }`}
+                    }`}
                 >
                   <div
                     className="flex items-center text-subtle hover:text-content cursor-grab active:cursor-grabbing pr-0.5 select-none"
@@ -4747,16 +5448,14 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                           if (e.key === 'Enter' || e.key === 'Escape') e.currentTarget.blur()
                         }}
                         placeholder={isEnglish ? "Object name..." : "Tên vật thể..."}
-                        className={`rounded-xl border px-3 py-1.5 text-xs font-bold outline-none focus:border-primary w-48 shadow-inner ${
-                          isLightCanvas ? 'border-slate-300 bg-slate-100 text-slate-900' : 'border-border-soft/40 bg-panel-soft text-content'
-                        }`}
+                        className={`rounded-xl border px-3 py-1.5 text-xs font-bold outline-none focus:border-primary w-48 shadow-inner ${isLightCanvas ? 'border-slate-300 bg-slate-100 text-slate-900' : 'border-border-soft/40 bg-panel-soft text-content'
+                          }`}
                       />
                       <button
                         type="button"
                         onClick={duplicateSelected}
-                        className={`p-1.5 rounded-lg border transition cursor-pointer ${
-                          isLightCanvas ? 'border-[#C99A47]/40 bg-[#C99A47]/10 text-slate-800 hover:bg-[#C99A47]/20' : 'border-[#C99A47]/30 bg-[#C99A47]/10 text-[#E6C17A] hover:bg-[#C99A47]/20'
-                        }`}
+                        className={`p-1.5 rounded-lg border transition cursor-pointer ${isLightCanvas ? 'border-[#C99A47]/40 bg-[#C99A47]/10 text-slate-800 hover:bg-[#C99A47]/20' : 'border-[#C99A47]/30 bg-[#C99A47]/10 text-[#E6C17A] hover:bg-[#C99A47]/20'
+                          }`}
                         title={isEnglish ? "Duplicate this object (Ctrl+D)" : "Nhân bản vật thể này (Ctrl+D)"}
                       >
                         <Plus className="size-3.5" />
@@ -4780,11 +5479,10 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
           })()}
 
           {/* Floating Zoom Controls */}
-          <div className={`absolute bottom-4 left-4 z-10 flex items-center gap-1 rounded-2xl border p-1.5 shadow-2xl backdrop-blur-md transition-colors ${
-            isLightCanvas
+          <div className={`absolute bottom-4 left-4 z-10 flex items-center gap-1 rounded-2xl border p-1.5 shadow-2xl backdrop-blur-md transition-colors ${isLightCanvas
               ? 'border-slate-300 bg-white/95 text-slate-800 shadow-xl shadow-slate-900/10'
               : 'border-border-soft/40 bg-surface/90 text-content'
-          }`}>
+            }`}>
             <button
               type="button"
               onClick={() => setZoom((z) => Math.min(2.5, z + 0.15))}
@@ -4825,11 +5523,10 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
             onWheel={handleWheel}
           >
             {!selectedShapeId && selectedIds.size === 0 && (
-              <div className={`pointer-events-none absolute bottom-4 right-4 flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-[11px] font-medium shadow-lg backdrop-blur transition-colors ${
-                isLightCanvas
+              <div className={`pointer-events-none absolute bottom-4 right-4 flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-[11px] font-medium shadow-lg backdrop-blur transition-colors ${isLightCanvas
                   ? 'border-slate-300/80 bg-white/95 text-slate-700 shadow-slate-900/10'
                   : 'border-border-soft/30 bg-surface/90 text-subtle'
-              }`}>
+                }`}>
                 <Hand className="size-3.5 text-tertiary" />
                 {isEnglish ? (
                   <>Click block to edit name directly · Hold <b>Alt</b> + drag mouse to move</>
@@ -4841,11 +5538,10 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
 
             {seats.length === 0 && standingAreas.length === 0 && stageConfig.position === 'HIDDEN' && auxElements.length === 0 && (
               <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center p-6 text-center select-none z-0">
-                <div className={`p-5 rounded-3xl border shadow-xl backdrop-blur-md max-w-md space-y-2.5 transition-colors ${
-                  isLightCanvas
+                <div className={`p-5 rounded-3xl border shadow-xl backdrop-blur-md max-w-md space-y-2.5 transition-colors ${isLightCanvas
                     ? 'border-slate-300/80 bg-white/80 text-slate-700 shadow-slate-900/5'
                     : 'border-border-soft/40 bg-surface/80 text-subtle'
-                }`}>
+                  }`}>
                   <div className="flex items-center justify-center gap-2 text-sm font-bold text-[#E6C17A]">
                     <Sparkles className="size-5 text-[#C99A47]" />
                     <span>Sơ đồ trống (Bản vẽ mới)</span>
@@ -5277,6 +5973,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                       key={seat.localId}
                       transform={`translate(${seat.x},${seat.y})`}
                       onMouseDown={(e) => handleSeatMouseDown(e, seat)}
+                      onDoubleClick={(e) => handleSeatDoubleClick(e, seat)}
                       style={{ cursor: tool === 'ERASE' || isLocked ? 'not-allowed' : 'pointer' }}
                     >
                       <rect
@@ -5321,7 +6018,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
                       <title>
                         {isLocked
                           ? `Ghế ${seat.rowLabel}${seat.seatNumber} (Đã phát hành - Khóa cố định)`
-                          : `Ghế ${seat.rowLabel}${seat.seatNumber}`}
+                          : `Ghế ${seat.rowLabel}${seat.seatNumber} (Nhấp đúp để đổi tên)`}
                       </title>
                     </g>
                   )
@@ -5513,7 +6210,7 @@ export function SeatMapPreview({
 
   const zoneColorById = useMemo(() => {
     const m = new Map()
-    ;(zones || []).forEach((z) => m.set(z.id || z.localId, z.color))
+      ; (zones || []).forEach((z) => m.set(z.id || z.localId, z.color))
     return m
   }, [zones])
 

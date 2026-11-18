@@ -78,6 +78,8 @@ class SeatMapsRepository {
       `
       SELECT
         sm.*,
+        e.title AS event_title,
+        e.status AS event_status,
         COUNT(DISTINCT sz.id)::int AS db_zone_count,
         COUNT(DISTINCT s.id)::int AS db_seat_count,
         COALESCE((
@@ -99,13 +101,34 @@ class SeatMapsRepository {
               ELSE '[]'::jsonb
             END
           ) AS sa
-        ), 0)::int AS standing_capacity
+        ), 0)::int AS standing_capacity,
+        COALESCE(usage_info.session_count, 0)::int AS session_count,
+        COALESCE(usage_info.event_count, 0)::int AS event_count,
+        (COALESCE(usage_info.is_published, false) OR COALESCE(usage_info.sold_or_held_seats_count, 0) > 0) AS is_append_only
       FROM seat_maps sm
       JOIN venues v ON v.id = sm.venue_id
+      LEFT JOIN events e ON e.id = sm.event_id AND e.deleted_at IS NULL
       LEFT JOIN seat_zones sz ON sz.seat_map_id = sm.id
       LEFT JOIN seats s ON s.seat_map_id = sm.id
+      LEFT JOIN LATERAL (
+        SELECT
+          COUNT(DISTINCT es.id)::int AS session_count,
+          COUNT(DISTINCT es.event_id)::int AS event_count,
+          BOOL_OR(e2.status IN ('PUBLISHED', 'COMPLETED') OR e2.approval_status = 'APPROVED') AS is_published,
+          COALESCE((
+            SELECT COUNT(*)::int
+            FROM session_seats ss
+            JOIN event_sessions es2 ON es2.id = ss.event_session_id
+            WHERE es2.seat_map_id = sm.id
+              AND ss.status IN ('SOLD', 'HELD')
+          ), 0)::int AS sold_or_held_seats_count
+        FROM event_sessions es
+        JOIN events e2 ON e2.id = es.event_id
+        WHERE es.seat_map_id = sm.id
+          AND e2.deleted_at IS NULL
+      ) usage_info ON true
       WHERE sm.venue_id = $1 AND sm.deleted_at IS NULL AND v.organizer_id = $2
-      GROUP BY sm.id
+      GROUP BY sm.id, e.title, e.status, usage_info.session_count, usage_info.event_count, usage_info.is_published, usage_info.sold_or_held_seats_count
       ORDER BY sm.created_at DESC
       `,
       [venueId, organizerId],
@@ -130,6 +153,9 @@ class SeatMapsRepository {
         seat_count: totalCapacity || seatCount,
         zone_count: zoneCount,
         total_capacity: totalCapacity,
+        is_append_only: Boolean(sm.is_append_only),
+        event_title: sm.event_title || null,
+        session_count: sm.session_count || 0,
       };
     });
   }
@@ -196,7 +222,7 @@ class SeatMapsRepository {
             FROM session_seats ss
             JOIN event_sessions es2 ON es2.id = ss.event_session_id
             WHERE es2.seat_map_id = sm.id
-              AND ss.status IN ('BOOKED', 'HELD')
+              AND ss.status IN ('SOLD', 'HELD')
           ), 0)::int AS sold_or_held_seats_count
         FROM event_sessions es
         JOIN events e ON e.id = es.event_id
@@ -343,7 +369,7 @@ class SeatMapsRepository {
           FROM session_seats ss
           JOIN event_sessions es2 ON es2.id = ss.event_session_id
           WHERE es2.seat_map_id = $1
-            AND ss.status IN ('BOOKED', 'HELD')
+            AND ss.status IN ('SOLD', 'HELD')
         ), 0)::int AS sold_or_held_seats_count
       FROM event_sessions es
       JOIN events e ON e.id = es.event_id
