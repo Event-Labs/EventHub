@@ -158,7 +158,22 @@ export function EventDetailPage() {
   const eventQuery = useQuery({
     queryKey: ['event-detail', eventId],
     queryFn: () => fetchEventDetail(eventId),
+    staleTime: 60 * 1000,
     refetchInterval: 30_000,
+    initialData: () => {
+      const cachedPool = queryClient.getQueryData(['home-events', 'upcoming-pool'])?.items || []
+      const foundInPool = cachedPool.find((e) => e.slug === eventId || String(e.id) === String(eventId))
+      if (foundInPool) return foundInPool
+
+      const cachedEvents = queryClient.getQueriesData({ queryKey: ['events'] })
+      for (const [, data] of cachedEvents) {
+        if (data?.items) {
+          const found = data.items.find((e) => e.slug === eventId || String(e.id) === String(eventId))
+          if (found) return found
+        }
+      }
+      return undefined
+    },
   })
 
   useEffect(() => {
@@ -419,6 +434,8 @@ export function EventDetailPage() {
           <img
             src={heroImage}
             alt={event.title}
+            decoding="async"
+            fetchPriority="high"
             className="absolute inset-0 h-full w-full object-cover object-center"
             style={{
               WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 60%, rgba(0,0,0,0.6) 80%, transparent 100%)',

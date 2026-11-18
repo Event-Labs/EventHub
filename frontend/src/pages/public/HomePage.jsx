@@ -158,7 +158,7 @@ function sortEventsByPriorityAndTime(events = []) {
 }
 
 export function HomePage() {
-  const { isEnglish, t } = useLanguage()
+  const { isEnglish } = useLanguage()
   const toast = useToast()
   const [keyword, setKeyword] = useState('')
   const [timelineNow, setTimelineNow] = useState(() => Date.now())
@@ -166,35 +166,40 @@ export function HomePage() {
   const location = useLocation()
   const queryClient = useQueryClient()
 
-  const featuredQuery = useQuery({
-    queryKey: ['home-events', 'featured'],
-    queryFn: () => fetchEvents({ limit: 10, sort_by: 'start_time', sort_order: 'asc', upcoming_only: true }),
-  })
-
-  const upcomingQuery = useQuery({
-    queryKey: ['home-events', 'upcoming'],
-    queryFn: () => fetchEvents({ limit: 8, sort_by: 'start_time', sort_order: 'asc', upcoming_only: true }),
-  })
-
-  const trendingQuery = useQuery({
-    queryKey: ['home-events', 'trending'],
+  const eventsPoolQuery = useQuery({
+    queryKey: ['home-events', 'upcoming-pool'],
     queryFn: () => fetchEvents({ limit: 24, sort_by: 'start_time', sort_order: 'asc', upcoming_only: true }),
-  })
-
-  const timelineQuery = useQuery({
-    queryKey: ['home-events', 'timeline'],
-    queryFn: () => fetchEvents({ limit: 24, sort_by: 'start_time', sort_order: 'asc', upcoming_only: true }),
+    staleTime: 5 * 60 * 1000,
   })
 
   const pastEventsQuery = useQuery({
     queryKey: ['home-events', 'past'],
-    queryFn: () => fetchEvents({ limit: 20, sort_by: 'start_time', sort_order: 'desc' }),
+    queryFn: () => fetchEvents({ limit: 12, sort_by: 'start_time', sort_order: 'desc' }),
+    staleTime: 5 * 60 * 1000,
   })
 
   const categoriesQuery = useQuery({
     queryKey: ['event-categories'],
     queryFn: fetchEventCategories,
+    staleTime: 10 * 60 * 1000,
   })
+
+  // Pre-cache page 1 of EventsPage so entering /events displays instantly without re-fetching
+  useEffect(() => {
+    if (eventsPoolQuery.data?.items?.length) {
+      const page1Params = { limit: 9, page: '1', sort_by: 'start_time', sort_order: 'asc', upcoming_only: true }
+      const total = eventsPoolQuery.data.pagination?.total ?? eventsPoolQuery.data.items.length
+      queryClient.setQueryData(['events', page1Params], {
+        items: eventsPoolQuery.data.items.slice(0, 9),
+        pagination: {
+          page: 1,
+          limit: 9,
+          total,
+          total_pages: Math.max(1, Math.ceil(total / 9)),
+        },
+      })
+    }
+  }, [eventsPoolQuery.data, queryClient])
 
   useEffect(() => {
     const timer = window.setInterval(() => setTimelineNow(Date.now()), 30_000)
@@ -221,21 +226,23 @@ export function HomePage() {
     onSettled: () => refreshFavoriteQueries(queryClient),
   })
 
+  const poolItems = useMemo(() => eventsPoolQuery.data?.items || [], [eventsPoolQuery.data?.items])
+
   const featuredEvents = useMemo(
-    () => sortEventsByPriorityAndTime(featuredQuery.data?.items || []),
-    [featuredQuery.data?.items],
+    () => sortEventsByPriorityAndTime(poolItems.slice(0, 10)),
+    [poolItems],
   )
   const upcomingEvents = useMemo(
-    () => sortEventsByPriorityAndTime(upcomingQuery.data?.items || []),
-    [upcomingQuery.data?.items],
+    () => sortEventsByPriorityAndTime(poolItems.slice(0, 8)),
+    [poolItems],
   )
   const trendingEvents = useMemo(
-    () => sortEventsByPriorityAndTime(trendingQuery.data?.items || []),
-    [trendingQuery.data?.items],
+    () => sortEventsByPriorityAndTime(poolItems),
+    [poolItems],
   )
   const timelineEvents = useMemo(
-    () => sortEventsByPriorityAndTime(timelineQuery.data?.items || []),
-    [timelineQuery.data?.items],
+    () => sortEventsByPriorityAndTime(poolItems),
+    [poolItems],
   )
   const pastEvents = useMemo(
     () => pastEventsQuery.data?.items || [],
@@ -351,9 +358,9 @@ export function HomePage() {
 
         {/* Featured Events Showcase: 3D Ring on Desktop, Touch Slider on Mobile */}
         <div className="relative z-10 w-full flex-1 flex flex-col items-center justify-center mt-6 sm:mt-12 lg:mt-14 mb-4 sm:mb-6">
-          {featuredQuery.isLoading ? (
+          {eventsPoolQuery.isLoading ? (
             <StatePanel message={isEnglish ? 'Loading featured events...' : 'Đang tải sự kiện nổi bật...'} />
-          ) : featuredQuery.isError ? (
+          ) : eventsPoolQuery.isError ? (
             <StatePanel message={isEnglish ? 'Failed to load featured events.' : 'Không thể tải sự kiện nổi bật.'} tone="error" />
           ) : heroEvents.length ? (
             <>
@@ -385,16 +392,16 @@ export function HomePage() {
         <ScrollReveal>
           <form
             onSubmit={handleSearch}
-            className="relative z-20 mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 mb-6 sm:mb-8"
+            className="relative z-20 mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 mb-6 sm:mb-8"
           >
-            <div className="flex flex-col items-center gap-3 md:flex-row md:items-stretch">
+            <div className="flex flex-col items-center gap-3 md:flex-row md:items-stretch w-full">
               <div className="relative w-full flex-1">
-                <Search className="pointer-events-none absolute left-4 top-1/2 z-10 size-5 -translate-y-1/2 text-white" />
+                <Search className="pointer-events-none absolute left-4 sm:left-5 top-1/2 z-10 size-5 -translate-y-1/2 text-white/80" />
                 <input
                   value={keyword}
                   onChange={(event) => setKeyword(event.target.value)}
                   placeholder={isEnglish ? 'Search events, categories, venues, tags...' : 'Tìm kiếm sự kiện, danh mục, địa điểm, tags...'}
-                  className="w-full rounded-full border border-cyan-500/25 bg-slate-900/60 py-3.5 sm:py-4 pl-12 pr-4 text-sm sm:text-base font-normal text-white placeholder:text-white/50 outline-none backdrop-blur-xl transition duration-300 focus:border-cyan-400 focus:bg-slate-900/90 shadow-[0_0_20px_rgba(6,182,212,0.12)] focus:shadow-[0_0_30px_rgba(6,182,212,0.3)]"
+                  className="w-full rounded-full border border-cyan-500/25 bg-slate-900/60 py-3.5 sm:py-4 pl-12 sm:pl-14 pr-4 sm:pr-6 text-sm sm:text-base font-normal text-white placeholder:text-white/50 outline-none backdrop-blur-xl transition duration-300 focus:border-cyan-400 focus:bg-slate-900/90 shadow-[0_0_20px_rgba(6,182,212,0.12)] focus:shadow-[0_0_30px_rgba(6,182,212,0.3)]"
                 />
               </div>
               <button
@@ -416,7 +423,7 @@ export function HomePage() {
             />
             <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
               {trendingThisWeekEvents.map((event, index) => (
-                <ScrollReveal key={event.id} delay={index * 90}>
+                <ScrollReveal key={event.id} delay={index * 30}>
                   <EventCard
                     event={event}
                     compact
@@ -445,7 +452,7 @@ export function HomePage() {
             {categories.slice(0, 6).map((category, index) => {
               const Icon = categoryIcons[index % categoryIcons.length]
               return (
-                <ScrollReveal key={category.id} delay={index * 70}>
+                <ScrollReveal key={category.id} delay={index * 25}>
                   <button
                     type="button"
                     onClick={() => handleCategorySearch(category.slug)}
@@ -542,7 +549,7 @@ function VertexCarouselRing({ events, onSelectEvent, isEnglish = false }) {
   const containerRef = useRef(null)
   const [isHovered, setIsHovered] = useState(false)
   const phaseRef = useRef(-2)
-  const lastTimeRef = useRef(performance.now())
+  const lastTimeRef = useRef(null)
 
   const totalCards = 24
   const step = 360 / totalCards
@@ -550,9 +557,10 @@ function VertexCarouselRing({ events, onSelectEvent, isEnglish = false }) {
   const cullAngle = 50
 
   useEffect(() => {
+    lastTimeRef.current = performance.now()
     let animId
     const tick = (now) => {
-      const dt = Math.min((now - lastTimeRef.current) / 1000, 0.1)
+      const dt = Math.min((now - (lastTimeRef.current ?? now)) / 1000, 0.1)
       lastTimeRef.current = now
 
       const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -862,13 +870,21 @@ function FeaturedEventSlider({ events, onSelectEvent, isEnglish = false }) {
   )
 }
 
-function ScrollReveal({ as: Component = 'div', children, className = '', delay = 0 }) {
+function ScrollReveal({ as: Component = 'div', children, className = '', delay = 0, immediate = false }) {
   const ref = useRef(null)
-  const [visible, setVisible] = useState(false)
+  const [visible, setVisible] = useState(immediate)
 
   useEffect(() => {
+    if (immediate) return undefined
     const node = ref.current
     if (!node) return undefined
+
+    // If element is already in or near viewport on mount, show immediately
+    const rect = node.getBoundingClientRect()
+    if (rect.top <= window.innerHeight + 120) {
+      setVisible(true)
+      return undefined
+    }
 
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -877,21 +893,21 @@ function ScrollReveal({ as: Component = 'div', children, className = '', delay =
         observer.unobserve(entry.target)
       },
       {
-        rootMargin: '0px 0px -12% 0px',
-        threshold: 0.12,
+        rootMargin: '120px 0px 60px 0px',
+        threshold: 0.01,
       },
     )
 
     observer.observe(node)
     return () => observer.disconnect()
-  }, [])
+  }, [immediate])
 
   return (
     <Component
       ref={ref}
-      className={`${className} transform-gpu transition-all duration-700 ease-out ${visible ? 'translate-y-0 opacity-100 blur-0' : 'translate-y-8 opacity-0 blur-sm'
+      className={`${className} transform-gpu transition-all duration-300 ease-out ${visible ? 'translate-y-0 opacity-100' : 'translate-y-2 opacity-0'
         }`}
-      style={{ transitionDelay: visible ? `${delay}ms` : '0ms' }}
+      style={{ transitionDelay: visible && delay ? `${Math.min(delay, 90)}ms` : '0ms' }}
     >
       {children}
     </Component>
@@ -916,7 +932,7 @@ function TimelineEventSection({
             <ScrollReveal
               key={event.id}
               className={expired ? 'relative grayscale-[0.25]' : 'relative'}
-              delay={index * 90}
+              delay={index * 30}
             >
               {expired && (
                 <span className="absolute left-4 top-4 z-30 rounded-full border border-white/20 bg-slate-950/75 px-3 py-1 text-xs font-extrabold uppercase text-white backdrop-blur">

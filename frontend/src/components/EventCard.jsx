@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { Calendar, Heart, MapPin } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils.js'
@@ -89,14 +90,14 @@ function normalizeEvent(event, isEnglish = false) {
   }
 }
 
-export function EventCard({
+function EventCardComponent({
   event,
   compact = false,
   showCategoryBadge = true,
   onFavoriteToggle,
   favoriteBusy = false,
 }) {
-  const { isEnglish, t } = useLanguage()
+  const { isEnglish } = useLanguage()
   const item = normalizeEvent(event, isEnglish)
   const navigate = useNavigate()
   const detailPath = `/events/${item.id}`
@@ -128,6 +129,8 @@ export function EventCard({
         <img
           src={item.image}
           alt={item.title}
+          loading="lazy"
+          decoding="async"
           className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
         />
         <div className="event-card-gradient absolute inset-0" />
@@ -215,3 +218,5 @@ export function EventCard({
     </article>
   )
 }
+
+export const EventCard = memo(EventCardComponent)

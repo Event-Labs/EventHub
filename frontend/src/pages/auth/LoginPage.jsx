@@ -19,7 +19,7 @@ import { LockedAccountModal } from '@/components/LockedAccountModal'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
-import logoSrc from '@/assets/eventhub-logo.png'
+import logoSrc from '@/assets/eventhub-logo.webp'
 
 export function LoginPage() {
   const { isEnglish, language } = useLanguage()
