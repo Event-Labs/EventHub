@@ -48,6 +48,9 @@ class AdmissionWorker {
       try {
         await this.processEventAdmission(eventId);
       } catch (err) {
+        if (String(err?.message || '').includes('max requests limit exceeded')) {
+          return;
+        }
         logger.error(`[AdmissionWorker] Error processing admissions for event ${eventId}:`, err);
       }
     }
@@ -55,7 +58,11 @@ class AdmissionWorker {
 
   async processEventAdmission(eventId) {
     const config = await waitingRoomService.getEventConfig(eventId);
-    if (!config.enabled || config.is_paused || config.sold_out) {
+    if (!config.enabled) {
+      await redis.sRem(KEYS.ACTIVE_EVENTS_SET, eventId).catch(() => {});
+      return;
+    }
+    if (config.is_paused || config.sold_out) {
       return;
     }
 

@@ -16,7 +16,7 @@ const EN_MONTHS = {
   jan: 1, feb: 2, mar: 3, apr: 4, jun: 6, jul: 7, aug: 8, sep: 9, sept: 9, oct: 10, nov: 11, dec: 12,
 };
 const EN_MONTH_ALT = Object.keys(EN_MONTHS).join('|');
-const DATE_SKIP_CONTEXT = /((?:last\s*edited|edited\s*on|copied\s*from|updated\s*on|ghi\s*chú\s*lúc|cập\s*nhật\s*lúc|ngày\s*lập|ngày\s*soạn|ngày\s*cập\s*nhật|ngày\s*họp|ngày\s*thông\s*báo|ngày\s*phát\s*hành|ngày\s*ban\s*hành|ngày\s*ký|meeting\s*date|date\s*of\s*issue|document\s*date|prepared\s*on)\s*[:：\-–]?\s*)/i;
+const DATE_SKIP_CONTEXT = /((?:last\s*edited|edited\s*on|copied\s*from|updated\s*on|ghi\s*chú\s*lúc|cập\s*nhật\s*lúc|ngày\s*lập|ngày\s*soạn|ngày\s*cập\s*nhật|ngày\s*họp|ngày\s*thông\s*báo|ngày\s*phát\s*hành|ngày\s*ban\s*hành|ngày\s*ký|meeting\s*date|date\s*of\s*issue|document\s*date|prepared\s*on)\s*[:：\-–]?\s*|(?:refund(?:s|\s*deadline|\s*policy|\s*requests?)?|no\s*refund(?:s)?|hoàn\s*(?:tiền|vé)|hạn\s*(?:hoàn\s*vé|đăng\s*ký))[^\n\r]{0,35}?(?:before|until|by|accepted\s+until|available\s+until|trước|đến)?\s*[:：\-–]?\s*)/i;
 
 class AiDocumentParserService {
   /**
@@ -227,7 +227,7 @@ class AiDocumentParserService {
     if (!text || typeof text !== 'string') return text;
     const norm = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
     const lines = norm.split('\n');
-    const singleValueKeyRe = /^[ \t]*(?:#{1,6}\s*)?(?:\*{1,2})?(?:TIÊU\s*ĐỀ|TÊN\s*(?:SỰ\s*KIỆN|CHƯƠNG\s*TRÌNH)|EVENT\s*(?:NAME|TITLE)|EVENT|NAME|TITLE|(?:(?:MAIN|BASE|OFFICIAL)\s+)?VENUE(?:\s*NAME)?|ADDRESS|LOCATION|WHERE\??|ĐỊA\s*ĐIỂM(?:\s*CHÍNH)?(?:\s*TỔ\s*CHỨC)?|ĐỊA\s*CHỈ|KHU\s*VỰC|CATEGORY|EVENT\s*CATEGORY|DANH\s*MỤC|THỂ\s*LOẠI|TAGS?|DATE|DATES|WHEN\??|NGÀY\s*TỔ\s*CHỨC|TIER|HẠNG\s*VÉ|LOẠI\s*VÉ|GIÁ\s*VÉ|MỨC\s*GIÁ|PRICE|FEE|PARTICIPATION|CHÍNH\s*SÁCH\s*HOÀN\s*(?:VÉ|TIỀN|PHÍ)|REFUND(?:\s*(?:POLICY|DEADLINE))?)(?:\*{1,2})?\s*[:：?][ \t]*$/i;
+    const singleValueKeyRe = /^[ \t]*(?:#{1,6}\s*)?(?:\*{1,2})?(?:TIÊU\s*ĐỀ|TÊN\s*(?:SỰ\s*KIỆN|CHƯƠNG\s*TRÌNH)|EVENT\s*(?:NAME|TITLE)|EVENT|NAME|TITLE|(?:(?:MAIN|BASE|OFFICIAL)\s+)?VENUE(?:\s*NAME)?|ADDRESS|LOCATION|WHERE\??|ĐỊA\s*ĐIỂM(?:\s*CHÍNH)?(?:\s*TỔ\s*CHỨC)?|ĐỊA\s*CHỈ|KHU\s*VỰC|CATEGORY|EVENT\s*CATEGORY|DANH\s*MỤC|THỂ\s*LOẠI|TAGS?|DATE|DATES|WHEN\??|NGÀY\s*TỔ\s*CHỨC|(?:(?:FESTIVAL|EVENT|DAILY|PUBLIC)\s+)?(?:OPENING|CLOSING)(?:\s*HOURS?)?|(?:OPERATING|PUBLIC)\s*HOURS|DOORS?\s*OPEN|GATES?\s*OPEN|VENUE\s*CLOSES|MAIN\s*(?:PROGRAM|COMPETITION)(?:\s*(?:BEGINS|STARTS))?|GIỜ\s*(?:MỞ\s*CỬA|ĐÓNG\s*CỬA)|EXPECTED\s*ATTENDANCE|TIER|HẠNG\s*VÉ|LOẠI\s*VÉ|GIÁ\s*VÉ|MỨC\s*GIÁ|PRICE|FEE|PARTICIPATION|TICKET\s*(?:TYPES?|PRICES?)|REGISTRATION\s*FEES?|CHÍNH\s*SÁCH\s*HOÀN\s*(?:VÉ|TIỀN|PHÍ)|REFUND(?:\s*(?:POLICY|DEADLINE))?)(?:\*{1,2})?\s*[:：?][ \t]*$/i;
     const structuralLineRe = /^(?:[#|\-•\*]|\d+[\.\)]\s+|\*{1,2}|[A-ZÀ-Ỹ0-9\s\/&]{2,40}[:：?]\s*$)/;
     const out = [];
     for (let i = 0; i < lines.length; i++) {
@@ -523,6 +523,10 @@ class AiDocumentParserService {
    * @returns {Promise<object>}
    */
   async extractEventFromText(text, userNote = '', options = {}) {
+    if (userNote && typeof userNote === 'object') {
+      options = userNote;
+      userNote = '';
+    }
     const organizerName = (options && options.organizerName) ? String(options.organizerName).trim() : '';
     const cleanDoc = this._stripEvaluationMetadata(text);
 
@@ -590,12 +594,12 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
    - Cột hoặc dòng "Kết thúc" / "End" BẮT BUỘC map vào "end_time".
    - Giờ check-in LUÔN diễn ra trước hoặc cùng giờ bắt đầu (checkin_start_time <= start_time). TUYỆT ĐỐI KHÔNG ĐẢO NGƯỢC HOẶC GÁN NHẦM GIỜ CHECK-IN VÀO START_TIME.
    - Với các mốc giờ viết bằng chữ tiếng Việt (ví dụ: "8 giờ 30 sáng" -> "08:30", "9 giờ 15" -> "09:15", "17 giờ" -> "17:00", "16 giờ" -> "16:00"): BẮT BUỘC trích xuất chính xác theo định dạng HH:mm.
-   - PHÂN BIỆT RÕ "PHIÊN SỰ KIỆN" (SESSION) VÀ "LỊCH TRÌNH TIẾT MỤC / AGENDA TRONG NGÀY":
-     + Nếu tài liệu có các phiên/buổi độc lập với khung giờ bắt đầu–kết thúc rõ ràng (ví dụ: Phiên Sáng 08:30–11:30 và Phiên Chiều 13:30–16:30, hoặc các hội thảo có khoảng giờ HH:mm–HH:mm riêng biệt), BẮT BUỘC tách thành các phần tử riêng biệt trong "sessions".
-     + Ngược lại, nếu tài liệu là lịch trình tiết mục / lineup / timeline trong một ngày hoặc dưới các tiêu đề DAY 1, DAY 2... mà mỗi dòng chỉ có 1 mốc giờ bắt đầu nối tiếp nhau (ví dụ: 16:00 Opening, 16:30 Showcase, 18:00 Artists, ..., 21:00 Closing), TUYỆT ĐỐI KHÔNG tách từng mốc giờ thành 1 session riêng; hãy gom thành 1 phiên duy nhất cho mỗi ngày (start_time là mốc bắt đầu chương trình, end_time là mốc kết thúc cuối ngày, checkin_start_time là giờ Gates open / Doors open / Check-in).
+   - PHÂN BIỆT RÕ "PHIÊN SỰ KIỆN" (SESSION) VÀ "LỊCH TRÌNH HOẠT ĐỘNG TRONG NGÀY" (AGENDA):
+     + Mỗi ngày tổ chức sự kiện (YYYY-MM-DD) mặc định chỉ tương ứng với 1 PHIÊN SỰ KIỆN ("Phiên sự kiện" nếu sự kiện 1 ngày; "Ngày 1", "Ngày 2",... nếu sự kiện nhiều ngày), với start_time là giờ bắt đầu hoạt động chính đầu tiên trong ngày, end_time là giờ kết thúc hoạt động cuối cùng trong ngày và checkin_start_time là giờ mở cổng/đón khách/Registration của ngày đó.
+     + Tuyệt đối KHÔNG tách danh sách lịch trình/tiết mục/agenda trong cùng một ngày (như Registration, Opening Ceremony, Keynote, Panel Discussion, Workshop, Networking, Lunch, Closing — dù có ghi khung giờ HH:mm–HH:mm hay chỉ có giờ bắt đầu) thành nhiều session riêng lẻ trong mảng "sessions". Chỉ tách 2 phiên trong cùng một ngày khi tài liệu chia rõ 2 ca độc lập (Phiên Sáng / Phiên Chiều) mà MỖI CA có khung giờ check-in/đón khách riêng biệt.
 4. ĐẶC BIỆT VỚI TÀI LIỆU DẠNG EMAIL, THƯ TỪ, CHAT, JSON, THÔNG CÁO BÁO CHÍ HOẶC VĂN BẢN TỰ SỰ:
    - "title": Tìm tên sự kiện từ nhãn Event name / Event / Subject, từ cụm "mang tên/tên là/called", hoặc tên trong dấu ngoặc kép. TUYỆT ĐỐI KHÔNG lấy dòng tiêu đề chung (như "Email trao đổi...", "Event Proposal", "FOR IMMEDIATE RELEASE", "FOOD FESTIVAL DATA SHEET", "rough notes").
-   - "sessions": Nếu sự kiện diễn ra nhiều ngày (Day 1/2/3, "22–24 January 2028", "ngày DD và DD tháng MM năm YYYY") hoặc nhiều phiên trong cùng một ngày (phiên sáng, phiên chiều), BẮT BUỘC tách từng phiên riêng biệt với ĐÚNG NĂM và ĐÚNG NGÀY trong tài liệu. TUYỆT ĐỐI KHÔNG gộp phiên sáng và phiên chiều cùng ngày thành 1 phiên. Ngày tiếng Anh ("13 March 2027") phải ra YYYY-MM-DD. TUYỆT ĐỐI không lấy mốc "last edited" / "copied from".
+   - "sessions": Nếu sự kiện diễn ra nhiều ngày (Day 1/2/3, "22–24 January 2028", "ngày DD và DD tháng MM năm YYYY"), tách mỗi ngày thành 1 phiên ("Ngày 1", "Ngày 2",...) với ĐÚNG NĂM và ĐÚNG NGÀY trong tài liệu. Chỉ tách 2 phiên trong cùng một ngày khi tài liệu có Phiên Sáng và Phiên Chiều với 2 mốc giờ check-in riêng biệt. Ngày tiếng Anh ("13 March 2027") phải ra YYYY-MM-DD. TUYỆT ĐỐI không lấy mốc "last edited" / "copied from".
    - Giờ có thể viết "09:00–12:00", "Operating hours", "doors at", "xuất phát", "100k" = 100000 VND.
    - Nếu tài liệu là JSON, map title/sessions/tickets/venue từ JSON (check_in_time → checkin_start_time, tickets[].quantity → quantity_total).
    - "ticket_types": Đọc kỹ các câu mô tả vé (pipe "| 150000 VND | quantity 200", "vé 5 km là 100k", "day ticket for 70,000 VND"). CHỈ TRÍCH XUẤT HẠNG VÉ THỰC SỰ ĐƯỢC NÊU. TUYỆT ĐỐI KHÔNG TỰ BỊA "General Admission" HAY "Non-refundable" NẾU TÀI LIỆU KHÔNG NÊU!
@@ -662,16 +666,27 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
 
     // Helper: Gọi Ollama kèm timeout
     const maxTokens = 2048;
+    const isFinetunedExtractor = (modelName) =>
+      /(?:eventhub-extractor|qwen3-eventhub|qwen3-event-extractor)/i.test(String(modelName || ''));
+    const buildModelPrompt = (modelName) => {
+      if (!isFinetunedExtractor(modelName)) return prompt;
+      return userNote
+        ? `${truncatedText}\n\nLưu ý thêm từ Ban tổ chức: ${userNote}`
+        : truncatedText;
+    };
     const callOllamaModel = async (modelName) => {
-      logger.info(`[AiDocumentParser] Đang gọi Ollama model: ${modelName} (Timeout: ${TIMEOUT_MS}ms, maxTokens: ${maxTokens})`);
+      const effectivePrompt = buildModelPrompt(modelName);
+      const isLocalQ4 = /(?:-q4|q4_k_m)/i.test(String(modelName || ''));
+      const effectiveCtx = isFinetunedExtractor(modelName) ? (isLocalQ4 ? 4096 : 6144) : 4096;
+      logger.info(`[AiDocumentParser] Đang gọi Ollama model: ${modelName} (Timeout: ${TIMEOUT_MS}ms, maxTokens: ${maxTokens}, num_ctx: ${effectiveCtx}, finetunedPrompt=${isFinetunedExtractor(modelName)})`);
       const raw = await Promise.race([
-        ollamaClient.generate(prompt, {
+        ollamaClient.generate(effectivePrompt, {
           model: modelName,
           format: 'json',
           think: false,
-          temperature: 0.1,
+          temperature: isFinetunedExtractor(modelName) ? 0.0 : 0.1,
           max_tokens: maxTokens,
-          num_ctx: 4096,
+          num_ctx: effectiveCtx,
         }),
         new Promise((_, reject) =>
           setTimeout(() => reject(new Error(`Ollama extraction timeout sau ${TIMEOUT_MS / 1000}s`)), TIMEOUT_MS)
@@ -1048,7 +1063,7 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
     const result = { checkin: '', start: '', end: '' };
     if (!text) return result;
 
-    const ciMatch = text.match(/(?:check[\s\-]?in(?:\s*and\s*welcome)?|registration\s*opens|gates?\s*open|doors?\s*open|đón\s*khách|mở\s*cửa|khách\s*bắt\s*đầu\s*vào|doors?\s*at)\s*[:：]?\s*(?:từ\s*|from\s*|at\s*|lúc\s*|khoảng\s*)?(\d{1,2}(?:[:h]\d{2}|\s*giờ(?:\s*\d{2})?)?)/i);
+    const ciMatch = text.match(/(?:check[\s\-]?in(?:\s*and\s*welcome)?|registration\s*opens|gates?\s*open|doors?\s*open|đón\s*khách|mở\s*cửa|khách\s*bắt\s*đầu\s*vào|doors?\s*at)[ \t]*[:：\-–—]?[ \t]*(?:từ[ \t]*|from[ \t]*|at[ \t]*|lúc[ \t]*|khoảng[ \t]*)?(\d{1,2}(?:[:h]\d{2}|[ \t]*giờ(?:[ \t]*\d{2})?))/i);
     if (ciMatch) result.checkin = this._normalizeTime(ciMatch[1], '');
 
     const labeledHours = text.match(/(?:operating\s*hours|opening\s*hours)\s*[:：]?\s*(\d{1,2}[:h]\d{2})\s*[–\-]\s*(\d{1,2}[:h]\d{2})/i);
@@ -1215,22 +1230,48 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
   }
 
   /**
-   * Gom các mốc giờ đơn lẻ (agenda / lineup / timeline trong ngày không có end_time riêng)
-   * thành 1 phiên cho mỗi ngày, tránh tách mỗi tiết mục thành 1 session riêng.
+   * Phân biệt PHIÊN SỰ KIỆN (Sessions) và LỊCH TRÌNH TRONG NGÀY (Agenda / Run-of-show):
+   * 1. Với từng ngày có các mốc giờ đơn lẻ (không có end_time riêng, >= 60% số mục trên ngày đó),
+   *    gom thành 1 phiên cho ngày đó.
+   * 2. Với lịch trình chi tiết nhiều khung giờ liên tiếp trong ngày (có Registration/Guest Arrival/Lunch/Closing
+   *    hoặc đi kèm Opening–Closing / Operating hours / Daily Pass) mà không phải các phiên bán vé riêng lẻ,
+   *    gom thành 1 phiên cho mỗi ngày với checkin/start/end chính xác.
    */
   _collapseStartOnlyAgendaSessions(sessions, originalText = '') {
-    if (!Array.isArray(sessions) || sessions.length < 2) return sessions || [];
-    const noEndCount = sessions.filter((s) => !s?.end_time || !String(s.end_time).trim()).length;
-    if (noEndCount < Math.ceil(sessions.length * 0.6)) {
-      return sessions;
-    }
+    if (!Array.isArray(sessions) || sessions.length === 0) return sessions || [];
 
-    const globalHours = this._extractPrimaryHours(originalText || '');
-    const opMatch = String(originalText || '').match(
-      /(?:operating|opening|festival)\s*hours\s*[:：]?\s*(\d{1,2}[:h]\d{2})\s*[–\-]\s*(\d{1,2}[:h]\d{2})/i
+    const docStr = String(originalText || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    const isExplicitMultiSessionDoc = /(?:mã\s*phiên|số\s*phiên\s*chính\s*thức|số\s*hoạt\s*động\s*chính\s*thức|hồ\s*sơ\s*hoạt\s*động|hoạt\s*động\s*\d+|(?<![a-z])phiên\s*\d+|session\s*\d+|chapter\s*(?:one|two|three|four|five|\d+)|per\s+(?:session|workshop)\b|các\s+phiên\s+(?:từ\s+s\d+|sau)|phiên\s+chuyên\s+đề|tiếp\s+theo\s+là\s+hội\s+thảo|cự\s*ly\s*3\s*km)/i.test(
+      docStr
     );
-    const opStart = opMatch ? this._normalizeTime(opMatch[1], '') : '';
-    const opEnd = opMatch ? this._normalizeTime(opMatch[2], '') : '';
+
+    const globalHours = this._extractPrimaryHours(docStr);
+    const opMatch = docStr.match(
+      /(?:operating|opening|public|daily\s*opening|festival)\s*hours\s*[:：]?\s*(\d{1,2}[:h]\d{2})\s*[–\-]\s*(\d{1,2}[:h]\d{2})/i
+    );
+    const giMoCuaMatch = docStr.match(
+      /giờ\s*mở\s*cửa\s*[:：]?\s*\n?\s*(\d{1,2}[:h]\d{2})\s*[–\-]\s*(\d{1,2}[:h]\d{2})/i
+    );
+    const mainProgMatch = docStr.match(
+      /main\s*program\s*[:：]?\s*\n?\s*(\d{1,2}[:h]\d{2})\s*[–\-]\s*(\d{1,2}[:h]\d{2})/i
+    );
+    const envOpeningMatch = docStr.match(
+      /(?:event\s*opening|festival\s*opening|doors?\s*open|gates?\s*open|opening)\s*[:：]\s*\n?\s*(\d{1,2}[:h]\d{2})\b/i
+    );
+    const envClosingMatch = docStr.match(
+      /(?:venue\s*closes|festival\s*closing|closing)\s*[:：]?\s*\n?\s*(\d{1,2}[:h]\d{2})\b/i
+    );
+
+    const opStart = opMatch
+      ? this._normalizeTime(opMatch[1], '')
+      : (giMoCuaMatch ? this._normalizeTime(giMoCuaMatch[1], '') : (mainProgMatch ? this._normalizeTime(mainProgMatch[1], '') : ''));
+    const opEnd = opMatch
+      ? this._normalizeTime(opMatch[2], '')
+      : (giMoCuaMatch
+        ? this._normalizeTime(giMoCuaMatch[2], '')
+        : (mainProgMatch
+          ? this._normalizeTime(mainProgMatch[2], '')
+          : (envClosingMatch ? this._normalizeTime(envClosingMatch[1], '') : '')));
 
     const byDate = new Map();
     for (const s of sessions) {
@@ -1239,15 +1280,57 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
       if (!byDate.has(key)) byDate.set(key, []);
       byDate.get(key).push(s);
     }
+    const dateEntries = [...byDate.entries()].sort(([a], [b]) => {
+      if (a === '__NO_DATE__') return 1;
+      if (b === '__NO_DATE__') return -1;
+      return a.localeCompare(b);
+    });
 
-    const dateEntries = [...byDate.entries()];
-    const collapsed = [];
     const isCheckinItemName = (name) =>
-      /^(?:registration(?:\s+and\s+welcome)?|check[\s\-]?in(?:\s+and\s+welcome)?|doors?\s*open|gates?\s*open|đón\s*khách|mở\s*cửa(?:\s*đón\s*khách)?)$/i.test(
+      /^(?:registration(?:\s+and\s+welcome|\s*&\s*breakfast|\s*&\s*networking)?|guest\s*(?:registration|arrival)|visitor\s*entry|participant\s*check[\-\s]?in|team\s*check[\-\s]?in|check[\s\-]?in(?:\s+(?:và|and)\s+(?:networking|welcome))?|đón\s*tiếp[^\n]{0,40}|đăng\s*ký|doors?\s*open|gates?\s*open|đón\s*khách|mở\s*cửa(?:\s*đón\s*khách)?|networking\s*breakfast|morning\s*networking)$/i.test(
         String(name || '').trim()
       );
 
+    const isTwoDistinctShifts = (items) =>
+      items.length === 2 &&
+      Boolean(items[0]?.checkin_start_time && String(items[0].checkin_start_time).trim()) &&
+      Boolean(items[1]?.checkin_start_time && String(items[1].checkin_start_time).trim()) &&
+      this._normalizeTime(items[0].checkin_start_time, '') !== this._normalizeTime(items[1].checkin_start_time, '') &&
+      Boolean(items[0]?.end_time && items[1]?.start_time) &&
+      this._normalizeTime(items[1].start_time, '') >= this._normalizeTime(items[0].end_time, '');
+
+    const willCollapseAnyDate = dateEntries.some(([, items]) => items.length >= 2 && !isTwoDistinctShifts(items));
+    const anyDateHasExplicitCheckin = dateEntries.some(([, dItems]) =>
+      dItems.some((x) => x?.checkin_start_time && String(x.checkin_start_time).trim())
+    );
+
+    const collapsed = [];
+    let anyCollapsed = false;
+
     dateEntries.forEach(([dateKey, items], idx) => {
+      if (items.length < 2) {
+        if (willCollapseAnyDate && dateEntries.length > 1 && items.length === 1) {
+          const single = { ...items[0] };
+          if (!/^(?:ngày|day)\s*\d+/i.test(String(single.session_name || '').trim())) {
+            single.session_name = `Ngày ${idx + 1}`;
+          }
+          if (!single.end_time && opEnd) single.end_time = opEnd;
+          collapsed.push(single);
+          anyCollapsed = true;
+        } else {
+          collapsed.push(...items);
+        }
+        return;
+      }
+
+      // Chỉ giữ nguyên 2 phiên trong cùng 1 ngày khi tài liệu thực sự chia làm 2 ca độc lập (Sáng / Chiều)
+      // mà mỗi ca có khung giờ check-in/đón khách riêng biệt (ví dụ ca sáng check-in 08:00, ca chiều check-in 13:00).
+      if (isTwoDistinctShifts(items)) {
+        collapsed.push(...items);
+        return;
+      }
+
+      anyCollapsed = true;
       const isoDate = dateKey === '__NO_DATE__' ? '' : dateKey;
       let checkin = items.map((x) => x?.checkin_start_time).find((v) => v && String(v).trim()) || '';
       let progItems = items;
@@ -1256,24 +1339,62 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
         if (!checkin) checkin = this._normalizeTime(items[0].start_time, '');
         progItems = items.slice(1);
       }
-      if (!checkin && globalHours.checkin) {
+      if (!checkin && envOpeningMatch) {
+        checkin = this._normalizeTime(envOpeningMatch[1], '');
+      }
+      const isCheckinDay1Only =
+        /(?:giờ|thời\s*gian)?\s*(?:check-?in|mở\s*cổng|mở\s*quầy|đón\s*khách)[^.\n]{0,80}(?:ngày\s*thứ\s*hai|ngày\s*2|second\s*day)[^.\n]{0,60}(?:chưa|không|not)/i.test(docStr) ||
+        /(?:check-?in|đón\s*khách|mở\s*cửa\s*check-?in)[^.\n]{0,40}\d{1,2}[:h]\d{2}\s*(?:sáng\s*)?(?:ngày|on)\s*(?:đầu\s*tiên|thứ\s*nhất|first\s*day|\d{1,2}[\/\.-]\d{1,2})/i.test(docStr);
+      if (!checkin && globalHours.checkin && !anyDateHasExplicitCheckin && (idx === 0 || !isCheckinDay1Only)) {
         checkin = globalHours.checkin;
+      }
+
+      // Kiểm tra giờ mở cửa riêng cho từng ngày (ví dụ: "- Ngày 19/08: 09:00–18:00.")
+      let dayOpStart = '';
+      let dayOpEnd = '';
+      if (isoDate) {
+        const [, mm, dd] = isoDate.split('-');
+        const perDayOpRe = new RegExp(`(?:ngày|day)?\\s*0?${Number(dd)}[\\/\\.-]0?${Number(mm)}(?:[\\/\\.-]\\d{4})?\\s*[:：\\-–]\\s*(\\d{1,2}[:h]\\d{2})\\s*[–\\-]\\s*(\\d{1,2}[:h]\\d{2})`, 'i');
+        const perDayOpM = docStr.match(perDayOpRe);
+        if (perDayOpM) {
+          dayOpStart = this._normalizeTime(perDayOpM[1], '');
+          dayOpEnd = this._normalizeTime(perDayOpM[2], '');
+        }
       }
 
       const times = progItems
         .map((x) => this._normalizeTime(x?.start_time, ''))
-        .filter(Boolean);
+        .filter(Boolean)
+        .sort();
       const endTimes = progItems
         .map((x) => this._normalizeTime(x?.end_time || x?.start_time, ''))
-        .filter(Boolean);
+        .filter(Boolean)
+        .sort();
 
-      let startTime = times[0] || opStart || globalHours.start || '';
-      let endTime = endTimes[endTimes.length - 1] || opEnd || globalHours.end || '';
-      if (opEnd && (!endTime || opEnd > endTime)) {
-        endTime = opEnd;
+      const effOpStart = dayOpStart || opStart;
+      const effOpEnd = dayOpEnd || opEnd;
+
+      let startTime = times[0] || effOpStart || globalHours.start || '';
+      const hasMainProgramStart = /(?:main\s*(?:program|event|competition|conference)\s*(?:begins|starts)|chương\s*trình\s*chính\s*(?:bắt\s*đầu|diễn\s*ra))/i.test(docStr);
+      if ((dayOpStart || opMatch || giMoCuaMatch) && effOpStart && effOpEnd && !hasMainProgramStart && (!checkin || checkin === effOpStart)) {
+        if (!startTime || effOpStart <= startTime) {
+          startTime = effOpStart;
+        }
       }
-      if (startTime && checkin && checkin > startTime && opStart && opStart <= startTime) {
-        checkin = opStart;
+      if (mainProgMatch) {
+        const mpStart = this._normalizeTime(mainProgMatch[1], '');
+        if (mpStart && (!startTime || mpStart <= startTime)) startTime = mpStart;
+      }
+      let endTime = endTimes[endTimes.length - 1] || effOpEnd || globalHours.end || '';
+      if (effOpEnd && (!endTime || effOpEnd > endTime)) {
+        endTime = effOpEnd;
+      }
+      if (startTime && checkin && checkin > startTime) {
+        if (effOpStart && effOpStart <= startTime) {
+          checkin = effOpStart;
+        } else {
+          checkin = '';
+        }
       }
 
       const existingDayName = items
@@ -1288,12 +1409,12 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
         start_date: isoDate,
         start_time: startTime,
         end_date: isoDate,
-        end_time: endTime && endTime !== startTime ? endTime : (opEnd || endTime),
+        end_time: endTime && endTime !== startTime ? endTime : (effOpEnd || endTime),
         checkin_start_time: checkin,
       });
     });
 
-    return collapsed;
+    return anyCollapsed ? collapsed : sessions;
   }
 
   _parseBulletTicketBlocks(text) {
@@ -1768,15 +1889,19 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
 
     // Match date ranges in Vietnamese & English:
     // "từ 8 đến 10 tháng 7 năm 2033", "ngày 15 và 16 tháng 5 năm 2027", "from 14 to 17 May 2032", "May 14–17, 2032", "18–19/09/2027"
+    const fallbackDocYear = (docText.match(/\b(20\d{2})\b/) || [])[1] || '';
     let d1 = '', d2 = '', month = '', year = '';
-    const vnRange = docText.match(/(?:từ\s*)?(?:ngày\s*)?(\d{1,2})\s*(?:và|đến|tới|-|–|—)\s*(?:ngày\s*)?(\d{1,2})\s*tháng\s*(\d{1,2})(?:\s*năm|\s*,)?\s*(\d{4})/i);
+    const vnRange = docText.match(/(?:từ\s*)?(?:ngày\s*)?(\d{1,2})\s*(?:và|đến|tới|-|–|—)\s*(?:ngày\s*)?(\d{1,2})\s*tháng\s*(\d{1,2})(?:(?:\s*năm|\s*,)?\s*(\d{4}))?/i);
     const numRange = docText.match(/(?:trong\s*(?:hai|ba|2|3)?\s*ngày\s*)?(\d{1,2})\s*(?:và|đến|-|–|—)\s*(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{4})/i);
     const slashRange = docText.match(/(\d{1,2})[–\-](\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{4})/i);
-    const enDmyRange = docText.match(new RegExp(`(?:from\\s*)?(\\d{1,2})(?:st|nd|rd|th)?\\s*(?:to|and|–|-|—)\\s*(\\d{1,2})(?:st|nd|rd|th)?\\s*(?:of\\s*)?(${EN_MONTH_ALT}),?\\s*(\\d{4})`, 'i'));
-    const enMdyRange = docText.match(new RegExp(`(?:from\\s*)?(${EN_MONTH_ALT})\\s*(\\d{1,2})(?:st|nd|rd|th)?\\s*(?:to|and|–|-|—)\\s*(\\d{1,2})(?:st|nd|rd|th)?,?\\s*(\\d{4})`, 'i'));
+    const enDmyRange = docText.match(new RegExp(`(?:from\\s*)?(\\d{1,2})(?:st|nd|rd|th)?\\s*(?:to|and|–|-|—)\\s*(\\d{1,2})(?:st|nd|rd|th)?\\s*(?:of\\s*)?(${EN_MONTH_ALT})(?:,?\\s*(\\d{4}))?`, 'i'));
+    const enMdyRange = docText.match(new RegExp(`(?:from\\s*)?(${EN_MONTH_ALT})\\s*(\\d{1,2})(?:st|nd|rd|th)?\\s*(?:to|and|–|-|—)\\s*(\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s*(\\d{4}))?`, 'i'));
 
     if (vnRange) {
-      [, d1, d2, month, year] = vnRange;
+      d1 = vnRange[1];
+      d2 = vnRange[2];
+      month = vnRange[3];
+      year = vnRange[4] || fallbackDocYear;
     } else if (numRange) {
       [, d1, d2, month, year] = numRange;
     } else if (slashRange) {
@@ -1785,12 +1910,12 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
       d1 = enDmyRange[1];
       d2 = enDmyRange[2];
       month = String(EN_MONTHS[enDmyRange[3].toLowerCase()] || '');
-      year = enDmyRange[4];
+      year = enDmyRange[4] || fallbackDocYear;
     } else if (enMdyRange) {
       month = String(EN_MONTHS[enMdyRange[1].toLowerCase()] || '');
       d1 = enMdyRange[2];
       d2 = enMdyRange[3];
-      year = enMdyRange[4];
+      year = enMdyRange[4] || fallbackDocYear;
     }
 
     const resolveRangeDayOffset = (offsetIdx) => {
@@ -1872,10 +1997,10 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
     };
 
     for (const para of paragraphs) {
-      if (/(?:chưa\s*được\s*(?:ban\s*tổ\s*chức\s*)?phê\s*duyệt|không\s*đưa\s*vào\s*lịch\s*trình|đề\s*xuất\s*nội\s*bộ|chưa\s*có\s*địa\s*điểm\s*xác\s*nhận|chưa\s*được\s*phê\s*duyệt|not\s*open\s*to\s*(?:the\s*)?public|not\s*approved|was\s*cancelled|has\s*been\s*cancelled|removed\s*from\s*the\s*program)/i.test(para)) {
+      if (/(?:chưa\s*được\s*(?:ban\s*tổ\s*chức\s*)?phê\s*duyệt|không\s*đưa\s*vào\s*lịch\s*trình|đề\s*xuất\s*nội\s*bộ|chưa\s*có\s*địa\s*điểm\s*xác\s*nhận|chưa\s*được\s*phê\s*duyệt|not\s*open\s*to\s*(?:the\s*)?public|not\s*approved|was\s*cancelled|has\s*been\s*cancelled|would\s*not\s*take\s*place|not\s*be\s*included\s*in\s*the\s*official|removed\s*from\s*the\s*program)/i.test(para)) {
         continue;
       }
-      if (/(?:chính\s*sách\s*hoàn\s*(?:tiền|vé)|không\s*ghi\s*nội\s*dung|được\s*hoàn\s*tiền\s*trong\s*vòng|chưa\s*có\s*căn\s*cứ\s*xác\s*nhận|refund\s*policy|no\s*refunds?)/i.test(para)) {
+      if (/(?:chính\s*sách\s*hoàn\s*(?:tiền|vé)|không\s*ghi\s*nội\s*dung|được\s*hoàn\s*tiền\s*trong\s*vòng|chưa\s*có\s*căn\s*cứ\s*xác\s*nhận|refund\s*policy|no\s*refunds?|\bwill\s+refund\b|\brefund(?:s|ed|able)?\s+(?:paid|before|until|within)\b)/i.test(para)) {
         continue;
       }
 
@@ -1893,7 +2018,7 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
       const hasSchedSignal = /(?:tham\s*gia|[“"«]|check[\s\-]?in|bắt\s*đầu|kết\s*thúc|khai\s*mạc|diễn\s*thuyết|hội\s*thảo|phiên|buổi\s*(?:sáng|chiều|tối)|ca\s*(?:sáng|chiều|tối)|diễn\s*ra|chương\s*trình|hoạt\s*động|lịch\s*trình|tổ\s*chức|mở\s*cửa|tổng\s*kết|bế\s*mạc|kéo\s*dài|keynote|panel|workshop|session|ceremony|registration|doors?\s*open|starts?|begins?|runs?\s*(?:until|from)|ends?|takes?\s*place|scheduled\s*for|followed\s*by|first\s*day|second\s*day|third\s*day|fourth\s*day|final\s*day|day\s*(?:1|2|3|4|5|one|two|three|four|five))/i.test(para);
 
       if (hasTime && hasSchedSignal) {
-        const morningAfternoonSplit = /(?:(?<=[.!?\n;])\s*(?=(?:Tiếp\s*theo|Sau\s*đó|Sau\s*(?:phần|lễ)\s*khai\s*mạc|Chương\s*trình\s+(?!buổi|kết\s*thúc|diễn\s*ra)|Hoạt\s*động\s+(?!buổi|kết\s*thúc|diễn\s*ra)|Diễn\s*đàn\s+(?!buổi|kết\s*thúc|diễn\s*ra)|Phiên\b|Từ\s*\d{1,2}[:h]\d{2}|Lúc\s*\d{1,2}[:h]\d{2}|Vào\s*lúc\s*\d{1,2}[:h]\d{2}|Cũng\s*trong\s*ngày|Buổi\s*(?:sáng|chiều|tối)|Phiên\s*(?:sáng|chiều|tối)|Chiều\s*cùng\s*ngày|Vào\s*buổi\s*(?:sáng|chiều|tối)|Sáng\s*cùng\s*ngày|(?:Một|Các)?\s*phiên|Đến\s*(?:buổi\s*)?chiều|Sang\s*(?:buổi\s*)?chiều|(?:Vào\s*)?(?:buổi\s*)?chiều\b|Sau\s*giờ\s*nghỉ\s*trưa|Vào\s*đầu\s*giờ\s*chiều|Next\b|Then\b|Later\b|In\s+the\s+(?:morning|afternoon|evening)\b|On\s+(?:the\s+)?(?:first|second|third|fourth|final|last)\s+day\b|On\s+\d{1,2}\s+[A-Z]|Day\s+(?:two|three|four|five|\d)\b|At\s+\d{1,2}|From\s+\d{1,2}))|,\s*(?=followed\s+by\s+))/;
+        const morningAfternoonSplit = /(?:(?<=[.!?\n;])\s*(?=(?:Tiếp\s*theo|Sau\s*đó|Sau\s*(?:phần|lễ)\s*khai\s*mạc|Chương\s*trình\s+(?!buổi|kết\s*thúc|diễn\s*ra)|Hoạt\s*động\s+(?!buổi|kết\s*thúc|diễn\s*ra)|Diễn\s*đàn\s+(?!buổi|kết\s*thúc|diễn\s*ra)|Phiên\b|Từ\s*\d{1,2}[:h]\d{2}|Lúc\s*\d{1,2}[:h]\d{2}|Vào\s*lúc\s*\d{1,2}[:h]\d{2}|Cũng\s*trong\s*ngày|Buổi\s*(?:sáng|chiều|tối)|Phiên\s*(?:sáng|chiều|tối)|Chiều\s*cùng\s*ngày|Vào\s*buổi\s*(?:sáng|chiều|tối)|Sáng\s*cùng\s*ngày|(?:Một|Các)?\s*phiên|Đến\s*(?:buổi\s*)?chiều|Sang\s*(?:buổi\s*)?chiều|(?:Vào\s*)?(?:buổi\s*)?chiều\b|Sau\s*giờ\s*nghỉ\s*trưa|Vào\s*đầu\s*giờ\s*chiều|Next\b|Then\b|Later\b|In\s+the\s+(?:morning|afternoon|evening)\b|On\s+(?:the\s+)?(?:first|second|third|fourth|final|last)\s+day\b|On\s+\d{1,2}\s+[A-Z]|Day\s+(?:two|three|four|five|\d)\b|At\s+\d{1,2}|From\s+\d{1,2}|A\s+|An\s+|The\s+|After\s+lunch\b|Participants\b|Visitors\b))|,\s*(?=followed\s+by\s+))/;
         const subParts = para.split(morningAfternoonSplit).map((s) => s.trim()).filter(Boolean);
         let subInheritedDate = currentParaDate;
         for (const sp of subParts) {
@@ -2049,34 +2174,35 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
       if (quotedMatch) {
         sessionName = quotedMatch[1].trim();
       } else {
-        const mSubj = block.match(new RegExp(`(?:(?:Một|Các)?\\s*phiên(?:\\s*khai\\s*mạc|\\s*thảo\\s*luận)?|chương\\s*trình(?:\\s*mở\\s*màn)?(?:\\s*mang\\s*tên)?|hoạt\\s*động(?:\\s*khai\\s*mạc)?|diễn\\s*đàn|workshop|buổi\\s*tổng\\s*kết|khu\\s*vực\\s*triển\\s*lãm|keynote|panel|session|ceremony|symposium)\\s+(${VN_UPPER}[A-Za-z0-9\\sÀ-ỹ\\-_&]{2,60}?)(?=[,\\.\\n\\r]|$|\\s+(?:sẽ\\b|diễn\\s*ra|bắt\\s*đầu|kết\\s*thúc|kéo\\s*dài|tiếp\\s*nối|được\\s*tổ\\s*chức|mở\\s*cửa|tập\\s*trung|dự\\s*kiến|tại\\b|ở\\b|lúc\\b|vào\\b|từ\\s+\\d|starts?\\b|begins?\\b|runs?\\b|takes?\\s*place\\b|scheduled\\b|opens?\\b|at\\s+\\d|from\\s+\\d))`, 'i'));
-        const mIntro = block.match(new RegExp(`(?:trong\\s+chương\\s*trình|chuyển\\s*sang\\s*chương\\s*trình|lễ\\s*hội\\s*kết\\s*thúc\\s*bằng\\s*hoạt\\s*động|sân\\s*khấu(?:\\s*chính)?\\s*sẽ\\s*tổ\\s*chức|tham\\s*dự|followed\\s*by|includes?|(?:first|second|third|fourth|final)\\s*day\\s*(?:features|includes|opens\\s*with)|day\\s*(?:one|two|three|four|five|\\d)\\s*(?:features|includes))\\s+(?:the\\s+|a\\s+|an\\s+)?(${VN_UPPER}[A-Za-z0-9\\sÀ-ỹ\\-_&]{2,60}?)(?=[,\\.\\n\\r]|$|\\s+(?:sẽ\\b|diễn\\s*ra|bắt\\s*đầu|kéo\\s*dài|lúc\\b|tại\\b|với\\b|at\\s+\\d|from\\s+\\d|runs?\\s*until\\b|starts?\\b|begins?\\b|taking\\s*place\\b|which\\b))`, 'i'));
-        const mPreVerb = block.match(/(?:^(?:On\s+[^,]+,\s*|Next,\s*|Then,\s*|In\s+the\s+(?:morning|afternoon|evening),\s*|What\s+happens[^\?]+\?\s*(?:The\s+)?)?(?:the\s+)?)([A-ZÀ-Ỹ][A-Za-z0-9\sÀ-ỹ\-_&]{3,65}?)\s+(?:is\s+scheduled\s+for|takes\s+place|starts\s+at|begins\s+at|opens\s+at|runs\s+from|diễn\s*ra\s*(?:vào\s*)?(?:lúc|từ)|bắt\s*đầu\s*(?:lúc|từ)|kéo\s*dài)/i);
+        const mSubj = block.match(new RegExp(`(?:(?:Một|Các)?\\s*phiên(?:\\s*khai\\s*mạc|\\s*thảo\\s*luận)?|chương\\s*trình(?:\\s*mở\\s*màn)?(?:\\s*mang\\s*tên)?|hoạt\\s*động(?:\\s*khai\\s*mạc)?|diễn\\s*đàn|workshop|buổi\\s*tổng\\s*kết|khu\\s*vực\\s*triển\\s*lãm|keynote(?:\\s*session)?|panel|session|ceremony|symposium)\\s+(?:on\\s+(?:the\\s+)?|discussing\\s+)?(${VN_UPPER}[A-Za-z0-9\\sÀ-ỹ\\-_&]{2,60}?)(?=[,\\.\\n\\r]|$|\\s+(?:(?:will|can|may|is\\s+set\\s+to|is\\s+scheduled\\s+to)\\s+(?:run|take|begin|start|follow)|sẽ\\b|diễn\\s*ra|bắt\\s*đầu|kết\\s*thúc|kéo\\s*dài|tiếp\\s*nối|được\\s*tổ\\s*chức|mở\\s*cửa|tập\\s*trung|dự\\s*kiến|tại\\b|ở\\b|lúc\\b|vào\\b|từ\\s+\\d|follows?\\b|starts?\\b|begins?\\b|runs?\\b|takes?\\s*place\\b|scheduled\\b|opens?\\b|at\\s+\\d|from\\s+\\d))`, 'i'));
+        const mIntro = block.match(new RegExp(`(?:trong\\s+chương\\s*trình|chuyển\\s*sang\\s*chương\\s*trình|lễ\\s*hội\\s*kết\\s*thúc\\s*bằng\\s*hoạt\\s*động|sân\\s*khấu(?:\\s*chính)?\\s*sẽ\\s*tổ\\s*chức|tham\\s*dự|followed\\s*by|starts\\s+with|begins\\s+with|opens\\s+with|continues\\s+with|includes?|(?:first|second|third|fourth|final)\\s*day\\s*(?:features|includes|opens\\s*with)|day\\s*(?:one|two|three|four|five|\\d)\\s*(?:features|includes))\\s+(?:the\\s+|a\\s+|an\\s+)?(${VN_UPPER}[A-Za-z0-9\\sÀ-ỹ\\-_&]{2,60}?)(?=[,\\.\\n\\r]|$|\\s+(?:(?:will|can|may)\\s+(?:run|take|begin|start)|sẽ\\b|diễn\\s*ra|bắt\\s*đầu|kéo\\s*dài|lúc\\b|tại\\b|với\\b|at\\s+\\d|from\\s+\\d|runs?\\s*(?:from|until)\\b|starts?\\b|begins?\\b|taking\\s*place\\b|takes?\\s*place\\b|follows?\\b|which\\b))`, 'i'));
+        const mPreVerb = block.match(/(?:^(?:On\s+[^,]+,\s*|Next,\s*|Then,\s*|In\s+the\s+(?:morning|afternoon|evening),\s*|What\s+happens[^\?]+\?\s*(?:The\s+)?)?(?:The\s+|An?\s+)?)([A-ZÀ-Ỹ][A-Za-z0-9\sÀ-ỹ\-_&]{3,65}?)\s+(?:is\s+scheduled\s+for|will\s+(?:run|take\s+place|begin|start)|takes\s+place|follows\s+from|starts\s+at|begins\s+at|opens\s+at|runs\s+from|diễn\s*ra\s*(?:vào\s*)?(?:lúc|từ)|bắt\s*đầu\s*(?:lúc|từ)|kéo\s*dài)/i);
         const proseName = block.match(/(?:Một|Các)?\s*phiên\s+([^\n,;\.]{5,80}?)(?=\s+(?:sẽ\s*diễn\s*ra|diễn\s*ra|bắt\s*đầu|kéo\s*dài|tại|ở|lúc|vào|được\s*tổ\s*chức))/i);
 
-        if (mSubj) {
+        const isBadSubj = (nm) => !nm || /^(?:takes?\s*place|will|follows?|continues?|runs?|begins?|starts?|is\s+scheduled)$/i.test(nm.trim());
+        if (mSubj && !isBadSubj(mSubj[1])) {
           sessionName = mSubj[1].trim();
-        } else if (mIntro) {
+        } else if (mIntro && !isBadSubj(mIntro[1])) {
           sessionName = mIntro[1].trim();
-        } else if (mPreVerb && !/^(?:It|This|The\s*event|The\s*program|Chương\s*trình|Sự\s*kiện)$/i.test(mPreVerb[1].trim())) {
+        } else if (mPreVerb && !/^(?:It|This|The\s*event|The\s*program|Chương\s*trình|Sự\s*kiện|Registration)$/i.test(mPreVerb[1].trim()) && !isBadSubj(mPreVerb[1])) {
           sessionName = mPreVerb[1].trim();
         } else if (proseName) {
           const pName = proseName[1].trim();
           sessionName = pName.charAt(0).toUpperCase() + pName.slice(1);
-        } else if (/\b(?:followed\s+by\s+)?([A-Za-z0-9\sÀ-ỹ\-_&]{4,50}?)\s+(?:from|at)\s+\d{1,2}/i.test(block)) {
-          const fb = block.match(/(?:followed\s+by\s+)?([A-Za-z0-9\sÀ-ỹ\-_&]{4,50}?)\s+(?:from|at)\s+\d{1,2}/i);
-          if (fb && !/^(?:the\s+event|this|it|participants|guests)$/i.test(fb[1].trim())) {
+        } else if (/(?:followed\s+by|attend|join|include|continues\s+with)\s+(?:an?\s+|the\s+)?([A-ZÀ-Ỹ][A-Za-z0-9\sÀ-ỹ\-_&]{3,65}?)\s+(?:from|at|on|takes|begins|runs)/i.test(block)) {
+          const fb = block.match(/(?:followed\s+by|attend|join|include|continues\s+with)\s+(?:an?\s+|the\s+)?([A-ZÀ-Ỹ][A-Za-z0-9\sÀ-ỹ\-_&]{3,65}?)\s+(?:from|at|on|takes|begins|runs)/i);
+          if (fb && !/^(?:the\s+event|this|it|participants|guests|visitors)$/i.test(fb[1].trim())) {
             sessionName = fb[1].trim();
           }
         }
       }
 
       if (sessionName) {
-        while (sessionName && /(?:\s+(?:dự\s*kiến|sẽ)$|^(?:buổi\s*tổng\s*kết|lễ\s*tổng\s*kết|khu\s*vực\s*triển\s*lãm)\s+)/i.test(sessionName)) {
-          sessionName = sessionName.replace(/\s+(?:dự\s*kiến|sẽ)$/i, '').trim();
-          sessionName = sessionName.replace(/^(?:buổi\s*tổng\s*kết|lễ\s*tổng\s*kết|khu\s*vực\s*triển\s*lãm)\s+/i, '').trim();
+        while (sessionName && /(?:\s+(?:dự\s*kiến|sẽ|will|can|follows)$|^(?:buổi\s*tổng\s*kết|lễ\s*tổng\s*kết|khu\s*vực\s*triển\s*lãm|on\s+the\s+future\s+of|on|discussing)\s+)/i.test(sessionName)) {
+          sessionName = sessionName.replace(/\s+(?:dự\s*kiến|sẽ|will|can|follows)$/i, '').trim();
+          sessionName = sessionName.replace(/^(?:buổi\s*tổng\s*kết|lễ\s*tổng\s*kết|khu\s*vực\s*triển\s*lãm|on\s+(?:the\s+)?|discussing\s+)/i, '').trim();
         }
-        if (/^(?:bắt\s*đầu|kết\s*thúc|diễn\s*ra|mở\s*cửa|đón\s*khách|chính|chính\s*thức|opening|closing|session|dự\s*kiến)$/i.test(sessionName)) {
+        if (/^(?:bắt\s*đầu|kết\s*thúc|diễn\s*ra|mở\s*cửa|đón\s*khách|chính|chính\s*thức|opening|closing|session|dự\s*kiến|takes?\s*place|will|follows?)$/i.test(sessionName)) {
           sessionName = '';
         } else {
           sessionName = sessionName.charAt(0).toUpperCase() + sessionName.slice(1);
@@ -2106,6 +2232,8 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
         if (pendingSessionName) {
           sessionName = pendingSessionName;
           pendingSessionName = '';
+        } else if (/\bregistration\b/i.test(block)) {
+          sessionName = 'Registration';
         } else {
           const isMorning = /buổi\s*sáng|phiên\s*sáng|sáng|morning/i.test(block);
           const isAfternoon = /buổi\s*chiều|phiên\s*chiều|chiều|afternoon/i.test(block);
@@ -2127,6 +2255,14 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
           end_time: end,
           checkin_start_time: checkin,
         });
+      } else if (!start && end && sessions.length > 0 && sessions[sessions.length - 1].start_date === sDate) {
+        if (!sessions[sessions.length - 1].end_time || end > sessions[sessions.length - 1].end_time) {
+          sessions[sessions.length - 1].end_time = end;
+        }
+      } else if (start && !end && /\b(?:closing(?:\s*ceremony)?|bế\s*mạc|kết\s*thúc)\b/i.test(block) && sessions.length > 0 && sessions[sessions.length - 1].start_date === sDate) {
+        if (!sessions[sessions.length - 1].end_time || start > sessions[sessions.length - 1].end_time) {
+          sessions[sessions.length - 1].end_time = start;
+        }
       } else if (start && sessionName && !/^(?:phiên\s*(?:sáng|chiều|tối|\d+)|buổi\s*(?:sáng|chiều|tối)|dự\s*kiến)$/i.test(sessionName)
         && !/\b(?:check[\s\-]?in|đón\s*khách|doors?\s*open|gates?\s*open|registration\s*opens?|khu(?:\s*vực)?\s*triển\s*lãm\s*dự\s*kiến\s*mở\s*cửa|cổng[^\n]{0,20}mở)\b/i.test(block)) {
         sessions.push({
@@ -3462,7 +3598,7 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
           tMatch = body.match(/(\d{1,2}[:h]\d{2})\s*[–\-—]\s*(\d{1,2}[:h]\d{2})/);
         }
         if (!tMatch) continue;
-        if (/^(?:tiêu\s*đề|thời\s*gian|địa\s*điểm|giá\s*vé|hạng\s*vé|vé|lưu\s*ý|điều\s*khoản|chính\s*sách|thông\s*tin\s*(?:chung|sự\s*kiện|vé)|tickets?|pricing|refund)/i.test(actTitle)) {
+        if (/^(?:tiêu\s*đề|thời\s*gian|địa\s*điểm|giá\s*vé|hạng\s*vé|vé|lưu\s*ý|điều\s*khoản|chính\s*sách|thông\s*tin\s*(?:chung|sự\s*kiện|vé)|event\s*(?:program|profile|overview|schedule)|program(?:\s*highlights)?|agenda|schedule|lịch\s*trình|chương\s*trình|tickets?|pricing|refund)/i.test(actTitle)) {
           continue;
         }
         let sDate = defaultDate;
@@ -3510,20 +3646,29 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
       : fullOverridePatterns;
 
     for (const pat of candidatePatterns) {
-      const m = norm.match(pat);
-      if (m && m[1]) {
-        let scoped = m[1];
-        const stopM = scoped.match(stopRe);
-        if (stopM && stopM.index > 5) {
-          scoped = scoped.slice(0, stopM.index);
+      const globalPat = new RegExp(pat.source, pat.flags.includes('g') ? pat.flags : `${pat.flags}g`);
+      for (const m of norm.matchAll(globalPat)) {
+        if (m && m[1]) {
+          let scoped = m[1];
+          const stopM = scoped.match(stopRe);
+          if (stopM && stopM.index > 5) {
+            scoped = scoped.slice(0, stopM.index);
+          }
+          const trimmed = scoped.trim();
+          if (mode === 'program' && !/\d{1,2}[:h]\d{2}/.test(trimmed)) {
+            continue;
+          }
+          return { text: trimmed, isAuthoritative: true };
         }
-        return { text: scoped.trim(), isAuthoritative: true };
       }
     }
 
     if (mode === 'program' && /\[\d{1,2}:\d{2}\]\s*Operations\s*[:：]/i.test(norm)) {
-      const opsMsgs = [...norm.matchAll(/\[\d{1,2}:\d{2}\]\s*Operations\s*[:：]\s*([^\n]+(?:\n(?!\[\d{1,2}:\d{2}\])[^\n]+)*)/gi)];
-      const combined = opsMsgs.map((x) => x[1].trim()).join('\n');
+      const opsMsgs = [...norm.matchAll(/\[\d{1,2}:\d{2}\]\s*Operations\s*[:：]\s*([^\n]+(?:\n(?!\[\d{1,2}:\d{2}\])[^\n]*)*)/gi)];
+      const combined = opsMsgs
+        .map((x) => x[1].trim())
+        .filter((msg) => msg && !/\b(?:not\s+approved|idea\s+for\s+a\s+private)\b/i.test(msg))
+        .join('\n');
       if (/\d{1,2}[:h]\d{2}/.test(combined)) {
         return { text: combined, isAuthoritative: true };
       }
@@ -3626,10 +3771,24 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
       rangeStartIso = this._toIsoDate(rangeYear, rangeMonth, vnR[1]);
       rangeEndDay = Number(vnR[2]);
     }
+    if (rangeStartIso) {
+      const rangeMatchesBaseEnd =
+        (numR && baseDate === this._toIsoDate(numR[4], numR[3], numR[2]))
+        || (enDmyR && baseDate === this._toIsoDate(enDmyR[4], EN_MONTHS[enDmyR[3].toLowerCase()], enDmyR[2]))
+        || (enMdyR && baseDate === this._toIsoDate(enMdyR[4], EN_MONTHS[enMdyR[1].toLowerCase()], enMdyR[3]));
+      const baseLooksLaterThanRange = Boolean(baseDate && baseDate.slice(0, 4) !== rangeStartIso.slice(0, 4));
+      if (!baseDate || rangeMatchesBaseEnd || baseLooksLaterThanRange) {
+        baseDate = rangeStartIso;
+        baseYear = rangeStartIso.slice(0, 4);
+      }
+    }
 
     const resolveHeaderDate = (lineText) => {
       if (!lineText) return '';
-      const cleanH = lineText.replace(/^[#\*\-\s]+|[#\*\s]+$/g, '').trim();
+      const cleanH = lineText.replace(/^[#\*\-\s]+|[#\*\s]+$/g, '').replace(/^\d+[\.\)]\s*/, '').trim();
+      if (/^(?:dates?|thời\s*gian|ngày\s*(?:tổ\s*chức|diễn\s*ra))\s*[:：]/i.test(cleanH) && /\d{1,2}\s*[–\-]\s*\d{1,2}/.test(cleanH)) {
+        return rangeStartIso || '';
+      }
       const fullNum = cleanH.match(/(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{4})/);
       if (fullNum) return this._toIsoDate(fullNum[3], fullNum[2], fullNum[1]);
       const enFull = this._parseEnglishDateToIso(cleanH);
@@ -3642,14 +3801,16 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
         const enShortMdy = cleanH.match(new RegExp(`^(?:opening\\s*day\\s*[—\\-–:]\\s*|day\\s*\\w+\\s*[—\\-–:]\\s*)?(${EN_MONTH_ALT})\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:\\b|\\s*[—\\-–:]|$)`, 'i'));
         if (enShortMdy) return this._toIsoDate(baseYear, EN_MONTHS[enShortMdy[1].toLowerCase()], enShortMdy[2]);
       }
-      const wordToOffset = { '1': 0, 'one': 0, 'first': 0, 'đầu tiên': 0, 'thứ nhất': 0, '2': 1, 'two': 1, 'second': 1, 'thứ hai': 1, '3': 2, 'three': 2, 'third': 2, 'thứ ba': 2, '4': 3, 'four': 3, 'fourth': 3, 'thứ tư': 3, '5': 4, 'five': 4, 'fifth': 4, 'thứ năm': 4 };
-      const dayOrdM = cleanH.match(/^(?:day\s+(1|2|3|4|5|one|two|three|four|five)|opening\s+day|ngày\s+(1|2|3|4|5|đầu\s*tiên|thứ\s*nhất|thứ\s*hai|thứ\s*ba|thứ\s*tư|thứ\s*năm))\b/i);
+      const wordToOffset = { '1': 0, 'one': 0, 'first': 0, 'đầu tiên': 0, 'thứ nhất': 0, '2': 1, 'two': 1, 'second': 1, 'thứ hai': 1, '3': 2, 'three': 2, 'third': 2, 'thứ ba': 2, '4': 3, 'four': 3, 'fourth': 3, 'thứ tư': 3, '5': 4, 'five': 4, 'fifth': 4, 'thứ năm': 4, 'final': 'last', 'last': 'last', 'cuối': 'last', 'cuối cùng': 'last' };
+      const dayOrdM = cleanH.match(/^(?:day\s+(1|2|3|4|5|one|two|three|four|five)|opening\s+day|ngày\s+(1|2|3|4|5|đầu\s*tiên|thứ\s*nhất|thứ\s*hai|thứ\s*ba|thứ\s*tư|thứ\s*năm|cuối(?:\s*cùng)?)|(?:what\s+happens\s+on\s+the\s+|on\s+the\s+|the\s+)(first|second|third|fourth|fifth|final|last)\s+day)\b/i);
       if (dayOrdM && rangeStartIso) {
-        const key = (dayOrdM[1] || dayOrdM[2] || '').toLowerCase();
+        const key = (dayOrdM[1] || dayOrdM[2] || dayOrdM[3] || '').toLowerCase().replace(/\s+/g, ' ');
         const offset = /^opening\s+day/i.test(cleanH) ? 0 : wordToOffset[key];
         if (offset !== undefined) {
           const startDayNum = Number(rangeStartIso.split('-')[2]);
-          const targetDay = rangeEndDay >= startDayNum ? Math.min(rangeEndDay, startDayNum + offset) : startDayNum + offset;
+          const targetDay = offset === 'last'
+            ? (rangeEndDay >= startDayNum ? rangeEndDay : startDayNum)
+            : (rangeEndDay >= startDayNum ? Math.min(rangeEndDay, startDayNum + offset) : startDayNum + offset);
           return this._toIsoDate(rangeYear || rangeStartIso.slice(0, 4), rangeMonth || rangeStartIso.slice(5, 7), targetDay);
         }
       }
@@ -3673,12 +3834,16 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
 
     const isMetadataOrNoise = (s) => {
       const cleaned = String(s || '').replace(/^(?:[\-•\*]\s*)+/, '').replace(/\*{1,2}/g, '').trim();
-      return /^(?:venue|address|location|where|when|date|dates|category|tags?|tickets?|pass(?:es)?|price|fee|refund|note|notes|tiêu\s*đề|tên(?:\s*(?:phiên|hoạt\s*động|chương\s*trình))?|địa\s*điểm|địa\s*chỉ|danh\s*mục|thể\s*loại|giá\s*vé|hạng\s*vé|lưu\s*ý|ghi\s*chú|chính\s*sách|số\s*lượng|mô\s*tả|nội\s*dung|thời\s*gian|bắt\s*đầu|kết\s*thúc|check[\s\-]?in|trạng\s*thái|status|kỹ\s*thuật|điều\s*phối|technical|mc|ghế|hạn\s*mức|quyền\s*lợi)\s*[:：\-–?]/i.test(cleaned)
+      if (!cleaned) return true;
+      return /^(?:venue|address|location|where|when|date|dates|category|tags?|tickets?|pass(?:es)?|price|fee|refund|note|notes|tiêu\s*đề|tên(?:\s*(?:phiên|hoạt\s*động|chương\s*trình))?|địa\s*điểm|địa\s*chỉ|danh\s*mục|thể\s*loại|giá\s*vé|hạng\s*vé|lưu\s*ý|ghi\s*chú|chính\s*sách|số\s*lượng|mô\s*tả|nội\s*dung|thời\s*gian|bắt\s*đầu|kết\s*thúc|check[\s\-]?in|trạng\s*thái|status|kỹ\s*thuật|điều\s*phối|technical|mc|ghế|hạn\s*mức|quyền\s*lợi|(?:(?:festival|event|daily|public|exhibition)\s+)?(?:opening|closing)\s*(?:hours\b|[:：])|(?:operating|public|festival)\s*hours|hours|doors?\s*open|gates?\s*open|venue\s*closes|main\s*(?:program|competition)(?:\s*(?:begins|starts))?|giờ\s*(?:mở\s*cửa|đóng\s*cửa)|expected\s*attendance|participants?)(?:\s*[:：\-–?]|\s*\d|\s*$)/i.test(cleaned)
+        || /^(?:\d+[\.\)]\s*)?(?:EVENT\s*(?:PROFILE|PROGRAM|OBJECTIVES|OVERVIEW)|PROGRAM\s*OBJECTIVES|HIGHLIGHTS|MAIN\s*ACTIVITIES|PROGRAM(?:\s*HIGHLIGHTS)?|AGENDA|SCHEDULE|CHƯƠNG\s*TRÌNH|LỊCH\s*TRÌNH|THÔNG\s*TIN\s*CHUNG)\s*[:：]?$/i.test(cleaned)
+        || /^(?:mỗi\s*ngày|each\s*day|hằng\s*ngày|daily)\.?$/i.test(cleaned)
         || /^(?:kỹ\s*thuật|điều\s*phối|mc)\s*[—\-–:]/i.test(cleaned);
     };
 
     const stopSectionHeaderRe = /^(?:#{1,6}\s*)?(?:\*{1,2})?(?:\d+[\.\)]\s*)?(?:TICKETS?|PASS\s*TYPES|FEES|PRICING|REFUND(?:\s*POLICY)?|NOTES\s*FOR\s*ATTENDEES|CHANGES\s*FROM\s*PREVIOUS|ITEMS\s*REMOVED|EXCLUDED\s*ACTIVITIES|CHANGE\s*NOTES|DOCUMENT\s*CONTROL|SPONSORSHIP|UNCONFIRMED|RESTRICTED|VÉ\s*THAM\s*(?:DỰ|GIA)|GIÁ\s*VÉ|HẠNG\s*VÉ|CHÍNH\s*SÁCH|TÀI\s*TRỢ|MỤC\s*ĐÃ\s*LOẠI|THÔNG\s*TIN\s*CHƯA\s*XÁC\s*NHẬN|ĐIỀU\s*KHOẢN|LƯU\s*Ý)\b/i;
-    const startSectionHeaderRe = /^(?:#{1,6}\s*)?(?:\*{1,2})?(?:\d+[\.\)]\s*)?(?:CONFIRMED\s*PROGRAM|OFFICIAL\s*PROGRAM|PROGRAM|EVENT\s*SCHEDULE|SCHEDULE|AGENDA|LỊCH\s*TRÌNH|CHƯƠNG\s*TRÌNH(?:\s*CHI\s*TIẾT|\s*CHÍNH\s*THỨC)?)\s*[:：]?\s*(?:\*{1,2})?$/i;
+    const startSectionHeaderRe = /^(?:#{1,6}\s*)?(?:\*{1,2})?(?:\d+[\.\)]\s*)?(?:CONFIRMED\s*PROGRAM|OFFICIAL\s*(?:PROGRAM|ACTIVITIES)|MAIN\s*ACTIVITIES|PROGRAM(?:\s*HIGHLIGHTS)?|EVENT\s*(?:SCHEDULE|PROGRAM)|APPENDIX\s*[A-Z]\s*[—\-–:]\s*(?:PROGRAM|SCHEDULE)|SCHEDULE|AGENDA|LỊCH\s*TRÌNH|CHƯƠNG\s*TRÌNH(?:\s*CHI\s*TIẾT|\s*CHÍNH\s*THỨC)?)\s*[:：]?\s*(?:\*{1,2})?$/i;
+    const hasExplicitProgramSection = lines.some((l) => startSectionHeaderRe.test(l.replace(/^[#\*\s]+|[#\*\s]+$/g, '').trim()));
 
     for (let i = 0; i < lines.length; i++) {
       const rawLine = lines[i].trim();
@@ -3728,7 +3893,16 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
       let rawTitle = '';
 
       // Format A: Dòng chỉ có giờ HH:MM–HH:MM hoặc HH:MM, dòng kế tiếp là tên hoạt động
-      const timeOnlyLine = cleanHeading.match(/^(?:[\-•\*]\s*)?(\d{1,2}[:h]\d{2})(?:\s*[–\-—]\s*(\d{1,2}[:h]\d{2}))?$/);
+      const prevNonEmptyTrim = (() => {
+        for (let p = i - 1; p >= 0; p--) {
+          if (lines[p].trim()) return lines[p].trim();
+        }
+        return '';
+      })();
+      const prevLineIsKeyLabel = /[:：]\s*$/.test(prevNonEmptyTrim) && !resolveHeaderDate(prevNonEmptyTrim);
+      const timeOnlyLine = (!hasExplicitProgramSection || inProgramSection) && !prevLineIsKeyLabel
+        ? cleanHeading.match(/^(?:[\-•\*]\s*)?(\d{1,2}[:h]\d{2})(?:\s*[–\-—]\s*(\d{1,2}[:h]\d{2}))?\.?$/)
+        : null;
       if (timeOnlyLine) {
         let nextIdx = i + 1;
         if (nextIdx < lines.length && !lines[nextIdx].trim()) nextIdx++;
@@ -3737,9 +3911,11 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
           nextTrim &&
           nextTrim.length >= 2 &&
           nextTrim.length <= 100 &&
+          !/[:：]\s*$/.test(nextTrim) &&
           !/^\d{1,2}[:h]\d{2}/.test(nextTrim) &&
           !/^(?:MC|Kỹ\s*thuật|Điều\s*phối|Ghi\s*chú|Note)\s*[:：]/i.test(nextTrim) &&
           !resolveHeaderDate(nextTrim) &&
+          !startSectionHeaderRe.test(nextTrim) &&
           !stopSectionHeaderRe.test(nextTrim) &&
           !isMetadataOrNoise(nextTrim)
         ) {
@@ -3787,9 +3963,9 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
 
       const cleanTitle = rawTitle
         .replace(/^\*\*|\*\*$/g, '')
-        .replace(/^[\-•\*:\s]+|[\-•\*:\s]+$/g, '')
+        .replace(/^[\-•\*:\s]+|[\-•\*:\s\.]+$/g, '')
         .trim();
-      if (!cleanTitle || cleanTitle.length < 2) continue;
+      if (!cleanTitle || cleanTitle.length < 2 || isMetadataOrNoise(cleanTitle)) continue;
 
       // Bỏ qua các hoạt động nội bộ / hạn chế quyền truy cập
       if (/\b(?:press\s*preview|artist\s*registration|exhibitor\s*check[\-\s]?in|safety\s*briefing|exhibition\s*opens?)\b/i.test(cleanTitle)) {
@@ -3799,17 +3975,22 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
         continue;
       }
 
-      // Doors Open / Gates Open / Registration Opens / Check-in -> làm checkin_start_time cho phiên kế tiếp cùng ngày
-      if (/^(?:doors?\s*open|gates?\s*open|registration\s*opens?|check[\s\-]?in(?:\s+and\s+welcome)?|doors?|gates?|mở\s*cổng|mở\s*cửa\s*đón\s*khách|đón\s*khách)$/i.test(cleanTitle)) {
+      // Doors Open / Gates Open / Registration Opens / Check-in (và start-only Registration) -> làm checkin_start_time cho phiên kế tiếp cùng ngày
+      if (/^(?:doors?\s*open|gates?\s*open|registration\s*opens?|check[\s\-]?in(?:\s+and\s+welcome)?|doors?|gates?|mở\s*cổng|mở\s*cửa\s*đón\s*khách|đón\s*khách)$/i.test(cleanTitle)
+        || (!sEnd && /^(?:registration|guest\s*arrival|visitor\s*entry|team\s*check[\-\s]?in)$/i.test(cleanTitle))) {
         pendingCheckin = sStart;
         continue;
       }
 
-      // End / Venue Closes / Exhibition Closes / Intermission -> làm mốc end_time cho phiên liền trước cùng ngày
-      if (/^(?:end(?:\s*of\s*(?:program|day|event|festival|symposium))?|event\s*ends|program\s*ends|venue\s*closes|exhibition\s*closes|doors?\s*close|intermission|kết\s*thúc(?:\s*chương\s*trình)?|đóng\s*cửa|nghỉ\s*giải\s*lao)$/i.test(cleanTitle)) {
+      if (/^(?:intermission|nghỉ\s*giải\s*lao)$/i.test(cleanTitle)) {
+        continue;
+      }
+      // End / Venue Closes / Exhibition Closes / standalone Closing -> làm mốc end_time cho phiên liền trước cùng ngày
+      if (/^(?:end(?:\s*of\s*(?:program|day|event|festival|symposium))?|event\s*ends|program\s*ends|venue\s*closes|exhibition\s*closes|doors?\s*close|kết\s*thúc(?:\s*chương\s*trình)?|đóng\s*cửa)$/i.test(cleanTitle)
+        || (!sEnd && /^(?:closing|bế\s*mạc)$/i.test(cleanTitle))) {
         if (sessions.length > 0) {
           const prev = sessions[sessions.length - 1];
-          if (prev.start_date === currentDate && !prev.end_time) {
+          if (prev.start_date === currentDate && (!prev.end_time || sStart > prev.end_time)) {
             prev.end_time = sStart;
           }
         }
@@ -4068,14 +4249,18 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
         sessionBlocks.push(...dayBlocks);
       }
     }
-    // 3. Tìm theo khoảng ngày tiếng Anh (22–24 January 2028)
+    // 3. Nếu không có lịch dạng bảng / ngày rõ ràng, ưu tiên các block phiên đã cấu trúc (gồm cả start-only agenda theo ngày) trước fallback ngày rỗng
+    if (sessionBlocks.length === 0 && structuredProg.sessions.length >= 2) {
+      sessionBlocks.push(...structuredProg.sessions);
+    }
+    // 3.5 Tìm theo khoảng ngày tiếng Anh (22–24 January 2028) nếu chưa có danh sách hoạt động chi tiết
     if (sessionBlocks.length === 0) {
       const rangeSessions = this._parseEnglishDateRangeSessions(text);
       if (rangeSessions.length > 0) {
         sessionBlocks.push(...rangeSessions);
       }
     }
-    // 3.5 Nếu không có lịch dạng bảng / ngày rõ ràng, dùng các block phiên đã cấu trúc không đánh dấu authoritative
+    // 3.8 Fallback nếu structuredProg chỉ có 1 item
     if (sessionBlocks.length === 0 && structuredProg.sessions.length > 0) {
       sessionBlocks.push(...structuredProg.sessions);
     }
@@ -4579,7 +4764,7 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
         (richProg.sessions.length > currentSessions.length ||
           currentSessions.some((s) => /^(?:changed|moved|.*changed)$/i.test(String(s?.session_name || '').trim())))
       ) {
-        return richProg.sessions;
+        return this._collapseStartOnlyAgendaSessions(richProg.sessions, originalText);
       }
     }
 
@@ -4834,7 +5019,7 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
    */
   _stripHallucinatedBoilerplate(html, originalText = '') {
     if (!html || typeof html !== 'string') return '';
-    const normOriginal = (originalText || '').toLowerCase();
+    const normOriginal = String(originalText || '').toLowerCase();
 
     // Các tiêu đề giả mạo mà AI thường tự sinh
     const fakeHeadings = [
@@ -5374,7 +5559,7 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
     // 2. Danh mục: Ưu tiên so khớp ID, tên/slug, từ khóa ngữ nghĩa, hoặc từ khóa trong văn bản
     let validCat = categories.find((c) => String(c.id).toLowerCase() === String(data.category_id).toLowerCase());
     if (!validCat) {
-      const target = String(data.category_id || '').toLowerCase().trim();
+      const target = String(data.category_id || data.category || '').toLowerCase().trim();
       validCat = categories.find((c) => c.name.toLowerCase() === target || (c.slug && c.slug.toLowerCase() === target));
     }
     if (!validCat && sections && sections.category) {
@@ -5553,10 +5738,13 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
 
     // Nếu AI không trích xuất được hoặc bị xóa do hallucination nhưng tài liệu có phần schedule_location rõ ràng:
     if (structuredSched.venue) {
-      const isProvHallucinated = data.province && !originalText.toLowerCase().includes(data.province.toLowerCase());
+      const isProvHallucinated =
+        data.province
+        && !originalText.toLowerCase().includes(data.province.toLowerCase())
+        && (!venueName || !originalText.toLowerCase().includes(venueName.toLowerCase()));
       if (!venueUnconfirmedInAuth && structuredSched.venue.venue_name && (!venueName || isProvHallucinated)) {
         const structVenue = structuredSched.venue.venue_name;
-        if (!isGenericUnnamedVenue(structVenue)) {
+        if (!isGenericUnnamedVenue(structVenue) && (!venueName || !/^\d+[A-Za-z]?\s+/i.test(structVenue))) {
           venueName = structVenue;
         }
       }
@@ -5702,16 +5890,32 @@ ${categoriesPrompt || 'Chưa có danh mục cụ thể, hãy để trống categ
         logger.info(`[AiDocumentParser] Sử dụng ${structuredSched.sessions.length} phiên sự kiện trích xuất chính xác từ tài liệu.`);
         rawSessions = structuredSched.sessions;
       } else {
-        // Bổ sung giờ / ngày bị thiếu từ structuredSched vào rawSessions
+        // Bổ sung giờ / ngày bị thiếu hoặc chỉnh lại khi AI gán trùng start_time = checkin_start_time / đặt nhầm "Phiên Sáng"
         rawSessions.forEach((s, i) => {
           const struct = structuredSched.sessions[i];
           if (struct) {
             if (!s.start_time && struct.start_time) s.start_time = struct.start_time;
+            if (
+              s.start_time &&
+              s.checkin_start_time &&
+              s.start_time === s.checkin_start_time &&
+              struct.start_time &&
+              struct.start_time !== s.checkin_start_time
+            ) {
+              s.start_time = struct.start_time;
+            }
             if (!s.end_time && struct.end_time) s.end_time = struct.end_time;
             if (!s.checkin_start_time && struct.checkin_start_time) s.checkin_start_time = struct.checkin_start_time;
             if ((!s.start_date || !/^\d{4}-\d{2}-\d{2}$/.test(s.start_date)) && struct.start_date) {
               s.start_date = struct.start_date;
               s.end_date = struct.end_date || struct.start_date;
+            }
+            if (
+              /^phiên\s*(?:sáng|chiều|tối)$/i.test(String(s.session_name || '').trim()) &&
+              !/phiên\s*(?:sáng|chiều|tối)/i.test(originalText) &&
+              struct.session_name
+            ) {
+              s.session_name = struct.session_name;
             }
           }
         });

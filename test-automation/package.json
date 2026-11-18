@@ -1,14 +1,32 @@
 {
   "name": "test-automation",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "run-booking-client-perf.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node setup-booking-perf-data.js && node run-booking-client-perf.js",
+    "perf:setup": "node setup-booking-perf-data.js",
+    "perf:cleanup": "node setup-booking-perf-data.js --cleanup",
+    "perf:booking:all": "node setup-booking-perf-data.js && node run-booking-client-perf.js --tiers=500,1000,2000,5000",
+    "perf:booking:500": "node setup-booking-perf-data.js && node run-booking-client-perf.js --tiers=500",
+    "perf:booking:1000": "node setup-booking-perf-data.js && node run-booking-client-perf.js --tiers=1000",
+    "perf:booking:2000": "node setup-booking-perf-data.js && node run-booking-client-perf.js --tiers=2000",
+    "perf:booking:5000": "node setup-booking-perf-data.js && node run-booking-client-perf.js --tiers=5000",
+    "perf:k6:all": "node setup-booking-perf-data.js && k6 run k6-booking-client-perf.js && node setup-booking-perf-data.js --cleanup",
+    "perf:k6:500": "node setup-booking-perf-data.js && k6 run -e PROFILE=spike -e TARGET_VUS=500 k6-booking-client-perf.js && node setup-booking-perf-data.js --cleanup",
+    "perf:k6:1000": "node setup-booking-perf-data.js && k6 run -e PROFILE=spike -e TARGET_VUS=1000 k6-booking-client-perf.js && node setup-booking-perf-data.js --cleanup",
+    "perf:k6:2000": "node setup-booking-perf-data.js && k6 run -e PROFILE=spike -e TARGET_VUS=2000 k6-booking-client-perf.js && node setup-booking-perf-data.js --cleanup",
+    "perf:k6:5000": "node setup-booking-perf-data.js && k6 run -e PROFILE=spike -e TARGET_VUS=5000 k6-booking-client-perf.js && node setup-booking-perf-data.js --cleanup"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "performance",
+    "booking",
+    "load-test",
+    "puppeteer",
+    "k6"
+  ],
+  "author": "EventHub",
   "license": "ISC",
-  "description": "",
+  "description": "EventHub Client Performance & High-Concurrency Ticket Booking Test Suite (500, 1000, 2000, 5000 CCU)",
   "dependencies": {
     "puppeteer-core": "^24.43.1"
   }
