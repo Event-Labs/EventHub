@@ -158,22 +158,8 @@ export function EventDetailPage() {
   const eventQuery = useQuery({
     queryKey: ['event-detail', eventId],
     queryFn: () => fetchEventDetail(eventId),
-    staleTime: 60 * 1000,
+    staleTime: 30 * 1000,
     refetchInterval: 30_000,
-    initialData: () => {
-      const cachedPool = queryClient.getQueryData(['home-events', 'upcoming-pool'])?.items || []
-      const foundInPool = cachedPool.find((e) => e.slug === eventId || String(e.id) === String(eventId))
-      if (foundInPool) return foundInPool
-
-      const cachedEvents = queryClient.getQueriesData({ queryKey: ['events'] })
-      for (const [, data] of cachedEvents) {
-        if (data?.items) {
-          const found = data.items.find((e) => e.slug === eventId || String(e.id) === String(eventId))
-          if (found) return found
-        }
-      }
-      return undefined
-    },
   })
 
   useEffect(() => {
@@ -286,8 +272,14 @@ export function EventDetailPage() {
   useEffect(() => {
     if (isHoldingForThisEvent && activeDraft?.selectedSession?.id && !selectedSessionId) {
       setSelectedSessionId(activeDraft.selectedSession.id)
+    } else if (event?.sessions?.length === 1 && !selectedSessionId) {
+      const singleSession = event.sessions[0]
+      const expired = isPastTime(singleSession?.end_time || getEventEndTime(event), currentTime)
+      if (!expired && !isPaused && !isCancelled && !isSuspended && !isEnded) {
+        setSelectedSessionId(singleSession.id)
+      }
     }
-  }, [isHoldingForThisEvent, activeDraft?.selectedSession?.id, selectedSessionId])
+  }, [isHoldingForThisEvent, activeDraft?.selectedSession?.id, selectedSessionId, event, currentTime, isPaused, isCancelled, isSuspended, isEnded])
 
   const handleBook = () => {
     if (requireLogin()) return
