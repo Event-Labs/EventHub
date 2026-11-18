@@ -4010,6 +4010,82 @@ export function AdminEventReviewDetailPage() {
                   )}
                 </div>
 
+                {/* Seat Map Section - Only for seated events */}
+                {hasSeatMap && (
+                  <div className="rounded-[24px] border border-white/5 bg-white/[0.02] p-5 shadow-inner space-y-4 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 [html.light_&]:border-slate-200 pb-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Armchair className="size-5 text-[#C99A47] shrink-0" />
+                        <h3 className="font-display text-base font-black text-white [html.light_&]:text-[#0D1B2A]">
+                          {isEnglish ? 'Seat Map' : 'Sơ đồ chỗ ngồi'}
+                        </h3>
+                        {sessionSeatsQuery.data?.seats?.length > 0 && (
+                          <span className="rounded-full bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-bold text-amber-300 border border-amber-500/20 [html.light_&]:bg-amber-50 [html.light_&]:text-amber-800 [html.light_&]:border-amber-200">
+                            {sessionSeatsQuery.data.seats.length} {isEnglish ? 'seats' : 'ghế'}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Multi-session picker if more than 1 seated session */}
+                      {seatedSessions.length > 1 && (
+                        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+                          {seatedSessions.map((sess, sIdx) => {
+                            const isSelected = String(sess.id) === effectiveSeatSessionId
+                            const rawTitle = sess.session_name?.trim() || ''
+                            const prefix = isEnglish ? 'Session' : 'Phiên'
+                            const label = rawTitle
+                              ? (/^phiên\s*\d+/i.test(rawTitle) ? rawTitle : `${prefix} ${sIdx + 1}: ${rawTitle}`)
+                              : `${prefix} ${sIdx + 1}`
+
+                            return (
+                              <button
+                                key={sess.id || sIdx}
+                                type="button"
+                                onClick={() => setSelectedSeatSessionId(String(sess.id))}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap cursor-pointer ${
+                                  isSelected
+                                    ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-sm font-black'
+                                    : 'bg-white/5 text-slate-200 border border-white/10 hover:text-white hover:bg-white/10 [html.light_&]:bg-white [html.light_&]:text-slate-800 [html.light_&]:border-slate-300'
+                                }`}
+                              >
+                                {label}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    {sessionSeatsQuery.isLoading ? (
+                      <div className="flex flex-col items-center justify-center py-12 gap-3 text-slate-400">
+                        <Loader2 className="size-6 animate-spin text-[#C99A47]" />
+                        <span className="text-xs">
+                          {isEnglish ? 'Loading seat map data...' : 'Đang tải dữ liệu sơ đồ chỗ ngồi...'}
+                        </span>
+                      </div>
+                    ) : sessionSeatsQuery.isError ? (
+                      <div className="py-8 text-center text-xs text-rose-400">
+                        {isEnglish ? 'Failed to load seat map data.' : 'Không thể tải dữ liệu sơ đồ chỗ ngồi.'}
+                      </div>
+                    ) : sessionSeatsQuery.data?.seats?.length > 0 ? (
+                      <div className="overflow-hidden rounded-2xl border border-white/10 bg-slate-950/80 p-3 shadow-inner [html.light_&]:bg-slate-900">
+                        <SeatMapCanvas
+                          seats={sessionSeatsQuery.data.seats}
+                          ticketTypes={event.ticket_types || []}
+                          selectedSeatIds={[]}
+                          seatMap={sessionSeatsQuery.data.seat_map}
+                          readOnly={true}
+                          centered={true}
+                        />
+                      </div>
+                    ) : (
+                      <p className="text-xs italic text-slate-500 py-4 text-center">
+                        {isEnglish ? 'No seat data configured for this session.' : 'Phiên này chưa có dữ liệu cấu hình ghế.'}
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 {/* Ticket Types */}
                 <div className="rounded-[24px] border border-white/5 bg-white/[0.02] p-5 shadow-inner space-y-4 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
                   <div className="flex items-center justify-between gap-3 border-b border-white/10 [html.light_&]:border-slate-200 pb-3 flex-nowrap overflow-x-auto">
@@ -4314,7 +4390,7 @@ export function AdminEventReviewDetailPage() {
                                           </span>
                                         )}
                                         {s.timeStr && (
-                                          <span className="text-slate-400 [html.light_&]:text-slate-500 text-[11px] font-mono shrink-0">
+                                          <span className="text-slate-400 [html.light_&]:text-slate-500 text-xs font-mono shrink-0">
                                             ({s.timeStr})
                                           </span>
                                         )}
@@ -4343,85 +4419,6 @@ export function AdminEventReviewDetailPage() {
                     </div>
                   )}
                 </div>
-
-                {/* Seat Map Section - Only for seated events (View only, non-interactive) */}
-                {hasSeatMap && (
-                  <div className="rounded-[24px] border border-white/5 bg-white/[0.02] p-5 shadow-inner space-y-4 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 [html.light_&]:border-slate-200 pb-3">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Armchair className="size-5 text-[#C99A47] shrink-0" />
-                        <h3 className="font-display text-base font-black text-white [html.light_&]:text-[#0D1B2A]">
-                          {isEnglish ? 'Seat Map' : 'Sơ đồ chỗ ngồi'}
-                        </h3>
-                        {sessionSeatsQuery.data?.seats?.length > 0 && (
-                          <span className="rounded-full bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-bold text-amber-300 border border-amber-500/20 [html.light_&]:bg-amber-50 [html.light_&]:text-amber-800 [html.light_&]:border-amber-200">
-                            {sessionSeatsQuery.data.seats.length} {isEnglish ? 'seats' : 'ghế'}
-                          </span>
-                        )}
-                        <span className="text-[11px] text-slate-400 font-medium italic [html.light_&]:text-slate-500">
-                          ({isEnglish ? 'View only - non-interactive' : 'Chỉ xem - Không thể thao tác'})
-                        </span>
-                      </div>
-
-                      {/* Multi-session picker if more than 1 seated session */}
-                      {seatedSessions.length > 1 && (
-                        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
-                          {seatedSessions.map((sess, sIdx) => {
-                            const isSelected = String(sess.id) === effectiveSeatSessionId
-                            const rawTitle = sess.session_name?.trim() || ''
-                            const prefix = isEnglish ? 'Session' : 'Phiên'
-                            const label = rawTitle
-                              ? (/^phiên\s*\d+/i.test(rawTitle) ? rawTitle : `${prefix} ${sIdx + 1}: ${rawTitle}`)
-                              : `${prefix} ${sIdx + 1}`
-
-                            return (
-                              <button
-                                key={sess.id || sIdx}
-                                type="button"
-                                onClick={() => setSelectedSeatSessionId(String(sess.id))}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap cursor-pointer ${
-                                  isSelected
-                                    ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-sm font-black'
-                                    : 'bg-white/5 text-slate-200 border border-white/10 hover:text-white hover:bg-white/10 [html.light_&]:bg-white [html.light_&]:text-slate-800 [html.light_&]:border-slate-300'
-                                }`}
-                              >
-                                {label}
-                              </button>
-                            )
-                          })}
-                        </div>
-                      )}
-                    </div>
-
-                    {sessionSeatsQuery.isLoading ? (
-                      <div className="flex flex-col items-center justify-center py-12 gap-3 text-slate-400">
-                        <Loader2 className="size-6 animate-spin text-[#C99A47]" />
-                        <span className="text-xs">
-                          {isEnglish ? 'Loading seat map data...' : 'Đang tải dữ liệu sơ đồ chỗ ngồi...'}
-                        </span>
-                      </div>
-                    ) : sessionSeatsQuery.isError ? (
-                      <div className="py-8 text-center text-xs text-rose-400">
-                        {isEnglish ? 'Failed to load seat map data.' : 'Không thể tải dữ liệu sơ đồ chỗ ngồi.'}
-                      </div>
-                    ) : sessionSeatsQuery.data?.seats?.length > 0 ? (
-                      <div className="overflow-hidden rounded-2xl border border-white/10 bg-slate-950/80 p-3 shadow-inner [html.light_&]:bg-slate-900">
-                        <SeatMapCanvas
-                          seats={sessionSeatsQuery.data.seats}
-                          ticketTypes={event.ticket_types || []}
-                          selectedSeatIds={[]}
-                          seatMap={sessionSeatsQuery.data.seat_map}
-                          readOnly={true}
-                          centered={true}
-                        />
-                      </div>
-                    ) : (
-                      <p className="text-xs italic text-slate-500 py-4 text-center">
-                        {isEnglish ? 'No seat data configured for this session.' : 'Phiên này chưa có dữ liệu cấu hình ghế.'}
-                      </p>
-                    )}
-                  </div>
-                )}
 
                 {/* Refund Policy */}
                 <div className="rounded-[24px] border border-white/5 bg-white/[0.02] p-5 shadow-inner space-y-4 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
