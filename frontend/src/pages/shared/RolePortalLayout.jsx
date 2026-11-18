@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Bell, CheckCheck, ChevronRight, Home, LogOut, Menu, Moon, Settings, Sun, X } from 'lucide-react'
@@ -14,7 +14,7 @@ import { CosmicSpaceBackground } from '@/components/CosmicSpaceBackground.jsx'
 import { PortalCloudsBackground } from '@/components/PortalCloudsBackground.jsx'
 import { LanguageSwitcher } from '@/i18n/LanguageSwitcher.jsx'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
-import logoSrc from '@/assets/eventhub-logo.png'
+import logoSrc from '@/assets/eventhub-logo.webp'
 
 const NAV_LABEL_MAP = {
   'Tổng quan': { vi: 'Tổng quan', en: 'Overview' },
@@ -398,7 +398,15 @@ export function RolePortalLayout({
                 : 'max-w-[1320px] px-3 sm:px-6 lg:px-8 py-4 sm:py-6'
             }`}
           >
-            <Outlet />
+            <Suspense
+              fallback={
+                <div className="flex min-h-[40vh] w-full items-center justify-center p-8">
+                  <div className="size-8 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
+                </div>
+              }
+            >
+              <Outlet />
+            </Suspense>
           </div>
         </div>
       </main>

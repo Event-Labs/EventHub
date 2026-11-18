@@ -80,18 +80,17 @@ class VenuesRepository {
         AND (
           (e.cancel_request->>'status' = 'PENDING')
           OR (
-            COALESCE(e.display_state, '') <> 'SUSPENDED_BY_ADMIN'
+            COALESCE(e.display_state::text, '') <> 'SUSPENDED_BY_ADMIN'
             AND NOT (
               e.end_time < NOW()
               OR (e.end_time IS NULL AND e.start_time IS NOT NULL AND e.start_time < NOW() - INTERVAL '4 hours')
             )
-            AND NOT (e.status = 'COMPLETED' AND COALESCE(e.approval_status, '') <> 'APPROVED')
+            AND NOT (e.status = 'COMPLETED' AND COALESCE(e.approval_status::text, '') <> 'APPROVED')
             AND (
               e.display_state = 'HIDDEN_BY_ORGANIZER'
               OR e.status = 'HIDDEN'
               OR e.sales_status = 'PAUSED'
               OR (e.pending_revision->>'status' = 'SUBMITTED')
-              OR e.status = 'APPROVED'
               OR (e.status = 'COMPLETED' AND e.approval_status = 'APPROVED')
               OR e.status = 'PUBLISHED'
               OR e.status = 'PENDING_REVIEW'

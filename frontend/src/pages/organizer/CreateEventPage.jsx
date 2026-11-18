@@ -216,6 +216,27 @@ function findOccupiedSlotConflict(session, occupiedSlots = [], { venueId = null,
   return null
 }
 
+export function isVenueValidForEvent(v) {
+  if (!v || !v.id) return false
+  if (!v.name || !v.name.trim()) return false
+  const hasAddress = Boolean(v.address_line?.trim() || v.city?.trim())
+  if (!hasAddress) return false
+  const lat = Number(v.latitude)
+  const lng = Number(v.longitude)
+  if (
+    !Number.isFinite(lat) ||
+    !Number.isFinite(lng) ||
+    lat < -90 ||
+    lat > 90 ||
+    lng < -180 ||
+    lng > 180 ||
+    (lat === 0 && lng === 0)
+  ) {
+    return false
+  }
+  return true
+}
+
 function calculateEventCompleteness(formData, isEnglish = false) {
   const titleValid = Boolean(formData.title?.trim())
   const categoryValid = Boolean(formData.category_id)
@@ -311,13 +332,11 @@ function calculateEventCompleteness(formData, isEnglish = false) {
     {
       id: 'descriptions',
       step: 1,
-      label: isEnglish ? 'Short & Full Description' : 'Mô tả ngắn & Chi tiết',
-      completed: Boolean(shortDescValid && descValid),
-      detail: !shortDescValid
-        ? (isEnglish ? 'Short description is required' : 'Chưa nhập mô tả ngắn')
-        : !descValid
-          ? (isEnglish ? 'Full description is required' : 'Chưa nhập mô tả chi tiết')
-          : (isEnglish ? 'Completed' : 'Đã hoàn tất'),
+      label: isEnglish ? 'Event Information' : 'Thông tin sự kiện',
+      completed: Boolean(descValid),
+      detail: !descValid
+        ? (isEnglish ? 'Full description is required' : 'Chưa nhập mô tả chi tiết')
+        : (isEnglish ? 'Completed' : 'Đã hoàn tất'),
     },
     {
       id: 'media',
@@ -640,7 +659,7 @@ function Step1EventInfo({
             <div>
               <div className="flex justify-between mb-2">
                 <label className="text-[13px] font-medium text-subtle">
-                  {isEnglish ? 'Short Description' : 'Mô tả ngắn'} <span className="text-red-500 font-bold ml-0.5">*</span>
+                  {isEnglish ? 'Short Description' : 'Mô tả ngắn'}
                 </label>
                 <span className="text-xs text-muted">{formData.short_description.length} / 500</span>
               </div>
@@ -1182,7 +1201,7 @@ function Step2ScheduleVenue({ formData, setFormData, venues, completeness, occup
                             </label>
                             <button
                               type="button"
-                              onClick={() => window.open('/organizer/venues', '_blank')}
+                              onClick={() => window.open('/organizer/venues?action=create', '_blank')}
                               className="text-xs text-[#C99A47] hover:text-[#E6C17A] font-semibold transition cursor-pointer"
                             >
                               + Tạo địa điểm mới
@@ -1194,15 +1213,17 @@ function Step2ScheduleVenue({ formData, setFormData, venues, completeness, occup
                             onChange={(e) => updateSession(key, 'venue_id', e.target.value)}
                           >
                             <option value="">Chọn địa điểm</option>
-                            {venues.map((v) => {
-                              const conflict = findOccupiedSlotConflict(session, occupiedSlots, { venueId: v.id })
-                              return (
-                                <option key={v.id} value={v.id} disabled={Boolean(conflict)}>
-                                  {v.name}{v.city ? ` (${v.city})` : ''}
-                                  {conflict ? (isEnglish ? ` — Busy (${conflict.event_title})` : ` — Trùng lịch (${conflict.event_title})`) : ''}
-                                </option>
-                              )
-                            })}
+                            {venues
+                              .filter((v) => isVenueValidForEvent(v) || (session.venue_id && String(v.id) === String(session.venue_id)))
+                              .map((v) => {
+                                const conflict = findOccupiedSlotConflict(session, occupiedSlots, { venueId: v.id })
+                                return (
+                                  <option key={v.id} value={v.id} disabled={Boolean(conflict)}>
+                                    {v.name}{v.city ? ` (${v.city})` : ''}
+                                    {conflict ? (isEnglish ? ` — Busy (${conflict.event_title})` : ` — Trùng lịch (${conflict.event_title})`) : ''}
+                                  </option>
+                                )
+                              })}
                           </select>
                           {(() => {
                             const selectedVenueConflict = session.venue_id
@@ -4275,18 +4296,64 @@ export function CreateEventPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const { eventId: routeEventId } = useParams()
-  const [currentStep, setCurrentStep] = useState(1)
-  const [maxCompletedStep, setMaxCompletedStep] = useState(1)
+  const draftStorageKey = routeEventId ? `eventhub_edit_event_draft_${routeEventId}` : 'eventhub_create_event_draft'
+  const stepStorageKey = routeEventId ? `eventhub_edit_event_step_${routeEventId}` : 'eventhub_create_event_step'
+
+  const [currentStep, setCurrentStep] = useState(() => {
+    if (typeof sessionStorage !== 'undefined') {
+      try {
+        const key = routeEventId ? `eventhub_edit_event_step_${routeEventId}` : 'eventhub_create_event_step'
+        const saved = sessionStorage.getItem(key)
+        if (saved) {
+          const stepNum = Number(saved)
+          if (stepNum >= 1 && stepNum <= 5) return stepNum
+        }
+      } catch (e) {}
+    }
+    return 1
+  })
+  const [maxCompletedStep, setMaxCompletedStep] = useState(() => {
+    if (typeof sessionStorage !== 'undefined') {
+      try {
+        const key = routeEventId ? `eventhub_edit_event_step_${routeEventId}` : 'eventhub_create_event_step'
+        const saved = sessionStorage.getItem(key)
+        if (saved) {
+          const stepNum = Number(saved)
+          if (stepNum >= 1 && stepNum <= 5) return stepNum
+        }
+      } catch (e) {}
+    }
+    return 1
+  })
   const [eventId, setEventId] = useState(routeEventId || null)
   const [formData, setFormData] = useState(() => {
     const isEn = Boolean(
       (typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
       (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en')
     )
-    return {
+    const baseInitial = {
       ...INITIAL_FORM,
       description: isEn ? DEFAULT_EVENT_DESCRIPTION_EN : DEFAULT_EVENT_DESCRIPTION_VI,
     }
+    if (!routeEventId && typeof sessionStorage !== 'undefined') {
+      try {
+        const saved = sessionStorage.getItem('eventhub_create_event_draft')
+        if (saved) {
+          const parsed = JSON.parse(saved)
+          if (parsed && typeof parsed === 'object') {
+            return {
+              ...baseInitial,
+              ...parsed,
+              sessions: Array.isArray(parsed.sessions) && parsed.sessions.length > 0 ? parsed.sessions : baseInitial.sessions,
+              ticketTypes: Array.isArray(parsed.ticketTypes) ? parsed.ticketTypes : baseInitial.ticketTypes,
+              seating_rules: { ...baseInitial.seating_rules, ...(parsed.seating_rules || {}) },
+              refund_policy: { ...baseInitial.refund_policy, ...(parsed.refund_policy || {}) },
+            }
+          }
+        }
+      } catch (e) {}
+    }
+    return baseInitial
   })
   const [categories, setCategories] = useState([])
   const [venues, setVenues] = useState([])
@@ -4306,6 +4373,70 @@ export function CreateEventPage() {
   const [aiDraftBanner, setAiDraftBanner] = useState(false)
 
   const isEditMode = Boolean(routeEventId)
+
+  // Lưu tạm dữ liệu biểu mẫu và bước hiện tại vào sessionStorage (giúp F5 không mất dữ liệu)
+  useEffect(() => {
+    if (typeof sessionStorage === 'undefined' || initialLoading) return
+    try {
+      sessionStorage.setItem(draftStorageKey, JSON.stringify(formData))
+      sessionStorage.setItem(stepStorageKey, String(currentStep))
+    } catch (e) {
+      console.warn('Failed to persist draft to sessionStorage:', e)
+    }
+  }, [formData, currentStep, draftStorageKey, stepStorageKey, initialLoading])
+
+  const clearDraftStorage = useCallback(() => {
+    if (typeof sessionStorage !== 'undefined') {
+      try {
+        sessionStorage.removeItem(draftStorageKey)
+        sessionStorage.removeItem(stepStorageKey)
+      } catch (e) {}
+    }
+  }, [draftStorageKey, stepStorageKey])
+
+  // Lắng nghe và cập nhật danh sách địa điểm khi quay lại tab tạo phiên
+  const refreshVenuesIfChanged = useCallback(async () => {
+    try {
+      const latest = await fetchOrganizerVenues()
+      if (!Array.isArray(latest)) return
+      setVenues((prev) => {
+        const prevMap = new Map(prev.map((v) => [String(v.id), v]))
+        const isDifferent =
+          latest.length !== prev.length ||
+          latest.some((v) => !prevMap.has(String(v.id)))
+        if (isDifferent) {
+          return latest
+        }
+        return prev
+      })
+    } catch (e) {
+      console.error('Failed to refresh organizer venues:', e)
+    }
+  }, [])
+
+  useEffect(() => {
+    const handleFocus = () => refreshVenuesIfChanged()
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshVenuesIfChanged()
+      }
+    }
+    const handleStorage = (e) => {
+      if (e.key === 'eventhub_venues_last_updated') {
+        refreshVenuesIfChanged()
+      }
+    }
+
+    window.addEventListener('focus', handleFocus)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('storage', handleStorage)
+
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('storage', handleStorage)
+    }
+  }, [refreshVenuesIfChanged])
 
   // Load current subscription plan to enforce plan limits & capabilities
   useEffect(() => {
@@ -4639,7 +4770,6 @@ export function CreateEventPage() {
       if (uploadingThumb || uploadingBanner) return 'Vui lòng chờ ảnh thumbnail hoặc ảnh bìa tải lên hoàn tất.'
       if (!formData.title.trim()) return 'Vui lòng nhập tên sự kiện.'
       if (!formData.category_id) return 'Vui lòng chọn danh mục sự kiện.'
-      if (!formData.short_description.trim()) return 'Vui lòng nhập mô tả ngắn.'
       const descriptionTextOnly = (formData.description || '').replace(/<[^>]*>/g, '').trim()
       const hasImage = (formData.description || '').includes('<img')
       if (!descriptionTextOnly && !hasImage) return 'Vui lòng nhập mô tả chi tiết sự kiện.'
@@ -5001,6 +5131,7 @@ export function CreateEventPage() {
       if (ticketPayload.length > 0) {
         await syncZoneAssignments()
       }
+      clearDraftStorage()
       toast.success('Đã lưu bản nháp sự kiện thành công!')
     } catch (err) {
       console.error('[CreateEventPage handleSaveDraft Error]:', err)
@@ -5180,6 +5311,7 @@ export function CreateEventPage() {
         version: formData.version,
       })
       await syncZoneAssignments()
+      clearDraftStorage()
       if (updateResult?.pending_revision) {
         navigate('/organizer/events', {
           state: { message: 'Các thay đổi quan trọng đã được lưu thành Bản sửa đổi chờ Quản trị viên duyệt.' },
@@ -5318,6 +5450,7 @@ export function CreateEventPage() {
 
       // 3. Tiến hành gửi duyệt sự kiện
       await submitOrganizerEvent(targetEventId)
+      clearDraftStorage()
       navigate('/organizer/events', {
         state: { message: 'Đã gửi sự kiện để duyệt thành công.' },
       })
@@ -5580,7 +5713,10 @@ export function CreateEventPage() {
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={() => navigate('/organizer/events')}
+            onClick={() => {
+              clearDraftStorage()
+              navigate('/organizer/events')
+            }}
             className="px-6 py-2.5 rounded-full border border-white/20 bg-[#101c30] text-slate-200 text-sm font-semibold hover:bg-error/15 hover:border-error/50 hover:text-error shadow-[0_4px_16px_rgba(0,0,0,0.3)] transition-all cursor-pointer [html.light_&]:bg-white [html.light_&]:border-[#C99A47]/30 [html.light_&]:text-[#0D1B2A] [html.light_&]:shadow-sm"
           >
             {isEnglish ? 'Cancel' : 'Hủy'}

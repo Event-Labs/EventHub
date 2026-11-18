@@ -1,0 +1,4587 @@
+{
+  "domain": "https://eventhub.id.vn",
+  "executedAt": "2026-11-18T05:04:09.867Z",
+  "discoveredEventId": "ngoi-nha-khong-co-an-ong-mukod5va",
+  "pageResults": [
+    {
+      "envId": "ENV-01",
+      "envName": "Desktop Standard (Broadband, 1x CPU)",
+      "role": "GUEST",
+      "route": "/",
+      "routeName": "Home Page",
+      "disableCache": true,
+      "redirectedToLogin": false,
+      "navError": null,
+      "wallClockMs": 25274,
+      "vitals": {
+        "ttfbMs": 113,
+        "fcpMs": 6596,
+        "lcpMs": 6596,
+        "lcpElement": "h1.font-['Plus_Jakarta_Sans',var(--font-display)].font-extrabold.text-3xl",
+        "cls": 0.0031,
+        "tbtMs": 479,
+        "longTasksCount": 4,
+        "maxLongTaskMs": 395,
+        "dclMs": 6387,
+        "loadMs": 6387
+      },
+      "runtime": {
+        "fps": 70,
+        "maxFrameGapMs": 28,
+        "droppedFrames": 0,
+        "domNodes": 2387,
+        "jsHeapUsedMB": 14.09,
+        "jsHeapTotalMB": 16.97,
+        "layoutCount": 13,
+        "recalcStyleCount": 1355,
+        "scriptDurationMs": 1202,
+        "taskDurationMs": 11266,
+        "canvasesCount": 0,
+        "videosCount": 2
+      },
+      "network": {
+        "totalRequests": 53,
+        "cachedRequests": 7,
+        "totalTransferKB": 41095.1,
+        "jsTransferKB": 1744.4,
+        "cssTransferKB": 69.4,
+        "imgTransferKB": 3304.9,
+        "mediaTransferKB": 35682.1,
+        "fontTransferKB": 249.2,
+        "apiRequestsCount": 7,
+        "slowApis": [
+          {
+            "url": "https://api.eventhub.id.vn/api/events?limit=10&sort_by=start_time&sort_order=asc&upcoming_only=true",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 921
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/events?limit=24&sort_by=start_time&sort_order=asc&upcoming_only=true",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 921
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/events?limit=20&sort_by=start_time&sort_order=desc",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 959
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/events?limit=8&sort_by=start_time&sort_order=asc&upcoming_only=true",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 2639
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/events/categories",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 3092
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/events?limit=24&sort_by=start_time&sort_order=asc&upcoming_only=true",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 3096
+          }
+        ],
+        "oversizedAssets": [
+          {
+            "url": "https://eventhub.id.vn/assets/index-D-9AJsct.js",
+            "type": "Script",
+            "transferKB": 1630.2,
+            "durationMs": 5798
+          },
+          {
+            "url": "https://eventhub.id.vn/images/starry-bg.png",
+            "type": "Image",
+            "transferKB": 577.2,
+            "durationMs": 2768
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/eventhub-logo-CMhyLCnU.png",
+            "type": "Image",
+            "transferKB": 241.1,
+            "durationMs": 3186
+          },
+          {
+            "url": "...4n9.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/130837c4-0244-4f37-9c61-8d801d93fd29.jpg",
+            "type": "Image",
+            "transferKB": 555.9,
+            "durationMs": 3579
+          },
+          {
+            "url": "...y.com/dookztwec/image/upload/v1794532612/eventhub/events/thumbnails/h4sakduqjmqgwseuarwh.jpg",
+            "type": "Image",
+            "transferKB": 231,
+            "durationMs": 5237
+          },
+          {
+            "url": "...y.com/dookztwec/image/upload/v1790166012/eventhub/events/thumbnails/d7to9vycgrktpgc0leme.png",
+            "type": "Image",
+            "transferKB": 212.6,
+            "durationMs": 5760
+          },
+          {
+            "url": "...nary.com/dookztwec/image/upload/v1784620117/eventhub/events/banners/ztfvlvdesrhecd3p2zd7.jpg",
+            "type": "Image",
+            "transferKB": 547.2,
+            "durationMs": 13959
+          },
+          {
+            "url": "...user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260912_104303_0c6d60b2-9353-408e-9449-585108a22fb5.mp4",
+            "type": "Media",
+            "transferKB": 35659.9,
+            "durationMs": 14597
+          }
+        ]
+      },
+      "slaViolations": [
+        "LCP_POOR (6596ms > 4000ms)",
+        "FCP_POOR (6596ms > 3000ms)",
+        "TBT_WARN (479ms > 200ms)"
+      ]
+    },
+    {
+      "envId": "ENV-01",
+      "envName": "Desktop Standard (Broadband, 1x CPU)",
+      "role": "GUEST",
+      "route": "/events",
+      "routeName": "Events Catalog",
+      "disableCache": true,
+      "redirectedToLogin": false,
+      "navError": null,
+      "wallClockMs": 16424,
+      "vitals": {
+        "ttfbMs": 311,
+        "fcpMs": 10880,
+        "lcpMs": 15548,
+        "lcpElement": "img.h-full.w-full.object-cover",
+        "cls": 0.3763,
+        "tbtMs": 282,
+        "longTasksCount": 2,
+        "maxLongTaskMs": 321,
+        "dclMs": 10704,
+        "loadMs": 10704
+      },
+      "runtime": {
+        "fps": 115,
+        "maxFrameGapMs": 21,
+        "droppedFrames": 0,
+        "domNodes": 765,
+        "jsHeapUsedMB": 12.54,
+        "jsHeapTotalMB": 19.47,
+        "layoutCount": 65,
+        "recalcStyleCount": 582,
+        "scriptDurationMs": 453,
+        "taskDurationMs": 2154,
+        "canvasesCount": 0,
+        "videosCount": 0
+      },
+      "network": {
+        "totalRequests": 27,
+        "cachedRequests": 2,
+        "totalTransferKB": 3242.2,
+        "jsTransferKB": 1742.4,
+        "cssTransferKB": 69.3,
+        "imgTransferKB": 1226.3,
+        "mediaTransferKB": 0,
+        "fontTransferKB": 193,
+        "apiRequestsCount": 3,
+        "slowApis": [
+          {
+            "url": "https://api.eventhub.id.vn/api/events/categories",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 925
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/events?sort_by=start_time&sort_order=asc&page=1&upcoming_only=true&limit=9",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 3368
+          }
+        ],
+        "oversizedAssets": [
+          {
+            "url": "https://eventhub.id.vn/assets/index-D-9AJsct.js",
+            "type": "Script",
+            "transferKB": 1631.6,
+            "durationMs": 10011
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/eventhub-logo-CMhyLCnU.png",
+            "type": "Image",
+            "transferKB": 241,
+            "durationMs": 1958
+          },
+          {
+            "url": "https://eventhub.id.vn/images/starry-bg.png",
+            "type": "Image",
+            "transferKB": 577.2,
+            "durationMs": 2826
+          }
+        ]
+      },
+      "slaViolations": [
+        "LCP_POOR (15548ms > 4000ms)",
+        "FCP_POOR (10880ms > 3000ms)",
+        "CLS_POOR (0.3763 > 0.25)",
+        "TBT_WARN (282ms > 200ms)"
+      ]
+    },
+    {
+      "envId": "ENV-01",
+      "envName": "Desktop Standard (Broadband, 1x CPU)",
+      "role": "GUEST",
+      "route": "/events/ngoi-nha-khong-co-an-ong-mukod5va",
+      "routeName": "Event Details",
+      "disableCache": true,
+      "redirectedToLogin": false,
+      "navError": null,
+      "wallClockMs": 12131,
+      "vitals": {
+        "ttfbMs": 122,
+        "fcpMs": 4124,
+        "lcpMs": 7024,
+        "lcpElement": "img.absolute.inset-0.h-full",
+        "cls": 0.3766,
+        "tbtMs": 307,
+        "longTasksCount": 2,
+        "maxLongTaskMs": 311,
+        "dclMs": 3976,
+        "loadMs": 3976
+      },
+      "runtime": {
+        "fps": 104,
+        "maxFrameGapMs": 14,
+        "droppedFrames": 0,
+        "domNodes": 600,
+        "jsHeapUsedMB": 12.55,
+        "jsHeapTotalMB": 15.97,
+        "layoutCount": 90,
+        "recalcStyleCount": 921,
+        "scriptDurationMs": 474,
+        "taskDurationMs": 2850,
+        "canvasesCount": 0,
+        "videosCount": 0
+      },
+      "network": {
+        "totalRequests": 19,
+        "cachedRequests": 1,
+        "totalTransferKB": 2838.1,
+        "jsTransferKB": 1741.1,
+        "cssTransferKB": 69.5,
+        "imgTransferKB": 864,
+        "mediaTransferKB": 0,
+        "fontTransferKB": 154.6,
+        "apiRequestsCount": 2,
+        "slowApis": [
+          {
+            "url": "https://api.eventhub.id.vn/api/events/ngoi-nha-khong-co-an-ong-mukod5va",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 1061
+          }
+        ],
+        "oversizedAssets": [
+          {
+            "url": "https://eventhub.id.vn/assets/index-D-9AJsct.js",
+            "type": "Script",
+            "transferKB": 1630.3,
+            "durationMs": 3477
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/eventhub-logo-CMhyLCnU.png",
+            "type": "Image",
+            "transferKB": 241,
+            "durationMs": 2170
+          },
+          {
+            "url": "https://eventhub.id.vn/images/starry-bg.png",
+            "type": "Image",
+            "transferKB": 577.2,
+            "durationMs": 3723
+          }
+        ]
+      },
+      "slaViolations": [
+        "LCP_POOR (7024ms > 4000ms)",
+        "FCP_POOR (4124ms > 3000ms)",
+        "CLS_POOR (0.3766 > 0.25)",
+        "TBT_WARN (307ms > 200ms)"
+      ]
+    },
+    {
+      "envId": "ENV-01",
+      "envName": "Desktop Standard (Broadband, 1x CPU)",
+      "role": "GUEST",
+      "route": "/login",
+      "routeName": "Login Page (3D Cosmic BG)",
+      "disableCache": true,
+      "redirectedToLogin": false,
+      "navError": null,
+      "wallClockMs": 12683,
+      "vitals": {
+        "ttfbMs": 422,
+        "fcpMs": 8168,
+        "lcpMs": 9688,
+        "lcpElement": "img.h-14.sm:h-16.w-auto",
+        "cls": 0.0027,
+        "tbtMs": 230,
+        "longTasksCount": 2,
+        "maxLongTaskMs": 260,
+        "dclMs": 8009,
+        "loadMs": 8010
+      },
+      "runtime": {
+        "fps": 117,
+        "maxFrameGapMs": 14,
+        "droppedFrames": 0,
+        "domNodes": 539,
+        "jsHeapUsedMB": 12.04,
+        "jsHeapTotalMB": 19.47,
+        "layoutCount": 14,
+        "recalcStyleCount": 540,
+        "scriptDurationMs": 364,
+        "taskDurationMs": 1866,
+        "canvasesCount": 0,
+        "videosCount": 0
+      },
+      "network": {
+        "totalRequests": 17,
+        "cachedRequests": 0,
+        "totalTransferKB": 2824.1,
+        "jsTransferKB": 1741,
+        "cssTransferKB": 69.8,
+        "imgTransferKB": 818.3,
+        "mediaTransferKB": 0,
+        "fontTransferKB": 193.1,
+        "apiRequestsCount": 1,
+        "slowApis": [],
+        "oversizedAssets": [
+          {
+            "url": "https://eventhub.id.vn/assets/index-D-9AJsct.js",
+            "type": "Script",
+            "transferKB": 1630.2,
+            "durationMs": 7273
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/eventhub-logo-CMhyLCnU.png",
+            "type": "Image",
+            "transferKB": 241.1,
+            "durationMs": 1616
+          },
+          {
+            "url": "https://eventhub.id.vn/images/starry-bg.png",
+            "type": "Image",
+            "transferKB": 577.2,
+            "durationMs": 2324
+          }
+        ]
+      },
+      "slaViolations": [
+        "LCP_POOR (9688ms > 4000ms)",
+        "FCP_POOR (8168ms > 3000ms)",
+        "TBT_WARN (230ms > 200ms)"
+      ]
+    },
+    {
+      "envId": "ENV-01",
+      "envName": "Desktop Standard (Broadband, 1x CPU)",
+      "role": "GUEST",
+      "route": "/register",
+      "routeName": "Register Page",
+      "disableCache": true,
+      "redirectedToLogin": false,
+      "navError": null,
+      "wallClockMs": 9096,
+      "vitals": {
+        "ttfbMs": 84,
+        "fcpMs": 5424,
+        "lcpMs": 5424,
+        "lcpElement": "h1.font-display.text-3xl.font-extrabold",
+        "cls": 0.0027,
+        "tbtMs": 312,
+        "longTasksCount": 2,
+        "maxLongTaskMs": 340,
+        "dclMs": 5269,
+        "loadMs": 5269
+      },
+      "runtime": {
+        "fps": 127,
+        "maxFrameGapMs": 21,
+        "droppedFrames": 0,
+        "domNodes": 574,
+        "jsHeapUsedMB": 12.04,
+        "jsHeapTotalMB": 18.72,
+        "layoutCount": 13,
+        "recalcStyleCount": 491,
+        "scriptDurationMs": 447,
+        "taskDurationMs": 1796,
+        "canvasesCount": 0,
+        "videosCount": 0
+      },
+      "network": {
+        "totalRequests": 16,
+        "cachedRequests": 0,
+        "totalTransferKB": 2808.1,
+        "jsTransferKB": 1741.2,
+        "cssTransferKB": 69.8,
+        "imgTransferKB": 818.2,
+        "mediaTransferKB": 0,
+        "fontTransferKB": 176.9,
+        "apiRequestsCount": 1,
+        "slowApis": [],
+        "oversizedAssets": [
+          {
+            "url": "https://eventhub.id.vn/assets/index-D-9AJsct.js",
+            "type": "Script",
+            "transferKB": 1630.4,
+            "durationMs": 4766
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/eventhub-logo-CMhyLCnU.png",
+            "type": "Image",
+            "transferKB": 241,
+            "durationMs": 599
+          },
+          {
+            "url": "https://eventhub.id.vn/images/starry-bg.png",
+            "type": "Image",
+            "transferKB": 577.2,
+            "durationMs": 995
+          }
+        ]
+      },
+      "slaViolations": [
+        "LCP_POOR (5424ms > 4000ms)",
+        "FCP_POOR (5424ms > 3000ms)",
+        "TBT_WARN (312ms > 200ms)"
+      ]
+    },
+    {
+      "envId": "ENV-01",
+      "envName": "Desktop Standard (Broadband, 1x CPU)",
+      "role": "GUEST",
+      "route": "/policies",
+      "routeName": "Platform Policies",
+      "disableCache": true,
+      "redirectedToLogin": false,
+      "navError": null,
+      "wallClockMs": 4936,
+      "vitals": {
+        "ttfbMs": 178,
+        "fcpMs": 1952,
+        "lcpMs": 1952,
+        "lcpElement": "p.text-slate-300.[html.light_&]:text-slate-600.leading-relaxed",
+        "cls": 0.0004,
+        "tbtMs": 273,
+        "longTasksCount": 3,
+        "maxLongTaskMs": 286,
+        "dclMs": 1636,
+        "loadMs": 1637
+      },
+      "runtime": {
+        "fps": 122,
+        "maxFrameGapMs": 14,
+        "droppedFrames": 0,
+        "domNodes": 719,
+        "jsHeapUsedMB": 13.96,
+        "jsHeapTotalMB": 20.22,
+        "layoutCount": 6,
+        "recalcStyleCount": 358,
+        "scriptDurationMs": 381,
+        "taskDurationMs": 1343,
+        "canvasesCount": 0,
+        "videosCount": 0
+      },
+      "network": {
+        "totalRequests": 18,
+        "cachedRequests": 1,
+        "totalTransferKB": 2836.6,
+        "jsTransferKB": 1740.9,
+        "cssTransferKB": 69.4,
+        "imgTransferKB": 818.2,
+        "mediaTransferKB": 0,
+        "fontTransferKB": 193.1,
+        "apiRequestsCount": 2,
+        "slowApis": [
+          {
+            "url": "https://api.eventhub.id.vn/api/platform-policies",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 1380
+          }
+        ],
+        "oversizedAssets": [
+          {
+            "url": "https://eventhub.id.vn/assets/index-D-9AJsct.js",
+            "type": "Script",
+            "transferKB": 1630.2,
+            "durationMs": 1098
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/eventhub-logo-CMhyLCnU.png",
+            "type": "Image",
+            "transferKB": 241,
+            "durationMs": 233
+          },
+          {
+            "url": "https://eventhub.id.vn/images/starry-bg.png",
+            "type": "Image",
+            "transferKB": 577.2,
+            "durationMs": 332
+          }
+        ]
+      },
+      "slaViolations": [
+        "FCP_WARN (1952ms > 1800ms)",
+        "TBT_WARN (273ms > 200ms)"
+      ]
+    },
+    {
+      "envId": "ENV-01",
+      "envName": "Desktop Standard (Broadband, 1x CPU)",
+      "role": "CUSTOMER",
+      "route": "/my-tickets",
+      "routeName": "My Tickets (QR/SVG)",
+      "disableCache": true,
+      "redirectedToLogin": false,
+      "navError": null,
+      "wallClockMs": 5016,
+      "vitals": {
+        "ttfbMs": 107,
+        "fcpMs": 1456,
+        "lcpMs": 2480,
+        "lcpElement": "img.h-full.w-full.object-cover",
+        "cls": 0.0774,
+        "tbtMs": 264,
+        "longTasksCount": 2,
+        "maxLongTaskMs": 303,
+        "dclMs": 1205,
+        "loadMs": 1206
+      },
+      "runtime": {
+        "fps": 123,
+        "maxFrameGapMs": 14,
+        "droppedFrames": 0,
+        "domNodes": 684,
+        "jsHeapUsedMB": 12.57,
+        "jsHeapTotalMB": 20.97,
+        "layoutCount": 53,
+        "recalcStyleCount": 462,
+        "scriptDurationMs": 432,
+        "taskDurationMs": 1520,
+        "canvasesCount": 0,
+        "videosCount": 0
+      },
+      "network": {
+        "totalRequests": 24,
+        "cachedRequests": 3,
+        "totalTransferKB": 2909.1,
+        "jsTransferKB": 1740.9,
+        "cssTransferKB": 69.4,
+        "imgTransferKB": 898.3,
+        "mediaTransferKB": 0,
+        "fontTransferKB": 193.1,
+        "apiRequestsCount": 4,
+        "slowApis": [
+          {
+            "url": "https://api.eventhub.id.vn/api/notifications?limit=5",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 541
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/tickets/me",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 544
+          }
+        ],
+        "oversizedAssets": [
+          {
+            "url": "https://eventhub.id.vn/assets/index-D-9AJsct.js",
+            "type": "Script",
+            "transferKB": 1630.1,
+            "durationMs": 718
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/eventhub-logo-CMhyLCnU.png",
+            "type": "Image",
+            "transferKB": 241,
+            "durationMs": 195
+          },
+          {
+            "url": "https://eventhub.id.vn/images/starry-bg.png",
+            "type": "Image",
+            "transferKB": 577.2,
+            "durationMs": 360
+          }
+        ]
+      },
+      "slaViolations": [
+        "TBT_WARN (264ms > 200ms)"
+      ]
+    },
+    {
+      "envId": "ENV-01",
+      "envName": "Desktop Standard (Broadband, 1x CPU)",
+      "role": "CUSTOMER",
+      "route": "/favorites",
+      "routeName": "Favorite Events",
+      "disableCache": true,
+      "redirectedToLogin": false,
+      "navError": null,
+      "wallClockMs": 5031,
+      "vitals": {
+        "ttfbMs": 211,
+        "fcpMs": 1584,
+        "lcpMs": 1584,
+        "lcpElement": "p.mt-4.max-w-sm.text-sm",
+        "cls": 0.0355,
+        "tbtMs": 286,
+        "longTasksCount": 3,
+        "maxLongTaskMs": 311,
+        "dclMs": 1376,
+        "loadMs": 1376
+      },
+      "runtime": {
+        "fps": 143,
+        "maxFrameGapMs": 14,
+        "droppedFrames": 0,
+        "domNodes": 607,
+        "jsHeapUsedMB": 12.5,
+        "jsHeapTotalMB": 21.22,
+        "layoutCount": 48,
+        "recalcStyleCount": 467,
+        "scriptDurationMs": 463,
+        "taskDurationMs": 1505,
+        "canvasesCount": 0,
+        "videosCount": 0
+      },
+      "network": {
+        "totalRequests": 22,
+        "cachedRequests": 3,
+        "totalTransferKB": 2777.5,
+        "jsTransferKB": 1740.9,
+        "cssTransferKB": 69.4,
+        "imgTransferKB": 819.3,
+        "mediaTransferKB": 0,
+        "fontTransferKB": 141.8,
+        "apiRequestsCount": 4,
+        "slowApis": [
+          {
+            "url": "https://api.eventhub.id.vn/api/ai-assistant/sessions",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 609
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/events/favorites/me",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 612
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/notifications?limit=5",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 609
+          }
+        ],
+        "oversizedAssets": [
+          {
+            "url": "https://eventhub.id.vn/assets/index-D-9AJsct.js",
+            "type": "Script",
+            "transferKB": 1630.1,
+            "durationMs": 783
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/eventhub-logo-CMhyLCnU.png",
+            "type": "Image",
+            "transferKB": 241,
+            "durationMs": 289
+          },
+          {
+            "url": "https://eventhub.id.vn/images/starry-bg.png",
+            "type": "Image",
+            "transferKB": 577.2,
+            "durationMs": 313
+          }
+        ]
+      },
+      "slaViolations": [
+        "TBT_WARN (286ms > 200ms)"
+      ]
+    },
+    {
+      "envId": "ENV-01",
+      "envName": "Desktop Standard (Broadband, 1x CPU)",
+      "role": "CUSTOMER",
+      "route": "/notifications",
+      "routeName": "Notifications",
+      "disableCache": true,
+      "redirectedToLogin": false,
+      "navError": null,
+      "wallClockMs": 10018,
+      "vitals": {
+        "ttfbMs": 280,
+        "fcpMs": 4352,
+        "lcpMs": 6724,
+        "lcpElement": "p.mt-2.5.w-full.text-sm",
+        "cls": 0.121,
+        "tbtMs": 328,
+        "longTasksCount": 3,
+        "maxLongTaskMs": 318,
+        "dclMs": 4121,
+        "loadMs": 4122
+      },
+      "runtime": {
+        "fps": 141,
+        "maxFrameGapMs": 14,
+        "droppedFrames": 0,
+        "domNodes": 825,
+        "jsHeapUsedMB": 13.89,
+        "jsHeapTotalMB": 23.97,
+        "layoutCount": 13,
+        "recalcStyleCount": 753,
+        "scriptDurationMs": 493,
+        "taskDurationMs": 2193,
+        "canvasesCount": 0,
+        "videosCount": 0
+      },
+      "network": {
+        "totalRequests": 25,
+        "cachedRequests": 4,
+        "totalTransferKB": 2831.8,
+        "jsTransferKB": 1740.8,
+        "cssTransferKB": 69.4,
+        "imgTransferKB": 819.2,
+        "mediaTransferKB": 0,
+        "fontTransferKB": 193.1,
+        "apiRequestsCount": 5,
+        "slowApis": [
+          {
+            "url": "/cdn-cgi/rum?",
+            "method": "POST",
+            "status": 204,
+            "durationMs": 1049
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/ai-assistant/sessions",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 2320
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/operations/staff-invitations/me",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 2321
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/notifications?page=1&limit=5&category=all",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 2360
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/notifications?limit=5",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 2358
+          }
+        ],
+        "oversizedAssets": [
+          {
+            "url": "https://eventhub.id.vn/assets/index-D-9AJsct.js",
+            "type": "Script",
+            "transferKB": 1630.1,
+            "durationMs": 3452
+          },
+          {
+            "url": "https://eventhub.id.vn/images/starry-bg.png",
+            "type": "Image",
+            "transferKB": 577.2,
+            "durationMs": 1348
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/eventhub-logo-CMhyLCnU.png",
+            "type": "Image",
+            "transferKB": 241,
+            "durationMs": 1361
+          }
+        ]
+      },
+      "slaViolations": [
+        "LCP_POOR (6724ms > 4000ms)",
+        "FCP_POOR (4352ms > 3000ms)",
+        "CLS_WARN (0.121 > 0.10)",
+        "TBT_WARN (328ms > 200ms)"
+      ]
+    },
+    {
+      "envId": "ENV-01",
+      "envName": "Desktop Standard (Broadband, 1x CPU)",
+      "role": "CUSTOMER",
+      "route": "/profile",
+      "routeName": "Customer Profile",
+      "disableCache": true,
+      "redirectedToLogin": false,
+      "navError": null,
+      "wallClockMs": 5660,
+      "vitals": {
+        "ttfbMs": 111,
+        "fcpMs": 1808,
+        "lcpMs": 1808,
+        "lcpElement": "p.mt-4.max-w-sm.text-sm",
+        "cls": 0.5066,
+        "tbtMs": 293,
+        "longTasksCount": 2,
+        "maxLongTaskMs": 320,
+        "dclMs": 1634,
+        "loadMs": 1634
+      },
+      "runtime": {
+        "fps": 109,
+        "maxFrameGapMs": 14,
+        "droppedFrames": 0,
+        "domNodes": 909,
+        "jsHeapUsedMB": 12.77,
+        "jsHeapTotalMB": 23.47,
+        "layoutCount": 15,
+        "recalcStyleCount": 474,
+        "scriptDurationMs": 466,
+        "taskDurationMs": 1696,
+        "canvasesCount": 0,
+        "videosCount": 0
+      },
+      "network": {
+        "totalRequests": 29,
+        "cachedRequests": 6,
+        "totalTransferKB": 2833.8,
+        "jsTransferKB": 1740.8,
+        "cssTransferKB": 69.4,
+        "imgTransferKB": 819.2,
+        "mediaTransferKB": 0,
+        "fontTransferKB": 193,
+        "apiRequestsCount": 7,
+        "slowApis": [
+          {
+            "url": "https://api.eventhub.id.vn/api/users/me/security-status",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 1047
+          }
+        ],
+        "oversizedAssets": [
+          {
+            "url": "https://eventhub.id.vn/assets/index-D-9AJsct.js",
+            "type": "Script",
+            "transferKB": 1630.1,
+            "durationMs": 1135
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/eventhub-logo-CMhyLCnU.png",
+            "type": "Image",
+            "transferKB": 241,
+            "durationMs": 256
+          },
+          {
+            "url": "https://eventhub.id.vn/images/starry-bg.png",
+            "type": "Image",
+            "transferKB": 577.2,
+            "durationMs": 417
+          }
+        ]
+      },
+      "slaViolations": [
+        "FCP_WARN (1808ms > 1800ms)",
+        "CLS_POOR (0.5066 > 0.25)",
+        "TBT_WARN (293ms > 200ms)"
+      ]
+    },
+    {
+      "envId": "ENV-01",
+      "envName": "Desktop Standard (Broadband, 1x CPU)",
+      "role": "CUSTOMER",
+      "route": "/booking/seats?eventId=ngoi-nha-khong-co-an-ong-mukod5va",
+      "routeName": "Booking Seats (Interactive Map)",
+      "disableCache": true,
+      "redirectedToLogin": false,
+      "navError": null,
+      "wallClockMs": 19300,
+      "vitals": {
+        "ttfbMs": 104,
+        "fcpMs": 2184,
+        "lcpMs": 2400,
+        "lcpElement": "h1.font-['Plus_Jakarta_Sans',var(--font-display)].font-extrabold.text-3xl",
+        "cls": 0.3144,
+        "tbtMs": 261,
+        "longTasksCount": 2,
+        "maxLongTaskMs": 306,
+        "dclMs": 2024,
+        "loadMs": 2024
+      },
+      "runtime": {
+        "fps": 104,
+        "maxFrameGapMs": 21,
+        "droppedFrames": 0,
+        "domNodes": 2505,
+        "jsHeapUsedMB": 15.23,
+        "jsHeapTotalMB": 17.97,
+        "layoutCount": 25,
+        "recalcStyleCount": 1646,
+        "scriptDurationMs": 1157,
+        "taskDurationMs": 10455,
+        "canvasesCount": 0,
+        "videosCount": 2
+      },
+      "network": {
+        "totalRequests": 59,
+        "cachedRequests": 10,
+        "totalTransferKB": 5437.4,
+        "jsTransferKB": 1740.8,
+        "cssTransferKB": 69.4,
+        "imgTransferKB": 3305.9,
+        "mediaTransferKB": 22.3,
+        "fontTransferKB": 249.2,
+        "apiRequestsCount": 10,
+        "slowApis": [
+          {
+            "url": "https://api.eventhub.id.vn/api/events/categories",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 1785
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/events?limit=10&sort_by=start_time&sort_order=asc&upcoming_only=true",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 1791
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/events?limit=20&sort_by=start_time&sort_order=desc",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 1791
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/events?limit=24&sort_by=start_time&sort_order=asc&upcoming_only=true",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 1798
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/events?limit=24&sort_by=start_time&sort_order=asc&upcoming_only=true",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 1799
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/events?limit=8&sort_by=start_time&sort_order=asc&upcoming_only=true",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 1797
+          }
+        ],
+        "oversizedAssets": [
+          {
+            "url": "https://eventhub.id.vn/assets/index-D-9AJsct.js",
+            "type": "Script",
+            "transferKB": 1630.1,
+            "durationMs": 1538
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/eventhub-logo-CMhyLCnU.png",
+            "type": "Image",
+            "transferKB": 241,
+            "durationMs": 215
+          },
+          {
+            "url": "https://eventhub.id.vn/images/starry-bg.png",
+            "type": "Image",
+            "transferKB": 577.2,
+            "durationMs": 285
+          },
+          {
+            "url": "...4n9.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/130837c4-0244-4f37-9c61-8d801d93fd29.jpg",
+            "type": "Image",
+            "transferKB": 555.9,
+            "durationMs": 3113
+          },
+          {
+            "url": "...y.com/dookztwec/image/upload/v1794532612/eventhub/events/thumbnails/h4sakduqjmqgwseuarwh.jpg",
+            "type": "Image",
+            "transferKB": 231.1,
+            "durationMs": 1964
+          },
+          {
+            "url": "...nary.com/dookztwec/image/upload/v1784620117/eventhub/events/banners/ztfvlvdesrhecd3p2zd7.jpg",
+            "type": "Image",
+            "transferKB": 547.2,
+            "durationMs": 2035
+          },
+          {
+            "url": "...y.com/dookztwec/image/upload/v1790166012/eventhub/events/thumbnails/d7to9vycgrktpgc0leme.png",
+            "type": "Image",
+            "transferKB": 212.5,
+            "durationMs": 2255
+          }
+        ]
+      },
+      "slaViolations": [
+        "FCP_WARN (2184ms > 1800ms)",
+        "CLS_POOR (0.3144 > 0.25)",
+        "TBT_WARN (261ms > 200ms)"
+      ]
+    },
+    {
+      "envId": "ENV-01",
+      "envName": "Desktop Standard (Broadband, 1x CPU)",
+      "role": "CUSTOMER",
+      "route": "/booking/checkout",
+      "routeName": "Booking Checkout",
+      "disableCache": true,
+      "redirectedToLogin": false,
+      "navError": null,
+      "wallClockMs": 5917,
+      "vitals": {
+        "ttfbMs": 191,
+        "fcpMs": 1748,
+        "lcpMs": 3092,
+        "lcpElement": "img.h-full.w-full.object-cover",
+        "cls": 0.377,
+        "tbtMs": 303,
+        "longTasksCount": 2,
+        "maxLongTaskMs": 349,
+        "dclMs": 1621,
+        "loadMs": 1621
+      },
+      "runtime": {
+        "fps": 133,
+        "maxFrameGapMs": 14,
+        "droppedFrames": 0,
+        "domNodes": 883,
+        "jsHeapUsedMB": 13.84,
+        "jsHeapTotalMB": 21.97,
+        "layoutCount": 93,
+        "recalcStyleCount": 524,
+        "scriptDurationMs": 532,
+        "taskDurationMs": 1840,
+        "canvasesCount": 0,
+        "videosCount": 0
+      },
+      "network": {
+        "totalRequests": 34,
+        "cachedRequests": 5,
+        "totalTransferKB": 3246.5,
+        "jsTransferKB": 1740.9,
+        "cssTransferKB": 69.4,
+        "imgTransferKB": 1227.2,
+        "mediaTransferKB": 0,
+        "fontTransferKB": 193,
+        "apiRequestsCount": 6,
+        "slowApis": [
+          {
+            "url": "https://api.eventhub.id.vn/api/events/categories",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 768
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/ai-assistant/sessions",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 822
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/events?sort_by=start_time&sort_order=asc&page=1&upcoming_only=true&limit=9",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 854
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/notifications?limit=5",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 926
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/users/me",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 929
+          }
+        ],
+        "oversizedAssets": [
+          {
+            "url": "https://eventhub.id.vn/assets/index-D-9AJsct.js",
+            "type": "Script",
+            "transferKB": 1630.1,
+            "durationMs": 996
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/eventhub-logo-CMhyLCnU.png",
+            "type": "Image",
+            "transferKB": 241,
+            "durationMs": 667
+          },
+          {
+            "url": "https://eventhub.id.vn/images/starry-bg.png",
+            "type": "Image",
+            "transferKB": 577.2,
+            "durationMs": 893
+          }
+        ]
+      },
+      "slaViolations": [
+        "LCP_WARN (3092ms > 2500ms)",
+        "CLS_POOR (0.377 > 0.25)",
+        "TBT_WARN (303ms > 200ms)"
+      ]
+    },
+    {
+      "envId": "ENV-01",
+      "envName": "Desktop Standard (Broadband, 1x CPU)",
+      "role": "ORGANIZER",
+      "route": "/organizer",
+      "routeName": "Organizer Dashboard (Recharts)",
+      "disableCache": true,
+      "redirectedToLogin": false,
+      "navError": null,
+      "wallClockMs": 18576,
+      "vitals": {
+        "ttfbMs": 111,
+        "fcpMs": 9356,
+        "lcpMs": 10624,
+        "lcpElement": "p.mt-2.5.truncate.font-display",
+        "cls": 0.0007,
+        "tbtMs": 536,
+        "longTasksCount": 4,
+        "maxLongTaskMs": 326,
+        "dclMs": 9010,
+        "loadMs": 9010
+      },
+      "runtime": {
+        "fps": 141,
+        "maxFrameGapMs": 14,
+        "droppedFrames": 0,
+        "domNodes": 1228,
+        "jsHeapUsedMB": 21.51,
+        "jsHeapTotalMB": 34.72,
+        "layoutCount": 143,
+        "recalcStyleCount": 1290,
+        "scriptDurationMs": 2337,
+        "taskDurationMs": 4894,
+        "canvasesCount": 2,
+        "videosCount": 0
+      },
+      "network": {
+        "totalRequests": 36,
+        "cachedRequests": 6,
+        "totalTransferKB": 4999.3,
+        "jsTransferKB": 1741,
+        "cssTransferKB": 69.4,
+        "imgTransferKB": 2982,
+        "mediaTransferKB": 0,
+        "fontTransferKB": 193.1,
+        "apiRequestsCount": 7,
+        "slowApis": [
+          {
+            "url": "https://api.eventhub.id.vn/api/organizer/events",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 768
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/organizer/orders/revenue?dateFrom=2026-10-19T17:00:00.000Z&dateTo=2026-11-18T16:59:59.999Z",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 1210
+          }
+        ],
+        "oversizedAssets": [
+          {
+            "url": "https://eventhub.id.vn/assets/index-D-9AJsct.js",
+            "type": "Script",
+            "transferKB": 1630.2,
+            "durationMs": 8497
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_peach_moon.png",
+            "type": "Image",
+            "transferKB": 320.3,
+            "durationMs": 4707
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_blue_giant.png",
+            "type": "Image",
+            "transferKB": 425.8,
+            "durationMs": 4923
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_pink_moon.png",
+            "type": "Image",
+            "transferKB": 309.2,
+            "durationMs": 5170
+          },
+          {
+            "url": "https://eventhub.id.vn/space-stars-bg.png",
+            "type": "Image",
+            "transferKB": 411.1,
+            "durationMs": 5449
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/eventhub-logo-CMhyLCnU.png",
+            "type": "Image",
+            "transferKB": 241.1,
+            "durationMs": 5412
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_purple_swirl.png",
+            "type": "Image",
+            "transferKB": 433.1,
+            "durationMs": 6074
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/golden-clouds-bg-BTI-xK4y.png",
+            "type": "Image",
+            "transferKB": 665,
+            "durationMs": 6271
+          }
+        ]
+      },
+      "slaViolations": [
+        "LCP_POOR (10624ms > 4000ms)",
+        "FCP_POOR (9356ms > 3000ms)",
+        "TBT_WARN (536ms > 200ms)"
+      ]
+    },
+    {
+      "envId": "ENV-01",
+      "envName": "Desktop Standard (Broadband, 1x CPU)",
+      "role": "ORGANIZER",
+      "route": "/organizer/events",
+      "routeName": "Organizer Events List",
+      "disableCache": true,
+      "redirectedToLogin": false,
+      "navError": null,
+      "wallClockMs": 21954,
+      "vitals": {
+        "ttfbMs": 87,
+        "fcpMs": 8992,
+        "lcpMs": 11844,
+        "lcpElement": "span.font-bold.text-[13px].text-white",
+        "cls": 0.0003,
+        "tbtMs": 474,
+        "longTasksCount": 2,
+        "maxLongTaskMs": 326,
+        "dclMs": 8658,
+        "loadMs": 8659
+      },
+      "runtime": {
+        "fps": 143,
+        "maxFrameGapMs": 14,
+        "droppedFrames": 0,
+        "domNodes": 690,
+        "jsHeapUsedMB": 14.78,
+        "jsHeapTotalMB": 19.22,
+        "layoutCount": 45,
+        "recalcStyleCount": 384,
+        "scriptDurationMs": 2467,
+        "taskDurationMs": 4595,
+        "canvasesCount": 2,
+        "videosCount": 0
+      },
+      "network": {
+        "totalRequests": 36,
+        "cachedRequests": 5,
+        "totalTransferKB": 5654.1,
+        "jsTransferKB": 1744,
+        "cssTransferKB": 69.5,
+        "imgTransferKB": 3686.7,
+        "mediaTransferKB": 0,
+        "fontTransferKB": 141.8,
+        "apiRequestsCount": 6,
+        "slowApis": [
+          {
+            "url": "/cdn-cgi/rum?",
+            "method": "POST",
+            "status": 204,
+            "durationMs": 1424
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/users/me",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 1446
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/organizer/subscriptions/current-plan",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 2836
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/organizer/events",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 2838
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/organizer/events/me",
+            "method": "GET",
+            "status": 403,
+            "durationMs": 2835
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/notifications?limit=5",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 3515
+          }
+        ],
+        "oversizedAssets": [
+          {
+            "url": "https://eventhub.id.vn/assets/index-D-9AJsct.js",
+            "type": "Script",
+            "transferKB": 1630.2,
+            "durationMs": 8156
+          },
+          {
+            "url": "https://res.cloudinary.com/dookztwec/image/upload/v1779936857/dhh_nkjow3.jpg",
+            "type": "Image",
+            "transferKB": 514.6,
+            "durationMs": 3475
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_pink_moon.png",
+            "type": "Image",
+            "transferKB": 309.1,
+            "durationMs": 8961
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/eventhub-logo-CMhyLCnU.png",
+            "type": "Image",
+            "transferKB": 241,
+            "durationMs": 8966
+          },
+          {
+            "url": "https://eventhub.id.vn/space-stars-bg.png",
+            "type": "Image",
+            "transferKB": 411.1,
+            "durationMs": 9504
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/golden-clouds-bg-BTI-xK4y.png",
+            "type": "Image",
+            "transferKB": 664.9,
+            "durationMs": 9758
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_peach_moon.png",
+            "type": "Image",
+            "transferKB": 320.3,
+            "durationMs": 9873
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_blue_giant.png",
+            "type": "Image",
+            "transferKB": 425.8,
+            "durationMs": 10017
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_purple_swirl.png",
+            "type": "Image",
+            "transferKB": 433.1,
+            "durationMs": 10174
+          }
+        ]
+      },
+      "slaViolations": [
+        "LCP_POOR (11844ms > 4000ms)",
+        "FCP_POOR (8992ms > 3000ms)",
+        "TBT_WARN (474ms > 200ms)"
+      ]
+    },
+    {
+      "envId": "ENV-01",
+      "envName": "Desktop Standard (Broadband, 1x CPU)",
+      "role": "ORGANIZER",
+      "route": "/organizer/events/create",
+      "routeName": "Create Event Wizard (Quill + Leaflet)",
+      "disableCache": true,
+      "redirectedToLogin": false,
+      "navError": null,
+      "wallClockMs": 17262,
+      "vitals": {
+        "ttfbMs": 609,
+        "fcpMs": 2248,
+        "lcpMs": 14164,
+        "lcpElement": "h1.font-display.text-3xl.font-extrabold",
+        "cls": 0.0961,
+        "tbtMs": 683,
+        "longTasksCount": 3,
+        "maxLongTaskMs": 399,
+        "dclMs": 1842,
+        "loadMs": 1842
+      },
+      "runtime": {
+        "fps": 127,
+        "maxFrameGapMs": 14,
+        "droppedFrames": 0,
+        "domNodes": 1405,
+        "jsHeapUsedMB": 15.23,
+        "jsHeapTotalMB": 19.22,
+        "layoutCount": 39,
+        "recalcStyleCount": 2072,
+        "scriptDurationMs": 2663,
+        "taskDurationMs": 6218,
+        "canvasesCount": 2,
+        "videosCount": 0
+      },
+      "network": {
+        "totalRequests": 38,
+        "cachedRequests": 7,
+        "totalTransferKB": 4982.8,
+        "jsTransferKB": 1741,
+        "cssTransferKB": 69.8,
+        "imgTransferKB": 2981.7,
+        "mediaTransferKB": 0,
+        "fontTransferKB": 176.9,
+        "apiRequestsCount": 8,
+        "slowApis": [
+          {
+            "url": "https://api.eventhub.id.vn/api/organizer/subscriptions/current-plan",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 10275
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/organizer/events/occupied-slots",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 10360
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/organizer/events/venues",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 10362
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/events/categories",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 11784
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/organizer/events/me",
+            "method": "GET",
+            "status": 403,
+            "durationMs": 11781
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/users/me",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 11782
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/notifications?limit=5",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 11787
+          }
+        ],
+        "oversizedAssets": [
+          {
+            "url": "https://eventhub.id.vn/assets/index-D-9AJsct.js",
+            "type": "Script",
+            "transferKB": 1630.1,
+            "durationMs": 763
+          },
+          {
+            "url": "https://eventhub.id.vn/space-stars-bg.png",
+            "type": "Image",
+            "transferKB": 411,
+            "durationMs": 695
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/eventhub-logo-CMhyLCnU.png",
+            "type": "Image",
+            "transferKB": 241,
+            "durationMs": 3294
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_peach_moon.png",
+            "type": "Image",
+            "transferKB": 320.3,
+            "durationMs": 3334
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/golden-clouds-bg-BTI-xK4y.png",
+            "type": "Image",
+            "transferKB": 664.9,
+            "durationMs": 3614
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_pink_moon.png",
+            "type": "Image",
+            "transferKB": 309.1,
+            "durationMs": 3337
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_blue_giant.png",
+            "type": "Image",
+            "transferKB": 425.8,
+            "durationMs": 3547
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_purple_swirl.png",
+            "type": "Image",
+            "transferKB": 433.1,
+            "durationMs": 3556
+          }
+        ]
+      },
+      "slaViolations": [
+        "LCP_POOR (14164ms > 4000ms)",
+        "FCP_WARN (2248ms > 1800ms)",
+        "TBT_POOR (683ms > 600ms)"
+      ]
+    },
+    {
+      "envId": "ENV-01",
+      "envName": "Desktop Standard (Broadband, 1x CPU)",
+      "role": "ORGANIZER",
+      "route": "/organizer/orders",
+      "routeName": "Organizer Orders",
+      "disableCache": true,
+      "redirectedToLogin": false,
+      "navError": null,
+      "wallClockMs": 18608,
+      "vitals": {
+        "ttfbMs": 115,
+        "fcpMs": 4540,
+        "lcpMs": 4540,
+        "lcpElement": "",
+        "cls": 0.0025,
+        "tbtMs": 405,
+        "longTasksCount": 3,
+        "maxLongTaskMs": 319,
+        "dclMs": 4313,
+        "loadMs": 4313
+      },
+      "runtime": {
+        "fps": 143,
+        "maxFrameGapMs": 14,
+        "droppedFrames": 0,
+        "domNodes": 781,
+        "jsHeapUsedMB": 14.47,
+        "jsHeapTotalMB": 18.22,
+        "layoutCount": 34,
+        "recalcStyleCount": 562,
+        "scriptDurationMs": 2370,
+        "taskDurationMs": 4647,
+        "canvasesCount": 2,
+        "videosCount": 0
+      },
+      "network": {
+        "totalRequests": 34,
+        "cachedRequests": 5,
+        "totalTransferKB": 4997.8,
+        "jsTransferKB": 1740.8,
+        "cssTransferKB": 69.4,
+        "imgTransferKB": 2981.7,
+        "mediaTransferKB": 0,
+        "fontTransferKB": 193,
+        "apiRequestsCount": 6,
+        "slowApis": [
+          {
+            "url": "/cdn-cgi/rum?",
+            "method": "POST",
+            "status": 204,
+            "durationMs": 1324
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/notifications?limit=5",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 3923
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/organizer/events/me",
+            "method": "GET",
+            "status": 403,
+            "durationMs": 3925
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/organizer/orders?page=1&limit=20",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 3923
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/users/me",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 3926
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/organizer/events",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 3932
+          }
+        ],
+        "oversizedAssets": [
+          {
+            "url": "https://eventhub.id.vn/assets/index-D-9AJsct.js",
+            "type": "Script",
+            "transferKB": 1630.1,
+            "durationMs": 3821
+          },
+          {
+            "url": "https://eventhub.id.vn/space-stars-bg.png",
+            "type": "Image",
+            "transferKB": 411,
+            "durationMs": 3089
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/eventhub-logo-CMhyLCnU.png",
+            "type": "Image",
+            "transferKB": 241,
+            "durationMs": 3951
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/golden-clouds-bg-BTI-xK4y.png",
+            "type": "Image",
+            "transferKB": 664.9,
+            "durationMs": 4118
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_peach_moon.png",
+            "type": "Image",
+            "transferKB": 320.3,
+            "durationMs": 10917
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_pink_moon.png",
+            "type": "Image",
+            "transferKB": 309.1,
+            "durationMs": 11016
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_blue_giant.png",
+            "type": "Image",
+            "transferKB": 425.8,
+            "durationMs": 11186
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_purple_swirl.png",
+            "type": "Image",
+            "transferKB": 433.1,
+            "durationMs": 11200
+          }
+        ]
+      },
+      "slaViolations": [
+        "LCP_POOR (4540ms > 4000ms)",
+        "FCP_POOR (4540ms > 3000ms)",
+        "TBT_WARN (405ms > 200ms)"
+      ]
+    },
+    {
+      "envId": "ENV-01",
+      "envName": "Desktop Standard (Broadband, 1x CPU)",
+      "role": "ORGANIZER",
+      "route": "/organizer/ticket-sales",
+      "routeName": "Ticket Sales Analytics (ExcelJS + Charts)",
+      "disableCache": true,
+      "redirectedToLogin": false,
+      "navError": null,
+      "wallClockMs": 6463,
+      "vitals": {
+        "ttfbMs": 380,
+        "fcpMs": 2380,
+        "lcpMs": 3424,
+        "lcpElement": "p.text-xs.text-slate-400.[html.light_&]:text-[#536b88]",
+        "cls": 0.0004,
+        "tbtMs": 483,
+        "longTasksCount": 3,
+        "maxLongTaskMs": 318,
+        "dclMs": 2070,
+        "loadMs": 2070
+      },
+      "runtime": {
+        "fps": 125,
+        "maxFrameGapMs": 21,
+        "droppedFrames": 0,
+        "domNodes": 1259,
+        "jsHeapUsedMB": 17.21,
+        "jsHeapTotalMB": 27.47,
+        "layoutCount": 71,
+        "recalcStyleCount": 138,
+        "scriptDurationMs": 1125,
+        "taskDurationMs": 1960,
+        "canvasesCount": 2,
+        "videosCount": 0
+      },
+      "network": {
+        "totalRequests": 34,
+        "cachedRequests": 6,
+        "totalTransferKB": 4977.8,
+        "jsTransferKB": 1741,
+        "cssTransferKB": 69.4,
+        "imgTransferKB": 2981.6,
+        "mediaTransferKB": 0,
+        "fontTransferKB": 169,
+        "apiRequestsCount": 7,
+        "slowApis": [
+          {
+            "url": "https://api.eventhub.id.vn/api/organizer/events/me",
+            "method": "GET",
+            "status": 403,
+            "durationMs": 568
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/organizer/subscriptions/current-plan",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 570
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/organizer/events",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 570
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/notifications?limit=5",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 571
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/users/me",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 568
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/organizer/orders/ticket-sales?dateFrom=2026-10-19T17:00:00.000Z&dateTo=2026-11-18T16:59:59.999Z",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 935
+          }
+        ],
+        "oversizedAssets": [
+          {
+            "url": "https://eventhub.id.vn/assets/index-D-9AJsct.js",
+            "type": "Script",
+            "transferKB": 1630.1,
+            "durationMs": 1304
+          },
+          {
+            "url": "https://eventhub.id.vn/space-stars-bg.png",
+            "type": "Image",
+            "transferKB": 411,
+            "durationMs": 215
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/golden-clouds-bg-BTI-xK4y.png",
+            "type": "Image",
+            "transferKB": 664.9,
+            "durationMs": 297
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/eventhub-logo-CMhyLCnU.png",
+            "type": "Image",
+            "transferKB": 241,
+            "durationMs": 255
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_blue_giant.png",
+            "type": "Image",
+            "transferKB": 425.8,
+            "durationMs": 857
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_peach_moon.png",
+            "type": "Image",
+            "transferKB": 320.3,
+            "durationMs": 1071
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_purple_swirl.png",
+            "type": "Image",
+            "transferKB": 433.1,
+            "durationMs": 1076
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_pink_moon.png",
+            "type": "Image",
+            "transferKB": 309.1,
+            "durationMs": 1137
+          }
+        ]
+      },
+      "slaViolations": [
+        "LCP_WARN (3424ms > 2500ms)",
+        "FCP_WARN (2380ms > 1800ms)",
+        "TBT_WARN (483ms > 200ms)"
+      ]
+    },
+    {
+      "envId": "ENV-01",
+      "envName": "Desktop Standard (Broadband, 1x CPU)",
+      "role": "ORGANIZER",
+      "route": "/organizer/checkin-dashboard",
+      "routeName": "Check-in Dashboard",
+      "disableCache": true,
+      "redirectedToLogin": false,
+      "navError": null,
+      "wallClockMs": 6465,
+      "vitals": {
+        "ttfbMs": 89,
+        "fcpMs": 1628,
+        "lcpMs": 2276,
+        "lcpElement": "span.truncate.font-bold.text-white",
+        "cls": 0.0012,
+        "tbtMs": 669,
+        "longTasksCount": 3,
+        "maxLongTaskMs": 365,
+        "dclMs": 1325,
+        "loadMs": 1325
+      },
+      "runtime": {
+        "fps": 134,
+        "maxFrameGapMs": 21,
+        "droppedFrames": 0,
+        "domNodes": 3211,
+        "jsHeapUsedMB": 22.69,
+        "jsHeapTotalMB": 38.72,
+        "layoutCount": 363,
+        "recalcStyleCount": 659,
+        "scriptDurationMs": 1932,
+        "taskDurationMs": 3381,
+        "canvasesCount": 2,
+        "videosCount": 0
+      },
+      "network": {
+        "totalRequests": 32,
+        "cachedRequests": 5,
+        "totalTransferKB": 4975.1,
+        "jsTransferKB": 1740.8,
+        "cssTransferKB": 69.4,
+        "imgTransferKB": 2981.6,
+        "mediaTransferKB": 0,
+        "fontTransferKB": 169,
+        "apiRequestsCount": 6,
+        "slowApis": [
+          {
+            "url": "https://api.eventhub.id.vn/api/organizer/events/me",
+            "method": "GET",
+            "status": 403,
+            "durationMs": 600
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/users/me",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 601
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/notifications?limit=5",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 644
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/organizer/events",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 648
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/organizer/orders/events/9c67950f-b843-4fea-a8e4-35b97bdcf7f2/checkin-stats",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 1171
+          }
+        ],
+        "oversizedAssets": [
+          {
+            "url": "https://eventhub.id.vn/assets/index-D-9AJsct.js",
+            "type": "Script",
+            "transferKB": 1630.1,
+            "durationMs": 788
+          },
+          {
+            "url": "https://eventhub.id.vn/space-stars-bg.png",
+            "type": "Image",
+            "transferKB": 411,
+            "durationMs": 362
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/golden-clouds-bg-BTI-xK4y.png",
+            "type": "Image",
+            "transferKB": 664.9,
+            "durationMs": 517
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/eventhub-logo-CMhyLCnU.png",
+            "type": "Image",
+            "transferKB": 241,
+            "durationMs": 381
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_peach_moon.png",
+            "type": "Image",
+            "transferKB": 320.3,
+            "durationMs": 820
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_blue_giant.png",
+            "type": "Image",
+            "transferKB": 425.8,
+            "durationMs": 927
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_purple_swirl.png",
+            "type": "Image",
+            "transferKB": 433.1,
+            "durationMs": 1175
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_pink_moon.png",
+            "type": "Image",
+            "transferKB": 309.1,
+            "durationMs": 1191
+          }
+        ]
+      },
+      "slaViolations": [
+        "TBT_POOR (669ms > 600ms)"
+      ]
+    },
+    {
+      "envId": "ENV-01",
+      "envName": "Desktop Standard (Broadband, 1x CPU)",
+      "role": "ORGANIZER",
+      "route": "/organizer/venues",
+      "routeName": "Organizer Venues",
+      "disableCache": true,
+      "redirectedToLogin": false,
+      "navError": null,
+      "wallClockMs": 7267,
+      "vitals": {
+        "ttfbMs": 96,
+        "fcpMs": 2216,
+        "lcpMs": 3076,
+        "lcpElement": "h3.text-base.font-extrabold.text-white",
+        "cls": 0.0002,
+        "tbtMs": 414,
+        "longTasksCount": 2,
+        "maxLongTaskMs": 318,
+        "dclMs": 1956,
+        "loadMs": 1957
+      },
+      "runtime": {
+        "fps": 133,
+        "maxFrameGapMs": 14,
+        "droppedFrames": 0,
+        "domNodes": 624,
+        "jsHeapUsedMB": 16.77,
+        "jsHeapTotalMB": 27.47,
+        "layoutCount": 35,
+        "recalcStyleCount": 139,
+        "scriptDurationMs": 1202,
+        "taskDurationMs": 1994,
+        "canvasesCount": 2,
+        "videosCount": 0
+      },
+      "network": {
+        "totalRequests": 32,
+        "cachedRequests": 4,
+        "totalTransferKB": 4955.1,
+        "jsTransferKB": 1740.8,
+        "cssTransferKB": 69.5,
+        "imgTransferKB": 2981.6,
+        "mediaTransferKB": 0,
+        "fontTransferKB": 154.6,
+        "apiRequestsCount": 5,
+        "slowApis": [
+          {
+            "url": "https://api.eventhub.id.vn/api/users/me",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 826
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/organizer/events/me",
+            "method": "GET",
+            "status": 403,
+            "durationMs": 826
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/notifications?limit=5",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 831
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/organizer/venues",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 829
+          }
+        ],
+        "oversizedAssets": [
+          {
+            "url": "https://eventhub.id.vn/assets/index-D-9AJsct.js",
+            "type": "Script",
+            "transferKB": 1630.1,
+            "durationMs": 1463
+          },
+          {
+            "url": "https://eventhub.id.vn/space-stars-bg.png",
+            "type": "Image",
+            "transferKB": 411,
+            "durationMs": 979
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/eventhub-logo-CMhyLCnU.png",
+            "type": "Image",
+            "transferKB": 241,
+            "durationMs": 888
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/golden-clouds-bg-BTI-xK4y.png",
+            "type": "Image",
+            "transferKB": 664.9,
+            "durationMs": 1058
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_purple_swirl.png",
+            "type": "Image",
+            "transferKB": 433.1,
+            "durationMs": 2103
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_peach_moon.png",
+            "type": "Image",
+            "transferKB": 320.3,
+            "durationMs": 2185
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_pink_moon.png",
+            "type": "Image",
+            "transferKB": 309.1,
+            "durationMs": 2214
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_blue_giant.png",
+            "type": "Image",
+            "transferKB": 425.8,
+            "durationMs": 2229
+          }
+        ]
+      },
+      "slaViolations": [
+        "LCP_WARN (3076ms > 2500ms)",
+        "FCP_WARN (2216ms > 1800ms)",
+        "TBT_WARN (414ms > 200ms)"
+      ]
+    },
+    {
+      "envId": "ENV-01",
+      "envName": "Desktop Standard (Broadband, 1x CPU)",
+      "role": "STAFF",
+      "route": "/staff",
+      "routeName": "Staff Dashboard",
+      "disableCache": true,
+      "redirectedToLogin": false,
+      "navError": null,
+      "wallClockMs": 6007,
+      "vitals": {
+        "ttfbMs": 531,
+        "fcpMs": 1528,
+        "lcpMs": 1528,
+        "lcpElement": "p.mt-1.leading-5",
+        "cls": 0.0006,
+        "tbtMs": 379,
+        "longTasksCount": 2,
+        "maxLongTaskMs": 293,
+        "dclMs": 1252,
+        "loadMs": 1252
+      },
+      "runtime": {
+        "fps": 145,
+        "maxFrameGapMs": 7,
+        "droppedFrames": 0,
+        "domNodes": 420,
+        "jsHeapUsedMB": 15.15,
+        "jsHeapTotalMB": 24.47,
+        "layoutCount": 10,
+        "recalcStyleCount": 11,
+        "scriptDurationMs": 1083,
+        "taskDurationMs": 1895,
+        "canvasesCount": 2,
+        "videosCount": 0
+      },
+      "network": {
+        "totalRequests": 27,
+        "cachedRequests": 2,
+        "totalTransferKB": 4972.8,
+        "jsTransferKB": 1740.8,
+        "cssTransferKB": 69.4,
+        "imgTransferKB": 2981.6,
+        "mediaTransferKB": 0,
+        "fontTransferKB": 176.9,
+        "apiRequestsCount": 3,
+        "slowApis": [
+          {
+            "url": "/cdn-cgi/rum?",
+            "method": "POST",
+            "status": 204,
+            "durationMs": 520
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/operations/staff/overview",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 1204
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/notifications?limit=5",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 1270
+          }
+        ],
+        "oversizedAssets": [
+          {
+            "url": "https://eventhub.id.vn/assets/index-D-9AJsct.js",
+            "type": "Script",
+            "transferKB": 1630.1,
+            "durationMs": 368
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/eventhub-logo-CMhyLCnU.png",
+            "type": "Image",
+            "transferKB": 241,
+            "durationMs": 1026
+          },
+          {
+            "url": "https://eventhub.id.vn/space-stars-bg.png",
+            "type": "Image",
+            "transferKB": 411,
+            "durationMs": 1187
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/golden-clouds-bg-BTI-xK4y.png",
+            "type": "Image",
+            "transferKB": 664.9,
+            "durationMs": 1255
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_peach_moon.png",
+            "type": "Image",
+            "transferKB": 320.3,
+            "durationMs": 1414
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_purple_swirl.png",
+            "type": "Image",
+            "transferKB": 433.1,
+            "durationMs": 1585
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_blue_giant.png",
+            "type": "Image",
+            "transferKB": 425.8,
+            "durationMs": 1623
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_pink_moon.png",
+            "type": "Image",
+            "transferKB": 309.1,
+            "durationMs": 1676
+          }
+        ]
+      },
+      "slaViolations": [
+        "TBT_WARN (379ms > 200ms)"
+      ]
+    },
+    {
+      "envId": "ENV-01",
+      "envName": "Desktop Standard (Broadband, 1x CPU)",
+      "role": "STAFF",
+      "route": "/staff/events",
+      "routeName": "Assigned Events",
+      "disableCache": true,
+      "redirectedToLogin": false,
+      "navError": null,
+      "wallClockMs": 4731,
+      "vitals": {
+        "ttfbMs": 100,
+        "fcpMs": 1108,
+        "lcpMs": 1912,
+        "lcpElement": "img.h-full.w-full.object-cover",
+        "cls": 0.0002,
+        "tbtMs": 355,
+        "longTasksCount": 2,
+        "maxLongTaskMs": 296,
+        "dclMs": 869,
+        "loadMs": 869
+      },
+      "runtime": {
+        "fps": 143,
+        "maxFrameGapMs": 14,
+        "droppedFrames": 0,
+        "domNodes": 394,
+        "jsHeapUsedMB": 14.4,
+        "jsHeapTotalMB": 24.22,
+        "layoutCount": 11,
+        "recalcStyleCount": 11,
+        "scriptDurationMs": 1058,
+        "taskDurationMs": 1779,
+        "canvasesCount": 2,
+        "videosCount": 0
+      },
+      "network": {
+        "totalRequests": 29,
+        "cachedRequests": 2,
+        "totalTransferKB": 5050.6,
+        "jsTransferKB": 1740.8,
+        "cssTransferKB": 69.4,
+        "imgTransferKB": 3042.7,
+        "mediaTransferKB": 0,
+        "fontTransferKB": 193.1,
+        "apiRequestsCount": 3,
+        "slowApis": [
+          {
+            "url": "https://api.eventhub.id.vn/api/notifications?limit=5",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 506
+          }
+        ],
+        "oversizedAssets": [
+          {
+            "url": "https://eventhub.id.vn/assets/index-D-9AJsct.js",
+            "type": "Script",
+            "transferKB": 1630.1,
+            "durationMs": 408
+          },
+          {
+            "url": "https://eventhub.id.vn/space-stars-bg.png",
+            "type": "Image",
+            "transferKB": 411,
+            "durationMs": 172
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/golden-clouds-bg-BTI-xK4y.png",
+            "type": "Image",
+            "transferKB": 664.9,
+            "durationMs": 198
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/eventhub-logo-CMhyLCnU.png",
+            "type": "Image",
+            "transferKB": 241,
+            "durationMs": 115
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_peach_moon.png",
+            "type": "Image",
+            "transferKB": 320.3,
+            "durationMs": 317
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_blue_giant.png",
+            "type": "Image",
+            "transferKB": 425.8,
+            "durationMs": 365
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_pink_moon.png",
+            "type": "Image",
+            "transferKB": 309.1,
+            "durationMs": 598
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_purple_swirl.png",
+            "type": "Image",
+            "transferKB": 433.1,
+            "durationMs": 631
+          }
+        ]
+      },
+      "slaViolations": [
+        "TBT_WARN (355ms > 200ms)"
+      ]
+    },
+    {
+      "envId": "ENV-01",
+      "envName": "Desktop Standard (Broadband, 1x CPU)",
+      "role": "STAFF",
+      "route": "/staff/qr-check-in",
+      "routeName": "Staff QR Check-In (ZXing Camera)",
+      "disableCache": true,
+      "redirectedToLogin": false,
+      "navError": null,
+      "wallClockMs": 32186,
+      "vitals": {
+        "ttfbMs": 415,
+        "fcpMs": 8804,
+        "lcpMs": 8804,
+        "lcpElement": "p.mt-2.max-w-md.text-sm",
+        "cls": 0.0354,
+        "tbtMs": 502,
+        "longTasksCount": 2,
+        "maxLongTaskMs": 359,
+        "dclMs": 8473,
+        "loadMs": 8474
+      },
+      "runtime": {
+        "fps": 141,
+        "maxFrameGapMs": 14,
+        "droppedFrames": 0,
+        "domNodes": 548,
+        "jsHeapUsedMB": 14.08,
+        "jsHeapTotalMB": 15.22,
+        "layoutCount": 10,
+        "recalcStyleCount": 11,
+        "scriptDurationMs": 3726,
+        "taskDurationMs": 6711,
+        "canvasesCount": 2,
+        "videosCount": 1
+      },
+      "network": {
+        "totalRequests": 26,
+        "cachedRequests": 2,
+        "totalTransferKB": 4965.5,
+        "jsTransferKB": 1740.8,
+        "cssTransferKB": 69.5,
+        "imgTransferKB": 2981.6,
+        "mediaTransferKB": 0,
+        "fontTransferKB": 169.1,
+        "apiRequestsCount": 3,
+        "slowApis": [
+          {
+            "url": "/cdn-cgi/rum?",
+            "method": "POST",
+            "status": 204,
+            "durationMs": 2555
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/notifications?limit=5",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 3535
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/operations/staff/events",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 3879
+          }
+        ],
+        "oversizedAssets": [
+          {
+            "url": "https://eventhub.id.vn/assets/index-D-9AJsct.js",
+            "type": "Script",
+            "transferKB": 1630.1,
+            "durationMs": 7624
+          },
+          {
+            "url": "https://eventhub.id.vn/space-stars-bg.png",
+            "type": "Image",
+            "transferKB": 411,
+            "durationMs": 2385
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/golden-clouds-bg-BTI-xK4y.png",
+            "type": "Image",
+            "transferKB": 664.9,
+            "durationMs": 2786
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/eventhub-logo-CMhyLCnU.png",
+            "type": "Image",
+            "transferKB": 241,
+            "durationMs": 3134
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_peach_moon.png",
+            "type": "Image",
+            "transferKB": 320.3,
+            "durationMs": 19420
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_blue_giant.png",
+            "type": "Image",
+            "transferKB": 425.8,
+            "durationMs": 20475
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_purple_swirl.png",
+            "type": "Image",
+            "transferKB": 433.1,
+            "durationMs": 20516
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_pink_moon.png",
+            "type": "Image",
+            "transferKB": 309.1,
+            "durationMs": 20521
+          }
+        ]
+      },
+      "slaViolations": [
+        "LCP_POOR (8804ms > 4000ms)",
+        "FCP_POOR (8804ms > 3000ms)",
+        "TBT_WARN (502ms > 200ms)"
+      ]
+    },
+    {
+      "envId": "ENV-01",
+      "envName": "Desktop Standard (Broadband, 1x CPU)",
+      "role": "STAFF",
+      "route": "/staff/manual-check-in",
+      "routeName": "Staff Manual Check-In",
+      "disableCache": true,
+      "redirectedToLogin": false,
+      "navError": null,
+      "wallClockMs": 19553,
+      "vitals": {
+        "ttfbMs": 113,
+        "fcpMs": 9868,
+        "lcpMs": 9868,
+        "lcpElement": "p.text-sm.text-white/90",
+        "cls": 0.0002,
+        "tbtMs": 437,
+        "longTasksCount": 2,
+        "maxLongTaskMs": 290,
+        "dclMs": 9546,
+        "loadMs": 9546
+      },
+      "runtime": {
+        "fps": 140,
+        "maxFrameGapMs": 14,
+        "droppedFrames": 0,
+        "domNodes": 420,
+        "jsHeapUsedMB": 16.82,
+        "jsHeapTotalMB": 24.47,
+        "layoutCount": 13,
+        "recalcStyleCount": 28,
+        "scriptDurationMs": 1981,
+        "taskDurationMs": 3343,
+        "canvasesCount": 2,
+        "videosCount": 0
+      },
+      "network": {
+        "totalRequests": 27,
+        "cachedRequests": 2,
+        "totalTransferKB": 4973.2,
+        "jsTransferKB": 1740.8,
+        "cssTransferKB": 69.4,
+        "imgTransferKB": 2981.6,
+        "mediaTransferKB": 0,
+        "fontTransferKB": 176.9,
+        "apiRequestsCount": 3,
+        "slowApis": [
+          {
+            "url": "/cdn-cgi/rum?",
+            "method": "POST",
+            "status": 204,
+            "durationMs": 1717
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/operations/staff/events",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 5841
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/notifications?limit=5",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 5847
+          }
+        ],
+        "oversizedAssets": [
+          {
+            "url": "https://eventhub.id.vn/assets/index-D-9AJsct.js",
+            "type": "Script",
+            "transferKB": 1630.1,
+            "durationMs": 9080
+          },
+          {
+            "url": "https://eventhub.id.vn/space-stars-bg.png",
+            "type": "Image",
+            "transferKB": 411,
+            "durationMs": 2155
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/golden-clouds-bg-BTI-xK4y.png",
+            "type": "Image",
+            "transferKB": 664.9,
+            "durationMs": 2188
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/eventhub-logo-CMhyLCnU.png",
+            "type": "Image",
+            "transferKB": 241,
+            "durationMs": 2490
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_peach_moon.png",
+            "type": "Image",
+            "transferKB": 320.3,
+            "durationMs": 5788
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_blue_giant.png",
+            "type": "Image",
+            "transferKB": 425.8,
+            "durationMs": 5879
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_pink_moon.png",
+            "type": "Image",
+            "transferKB": 309.1,
+            "durationMs": 6738
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_purple_swirl.png",
+            "type": "Image",
+            "transferKB": 433.1,
+            "durationMs": 6843
+          }
+        ]
+      },
+      "slaViolations": [
+        "LCP_POOR (9868ms > 4000ms)",
+        "FCP_POOR (9868ms > 3000ms)",
+        "TBT_WARN (437ms > 200ms)"
+      ]
+    },
+    {
+      "envId": "ENV-01",
+      "envName": "Desktop Standard (Broadband, 1x CPU)",
+      "role": "STAFF",
+      "route": "/staff/direct-booking",
+      "routeName": "Staff Direct Booking",
+      "disableCache": true,
+      "redirectedToLogin": false,
+      "navError": null,
+      "wallClockMs": 28500,
+      "vitals": {
+        "ttfbMs": 131,
+        "fcpMs": 25040,
+        "lcpMs": 25728,
+        "lcpElement": "img.h-full.w-full.object-cover",
+        "cls": 0.0372,
+        "tbtMs": 641,
+        "longTasksCount": 2,
+        "maxLongTaskMs": 441,
+        "dclMs": 24614,
+        "loadMs": 24614
+      },
+      "runtime": {
+        "fps": 145,
+        "maxFrameGapMs": 7,
+        "droppedFrames": 0,
+        "domNodes": 483,
+        "jsHeapUsedMB": 16.58,
+        "jsHeapTotalMB": 23.47,
+        "layoutCount": 8,
+        "recalcStyleCount": 66,
+        "scriptDurationMs": 1329,
+        "taskDurationMs": 2052,
+        "canvasesCount": 2,
+        "videosCount": 0
+      },
+      "network": {
+        "totalRequests": 29,
+        "cachedRequests": 2,
+        "totalTransferKB": 5013.1,
+        "jsTransferKB": 1741,
+        "cssTransferKB": 69.5,
+        "imgTransferKB": 3042.7,
+        "mediaTransferKB": 0,
+        "fontTransferKB": 154.6,
+        "apiRequestsCount": 3,
+        "slowApis": [
+          {
+            "url": "https://api.eventhub.id.vn/api/orders/staff/direct-booking/events",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 713
+          }
+        ],
+        "oversizedAssets": [
+          {
+            "url": "https://eventhub.id.vn/assets/index-D-9AJsct.js",
+            "type": "Script",
+            "transferKB": 1630.1,
+            "durationMs": 23976
+          },
+          {
+            "url": "https://eventhub.id.vn/space-stars-bg.png",
+            "type": "Image",
+            "transferKB": 411,
+            "durationMs": 264
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/golden-clouds-bg-BTI-xK4y.png",
+            "type": "Image",
+            "transferKB": 664.9,
+            "durationMs": 287
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/eventhub-logo-CMhyLCnU.png",
+            "type": "Image",
+            "transferKB": 241,
+            "durationMs": 134
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_blue_giant.png",
+            "type": "Image",
+            "transferKB": 425.8,
+            "durationMs": 221
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_peach_moon.png",
+            "type": "Image",
+            "transferKB": 320.3,
+            "durationMs": 410
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_pink_moon.png",
+            "type": "Image",
+            "transferKB": 309.1,
+            "durationMs": 419
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_purple_swirl.png",
+            "type": "Image",
+            "transferKB": 433,
+            "durationMs": 447
+          }
+        ]
+      },
+      "slaViolations": [
+        "LCP_POOR (25728ms > 4000ms)",
+        "FCP_POOR (25040ms > 3000ms)",
+        "TBT_POOR (641ms > 600ms)"
+      ]
+    },
+    {
+      "envId": "ENV-01",
+      "envName": "Desktop Standard (Broadband, 1x CPU)",
+      "role": "STAFF",
+      "route": "/staff/check-in-count",
+      "routeName": "Staff Check-In Count",
+      "disableCache": true,
+      "redirectedToLogin": false,
+      "navError": null,
+      "wallClockMs": 5196,
+      "vitals": {
+        "ttfbMs": 67,
+        "fcpMs": 1212,
+        "lcpMs": 1788,
+        "lcpElement": "td.px-4.py-3.5.align-middle",
+        "cls": 0.0046,
+        "tbtMs": 523,
+        "longTasksCount": 2,
+        "maxLongTaskMs": 386,
+        "dclMs": 875,
+        "loadMs": 876
+      },
+      "runtime": {
+        "fps": 135,
+        "maxFrameGapMs": 21,
+        "droppedFrames": 0,
+        "domNodes": 592,
+        "jsHeapUsedMB": 17.38,
+        "jsHeapTotalMB": 24.22,
+        "layoutCount": 47,
+        "recalcStyleCount": 89,
+        "scriptDurationMs": 1162,
+        "taskDurationMs": 1988,
+        "canvasesCount": 2,
+        "videosCount": 0
+      },
+      "network": {
+        "totalRequests": 27,
+        "cachedRequests": 2,
+        "totalTransferKB": 4973.2,
+        "jsTransferKB": 1740.8,
+        "cssTransferKB": 69.4,
+        "imgTransferKB": 2981.6,
+        "mediaTransferKB": 0,
+        "fontTransferKB": 176.9,
+        "apiRequestsCount": 3,
+        "slowApis": [
+          {
+            "url": "https://api.eventhub.id.vn/api/notifications?limit=5",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 512
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/operations/staff/check-in-report",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 619
+          }
+        ],
+        "oversizedAssets": [
+          {
+            "url": "https://eventhub.id.vn/assets/index-D-9AJsct.js",
+            "type": "Script",
+            "transferKB": 1630.1,
+            "durationMs": 320
+          },
+          {
+            "url": "https://eventhub.id.vn/space-stars-bg.png",
+            "type": "Image",
+            "transferKB": 411,
+            "durationMs": 326
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/eventhub-logo-CMhyLCnU.png",
+            "type": "Image",
+            "transferKB": 241,
+            "durationMs": 240
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/golden-clouds-bg-BTI-xK4y.png",
+            "type": "Image",
+            "transferKB": 664.9,
+            "durationMs": 455
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_peach_moon.png",
+            "type": "Image",
+            "transferKB": 320.3,
+            "durationMs": 861
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_blue_giant.png",
+            "type": "Image",
+            "transferKB": 425.8,
+            "durationMs": 885
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_pink_moon.png",
+            "type": "Image",
+            "transferKB": 309.1,
+            "durationMs": 1174
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_purple_swirl.png",
+            "type": "Image",
+            "transferKB": 433,
+            "durationMs": 1191
+          }
+        ]
+      },
+      "slaViolations": [
+        "TBT_WARN (523ms > 200ms)"
+      ]
+    },
+    {
+      "envId": "ENV-01",
+      "envName": "Desktop Standard (Broadband, 1x CPU)",
+      "role": "ADMIN",
+      "route": "/admin",
+      "routeName": "Admin Analytics Dashboard",
+      "disableCache": true,
+      "redirectedToLogin": false,
+      "navError": null,
+      "wallClockMs": 7248,
+      "vitals": {
+        "ttfbMs": 258,
+        "fcpMs": 2528,
+        "lcpMs": 3896,
+        "lcpElement": "p.mt-0.5.text-xs.text-subtle",
+        "cls": 0,
+        "tbtMs": 423,
+        "longTasksCount": 3,
+        "maxLongTaskMs": 286,
+        "dclMs": 2291,
+        "loadMs": 2291
+      },
+      "runtime": {
+        "fps": 69,
+        "maxFrameGapMs": 21,
+        "droppedFrames": 0,
+        "domNodes": 1371,
+        "jsHeapUsedMB": 20.48,
+        "jsHeapTotalMB": 27.47,
+        "layoutCount": 24,
+        "recalcStyleCount": 379,
+        "scriptDurationMs": 868,
+        "taskDurationMs": 1612,
+        "canvasesCount": 2,
+        "videosCount": 0
+      },
+      "network": {
+        "totalRequests": 36,
+        "cachedRequests": 6,
+        "totalTransferKB": 5060.6,
+        "jsTransferKB": 1740.8,
+        "cssTransferKB": 69.4,
+        "imgTransferKB": 3064.3,
+        "mediaTransferKB": 0,
+        "fontTransferKB": 176.9,
+        "apiRequestsCount": 7,
+        "slowApis": [
+          {
+            "url": "/cdn-cgi/rum?",
+            "method": "POST",
+            "status": 204,
+            "durationMs": 652
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/admin/analytics/revenue-trend?dateFrom=2026-10-19T17:00:00.000Z&dateTo=2026-11-18T16:59:59.999Z&groupBy=day",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 867
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/admin/analytics/events-by-category",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 891
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/admin/analytics/top-organizers?limit=5",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 893
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/notifications?limit=5",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 1011
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/admin/analytics/overview?dateFrom=2026-10-19T17:00:00.000Z&dateTo=2026-11-18T16:59:59.999Z",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 1062
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/admin/analytics/subscription-revenue",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 1194
+          }
+        ],
+        "oversizedAssets": [
+          {
+            "url": "https://eventhub.id.vn/assets/index-D-9AJsct.js",
+            "type": "Script",
+            "transferKB": 1630.1,
+            "durationMs": 1689
+          },
+          {
+            "url": "https://eventhub.id.vn/space-stars-bg.png",
+            "type": "Image",
+            "transferKB": 411,
+            "durationMs": 827
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/eventhub-logo-CMhyLCnU.png",
+            "type": "Image",
+            "transferKB": 241,
+            "durationMs": 794
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/golden-clouds-bg-BTI-xK4y.png",
+            "type": "Image",
+            "transferKB": 664.9,
+            "durationMs": 968
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_peach_moon.png",
+            "type": "Image",
+            "transferKB": 320.3,
+            "durationMs": 1875
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_blue_giant.png",
+            "type": "Image",
+            "transferKB": 425.8,
+            "durationMs": 1881
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_purple_swirl.png",
+            "type": "Image",
+            "transferKB": 433.1,
+            "durationMs": 1912
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_pink_moon.png",
+            "type": "Image",
+            "transferKB": 309.1,
+            "durationMs": 1958
+          }
+        ]
+      },
+      "slaViolations": [
+        "LCP_WARN (3896ms > 2500ms)",
+        "FCP_WARN (2528ms > 1800ms)",
+        "TBT_WARN (423ms > 200ms)"
+      ]
+    },
+    {
+      "envId": "ENV-01",
+      "envName": "Desktop Standard (Broadband, 1x CPU)",
+      "role": "ADMIN",
+      "route": "/admin/accounts",
+      "routeName": "Admin Accounts Table",
+      "disableCache": true,
+      "redirectedToLogin": false,
+      "navError": null,
+      "wallClockMs": 5219,
+      "vitals": {
+        "ttfbMs": 70,
+        "fcpMs": 1152,
+        "lcpMs": 1152,
+        "lcpElement": "p.text-sm.text-subtle.font-medium",
+        "cls": 0.0369,
+        "tbtMs": 425,
+        "longTasksCount": 2,
+        "maxLongTaskMs": 306,
+        "dclMs": 836,
+        "loadMs": 836
+      },
+      "runtime": {
+        "fps": 132,
+        "maxFrameGapMs": 14,
+        "droppedFrames": 0,
+        "domNodes": 800,
+        "jsHeapUsedMB": 14.95,
+        "jsHeapTotalMB": 24.47,
+        "layoutCount": 10,
+        "recalcStyleCount": 26,
+        "scriptDurationMs": 1090,
+        "taskDurationMs": 1819,
+        "canvasesCount": 2,
+        "videosCount": 0
+      },
+      "network": {
+        "totalRequests": 30,
+        "cachedRequests": 2,
+        "totalTransferKB": 5074.5,
+        "jsTransferKB": 1740.8,
+        "cssTransferKB": 69.4,
+        "imgTransferKB": 3066.1,
+        "mediaTransferKB": 0,
+        "fontTransferKB": 193.1,
+        "apiRequestsCount": 3,
+        "slowApis": [
+          {
+            "url": "https://api.eventhub.id.vn/api/notifications?limit=5",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 567
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/admin/users?search=&role=&status=&page=1&limit=10&sortBy=created_at&sortOrder=DESC",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 569
+          }
+        ],
+        "oversizedAssets": [
+          {
+            "url": "https://eventhub.id.vn/assets/index-D-9AJsct.js",
+            "type": "Script",
+            "transferKB": 1630.1,
+            "durationMs": 397
+          },
+          {
+            "url": "https://eventhub.id.vn/space-stars-bg.png",
+            "type": "Image",
+            "transferKB": 411,
+            "durationMs": 211
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/golden-clouds-bg-BTI-xK4y.png",
+            "type": "Image",
+            "transferKB": 664.9,
+            "durationMs": 214
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/eventhub-logo-CMhyLCnU.png",
+            "type": "Image",
+            "transferKB": 241,
+            "durationMs": 108
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_peach_moon.png",
+            "type": "Image",
+            "transferKB": 320.3,
+            "durationMs": 1207
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_pink_moon.png",
+            "type": "Image",
+            "transferKB": 309.1,
+            "durationMs": 1220
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_blue_giant.png",
+            "type": "Image",
+            "transferKB": 425.8,
+            "durationMs": 1230
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_purple_swirl.png",
+            "type": "Image",
+            "transferKB": 433.1,
+            "durationMs": 1246
+          }
+        ]
+      },
+      "slaViolations": [
+        "TBT_WARN (425ms > 200ms)"
+      ]
+    },
+    {
+      "envId": "ENV-01",
+      "envName": "Desktop Standard (Broadband, 1x CPU)",
+      "role": "ADMIN",
+      "route": "/admin/organizers",
+      "routeName": "Admin Organizers",
+      "disableCache": true,
+      "redirectedToLogin": false,
+      "navError": null,
+      "wallClockMs": 5433,
+      "vitals": {
+        "ttfbMs": 68,
+        "fcpMs": 1164,
+        "lcpMs": 1164,
+        "lcpElement": "p.text-sm.font-medium.text-subtle",
+        "cls": 0.0288,
+        "tbtMs": 516,
+        "longTasksCount": 3,
+        "maxLongTaskMs": 395,
+        "dclMs": 817,
+        "loadMs": 817
+      },
+      "runtime": {
+        "fps": 122,
+        "maxFrameGapMs": 21,
+        "droppedFrames": 0,
+        "domNodes": 964,
+        "jsHeapUsedMB": 15.39,
+        "jsHeapTotalMB": 24.97,
+        "layoutCount": 15,
+        "recalcStyleCount": 21,
+        "scriptDurationMs": 1253,
+        "taskDurationMs": 2139,
+        "canvasesCount": 2,
+        "videosCount": 0
+      },
+      "network": {
+        "totalRequests": 36,
+        "cachedRequests": 2,
+        "totalTransferKB": 5149.5,
+        "jsTransferKB": 1740.8,
+        "cssTransferKB": 69.4,
+        "imgTransferKB": 3154.3,
+        "mediaTransferKB": 0,
+        "fontTransferKB": 176.9,
+        "apiRequestsCount": 3,
+        "slowApis": [
+          {
+            "url": "https://api.eventhub.id.vn/api/notifications?limit=5",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 662
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/admin/organizers?search=&status=&page=1&limit=10&sortBy=created_at&sortOrder=DESC",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 665
+          }
+        ],
+        "oversizedAssets": [
+          {
+            "url": "https://eventhub.id.vn/assets/index-D-9AJsct.js",
+            "type": "Script",
+            "transferKB": 1630.1,
+            "durationMs": 281
+          },
+          {
+            "url": "https://eventhub.id.vn/space-stars-bg.png",
+            "type": "Image",
+            "transferKB": 411,
+            "durationMs": 173
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/golden-clouds-bg-BTI-xK4y.png",
+            "type": "Image",
+            "transferKB": 664.9,
+            "durationMs": 224
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/eventhub-logo-CMhyLCnU.png",
+            "type": "Image",
+            "transferKB": 241,
+            "durationMs": 207
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_peach_moon.png",
+            "type": "Image",
+            "transferKB": 320.3,
+            "durationMs": 852
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_pink_moon.png",
+            "type": "Image",
+            "transferKB": 309.1,
+            "durationMs": 899
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_purple_swirl.png",
+            "type": "Image",
+            "transferKB": 433.1,
+            "durationMs": 929
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_blue_giant.png",
+            "type": "Image",
+            "transferKB": 425.8,
+            "durationMs": 945
+          }
+        ]
+      },
+      "slaViolations": [
+        "TBT_WARN (516ms > 200ms)"
+      ]
+    },
+    {
+      "envId": "ENV-01",
+      "envName": "Desktop Standard (Broadband, 1x CPU)",
+      "role": "ADMIN",
+      "route": "/admin/event-review",
+      "routeName": "Admin Event Review",
+      "disableCache": true,
+      "redirectedToLogin": false,
+      "navError": null,
+      "wallClockMs": 6038,
+      "vitals": {
+        "ttfbMs": 83,
+        "fcpMs": 1196,
+        "lcpMs": 1196,
+        "lcpElement": "p.mt-1.text-xs.text-subtle",
+        "cls": 0.0008,
+        "tbtMs": 407,
+        "longTasksCount": 2,
+        "maxLongTaskMs": 320,
+        "dclMs": 911,
+        "loadMs": 911
+      },
+      "runtime": {
+        "fps": 143,
+        "maxFrameGapMs": 14,
+        "droppedFrames": 0,
+        "domNodes": 789,
+        "jsHeapUsedMB": 17.44,
+        "jsHeapTotalMB": 27.47,
+        "layoutCount": 17,
+        "recalcStyleCount": 549,
+        "scriptDurationMs": 1164,
+        "taskDurationMs": 2371,
+        "canvasesCount": 2,
+        "videosCount": 0
+      },
+      "network": {
+        "totalRequests": 44,
+        "cachedRequests": 5,
+        "totalTransferKB": 6959.5,
+        "jsTransferKB": 1740.8,
+        "cssTransferKB": 69.4,
+        "imgTransferKB": 4910.4,
+        "mediaTransferKB": 0,
+        "fontTransferKB": 193.1,
+        "apiRequestsCount": 6,
+        "slowApis": [
+          {
+            "url": "https://api.eventhub.id.vn/api/admin/events/settings/auto-review",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 754
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/admin/events/pending?status=PENDING_REVIEW&page=1&limit=20",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 827
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/admin/events/review-criteria",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 1320
+          }
+        ],
+        "oversizedAssets": [
+          {
+            "url": "https://eventhub.id.vn/assets/index-D-9AJsct.js",
+            "type": "Script",
+            "transferKB": 1630.1,
+            "durationMs": 420
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/golden-clouds-bg-BTI-xK4y.png",
+            "type": "Image",
+            "transferKB": 664.9,
+            "durationMs": 983
+          },
+          {
+            "url": "....com/dookztwec/image/upload/v1794660209/eventhub/events/thumbnails/rm8tcdkeyv1eysknhffx.webp",
+            "type": "Image",
+            "transferKB": 919,
+            "durationMs": 369
+          },
+          {
+            "url": "https://eventhub.id.vn/space-stars-bg.png",
+            "type": "Image",
+            "transferKB": 411.1,
+            "durationMs": 1530
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/eventhub-logo-CMhyLCnU.png",
+            "type": "Image",
+            "transferKB": 241,
+            "durationMs": 1382
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_peach_moon.png",
+            "type": "Image",
+            "transferKB": 320.3,
+            "durationMs": 1667
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_pink_moon.png",
+            "type": "Image",
+            "transferKB": 309.1,
+            "durationMs": 1802
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_blue_giant.png",
+            "type": "Image",
+            "transferKB": 425.8,
+            "durationMs": 1814
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_purple_swirl.png",
+            "type": "Image",
+            "transferKB": 433.1,
+            "durationMs": 1823
+          },
+          {
+            "url": "...y.com/dookztwec/image/upload/v1793799057/eventhub/events/thumbnails/ew2nlambl6omdzh4zzuc.png",
+            "type": "Image",
+            "transferKB": 220.8,
+            "durationMs": 1037
+          },
+          {
+            "url": "...y.com/dookztwec/image/upload/v1790165571/eventhub/events/thumbnails/bdqitgoc4lh1r0svw3xe.png",
+            "type": "Image",
+            "transferKB": 272.7,
+            "durationMs": 1496
+          }
+        ]
+      },
+      "slaViolations": [
+        "TBT_WARN (407ms > 200ms)"
+      ]
+    },
+    {
+      "envId": "ENV-01",
+      "envName": "Desktop Standard (Broadband, 1x CPU)",
+      "role": "ADMIN",
+      "route": "/admin/finance",
+      "routeName": "Admin Finance & Revenue",
+      "disableCache": true,
+      "redirectedToLogin": false,
+      "navError": null,
+      "wallClockMs": 4676,
+      "vitals": {
+        "ttfbMs": 60,
+        "fcpMs": 1040,
+        "lcpMs": 1544,
+        "lcpElement": "td.px-4.py-3.5.align-middle",
+        "cls": 0.0001,
+        "tbtMs": 398,
+        "longTasksCount": 2,
+        "maxLongTaskMs": 328,
+        "dclMs": 795,
+        "loadMs": 795
+      },
+      "runtime": {
+        "fps": 145,
+        "maxFrameGapMs": 7,
+        "droppedFrames": 0,
+        "domNodes": 952,
+        "jsHeapUsedMB": 17.77,
+        "jsHeapTotalMB": 24.47,
+        "layoutCount": 8,
+        "recalcStyleCount": 9,
+        "scriptDurationMs": 1057,
+        "taskDurationMs": 1720,
+        "canvasesCount": 2,
+        "videosCount": 0
+      },
+      "network": {
+        "totalRequests": 28,
+        "cachedRequests": 2,
+        "totalTransferKB": 5065.8,
+        "jsTransferKB": 1740.9,
+        "cssTransferKB": 69.4,
+        "imgTransferKB": 3064.2,
+        "mediaTransferKB": 0,
+        "fontTransferKB": 176.9,
+        "apiRequestsCount": 3,
+        "slowApis": [],
+        "oversizedAssets": [
+          {
+            "url": "https://eventhub.id.vn/assets/index-D-9AJsct.js",
+            "type": "Script",
+            "transferKB": 1630.1,
+            "durationMs": 338
+          },
+          {
+            "url": "https://eventhub.id.vn/space-stars-bg.png",
+            "type": "Image",
+            "transferKB": 411,
+            "durationMs": 158
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/golden-clouds-bg-BTI-xK4y.png",
+            "type": "Image",
+            "transferKB": 664.9,
+            "durationMs": 209
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/eventhub-logo-CMhyLCnU.png",
+            "type": "Image",
+            "transferKB": 241,
+            "durationMs": 164
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_peach_moon.png",
+            "type": "Image",
+            "transferKB": 320.2,
+            "durationMs": 712
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_purple_swirl.png",
+            "type": "Image",
+            "transferKB": 433.1,
+            "durationMs": 799
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_blue_giant.png",
+            "type": "Image",
+            "transferKB": 425.8,
+            "durationMs": 806
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_pink_moon.png",
+            "type": "Image",
+            "transferKB": 309.1,
+            "durationMs": 819
+          }
+        ]
+      },
+      "slaViolations": [
+        "TBT_WARN (398ms > 200ms)"
+      ]
+    },
+    {
+      "envId": "ENV-01",
+      "envName": "Desktop Standard (Broadband, 1x CPU)",
+      "role": "ADMIN",
+      "route": "/admin/disputes",
+      "routeName": "Admin Disputes",
+      "disableCache": true,
+      "redirectedToLogin": false,
+      "navError": null,
+      "wallClockMs": 6420,
+      "vitals": {
+        "ttfbMs": 65,
+        "fcpMs": 1036,
+        "lcpMs": 1036,
+        "lcpElement": "p.mt-2.text-xs.font-medium",
+        "cls": 0.0008,
+        "tbtMs": 404,
+        "longTasksCount": 2,
+        "maxLongTaskMs": 317,
+        "dclMs": 780,
+        "loadMs": 780
+      },
+      "runtime": {
+        "fps": 138,
+        "maxFrameGapMs": 21,
+        "droppedFrames": 0,
+        "domNodes": 571,
+        "jsHeapUsedMB": 17,
+        "jsHeapTotalMB": 25.47,
+        "layoutCount": 7,
+        "recalcStyleCount": 134,
+        "scriptDurationMs": 1231,
+        "taskDurationMs": 2134,
+        "canvasesCount": 2,
+        "videosCount": 0
+      },
+      "network": {
+        "totalRequests": 32,
+        "cachedRequests": 4,
+        "totalTransferKB": 5061.1,
+        "jsTransferKB": 1744,
+        "cssTransferKB": 69.4,
+        "imgTransferKB": 3064.4,
+        "mediaTransferKB": 0,
+        "fontTransferKB": 176.9,
+        "apiRequestsCount": 5,
+        "slowApis": [
+          {
+            "url": "https://api.eventhub.id.vn/api/admin/complaints/stats",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 989
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/admin/complaints?status=ALL&category=ALL&search=",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 989
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/organizer/refunds?status=DISPUTED",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 1216
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/notifications?limit=5",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 1467
+          }
+        ],
+        "oversizedAssets": [
+          {
+            "url": "https://eventhub.id.vn/assets/index-D-9AJsct.js",
+            "type": "Script",
+            "transferKB": 1630.1,
+            "durationMs": 331
+          },
+          {
+            "url": "https://eventhub.id.vn/space-stars-bg.png",
+            "type": "Image",
+            "transferKB": 411,
+            "durationMs": 534
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/golden-clouds-bg-BTI-xK4y.png",
+            "type": "Image",
+            "transferKB": 664.9,
+            "durationMs": 858
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/eventhub-logo-CMhyLCnU.png",
+            "type": "Image",
+            "transferKB": 241.1,
+            "durationMs": 777
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_peach_moon.png",
+            "type": "Image",
+            "transferKB": 320.3,
+            "durationMs": 2436
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_pink_moon.png",
+            "type": "Image",
+            "transferKB": 309.2,
+            "durationMs": 2491
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_purple_swirl.png",
+            "type": "Image",
+            "transferKB": 433.1,
+            "durationMs": 2498
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_blue_giant.png",
+            "type": "Image",
+            "transferKB": 425.8,
+            "durationMs": 2523
+          }
+        ]
+      },
+      "slaViolations": [
+        "TBT_WARN (404ms > 200ms)"
+      ]
+    },
+    {
+      "envId": "ENV-02",
+      "envName": "Mobile Mid-Tier (Fast 4G, 4x CPU)",
+      "role": "GUEST",
+      "route": "/",
+      "routeName": "Home Page (Mobile 4G)",
+      "disableCache": true,
+      "redirectedToLogin": false,
+      "navError": null,
+      "wallClockMs": 23834,
+      "vitals": {
+        "ttfbMs": 150,
+        "fcpMs": 4572,
+        "lcpMs": 9220,
+        "lcpElement": "video.absolute.inset-0.h-full",
+        "cls": 0.5001,
+        "tbtMs": 4184,
+        "longTasksCount": 30,
+        "maxLongTaskMs": 1878,
+        "dclMs": 3895,
+        "loadMs": 3897
+      },
+      "runtime": {
+        "fps": 19,
+        "maxFrameGapMs": 167,
+        "droppedFrames": 23,
+        "domNodes": 2387,
+        "jsHeapUsedMB": 13.91,
+        "jsHeapTotalMB": 17.72,
+        "layoutCount": 28,
+        "recalcStyleCount": 459,
+        "scriptDurationMs": 3990,
+        "taskDurationMs": 19689,
+        "canvasesCount": 0,
+        "videosCount": 2
+      },
+      "network": {
+        "totalRequests": 52,
+        "cachedRequests": 7,
+        "totalTransferKB": 5439.6,
+        "jsTransferKB": 1744,
+        "cssTransferKB": 69.4,
+        "imgTransferKB": 3309.5,
+        "mediaTransferKB": 22.3,
+        "fontTransferKB": 249.3,
+        "apiRequestsCount": 7,
+        "slowApis": [
+          {
+            "url": "https://api.eventhub.id.vn/api/events?limit=24&sort_by=start_time&sort_order=asc&upcoming_only=true",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 724
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/events?limit=20&sort_by=start_time&sort_order=desc",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 728
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/events?limit=8&sort_by=start_time&sort_order=asc&upcoming_only=true",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 828
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/events?limit=10&sort_by=start_time&sort_order=asc&upcoming_only=true",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 833
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/events?limit=24&sort_by=start_time&sort_order=asc&upcoming_only=true",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 816
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/events/categories",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 804
+          }
+        ],
+        "oversizedAssets": [
+          {
+            "url": "https://eventhub.id.vn/assets/index-D-9AJsct.js",
+            "type": "Script",
+            "transferKB": 1630.2,
+            "durationMs": 1705
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/eventhub-logo-CMhyLCnU.png",
+            "type": "Image",
+            "transferKB": 241,
+            "durationMs": 1147
+          },
+          {
+            "url": "https://eventhub.id.vn/images/starry-bg.png",
+            "type": "Image",
+            "transferKB": 577.2,
+            "durationMs": 3078
+          },
+          {
+            "url": "...4n9.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/130837c4-0244-4f37-9c61-8d801d93fd29.jpg",
+            "type": "Image",
+            "transferKB": 555.9,
+            "durationMs": 3629
+          },
+          {
+            "url": "...y.com/dookztwec/image/upload/v1790166012/eventhub/events/thumbnails/d7to9vycgrktpgc0leme.png",
+            "type": "Image",
+            "transferKB": 212.8,
+            "durationMs": 2012
+          },
+          {
+            "url": "...y.com/dookztwec/image/upload/v1794532612/eventhub/events/thumbnails/h4sakduqjmqgwseuarwh.jpg",
+            "type": "Image",
+            "transferKB": 231.3,
+            "durationMs": 2081
+          },
+          {
+            "url": "...nary.com/dookztwec/image/upload/v1784620117/eventhub/events/banners/ztfvlvdesrhecd3p2zd7.jpg",
+            "type": "Image",
+            "transferKB": 547.5,
+            "durationMs": 3006
+          }
+        ]
+      },
+      "slaViolations": [
+        "LCP_POOR (9220ms > 4000ms)",
+        "FCP_POOR (4572ms > 3000ms)",
+        "CLS_POOR (0.5001 > 0.25)",
+        "TBT_POOR (4184ms > 600ms)",
+        "LOW_FPS (19 FPS < 30 FPS)"
+      ]
+    },
+    {
+      "envId": "ENV-02",
+      "envName": "Mobile Mid-Tier (Fast 4G, 4x CPU)",
+      "role": "GUEST",
+      "route": "/events",
+      "routeName": "Events Catalog (Mobile 4G)",
+      "disableCache": true,
+      "redirectedToLogin": false,
+      "navError": null,
+      "wallClockMs": 17081,
+      "vitals": {
+        "ttfbMs": 150,
+        "fcpMs": 6344,
+        "lcpMs": 7776,
+        "lcpElement": "img.h-full.w-full.object-cover",
+        "cls": 0.4172,
+        "tbtMs": 4372,
+        "longTasksCount": 14,
+        "maxLongTaskMs": 3049,
+        "dclMs": 5493,
+        "loadMs": 5496
+      },
+      "runtime": {
+        "fps": 49,
+        "maxFrameGapMs": 76,
+        "droppedFrames": 7,
+        "domNodes": 765,
+        "jsHeapUsedMB": 12.51,
+        "jsHeapTotalMB": 14.97,
+        "layoutCount": 8,
+        "recalcStyleCount": 590,
+        "scriptDurationMs": 3831,
+        "taskDurationMs": 14028,
+        "canvasesCount": 0,
+        "videosCount": 0
+      },
+      "network": {
+        "totalRequests": 27,
+        "cachedRequests": 2,
+        "totalTransferKB": 3242.4,
+        "jsTransferKB": 1741,
+        "cssTransferKB": 69.4,
+        "imgTransferKB": 1227.7,
+        "mediaTransferKB": 0,
+        "fontTransferKB": 193.1,
+        "apiRequestsCount": 3,
+        "slowApis": [],
+        "oversizedAssets": [
+          {
+            "url": "https://eventhub.id.vn/assets/index-D-9AJsct.js",
+            "type": "Script",
+            "transferKB": 1630.3,
+            "durationMs": 1973
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/eventhub-logo-CMhyLCnU.png",
+            "type": "Image",
+            "transferKB": 241,
+            "durationMs": 808
+          },
+          {
+            "url": "https://eventhub.id.vn/images/starry-bg.png",
+            "type": "Image",
+            "transferKB": 577.2,
+            "durationMs": 1207
+          }
+        ]
+      },
+      "slaViolations": [
+        "LCP_POOR (7776ms > 4000ms)",
+        "FCP_POOR (6344ms > 3000ms)",
+        "CLS_POOR (0.4172 > 0.25)",
+        "TBT_POOR (4372ms > 600ms)"
+      ]
+    },
+    {
+      "envId": "ENV-02",
+      "envName": "Mobile Mid-Tier (Fast 4G, 4x CPU)",
+      "role": "GUEST",
+      "route": "/events/ngoi-nha-khong-co-an-ong-mukod5va",
+      "routeName": "Event Details (Mobile 4G)",
+      "disableCache": true,
+      "redirectedToLogin": false,
+      "navError": null,
+      "wallClockMs": 15136,
+      "vitals": {
+        "ttfbMs": 150,
+        "fcpMs": 4848,
+        "lcpMs": 6172,
+        "lcpElement": "img.absolute.inset-0.h-full",
+        "cls": 0.4598,
+        "tbtMs": 3070,
+        "longTasksCount": 9,
+        "maxLongTaskMs": 2178,
+        "dclMs": 4318,
+        "loadMs": 4319
+      },
+      "runtime": {
+        "fps": 75,
+        "maxFrameGapMs": 35,
+        "droppedFrames": 1,
+        "domNodes": 635,
+        "jsHeapUsedMB": 12.81,
+        "jsHeapTotalMB": 18.97,
+        "layoutCount": 21,
+        "recalcStyleCount": 677,
+        "scriptDurationMs": 2964,
+        "taskDurationMs": 12331,
+        "canvasesCount": 0,
+        "videosCount": 0
+      },
+      "network": {
+        "totalRequests": 19,
+        "cachedRequests": 1,
+        "totalTransferKB": 2876.4,
+        "jsTransferKB": 1740.9,
+        "cssTransferKB": 69.4,
+        "imgTransferKB": 864.1,
+        "mediaTransferKB": 0,
+        "fontTransferKB": 193.1,
+        "apiRequestsCount": 2,
+        "slowApis": [],
+        "oversizedAssets": [
+          {
+            "url": "https://eventhub.id.vn/assets/index-D-9AJsct.js",
+            "type": "Script",
+            "transferKB": 1630.2,
+            "durationMs": 1804
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/eventhub-logo-CMhyLCnU.png",
+            "type": "Image",
+            "transferKB": 241,
+            "durationMs": 792
+          },
+          {
+            "url": "https://eventhub.id.vn/images/starry-bg.png",
+            "type": "Image",
+            "transferKB": 577.2,
+            "durationMs": 1123
+          }
+        ]
+      },
+      "slaViolations": [
+        "LCP_POOR (6172ms > 4000ms)",
+        "FCP_POOR (4848ms > 3000ms)",
+        "CLS_POOR (0.4598 > 0.25)",
+        "TBT_POOR (3070ms > 600ms)"
+      ]
+    },
+    {
+      "envId": "ENV-02",
+      "envName": "Mobile Mid-Tier (Fast 4G, 4x CPU)",
+      "role": "GUEST",
+      "route": "/login",
+      "routeName": "Login Page 3D BG (Mobile 4G)",
+      "disableCache": true,
+      "redirectedToLogin": false,
+      "navError": null,
+      "wallClockMs": 16875,
+      "vitals": {
+        "ttfbMs": 150,
+        "fcpMs": 4776,
+        "lcpMs": 4776,
+        "lcpElement": "h1.font-display.text-3xl.font-extrabold",
+        "cls": 0.0182,
+        "tbtMs": 2535,
+        "longTasksCount": 4,
+        "maxLongTaskMs": 2070,
+        "dclMs": 4143,
+        "loadMs": 4144
+      },
+      "runtime": {
+        "fps": 93,
+        "maxFrameGapMs": 28,
+        "droppedFrames": 0,
+        "domNodes": 539,
+        "jsHeapUsedMB": 12.01,
+        "jsHeapTotalMB": 15.72,
+        "layoutCount": 10,
+        "recalcStyleCount": 883,
+        "scriptDurationMs": 2620,
+        "taskDurationMs": 14210,
+        "canvasesCount": 0,
+        "videosCount": 0
+      },
+      "network": {
+        "totalRequests": 18,
+        "cachedRequests": 1,
+        "totalTransferKB": 2827.1,
+        "jsTransferKB": 1744,
+        "cssTransferKB": 69.8,
+        "imgTransferKB": 818.2,
+        "mediaTransferKB": 0,
+        "fontTransferKB": 193.1,
+        "apiRequestsCount": 1,
+        "slowApis": [],
+        "oversizedAssets": [
+          {
+            "url": "https://eventhub.id.vn/assets/index-D-9AJsct.js",
+            "type": "Script",
+            "transferKB": 1630.1,
+            "durationMs": 1727
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/eventhub-logo-CMhyLCnU.png",
+            "type": "Image",
+            "transferKB": 241,
+            "durationMs": 850
+          },
+          {
+            "url": "https://eventhub.id.vn/images/starry-bg.png",
+            "type": "Image",
+            "transferKB": 577.2,
+            "durationMs": 1171
+          }
+        ]
+      },
+      "slaViolations": [
+        "LCP_POOR (4776ms > 4000ms)",
+        "FCP_POOR (4776ms > 3000ms)",
+        "TBT_POOR (2535ms > 600ms)"
+      ]
+    },
+    {
+      "envId": "ENV-02",
+      "envName": "Mobile Mid-Tier (Fast 4G, 4x CPU)",
+      "role": "CUSTOMER",
+      "route": "/booking/seats?eventId=ngoi-nha-khong-co-an-ong-mukod5va",
+      "routeName": "Booking Seats (Mobile 4G)",
+      "disableCache": true,
+      "redirectedToLogin": false,
+      "navError": "Navigation timeout of 35000 ms exceeded",
+      "wallClockMs": 37628,
+      "vitals": {
+        "ttfbMs": 151,
+        "fcpMs": 4512,
+        "lcpMs": 9280,
+        "lcpElement": "video.absolute.inset-0.h-full",
+        "cls": 0.3515,
+        "tbtMs": 3117,
+        "longTasksCount": 14,
+        "maxLongTaskMs": 1917,
+        "dclMs": 3961,
+        "loadMs": 3962
+      },
+      "runtime": {
+        "fps": 60,
+        "maxFrameGapMs": 28,
+        "droppedFrames": 0,
+        "domNodes": 2505,
+        "jsHeapUsedMB": 16.16,
+        "jsHeapTotalMB": 20.22,
+        "layoutCount": 72,
+        "recalcStyleCount": 1633,
+        "scriptDurationMs": 6449,
+        "taskDurationMs": 32860,
+        "canvasesCount": 0,
+        "videosCount": 2
+      },
+      "network": {
+        "totalRequests": 59,
+        "cachedRequests": 10,
+        "totalTransferKB": 5441.6,
+        "jsTransferKB": 1740.8,
+        "cssTransferKB": 69.4,
+        "imgTransferKB": 3309.9,
+        "mediaTransferKB": 22.3,
+        "fontTransferKB": 249.3,
+        "apiRequestsCount": 10,
+        "slowApis": [
+          {
+            "url": "https://api.eventhub.id.vn/api/ai-assistant/sessions",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 776
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/users/me",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 829
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/notifications?limit=5",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 948
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/events?limit=8&sort_by=start_time&sort_order=asc&upcoming_only=true",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 847
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/events/categories",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 838
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/events?limit=24&sort_by=start_time&sort_order=asc&upcoming_only=true",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 1054
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/events?limit=10&sort_by=start_time&sort_order=asc&upcoming_only=true",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 932
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/events?limit=20&sort_by=start_time&sort_order=desc",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 1090
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/events?limit=24&sort_by=start_time&sort_order=asc&upcoming_only=true",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 1087
+          }
+        ],
+        "oversizedAssets": [
+          {
+            "url": "https://eventhub.id.vn/assets/index-D-9AJsct.js",
+            "type": "Script",
+            "transferKB": 1630.1,
+            "durationMs": 1713
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/eventhub-logo-CMhyLCnU.png",
+            "type": "Image",
+            "transferKB": 241,
+            "durationMs": 834
+          },
+          {
+            "url": "https://eventhub.id.vn/images/starry-bg.png",
+            "type": "Image",
+            "transferKB": 577.2,
+            "durationMs": 1146
+          },
+          {
+            "url": "...4n9.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/130837c4-0244-4f37-9c61-8d801d93fd29.jpg",
+            "type": "Image",
+            "transferKB": 555.9,
+            "durationMs": 3719
+          },
+          {
+            "url": "...y.com/dookztwec/image/upload/v1790166012/eventhub/events/thumbnails/d7to9vycgrktpgc0leme.png",
+            "type": "Image",
+            "transferKB": 212.7,
+            "durationMs": 1782
+          },
+          {
+            "url": "...y.com/dookztwec/image/upload/v1794532612/eventhub/events/thumbnails/h4sakduqjmqgwseuarwh.jpg",
+            "type": "Image",
+            "transferKB": 231.3,
+            "durationMs": 1839
+          },
+          {
+            "url": "...nary.com/dookztwec/image/upload/v1784620117/eventhub/events/banners/ztfvlvdesrhecd3p2zd7.jpg",
+            "type": "Image",
+            "transferKB": 547.4,
+            "durationMs": 2702
+          }
+        ]
+      },
+      "slaViolations": [
+        "LCP_POOR (9280ms > 4000ms)",
+        "FCP_POOR (4512ms > 3000ms)",
+        "CLS_POOR (0.3515 > 0.25)",
+        "TBT_POOR (3117ms > 600ms)"
+      ]
+    },
+    {
+      "envId": "ENV-02",
+      "envName": "Mobile Mid-Tier (Fast 4G, 4x CPU)",
+      "role": "ORGANIZER",
+      "route": "/organizer",
+      "routeName": "Organizer Dashboard (Mobile 4G)",
+      "disableCache": true,
+      "redirectedToLogin": false,
+      "navError": null,
+      "wallClockMs": 18711,
+      "vitals": {
+        "ttfbMs": 150,
+        "fcpMs": 4656,
+        "lcpMs": 5664,
+        "lcpElement": "p.text-sm.font-semibold.text-slate-300",
+        "cls": 0.0007,
+        "tbtMs": 4062,
+        "longTasksCount": 12,
+        "maxLongTaskMs": 1950,
+        "dclMs": 3973,
+        "loadMs": 3976
+      },
+      "runtime": {
+        "fps": 139,
+        "maxFrameGapMs": 14,
+        "droppedFrames": 0,
+        "domNodes": 1002,
+        "jsHeapUsedMB": 22.41,
+        "jsHeapTotalMB": 29.97,
+        "layoutCount": 74,
+        "recalcStyleCount": 1491,
+        "scriptDurationMs": 8214,
+        "taskDurationMs": 15860,
+        "canvasesCount": 2,
+        "videosCount": 0
+      },
+      "network": {
+        "totalRequests": 36,
+        "cachedRequests": 6,
+        "totalTransferKB": 4998.8,
+        "jsTransferKB": 1740.9,
+        "cssTransferKB": 69.4,
+        "imgTransferKB": 2981.6,
+        "mediaTransferKB": 0,
+        "fontTransferKB": 193,
+        "apiRequestsCount": 7,
+        "slowApis": [
+          {
+            "url": "https://api.eventhub.id.vn/api/organizer/events/me",
+            "method": "GET",
+            "status": 403,
+            "durationMs": 552
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/organizer/subscriptions/current-plan",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 565
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/users/me",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 588
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/notifications?limit=5",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 632
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/organizer/events",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 657
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/organizer/orders/revenue?dateFrom=2026-10-19T17:00:00.000Z&dateTo=2026-11-18T16:59:59.999Z",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 1144
+          }
+        ],
+        "oversizedAssets": [
+          {
+            "url": "https://eventhub.id.vn/assets/index-D-9AJsct.js",
+            "type": "Script",
+            "transferKB": 1630.2,
+            "durationMs": 1701
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/eventhub-logo-CMhyLCnU.png",
+            "type": "Image",
+            "transferKB": 241,
+            "durationMs": 1307
+          },
+          {
+            "url": "https://eventhub.id.vn/space-stars-bg.png",
+            "type": "Image",
+            "transferKB": 411,
+            "durationMs": 2044
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_peach_moon.png",
+            "type": "Image",
+            "transferKB": 320.3,
+            "durationMs": 2061
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_pink_moon.png",
+            "type": "Image",
+            "transferKB": 309.1,
+            "durationMs": 2027
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/golden-clouds-bg-BTI-xK4y.png",
+            "type": "Image",
+            "transferKB": 664.9,
+            "durationMs": 3064
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_blue_giant.png",
+            "type": "Image",
+            "transferKB": 425.8,
+            "durationMs": 2328
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_purple_swirl.png",
+            "type": "Image",
+            "transferKB": 433.1,
+            "durationMs": 2342
+          }
+        ]
+      },
+      "slaViolations": [
+        "LCP_POOR (5664ms > 4000ms)",
+        "FCP_POOR (4656ms > 3000ms)",
+        "TBT_POOR (4062ms > 600ms)"
+      ]
+    },
+    {
+      "envId": "ENV-03",
+      "envName": "Venue Congested Network (Slow 4G/3G, 6x CPU)",
+      "role": "CUSTOMER",
+      "route": "/my-tickets",
+      "routeName": "Customer My Tickets at Gate",
+      "disableCache": true,
+      "redirectedToLogin": false,
+      "navError": "Navigation timeout of 35000 ms exceeded",
+      "wallClockMs": 37613,
+      "vitals": {
+        "ttfbMs": 300,
+        "fcpMs": 14112,
+        "lcpMs": 17144,
+        "lcpElement": "img.h-full.w-full.object-cover",
+        "cls": 0.0093,
+        "tbtMs": 5111,
+        "longTasksCount": 11,
+        "maxLongTaskMs": 3306,
+        "dclMs": 12659,
+        "loadMs": 12662
+      },
+      "runtime": {
+        "fps": 74,
+        "maxFrameGapMs": 42,
+        "droppedFrames": 1,
+        "domNodes": 683,
+        "jsHeapUsedMB": 12.98,
+        "jsHeapTotalMB": 15.97,
+        "layoutCount": 12,
+        "recalcStyleCount": 1572,
+        "scriptDurationMs": 5115,
+        "taskDurationMs": 27986,
+        "canvasesCount": 0,
+        "videosCount": 0
+      },
+      "network": {
+        "totalRequests": 24,
+        "cachedRequests": 3,
+        "totalTransferKB": 2909,
+        "jsTransferKB": 1740.8,
+        "cssTransferKB": 69.4,
+        "imgTransferKB": 898.3,
+        "mediaTransferKB": 0,
+        "fontTransferKB": 193,
+        "apiRequestsCount": 4,
+        "slowApis": [
+          {
+            "url": "https://api.eventhub.id.vn/api/tickets/me",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 537
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/notifications?limit=5",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 514
+          }
+        ],
+        "oversizedAssets": [
+          {
+            "url": "https://eventhub.id.vn/assets/index-D-9AJsct.js",
+            "type": "Script",
+            "transferKB": 1630.1,
+            "durationMs": 8828
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/eventhub-logo-CMhyLCnU.png",
+            "type": "Image",
+            "transferKB": 241,
+            "durationMs": 4584
+          },
+          {
+            "url": "https://eventhub.id.vn/images/starry-bg.png",
+            "type": "Image",
+            "transferKB": 577.2,
+            "durationMs": 6234
+          }
+        ]
+      },
+      "slaViolations": [
+        "LCP_POOR (17144ms > 4000ms)",
+        "FCP_POOR (14112ms > 3000ms)",
+        "TBT_POOR (5111ms > 600ms)"
+      ]
+    },
+    {
+      "envId": "ENV-03",
+      "envName": "Venue Congested Network (Slow 4G/3G, 6x CPU)",
+      "role": "STAFF",
+      "route": "/staff/qr-check-in",
+      "routeName": "Staff QR Check-In Scanner at Gate",
+      "disableCache": true,
+      "redirectedToLogin": false,
+      "navError": "Navigation timeout of 35000 ms exceeded",
+      "wallClockMs": 37567,
+      "vitals": {
+        "ttfbMs": 300,
+        "fcpMs": 13660,
+        "lcpMs": 15512,
+        "lcpElement": "span.font-bold.text-content",
+        "cls": 0.1651,
+        "tbtMs": 5574,
+        "longTasksCount": 15,
+        "maxLongTaskMs": 3197,
+        "dclMs": 12492,
+        "loadMs": 12495
+      },
+      "runtime": {
+        "fps": 128,
+        "maxFrameGapMs": 14,
+        "droppedFrames": 0,
+        "domNodes": 548,
+        "jsHeapUsedMB": 13.98,
+        "jsHeapTotalMB": 15.47,
+        "layoutCount": 10,
+        "recalcStyleCount": 13,
+        "scriptDurationMs": 15213,
+        "taskDurationMs": 26517,
+        "canvasesCount": 2,
+        "videosCount": 1
+      },
+      "network": {
+        "totalRequests": 26,
+        "cachedRequests": 2,
+        "totalTransferKB": 4965.4,
+        "jsTransferKB": 1740.9,
+        "cssTransferKB": 69.4,
+        "imgTransferKB": 2981.6,
+        "mediaTransferKB": 0,
+        "fontTransferKB": 169,
+        "apiRequestsCount": 3,
+        "slowApis": [
+          {
+            "url": "https://api.eventhub.id.vn/api/notifications?limit=5",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 904
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/operations/staff/events",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 941
+          }
+        ],
+        "oversizedAssets": [
+          {
+            "url": "https://eventhub.id.vn/assets/index-D-9AJsct.js",
+            "type": "Script",
+            "transferKB": 1630.1,
+            "durationMs": 8773
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/eventhub-logo-CMhyLCnU.png",
+            "type": "Image",
+            "transferKB": 241,
+            "durationMs": 9916
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_pink_moon.png",
+            "type": "Image",
+            "transferKB": 309.1,
+            "durationMs": 12010
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_peach_moon.png",
+            "type": "Image",
+            "transferKB": 320.3,
+            "durationMs": 12294
+          },
+          {
+            "url": "https://eventhub.id.vn/space-stars-bg.png",
+            "type": "Image",
+            "transferKB": 411,
+            "durationMs": 14214
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_blue_giant.png",
+            "type": "Image",
+            "transferKB": 425.8,
+            "durationMs": 13976
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_purple_swirl.png",
+            "type": "Image",
+            "transferKB": 433.1,
+            "durationMs": 14065
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/golden-clouds-bg-BTI-xK4y.png",
+            "type": "Image",
+            "transferKB": 664.9,
+            "durationMs": 16275
+          }
+        ]
+      },
+      "slaViolations": [
+        "LCP_POOR (15512ms > 4000ms)",
+        "FCP_POOR (13660ms > 3000ms)",
+        "CLS_WARN (0.1651 > 0.10)",
+        "TBT_POOR (5574ms > 600ms)"
+      ]
+    },
+    {
+      "envId": "ENV-03",
+      "envName": "Venue Congested Network (Slow 4G/3G, 6x CPU)",
+      "role": "STAFF",
+      "route": "/staff/manual-check-in",
+      "routeName": "Staff Manual Check-In at Gate",
+      "disableCache": true,
+      "redirectedToLogin": false,
+      "navError": "Navigation timeout of 35000 ms exceeded",
+      "wallClockMs": 37576,
+      "vitals": {
+        "ttfbMs": 300,
+        "fcpMs": 13396,
+        "lcpMs": 13396,
+        "lcpElement": "",
+        "cls": 0,
+        "tbtMs": 4818,
+        "longTasksCount": 14,
+        "maxLongTaskMs": 3126,
+        "dclMs": 12416,
+        "loadMs": 12418
+      },
+      "runtime": {
+        "fps": 130,
+        "maxFrameGapMs": 21,
+        "droppedFrames": 0,
+        "domNodes": 401,
+        "jsHeapUsedMB": 13.91,
+        "jsHeapTotalMB": 15.22,
+        "layoutCount": 13,
+        "recalcStyleCount": 22,
+        "scriptDurationMs": 15625,
+        "taskDurationMs": 26604,
+        "canvasesCount": 2,
+        "videosCount": 0
+      },
+      "network": {
+        "totalRequests": 27,
+        "cachedRequests": 2,
+        "totalTransferKB": 4973.2,
+        "jsTransferKB": 1740.8,
+        "cssTransferKB": 69.4,
+        "imgTransferKB": 2981.6,
+        "mediaTransferKB": 0,
+        "fontTransferKB": 176.9,
+        "apiRequestsCount": 3,
+        "slowApis": [
+          {
+            "url": "https://api.eventhub.id.vn/api/operations/staff/events",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 786
+          },
+          {
+            "url": "https://api.eventhub.id.vn/api/notifications?limit=5",
+            "method": "GET",
+            "status": 200,
+            "durationMs": 763
+          }
+        ],
+        "oversizedAssets": [
+          {
+            "url": "https://eventhub.id.vn/assets/index-D-9AJsct.js",
+            "type": "Script",
+            "transferKB": 1630.1,
+            "durationMs": 8792
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/eventhub-logo-CMhyLCnU.png",
+            "type": "Image",
+            "transferKB": 241,
+            "durationMs": 10091
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_pink_moon.png",
+            "type": "Image",
+            "transferKB": 309.1,
+            "durationMs": 12119
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_peach_moon.png",
+            "type": "Image",
+            "transferKB": 320.2,
+            "durationMs": 12421
+          },
+          {
+            "url": "https://eventhub.id.vn/space-stars-bg.png",
+            "type": "Image",
+            "transferKB": 411,
+            "durationMs": 14301
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_blue_giant.png",
+            "type": "Image",
+            "transferKB": 425.8,
+            "durationMs": 14128
+          },
+          {
+            "url": "https://eventhub.id.vn/planets/texture_purple_swirl.png",
+            "type": "Image",
+            "transferKB": 433.1,
+            "durationMs": 14204
+          },
+          {
+            "url": "https://eventhub.id.vn/assets/golden-clouds-bg-BTI-xK4y.png",
+            "type": "Image",
+            "transferKB": 664.9,
+            "durationMs": 16303
+          }
+        ]
+      },
+      "slaViolations": [
+        "LCP_POOR (13396ms > 4000ms)",
+        "FCP_POOR (13396ms > 3000ms)",
+        "TBT_POOR (4818ms > 600ms)"
+      ]
+    }
+  ],
+  "memoryLeakReport": {
+    "testId": "PERF-MEM-01",
+    "totalNavigations": 15,
+    "before": {
+      "heapUsedMB": 14.84,
+      "nodes": 2506,
+      "jsEventListeners": 452
+    },
+    "after": {
+      "step": 15,
+      "route": "/",
+      "heapUsedMB": 17.26,
+      "nodes": 5513,
+      "jsEventListeners": 741
+    },
+    "heapGrowthMB": 2.42,
+    "nodeDelta": 3007,
+    "listenerDelta": 289,
+    "samples": [
+      {
+        "step": 0,
+        "route": "/",
+        "heapUsedMB": 14.84,
+        "nodes": 2506,
+        "jsEventListeners": 452
+      },
+      {
+        "step": 5,
+        "route": "/",
+        "heapUsedMB": 16.45,
+        "nodes": 3509,
+        "jsEventListeners": 541
+      },
+      {
+        "step": 10,
+        "route": "/",
+        "heapUsedMB": 17.06,
+        "nodes": 4511,
+        "jsEventListeners": 629
+      },
+      {
+        "step": 15,
+        "route": "/",
+        "heapUsedMB": 17.26,
+        "nodes": 5513,
+        "jsEventListeners": 741
+      }
+    ],
+    "passed": true
+  },
+  "interactionReport": {
+    "foundInput": true,
+    "keystrokesTested": 19,
+    "avgInputPaintMs": 11.4,
+    "p95InputPaintMs": 20.5,
+    "maxInputPaintMs": 20.5,
+    "passed": true
+  }
+}

@@ -24,12 +24,12 @@ import {
   WalletCards,
   Wifi,
 } from 'lucide-react'
-import payosLoginScreenshot from '@/assets/payos-login.png'
-import payosVerifyScreenshot from '@/assets/payos-verify.png'
-import payosBankScreenshot from '@/assets/payos-bank.png'
-import payosChannelListScreenshot from '@/assets/payos-channel-list.png'
-import payosCreateChannelScreenshot from '@/assets/payos-create-channel.png'
-import payosKeysScreenshot from '@/assets/payos-keys.png'
+import payosLoginScreenshot from '@/assets/payos-login.webp'
+import payosVerifyScreenshot from '@/assets/payos-verify.webp'
+import payosBankScreenshot from '@/assets/payos-bank.webp'
+import payosChannelListScreenshot from '@/assets/payos-channel-list.webp'
+import payosCreateChannelScreenshot from '@/assets/payos-create-channel.webp'
+import payosKeysScreenshot from '@/assets/payos-keys.webp'
 import { http as api } from '@/services/http.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'

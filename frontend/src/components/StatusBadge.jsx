@@ -207,6 +207,7 @@ export const Badge = memo(function Badge({
   tone = 'blue',
   className = '',
   dot = false,
+  ...props
 }) {
   const toneClasses = BADGE_TONES[tone] || BADGE_TONES.gray
   const activeLocale =
@@ -218,6 +219,7 @@ export const Badge = memo(function Badge({
   return (
     <span
       className={`inline-flex items-center justify-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-black tracking-wider uppercase whitespace-nowrap shadow-sm backdrop-blur-sm ${toneClasses} ${className}`}
+      {...props}
     >
       {dot && <span className="size-1.5 rounded-full bg-current opacity-90" />}
       {displayChildren}
@@ -235,6 +237,7 @@ export const StatusBadge = memo(function StatusBadge({
   tone,
   className = '',
   dot = false,
+  ...props
 }) {
   const config = resolveStatusConfig(status, label)
   const finalTone = tone || config.tone
@@ -246,7 +249,7 @@ export const StatusBadge = memo(function StatusBadge({
   const displayLabel = typeof finalLabel === 'string' ? translatePhrase(finalLabel, activeLocale) : finalLabel
 
   return (
-    <Badge tone={finalTone} className={className} dot={dot}>
+    <Badge tone={finalTone} className={className} dot={dot} {...props}>
       {displayLabel}
     </Badge>
   )

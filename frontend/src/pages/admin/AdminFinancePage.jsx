@@ -27,7 +27,7 @@ import { Badge, Page, Panel, StatusBadge, Table, TableActionButton } from './Adm
 
 const getAutoLocale = () =>
   ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
-   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
+    (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
     ? 'en-US'
     : 'vi-VN'
 
@@ -392,11 +392,10 @@ function PaginationControls({ page, pageSize, total, label, onPageChange }) {
               key={item}
               type="button"
               onClick={() => onPageChange(item)}
-              className={`grid size-9 place-items-center rounded-xl border text-xs font-extrabold transition cursor-pointer ${
-                item === page
-                  ? 'border-[#E6C17A]/40 bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] font-black shadow-md shadow-[#C99A47]/30'
-                  : 'border-border-soft/40 bg-panel-soft text-subtle hover:border-[#C99A47]/60 hover:text-[#E6C17A]'
-              }`}
+              className={`grid size-9 place-items-center rounded-xl border text-xs font-extrabold transition cursor-pointer ${item === page
+                ? 'border-[#E6C17A]/40 bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] font-black shadow-md shadow-[#C99A47]/30'
+                : 'border-border-soft/40 bg-panel-soft text-subtle hover:border-[#C99A47]/60 hover:text-[#E6C17A]'
+                }`}
               aria-current={item === page ? 'page' : undefined}
             >
               {item}

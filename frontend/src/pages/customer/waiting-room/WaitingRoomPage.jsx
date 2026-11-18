@@ -15,7 +15,7 @@ import { waitingRoomService } from '@/services/waitingRoom'
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
 import { CosmicStarryBackground } from '@/components/CosmicStarryBackground'
-import logoSrc from '@/assets/eventhub-logo.png'
+import logoSrc from '@/assets/eventhub-logo.webp'
 
 export function WaitingRoomPage() {
   const { eventId } = useParams()

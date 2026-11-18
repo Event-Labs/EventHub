@@ -148,7 +148,7 @@ export function CosmicStarryBackground() {
       {/* Authentic Starry Sky Texture from user reference image */}
       <div
         className="absolute inset-0 bg-cover bg-center mix-blend-screen opacity-35 sm:opacity-45"
-        style={{ backgroundImage: "url('/images/starry-bg.png')" }}
+        style={{ backgroundImage: "url('/images/starry-bg.webp')" }}
       />
 
       {/* Fine glittering stardust layers */}

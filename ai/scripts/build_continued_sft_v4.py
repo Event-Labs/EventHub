@@ -33,15 +33,31 @@ OUT_DIR = os.path.join(AI_DIR, "datasets", "sft_continued_v4")
 
 CHECKIN_RE = re.compile(
     r"(?:check[\s\-]?in(?:\s*and\s*welcome)?|registration\s*opens|gates?\s*open|doors?\s*open|đón\s*khách|mở\s*cửa|doors?\s*at)"
-    r"\s*[:：]?\s*(?:từ\s*|from\s*|at\s*|lúc\s*|khoảng\s*)?(\d{1,2}[:h]\d{2})",
+    r"[ \t]*[:：\-–—]?[ \t]*(?:từ[ \t]*|from[ \t]*|at[ \t]*|lúc[ \t]*|khoảng[ \t]*)?(\d{1,2}[:h]\d{2})",
     re.I,
 )
 OP_HOURS_RE = re.compile(
-    r"(?:operating|opening|festival)\s*hours\s*[:：]?\s*(\d{1,2}[:h]\d{2})\s*[–\-]\s*(\d{1,2}[:h]\d{2})",
+    r"(?:operating|opening|public|daily\s*opening|festival)\s*hours\s*[:：]?\s*(\d{1,2}[:h]\d{2})\s*[–\-]\s*(\d{1,2}[:h]\d{2})",
+    re.I,
+)
+MAIN_PROG_RE = re.compile(
+    r"main\s*program\s*[:：]?\s*\n?\s*(\d{1,2}[:h]\d{2})\s*[–\-]\s*(\d{1,2}[:h]\d{2})",
+    re.I,
+)
+ENV_OPENING_RE = re.compile(
+    r"(?:event\s*opening|festival\s*opening|doors?\s*open|gates?\s*open|opening)\s*[:：]\s*\n?\s*(\d{1,2}[:h]\d{2})\b",
+    re.I,
+)
+ENV_CLOSING_RE = re.compile(
+    r"(?:venue\s*closes|festival\s*closing|closing)\s*[:：]?\s*\n?\s*(\d{1,2}[:h]\d{2})\b",
+    re.I,
+)
+EXPLICIT_MULTI_SESSION_RE = re.compile(
+    r"(?:mã\s*phiên|số\s*phiên\s*chính\s*thức|số\s*hoạt\s*động\s*chính\s*thức|hồ\s*sơ\s*hoạt\s*động|hoạt\s*động\s*\d+|(?<![a-z])phiên\s*\d+|session\s*\d+|chapter\s*(?:one|two|three|four|five|\d+)|per\s+(?:session|workshop)\b|các\s+phiên\s+(?:từ\s+s\d+|sau)|phiên\s+chuyên\s+đề|cự\s*ly\s*3\s*km)",
     re.I,
 )
 CHECKIN_ITEM_NAME_RE = re.compile(
-    r"^(?:registration(?:\s+and\s+welcome)?|check[\s\-]?in(?:\s+and\s+welcome)?|doors?\s*open|gates?\s*open|đón\s*khách|mở\s*cửa(?:\s*đón\s*khách)?)$",
+    r"^(?:registration(?:\s+and\s+welcome|\s*&\s*breakfast|\s*&\s*networking)?|guest\s*(?:registration|arrival)|visitor\s*entry|team\s*check[\-\s]?in|check[\s\-]?in(?:\s+(?:và|and)\s+(?:networking|welcome))?|đón\s*tiếp[^\n]{0,40}|đăng\s*ký|doors?\s*open|gates?\s*open|đón\s*khách|mở\s*cửa(?:\s*đón\s*khách)?)$",
     re.I,
 )
 
@@ -56,29 +72,84 @@ def norm_time(val):
 
 
 def collapse_start_only_agenda_sessions(sessions, input_text: str):
-    if not isinstance(sessions, list) or len(sessions) < 2:
+    if not isinstance(sessions, list) or len(sessions) == 0:
         return sessions, False
 
-    no_end_count = sum(1 for s in sessions if not s.get("end_time"))
-    if no_end_count < math.ceil(len(sessions) * 0.6):
-        return sessions, False
-
-    ci_match = CHECKIN_RE.search(input_text or "")
+    doc_str = (input_text or "").replace("\r\n", "\n").replace("\r", "\n")
+    ci_match = CHECKIN_RE.search(doc_str)
     global_checkin = norm_time(ci_match.group(1)) if ci_match else None
 
-    op_match = OP_HOURS_RE.search(input_text or "")
-    op_start = norm_time(op_match.group(1)) if op_match else None
-    op_end = norm_time(op_match.group(2)) if op_match else None
+    op_match = OP_HOURS_RE.search(doc_str)
+    main_prog_match = MAIN_PROG_RE.search(doc_str)
+    env_open_match = ENV_OPENING_RE.search(doc_str)
+    env_close_match = ENV_CLOSING_RE.search(doc_str)
+
+    op_start = norm_time(op_match.group(1)) if op_match else (norm_time(main_prog_match.group(1)) if main_prog_match else None)
+    op_end = norm_time(op_match.group(2)) if op_match else (
+        norm_time(main_prog_match.group(2)) if main_prog_match else (norm_time(env_close_match.group(1)) if env_close_match else None)
+    )
 
     by_date = OrderedDict()
     for s in sessions:
         d = (s.get("start_date") or "").strip() or "__NO_DATE__"
         by_date.setdefault(d, []).append(s)
 
-    date_entries = list(by_date.items())
+    date_entries = sorted(
+        by_date.items(),
+        key=lambda kv: ("9999-99-99" if kv[0] == "__NO_DATE__" else kv[0]),
+    )
+
+    def is_two_distinct_shifts(items):
+        if len(items) != 2:
+            return False
+        c0 = norm_time(items[0].get("checkin_start_time"))
+        c1 = norm_time(items[1].get("checkin_start_time"))
+        s0 = norm_time(items[0].get("start_time"))
+        e0 = norm_time(items[0].get("end_time"))
+        s1 = norm_time(items[1].get("start_time"))
+        e1 = norm_time(items[1].get("end_time"))
+        return bool(c0 and c1 and c0 != c1 and s0 and e0 and s1 and e1 and s1 >= e0)
+
+    will_collapse_any = any(len(items) >= 2 and not is_two_distinct_shifts(items) for _, items in date_entries)
+    any_date_has_explicit_checkin = any(
+        any(norm_time(x.get("checkin_start_time")) for x in items)
+        for _, items in date_entries
+    )
+    is_checkin_day1_only = bool(
+        re.search(
+            r"(?:giờ|thời\s*gian)?\s*(?:check-?in|mở\s*cổng|mở\s*quầy|đón\s*khách)[^.\n]{0,80}(?:ngày\s*thứ\s*hai|ngày\s*2|second\s*day)[^.\n]{0,60}(?:chưa|không|not)",
+            doc_str,
+            re.I,
+        )
+        or re.search(
+            r"(?:check-?in|đón\s*khách|mở\s*cửa\s*check-?in)[^.\n]{0,40}\d{1,2}[:h]\d{2}\s*(?:sáng\s*)?(?:ngày|on)\s*(?:đầu\s*tiên|thứ\s*nhất|first\s*day|\d{1,2}[/\.-]\d{1,2})",
+            doc_str,
+            re.I,
+        )
+    )
+
     collapsed = []
+    any_collapsed = False
 
     for idx, (date_key, items) in enumerate(date_entries):
+        if len(items) < 2:
+            if will_collapse_any and len(date_entries) > 1 and len(items) == 1:
+                single = dict(items[0])
+                if not re.match(r"^(?:ngày|day)\s*\d+", (single.get("session_name") or "").strip(), re.I):
+                    single["session_name"] = f"Ngày {idx + 1}"
+                if not single.get("end_time") and op_end:
+                    single["end_time"] = op_end
+                collapsed.append(single)
+                any_collapsed = True
+            else:
+                collapsed.extend(items)
+            continue
+
+        if is_two_distinct_shifts(items):
+            collapsed.extend(items)
+            continue
+
+        any_collapsed = True
         iso_date = None if date_key == "__NO_DATE__" else date_key
         checkin = next((norm_time(x.get("checkin_start_time")) for x in items if x.get("checkin_start_time")), None)
         prog_items = items
@@ -89,22 +160,28 @@ def collapse_start_only_agenda_sessions(sessions, input_text: str):
                 checkin = first_st
             prog_items = items[1:]
 
-        if not checkin and global_checkin:
+        if not checkin and env_open_match:
+            checkin = norm_time(env_open_match.group(1))
+        if not checkin and global_checkin and not any_date_has_explicit_checkin and (idx == 0 or not is_checkin_day1_only):
             checkin = global_checkin
 
-        start_times = [norm_time(x.get("start_time")) for x in prog_items if norm_time(x.get("start_time"))]
-        end_times = [
+        start_times = sorted(norm_time(x.get("start_time")) for x in prog_items if norm_time(x.get("start_time")))
+        end_times = sorted(
             norm_time(x.get("end_time") or x.get("start_time"))
             for x in prog_items
             if norm_time(x.get("end_time") or x.get("start_time"))
-        ]
+        )
 
         start_time = start_times[0] if start_times else op_start
+        if main_prog_match:
+            mp_start = norm_time(main_prog_match.group(1))
+            if mp_start and (not start_time or mp_start <= start_time):
+                start_time = mp_start
         end_time = end_times[-1] if end_times else op_end
         if op_end and (not end_time or op_end > end_time):
             end_time = op_end
-        if start_time and checkin and checkin > start_time and op_start and op_start <= start_time:
-            checkin = op_start
+        if start_time and checkin and checkin > start_time:
+            checkin = op_start if (op_start and op_start <= start_time) else None
 
         existing_day_name = next(
             (
@@ -127,7 +204,7 @@ def collapse_start_only_agenda_sessions(sessions, input_text: str):
             }
         )
 
-    return collapsed, True
+    return (collapsed, True) if any_collapsed else (sessions, False)
 
 
 def norm_title_key(t: str) -> str:

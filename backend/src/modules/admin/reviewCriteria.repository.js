@@ -38,6 +38,20 @@ Hành vi nghiêm cấm (Treo đầu dê bán thịt chó & Lạc đề):
 4. Lưu ý: Sự kiện quy mô nhỏ, meetup nội bộ không bắt buộc nộp giấy phép. Nhưng nếu đã nộp tệp thì tệp đó BẮT BUỘC phải hợp lệ, nghiêm cấm nộp tệp linh tinh.`,
   },
   {
+    code: 'DOCUMENT_LEGAL_VALIDITY',
+    title: 'Giá trị pháp lý của tài liệu đính kèm & Cấm bản mẫu, bản nháp, bản thử nghiệm',
+    category: 'LEGAL',
+    severity: 'CRITICAL',
+    order_index: 17,
+    rule_content: `Yêu cầu về hiệu lực và giá trị pháp lý của tài liệu đính kèm:
+1. Tiêu chuẩn tài liệu có giá trị pháp lý: Mọi tài liệu, giấy phép tổ chức, công văn chấp thuận, hợp đồng địa điểm hoặc hồ sơ pháp nhân đính kèm BẮT BUỘC phải là văn bản chính thức, đã hoàn thiện và có đầy đủ hiệu lực pháp lý thực tế (có số văn bản/ký hiệu, ngày ban hành, thông tin đầy đủ của đơn vị ban hành & đơn vị tổ chức, có chữ ký người có thẩm quyền và/hoặc con dấu hợp lệ, không bị để trống thông tin cốt lõi).
+2. Hành vi nghiêm cấm (Bản mẫu / Bản nháp / Bản thử nghiệm):
+- NGHIÊM CẤM tải lên biểu mẫu trống, tài liệu mẫu có sẵn trên mạng (template/sample), tài liệu còn chứa các trường điền khuyết như "...", "___", "[Tên sự kiện]", "[Ngày/Tháng/Năm]", "[Ký tên]", "Lorem ipsum", "ABC/XYZ".
+- NGHIÊM CẤM nộp bản thảo, bản nháp (DRAFT), bản xem trước, bản đóng dấu chìm/watermark như "MẪU", "MẪU THAM KHẢO", "SAMPLE", "DRAFT", "DEMO", "TEST", "BẢN THỬ NGHIỆM", "KHÔNG CÓ GIÁ TRỊ PHÁP LÝ", "KHÔNG PHẢI VĂN BẢN DO CƠ QUAN NHÀ NƯỚC BAN HÀNH", "CHỈ DÙNG ĐỂ THAM KHẢO".
+- NGHIÊM CẤM văn bản chưa được phê duyệt, chưa ký/chưa đóng dấu (đối với văn bản hành chính/hợp đồng bắt buộc có xác nhận), văn bản giả lập để test hệ thống hoặc tài liệu đã hết hiệu lực.
+3. Quy tắc xử lý vi phạm: Nếu phát hiện bất kỳ tài liệu đính kèm nào là bản mẫu, bản nháp, bản thử nghiệm, chứa watermark SAMPLE/DRAFT/TEST/MẪU, còn chỗ trống chưa điền hoặc không có giá trị pháp lý thực tế -> BẮT BUỘC xếp vào "critical_violations" (DOCUMENT_LEGAL_VALIDITY), đánh dấu trạng thái tài liệu trong "document_review" là "VIOLATION" và BẮT BUỘC RA QUYẾT ĐỊNH REJECT.`,
+  },
+  {
     code: 'EVENT_REALISM_FEASIBILITY',
     title: 'Tính khả thi thực tế & Chống nội dung rác / Thử nghiệm (Anti-Spam / Anti-Test)',
     category: 'GENERAL',
