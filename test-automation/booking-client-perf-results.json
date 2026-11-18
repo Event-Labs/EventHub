@@ -1,0 +1,631 @@
+{
+  "executedAt": "2026-11-18T05:54:47.361Z",
+  "frontendBaseUrl": "http://localhost:5173",
+  "apiBaseUrl": "http://localhost:3000/api",
+  "event": {
+    "eventId": "1fa5ca41-e7fd-49f0-93bf-aadd60bdcfa8",
+    "title": "NGÔI NHÀ KHÔNG CÓ ĐÀN ÔNG",
+    "slug": "ngoi-nha-khong-co-an-ong-mukod5va",
+    "sessionId": "170452ee-3193-4c23-b4e3-06c636128a24",
+    "salesStatus": "ON_SALE",
+    "requireAttendeeInfo": true,
+    "hasAdditionalTerms": false,
+    "seatingRules": {
+      "require_same_row": false,
+      "max_tickets_per_order": 10,
+      "require_adjacent_seats": false,
+      "disallow_single_seat_left": false
+    },
+    "availableSeatsCount": 353
+  },
+  "tiers": [
+    {
+      "tierUsers": 500,
+      "waveDurationMs": 54812,
+      "totalHttpRequests": 2117,
+      "throughputRps": 38.62,
+      "virtualClientsThroughputPerSec": 9.12,
+      "e2eBookingLatencyMs": {
+        "count": 500,
+        "min": 19623.89,
+        "avg": 23055.04,
+        "p50": 19966.88,
+        "p90": 29606,
+        "p95": 40590.31,
+        "p99": 52582.59,
+        "max": 54809.23
+      },
+      "steps": {
+        "step1_eventDetail": {
+          "ok": 500,
+          "fail": 0,
+          "latencyMs": {
+            "count": 500,
+            "min": 147.19,
+            "avg": 2392.41,
+            "p50": 2352.1,
+            "p90": 4274.31,
+            "p95": 4991.72,
+            "p99": 5297.87,
+            "max": 5373.88
+          }
+        },
+        "step2_waitingRoom": {
+          "ok": 500,
+          "fail": 0,
+          "admitted": 100,
+          "queued": 400,
+          "pollOk": 400,
+          "pollFail": 0,
+          "latencyMs": {
+            "count": 500,
+            "min": 876.73,
+            "avg": 3717.23,
+            "p50": 3664.1,
+            "p90": 5823.7,
+            "p95": 6001.55,
+            "p99": 6110.7,
+            "max": 6115.07
+          },
+          "pollLatencyMs": {
+            "count": 400,
+            "min": 991.96,
+            "avg": 6896.66,
+            "p50": 6972.2,
+            "p90": 9291.87,
+            "p95": 9564.43,
+            "p99": 9803.9,
+            "max": 9869.79
+          }
+        },
+        "step3_seatMap": {
+          "ok": 367,
+          "fail": 133,
+          "latencyMs": {
+            "count": 500,
+            "min": 4170.73,
+            "avg": 7287.71,
+            "p50": 7719.38,
+            "p90": 8457.93,
+            "p95": 9816.49,
+            "p99": 11474.25,
+            "max": 12819.7
+          }
+        },
+        "step4_availabilityCheck": {
+          "ok": 100,
+          "fail": 0,
+          "availableTrue": 100,
+          "availableFalse": 0,
+          "latencyMs": {
+            "count": 100,
+            "min": 7856.78,
+            "avg": 8011.6,
+            "p50": 7933.7,
+            "p90": 7984.49,
+            "p95": 7992.74,
+            "p99": 12260.85,
+            "max": 12260.85
+          }
+        },
+        "step5_holdSeats": {
+          "heldSuccess": 51,
+          "seatContentionRejected": 2,
+          "waitingRoomBlocked": 0,
+          "serverErrors": 47,
+          "latencyMs": {
+            "count": 100,
+            "min": 2441.88,
+            "avg": 9473.6,
+            "p50": 6741.86,
+            "p90": 18210.12,
+            "p95": 19869.49,
+            "p99": 21125.72,
+            "max": 21125.72
+          }
+        },
+        "step6_checkout": {
+          "attempted": 17,
+          "orderCreated": 15,
+          "businessOrPayosRejected": 0,
+          "serverErrors": 2,
+          "latencyMs": {
+            "count": 17,
+            "min": 5004.85,
+            "avg": 18828.73,
+            "p50": 20758.75,
+            "p90": 23268.09,
+            "p95": 24249.77,
+            "p99": 24249.77,
+            "max": 24249.77
+          }
+        }
+      },
+      "databaseIntegrity": {
+        "duplicateSeatLocksCount": 0,
+        "heldSeatsAfterWave": 51,
+        "availableSeatsAfterWave": 302,
+        "soldSeatsAfterWave": 7,
+        "redisActiveBuyers": 100,
+        "redisQueuedWaiters": 385,
+        "waitingRoomCapacityOk": true,
+        "oversold": false
+      },
+      "realBrowserClientPerf": {
+        "concurrentUsersLoad": 500,
+        "eventPageWallMs": 1654,
+        "bookingPageWallMs": 10246,
+        "ttfbMs": 7,
+        "fcpMs": 1020,
+        "lcpMs": 1716,
+        "cls": 0.3423,
+        "tbtMs": 447,
+        "longTasksCount": 9,
+        "fps": 82,
+        "droppedFrames": 0,
+        "avgInteractionInpMs": 29.3,
+        "maxInteractionInpMs": 46.8,
+        "domNodes": 3239,
+        "jsHeapUsedMB": 55.32,
+        "scriptDurationMs": 1618,
+        "taskDurationMs": 6901
+      }
+    },
+    {
+      "tierUsers": 1000,
+      "waveDurationMs": 39927,
+      "totalHttpRequests": 3000,
+      "throughputRps": 75.14,
+      "virtualClientsThroughputPerSec": 25.05,
+      "e2eBookingLatencyMs": {
+        "count": 1000,
+        "min": 4843.55,
+        "avg": 10644,
+        "p50": 9794.42,
+        "p90": 13949.32,
+        "p95": 13998.89,
+        "p99": 20936.64,
+        "max": 30144.85
+      },
+      "steps": {
+        "step1_eventDetail": {
+          "ok": 1000,
+          "fail": 0,
+          "latencyMs": {
+            "count": 1000,
+            "min": 238.24,
+            "avg": 3067.72,
+            "p50": 3175.67,
+            "p90": 4597.74,
+            "p95": 4768.77,
+            "p99": 5536.23,
+            "max": 6000.29
+          }
+        },
+        "step2_waitingRoom": {
+          "ok": 0,
+          "fail": 1000,
+          "admitted": 0,
+          "queued": 0,
+          "pollOk": 0,
+          "pollFail": 0,
+          "latencyMs": {
+            "count": 1000,
+            "min": 53.14,
+            "avg": 994.76,
+            "p50": 913.13,
+            "p90": 1764.54,
+            "p95": 1839.62,
+            "p99": 1889.34,
+            "max": 1910.96
+          },
+          "pollLatencyMs": {
+            "count": 0,
+            "min": 0,
+            "avg": 0,
+            "p50": 0,
+            "p90": 0,
+            "p95": 0,
+            "p99": 0,
+            "max": 0
+          }
+        },
+        "step3_seatMap": {
+          "ok": 445,
+          "fail": 555,
+          "latencyMs": {
+            "count": 1000,
+            "min": 3394.91,
+            "avg": 6581.06,
+            "p50": 5494.61,
+            "p90": 8520.91,
+            "p95": 8541.66,
+            "p99": 15800.06,
+            "max": 25011.95
+          }
+        },
+        "step4_availabilityCheck": {
+          "ok": 0,
+          "fail": 0,
+          "availableTrue": 0,
+          "availableFalse": 0,
+          "latencyMs": {
+            "count": 0,
+            "min": 0,
+            "avg": 0,
+            "p50": 0,
+            "p90": 0,
+            "p95": 0,
+            "p99": 0,
+            "max": 0
+          }
+        },
+        "step5_holdSeats": {
+          "heldSuccess": 0,
+          "seatContentionRejected": 0,
+          "waitingRoomBlocked": 0,
+          "serverErrors": 0,
+          "latencyMs": {
+            "count": 0,
+            "min": 0,
+            "avg": 0,
+            "p50": 0,
+            "p90": 0,
+            "p95": 0,
+            "p99": 0,
+            "max": 0
+          }
+        },
+        "step6_checkout": {
+          "attempted": 0,
+          "orderCreated": 0,
+          "businessOrPayosRejected": 0,
+          "serverErrors": 0,
+          "latencyMs": {
+            "count": 0,
+            "min": 0,
+            "avg": 0,
+            "p50": 0,
+            "p90": 0,
+            "p95": 0,
+            "p99": 0,
+            "max": 0
+          }
+        }
+      },
+      "databaseIntegrity": {
+        "duplicateSeatLocksCount": 0,
+        "heldSeatsAfterWave": 0,
+        "availableSeatsAfterWave": 353,
+        "soldSeatsAfterWave": 7,
+        "redisActiveBuyers": 2,
+        "redisQueuedWaiters": 0,
+        "waitingRoomCapacityOk": true,
+        "oversold": false
+      },
+      "realBrowserClientPerf": {
+        "concurrentUsersLoad": 1000,
+        "eventPageWallMs": 1908,
+        "bookingPageWallMs": 15520,
+        "ttfbMs": 4,
+        "fcpMs": 996,
+        "lcpMs": 1524,
+        "cls": 0.3149,
+        "tbtMs": 252,
+        "longTasksCount": 8,
+        "fps": 140,
+        "droppedFrames": 0,
+        "avgInteractionInpMs": 9.92,
+        "maxInteractionInpMs": 16.7,
+        "domNodes": 3117,
+        "jsHeapUsedMB": 52.29,
+        "scriptDurationMs": 1124,
+        "taskDurationMs": 6111
+      }
+    },
+    {
+      "tierUsers": 2000,
+      "waveDurationMs": 102343,
+      "totalHttpRequests": 8101,
+      "throughputRps": 79.16,
+      "virtualClientsThroughputPerSec": 19.54,
+      "e2eBookingLatencyMs": {
+        "count": 2000,
+        "min": 1115.98,
+        "avg": 24714.41,
+        "p50": 23764.1,
+        "p90": 40106.41,
+        "p95": 41776.14,
+        "p99": 42149.4,
+        "max": 50389.57
+      },
+      "steps": {
+        "step1_eventDetail": {
+          "ok": 1987,
+          "fail": 13,
+          "latencyMs": {
+            "count": 2000,
+            "min": 42.52,
+            "avg": 4082.75,
+            "p50": 2977.12,
+            "p90": 9079.52,
+            "p95": 13545.94,
+            "p99": 15292.18,
+            "max": 15558.41
+          }
+        },
+        "step2_waitingRoom": {
+          "ok": 2000,
+          "fail": 0,
+          "admitted": 100,
+          "queued": 1900,
+          "pollOk": 1875,
+          "pollFail": 25,
+          "latencyMs": {
+            "count": 2000,
+            "min": 150.96,
+            "avg": 6445.14,
+            "p50": 4850.58,
+            "p90": 13764.22,
+            "p95": 15387.35,
+            "p99": 20596.85,
+            "max": 23748.75
+          },
+          "pollLatencyMs": {
+            "count": 1900,
+            "min": 222.15,
+            "avg": 8743.77,
+            "p50": 5782.14,
+            "p90": 23624.19,
+            "p95": 24675.92,
+            "p99": 25001.25,
+            "max": 25014.01
+          }
+        },
+        "step3_seatMap": {
+          "ok": 1481,
+          "fail": 519,
+          "latencyMs": {
+            "count": 2000,
+            "min": 128.19,
+            "avg": 4980.03,
+            "p50": 4740.84,
+            "p90": 7280.59,
+            "p95": 10238.64,
+            "p99": 13291.58,
+            "max": 19338.07
+          }
+        },
+        "step4_availabilityCheck": {
+          "ok": 100,
+          "fail": 0,
+          "availableTrue": 100,
+          "availableFalse": 0,
+          "latencyMs": {
+            "count": 100,
+            "min": 6100.68,
+            "avg": 6263.62,
+            "p50": 6207.31,
+            "p90": 6295.47,
+            "p95": 6323,
+            "p99": 9300.1,
+            "max": 9300.1
+          }
+        },
+        "step5_holdSeats": {
+          "heldSuccess": 2,
+          "seatContentionRejected": 0,
+          "waitingRoomBlocked": 0,
+          "serverErrors": 98,
+          "latencyMs": {
+            "count": 100,
+            "min": 11360.05,
+            "avg": 11639.64,
+            "p50": 11495.75,
+            "p90": 11670.15,
+            "p95": 11698.59,
+            "p99": 18864.1,
+            "max": 18864.1
+          }
+        },
+        "step6_checkout": {
+          "attempted": 1,
+          "orderCreated": 1,
+          "businessOrPayosRejected": 0,
+          "serverErrors": 0,
+          "latencyMs": {
+            "count": 1,
+            "min": 5752.13,
+            "avg": 5752.13,
+            "p50": 5752.13,
+            "p90": 5752.13,
+            "p95": 5752.13,
+            "p99": 5752.13,
+            "max": 5752.13
+          }
+        }
+      },
+      "databaseIntegrity": {
+        "duplicateSeatLocksCount": 0,
+        "heldSeatsAfterWave": 2,
+        "availableSeatsAfterWave": 351,
+        "soldSeatsAfterWave": 7,
+        "redisActiveBuyers": 100,
+        "redisQueuedWaiters": 1899,
+        "waitingRoomCapacityOk": true,
+        "oversold": false
+      },
+      "realBrowserClientPerf": {
+        "concurrentUsersLoad": 2000,
+        "eventPageWallMs": 2060,
+        "bookingPageWallMs": 16794,
+        "ttfbMs": 8,
+        "fcpMs": 1288,
+        "lcpMs": 1564,
+        "cls": 0.3145,
+        "tbtMs": 336,
+        "longTasksCount": 8,
+        "fps": 78,
+        "droppedFrames": 0,
+        "avgInteractionInpMs": 29.04,
+        "maxInteractionInpMs": 58.1,
+        "domNodes": 3122,
+        "jsHeapUsedMB": 48.27,
+        "scriptDurationMs": 1262,
+        "taskDurationMs": 7708
+      }
+    },
+    {
+      "tierUsers": 5000,
+      "waveDurationMs": 215758,
+      "totalHttpRequests": 20112,
+      "throughputRps": 93.22,
+      "virtualClientsThroughputPerSec": 23.17,
+      "e2eBookingLatencyMs": {
+        "count": 5000,
+        "min": 1938.24,
+        "avg": 21146.7,
+        "p50": 18566.84,
+        "p90": 32357.34,
+        "p95": 40449.51,
+        "p99": 47515.61,
+        "max": 56222.08
+      },
+      "steps": {
+        "step1_eventDetail": {
+          "ok": 4951,
+          "fail": 49,
+          "latencyMs": {
+            "count": 5000,
+            "min": 51.96,
+            "avg": 3886.83,
+            "p50": 2498.99,
+            "p90": 9723.35,
+            "p95": 13366.37,
+            "p99": 16416.56,
+            "max": 16640.24
+          }
+        },
+        "step2_waitingRoom": {
+          "ok": 5000,
+          "fail": 0,
+          "admitted": 100,
+          "queued": 4900,
+          "pollOk": 4900,
+          "pollFail": 0,
+          "latencyMs": {
+            "count": 5000,
+            "min": 145.52,
+            "avg": 4175.86,
+            "p50": 2783.52,
+            "p90": 9631.64,
+            "p95": 16967.04,
+            "p99": 17292.28,
+            "max": 17658.36
+          },
+          "pollLatencyMs": {
+            "count": 4900,
+            "min": 222.4,
+            "avg": 6505.42,
+            "p50": 5059.66,
+            "p90": 14032.71,
+            "p95": 17049.96,
+            "p99": 20494.53,
+            "max": 21511.33
+          }
+        },
+        "step3_seatMap": {
+          "ok": 4313,
+          "fail": 687,
+          "latencyMs": {
+            "count": 5000,
+            "min": 86.52,
+            "avg": 6351.9,
+            "p50": 6165.47,
+            "p90": 13060.02,
+            "p95": 15460.7,
+            "p99": 17907.04,
+            "max": 19328.25
+          }
+        },
+        "step4_availabilityCheck": {
+          "ok": 100,
+          "fail": 0,
+          "availableTrue": 100,
+          "availableFalse": 0,
+          "latencyMs": {
+            "count": 100,
+            "min": 3679.97,
+            "avg": 4032.8,
+            "p50": 4078.47,
+            "p90": 4173.59,
+            "p95": 4226.18,
+            "p99": 4261.71,
+            "max": 4261.71
+          }
+        },
+        "step5_holdSeats": {
+          "heldSuccess": 32,
+          "seatContentionRejected": 1,
+          "waitingRoomBlocked": 0,
+          "serverErrors": 67,
+          "latencyMs": {
+            "count": 100,
+            "min": 6253.94,
+            "avg": 11125.83,
+            "p50": 7866.96,
+            "p90": 21754.12,
+            "p95": 25004.78,
+            "p99": 25010.8,
+            "max": 25010.8
+          }
+        },
+        "step6_checkout": {
+          "attempted": 12,
+          "orderCreated": 5,
+          "businessOrPayosRejected": 0,
+          "serverErrors": 7,
+          "latencyMs": {
+            "count": 12,
+            "min": 5010.44,
+            "avg": 21571.72,
+            "p50": 25002.55,
+            "p90": 25012.85,
+            "p95": 25013.49,
+            "p99": 25013.49,
+            "max": 25013.49
+          }
+        }
+      },
+      "databaseIntegrity": {
+        "duplicateSeatLocksCount": 0,
+        "heldSeatsAfterWave": 38,
+        "availableSeatsAfterWave": 315,
+        "soldSeatsAfterWave": 7,
+        "redisActiveBuyers": 100,
+        "redisQueuedWaiters": 4889,
+        "waitingRoomCapacityOk": true,
+        "oversold": false
+      },
+      "realBrowserClientPerf": {
+        "concurrentUsersLoad": 5000,
+        "eventPageWallMs": 1602,
+        "bookingPageWallMs": 10903,
+        "ttfbMs": 8,
+        "fcpMs": 872,
+        "lcpMs": 1476,
+        "cls": 0.3423,
+        "tbtMs": 310,
+        "longTasksCount": 9,
+        "fps": 94,
+        "droppedFrames": 0,
+        "avgInteractionInpMs": 10.9,
+        "maxInteractionInpMs": 20.3,
+        "domNodes": 3245,
+        "jsHeapUsedMB": 48.99,
+        "scriptDurationMs": 1205,
+        "taskDurationMs": 6424
+      }
+    }
+  ]
+}

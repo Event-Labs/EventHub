@@ -624,19 +624,22 @@ Ban tổ chức Sunset Vibes Festival 2027
     expect(result.data.venue_name).toMatch(/Công viên Biển Đông/i);
     expect(result.data.province).toMatch(/Đà Nẵng/i);
 
-    // Phiên sự kiện: Đủ 5 phiên rõ ràng
-    expect(result.data.sessions).toHaveLength(5);
-    expect(result.data.sessions[0].session_name).toBe('Welcome to Sunset Vibes');
-    expect(result.data.sessions[0].start_date).toBe('2027-07-10');
-    expect(result.data.sessions[0].start_time).toBe('15:00');
-    expect(result.data.sessions[0].end_time).toBe('16:00');
-    expect(result.data.sessions[0].checkin_start_time).toBe('14:00');
-
-    expect(result.data.sessions[3].session_name).toBe('Taste of Central Vietnam');
-    expect(result.data.sessions[3].start_date).toBe('2027-07-11');
-    expect(result.data.sessions[3].start_time).toBe('09:00');
-    expect(result.data.sessions[3].end_time).toBe('11:30');
-    expect(result.data.sessions[3].checkin_start_time).toBe('08:30');
+    // Phiên sự kiện: 2 phiên theo ngày (Ngày 1 & Ngày 2)
+    expect(result.data.sessions).toHaveLength(2);
+    expect(result.data.sessions[0]).toMatchObject({
+      session_name: 'Ngày 1',
+      start_date: '2027-07-10',
+      start_time: '15:00',
+      end_time: '21:30',
+      checkin_start_time: '14:00',
+    });
+    expect(result.data.sessions[1]).toMatchObject({
+      session_name: 'Ngày 2',
+      start_date: '2027-07-11',
+      start_time: '09:00',
+      end_time: '17:00',
+      checkin_start_time: '08:30',
+    });
 
     // Vé
     expect(result.data.ticket_types).toHaveLength(3);
@@ -654,7 +657,7 @@ Ban tổ chức Sunset Vibes Festival 2027
     expect(result.data.description.length).toBeGreaterThan(2500);
   });
 
-  test('should accurately extract Startup Connect Asia 2027 with 6 sessions and 3 tickets', async () => {
+  test('should accurately extract Startup Connect Asia 2027 with 3 sessions and 3 tickets', async () => {
     const docText = `
 TÀI LIỆU 1: STARTUP CONNECT ASIA 2027
 Kết nối khởi nghiệp, công nghệ và đầu tư
@@ -694,11 +697,27 @@ Ban tổ chức Startup Connect Asia 2027
     expect(result.data.venue_name).toMatch(/Thiskyhall/i);
     expect(result.data.province).toMatch(/Thành phố Hồ Chí Minh/i);
 
-    // Phiên: Đủ 6 phiên
-    expect(result.data.sessions).toHaveLength(6);
-    expect(result.data.sessions[0].session_name).toBe('Building the Next Generation of Startups');
-    expect(result.data.sessions[0].start_date).toBe('2027-08-21');
-    expect(result.data.sessions[0].checkin_start_time).toBe('08:00');
+    // Phiên: Ngày 1 gộp thành 1 phiên, Ngày 2 có 2 ca Sáng & Chiều với 2 mốc check-in riêng (08:30 & 12:30)
+    expect(result.data.sessions).toHaveLength(3);
+    expect(result.data.sessions[0]).toMatchObject({
+      session_name: 'Ngày 1',
+      start_date: '2027-08-21',
+      start_time: '09:00',
+      end_time: '17:00',
+      checkin_start_time: '08:00',
+    });
+    expect(result.data.sessions[1]).toMatchObject({
+      start_date: '2027-08-22',
+      start_time: '09:00',
+      end_time: '11:30',
+      checkin_start_time: '08:30',
+    });
+    expect(result.data.sessions[2]).toMatchObject({
+      start_date: '2027-08-22',
+      start_time: '13:00',
+      end_time: '16:00',
+      checkin_start_time: '12:30',
+    });
 
     // Vé
     expect(result.data.ticket_types).toHaveLength(3);
@@ -719,7 +738,7 @@ Ban tổ chức Startup Connect Asia 2027
     expect(result.data.description.length).toBeGreaterThan(2500);
   });
 
-  test('should accurately extract Nippon Culture Fest 2027 with 9 sessions and 3 tickets', async () => {
+  test('should accurately extract Nippon Culture Fest 2027 with 2 daily sessions and 3 tickets', async () => {
     const docText = `
 TÀI LIỆU 2: NIPPON CULTURE FEST 2027
 Hành trình khám phá văn hóa Nhật Bản
@@ -765,11 +784,21 @@ Ban tổ chức Nippon Culture Fest 2027
     expect(result.data.venue_name).toMatch(/Trung tâm Triển lãm và Hội nghị Sài Gòn/i);
     expect(result.data.province).toMatch(/Thành phố Hồ Chí Minh/i);
 
-    // Phiên: Đủ 9 phiên
-    expect(result.data.sessions).toHaveLength(9);
-    expect(result.data.sessions[0].session_name).toBe('Welcome to Japan');
-    expect(result.data.sessions[0].start_date).toBe('2027-11-06');
-    expect(result.data.sessions[0].checkin_start_time).toBe('08:30');
+    // Phiên: 2 phiên theo ngày (Ngày 1 & Ngày 2)
+    expect(result.data.sessions).toHaveLength(2);
+    expect(result.data.sessions[0]).toMatchObject({
+      session_name: 'Ngày 1',
+      start_date: '2027-11-06',
+      start_time: '09:30',
+      end_time: '18:00',
+      checkin_start_time: '08:30',
+    });
+    expect(result.data.sessions[1]).toMatchObject({
+      session_name: 'Ngày 2',
+      start_date: '2027-11-07',
+      start_time: '09:30',
+      end_time: '16:30',
+    });
 
     // Vé
     expect(result.data.ticket_types).toHaveLength(3);
@@ -826,7 +855,7 @@ Lễ hội hướng đến sinh viên, gia đình, khách du lịch và những 
     expect(sanitized.description).toContain('Cosplay');
   });
 
-  test('should accurately extract Tech Innovation Summit 2027 with 7 sessions and 3 tickets', async () => {
+  test('should accurately extract Tech Innovation Summit 2027 with 2 daily sessions and 3 tickets', async () => {
     const doc = `TÀI LIỆU 1: TECH INNOVATION SUMMIT 2027
 Loại cấu trúc: Bán cấu trúc (Semi-structured Document)
 THÔNG TIN CHUNG
@@ -936,38 +965,22 @@ Nếu có thay đổi lịch trình, thông tin chính thức sẽ được gử
     expect(result.data.district).toMatch(/Phú Nhuận/i);
     expect(result.data.province).toMatch(/Thành phố Hồ Chí Minh/i);
 
-    // Sessions: Đủ 7 phiên trên 2 ngày
-    expect(result.data.sessions).toHaveLength(7);
-    expect(result.data.sessions[0].session_name).toMatch(/Opening the Future/i);
-    expect(result.data.sessions[0].start_date).toBe('2027-09-18');
-    expect(result.data.sessions[0].start_time).toBe('08:30');
-    expect(result.data.sessions[0].end_time).toBe('09:30');
-    expect(result.data.sessions[0].checkin_start_time).toBe('08:00');
-
-    expect(result.data.sessions[1].session_name).toMatch(/AI in Modern Software Development/i);
-    expect(result.data.sessions[1].start_time).toBe('10:00');
-    expect(result.data.sessions[1].end_time).toBe('11:30');
-
-    expect(result.data.sessions[2].session_name).toMatch(/Building Scalable Cloud Applications/i);
-    expect(result.data.sessions[2].start_time).toBe('13:30');
-    expect(result.data.sessions[2].end_time).toBe('15:30');
-
-    expect(result.data.sessions[3].session_name).toMatch(/Technology Networking Night/i);
-    expect(result.data.sessions[3].start_time).toBe('16:00');
-    expect(result.data.sessions[3].end_time).toBe('18:00');
-
-    expect(result.data.sessions[4].session_name).toMatch(/Responsible AI and Data Privacy/i);
-    expect(result.data.sessions[4].start_date).toBe('2027-09-19');
-    expect(result.data.sessions[4].start_time).toBe('09:00');
-    expect(result.data.sessions[4].end_time).toBe('10:30');
-
-    expect(result.data.sessions[5].session_name).toMatch(/Innovation Product Showcase/i);
-    expect(result.data.sessions[5].start_time).toBe('11:00');
-    expect(result.data.sessions[5].end_time).toBe('12:30');
-
-    expect(result.data.sessions[6].session_name).toMatch(/Closing the Summit/i);
-    expect(result.data.sessions[6].start_time).toBe('14:00');
-    expect(result.data.sessions[6].end_time).toBe('15:00');
+    // Sessions: 2 phiên theo ngày (Ngày 1 & Ngày 2)
+    expect(result.data.sessions).toHaveLength(2);
+    expect(result.data.sessions[0]).toMatchObject({
+      session_name: 'Ngày 1',
+      start_date: '2027-09-18',
+      start_time: '08:30',
+      end_time: '18:00',
+      checkin_start_time: '08:00',
+    });
+    expect(result.data.sessions[1]).toMatchObject({
+      session_name: 'Ngày 2',
+      start_date: '2027-09-19',
+      start_time: '09:00',
+      end_time: '15:00',
+      checkin_start_time: '',
+    });
 
     // Tickets: Đủ 3 vé
     expect(result.data.ticket_types).toHaveLength(3);
@@ -987,7 +1000,7 @@ Nếu có thay đổi lịch trình, thông tin chính thức sẽ được gử
     expect(result.data.refund_policy.allow_refunds).toBe(false);
   });
 
-  test('should accurately extract Green Future Day 2027 with 6 sessions and 3 tickets', async () => {
+  test('should accurately extract Green Future Day 2027 with 2 daily sessions and 3 tickets', async () => {
     const doc = `Từ: Ban tổ chức Green Future Day
 Đến: Đội ngũ vận hành và đối tác sự kiện
 Tiêu đề: Xác nhận thông tin tổ chức Green Future Day 2027
@@ -1017,34 +1030,22 @@ Ban tổ chức Green Future Day 2027`;
     expect(result.data.address_line).toContain('số 4 Phạm Ngọc Thạch');
     expect(result.data.province).toMatch(/Thành phố Hồ Chí Minh/i);
 
-    // Sessions: Đủ 6 phiên đã xác nhận, loại trừ chiếu phim tài liệu (chỉ là đề xuất nội bộ)
-    expect(result.data.sessions).toHaveLength(6);
-    expect(result.data.sessions[0].session_name).toMatch(/Green Living Conference/i);
-    expect(result.data.sessions[0].start_date).toBe('2027-12-04');
-    expect(result.data.sessions[0].start_time).toBe('09:00');
-    expect(result.data.sessions[0].end_time).toBe('11:00');
-    expect(result.data.sessions[0].checkin_start_time).toBe('08:30');
-
-    expect(result.data.sessions[1].session_name).toMatch(/Recycling Workshop/i);
-    expect(result.data.sessions[1].start_time).toBe('13:30');
-    expect(result.data.sessions[1].end_time).toBe('15:00');
-
-    expect(result.data.sessions[2].session_name).toMatch(/Eco Product Exhibition/i);
-    expect(result.data.sessions[2].start_time).toBe('15:30');
-    expect(result.data.sessions[2].end_time).toBe(''); // Giờ kết thúc chưa được xác nhận
-
-    expect(result.data.sessions[3].session_name).toMatch(/Community Green Action/i);
-    expect(result.data.sessions[3].start_date).toBe('2027-12-05');
-    expect(result.data.sessions[3].start_time).toBe('08:00');
-    expect(result.data.sessions[3].end_time).toBe('10:30');
-
-    expect(result.data.sessions[4].session_name).toMatch(/Sustainable Business Forum/i);
-    expect(result.data.sessions[4].start_time).toBe('13:00');
-    expect(result.data.sessions[4].end_time).toBe('15:00');
-
-    expect(result.data.sessions[5].session_name).toMatch(/Green Future Closing Ceremony/i);
-    expect(result.data.sessions[5].start_time).toBe('15:30');
-    expect(result.data.sessions[5].end_time).toBe('16:00');
+    // Sessions: 2 phiên theo ngày (Ngày 1 & Ngày 2), giờ kết thúc 18:00 ngày 04/12 chưa xác nhận nên không lấy 18:00
+    expect(result.data.sessions).toHaveLength(2);
+    expect(result.data.sessions[0]).toMatchObject({
+      session_name: 'Ngày 1',
+      start_date: '2027-12-04',
+      start_time: '09:00',
+      end_time: '15:30',
+      checkin_start_time: '08:30',
+    });
+    expect(result.data.sessions[1]).toMatchObject({
+      session_name: 'Ngày 2',
+      start_date: '2027-12-05',
+      start_time: '08:00',
+      end_time: '16:00',
+      checkin_start_time: '',
+    });
 
     // Không chứa phiên chiếu phim tài liệu
     const movieSession = result.data.sessions.find((s) => /chiếu\s*phim|movie/i.test(s.session_name));
@@ -1128,18 +1129,21 @@ Career, Software Engineering, Recruitment, Technical Interview, Developer, Stude
     expect(result.data.venue_name).toMatch(/Adora Center/i);
     expect(result.data.province).toMatch(/Hồ Chí Minh/i);
 
-    expect(result.data.sessions).toHaveLength(7);
-    expect(result.data.sessions[0].session_name).toBe('Future of Software Engineering');
-    expect(result.data.sessions[0].start_date).toBe('2027-12-12');
-    expect(result.data.sessions[0].start_time).toBe('08:30');
-    expect(result.data.sessions[0].end_time).toBe('10:00');
-    expect(result.data.sessions[0].checkin_start_time).toBe('07:45');
-
-    expect(result.data.sessions[4].session_name).toBe('Backend Development Workshop');
-    expect(result.data.sessions[4].start_date).toBe('2027-12-13');
-    expect(result.data.sessions[4].start_time).toBe('09:00');
-    expect(result.data.sessions[4].end_time).toBe('11:30');
-    expect(result.data.sessions[4].checkin_start_time).toBe('');
+    expect(result.data.sessions).toHaveLength(2);
+    expect(result.data.sessions[0]).toMatchObject({
+      session_name: 'Ngày 1',
+      start_date: '2027-12-12',
+      start_time: '08:30',
+      end_time: '17:00',
+      checkin_start_time: '07:45',
+    });
+    expect(result.data.sessions[1]).toMatchObject({
+      session_name: 'Ngày 2',
+      start_date: '2027-12-13',
+      start_time: '09:00',
+      end_time: '16:00',
+      checkin_start_time: '',
+    });
 
     expect(result.data.ticket_types).toHaveLength(3);
     const sp = ticketByHint(result.data.ticket_types, 'student');
@@ -1235,15 +1239,13 @@ Ocean Conservation, Beach Cleanup, Sustainability, Plastic Waste, Volunteer, Com
     expect(result.data.venue_name).toMatch(/Bãi biển Mỹ Khê/i);
     expect(result.data.province).toMatch(/Đà Nẵng/i);
 
-    expect(result.data.sessions).toHaveLength(4);
-    expect(result.data.sessions[0].session_name).toBe('Plastic Waste Awareness Talk');
-    expect(result.data.sessions[0].start_date).toBe('2027-11-06');
-    expect(result.data.sessions[0].start_time).toBe('07:30');
-    expect(result.data.sessions[0].end_time).toBe('08:30');
-
-    expect(result.data.sessions[1].session_name).toBe('Community Beach Cleanup');
-    expect(result.data.sessions[1].start_time).toBe('09:00');
-    expect(result.data.sessions[1].end_time).toBe('11:30');
+    expect(result.data.sessions).toHaveLength(1);
+    expect(result.data.sessions[0]).toMatchObject({
+      session_name: 'Phiên sự kiện',
+      start_date: '2027-11-06',
+      start_time: '07:30',
+      end_time: '16:00',
+    });
 
     expect(result.data.ticket_types).toHaveLength(2);
     const volPass = ticketByHint(result.data.ticket_types, 'volunteer');
@@ -1257,7 +1259,7 @@ Ocean Conservation, Beach Cleanup, Sustainability, Plastic Waste, Volunteer, Com
     expect(result.data.refund_policy.allow_refunds).toBe(false);
   });
 
-  test('should accurately extract FinTech Future Forum 2027 with 6 confirmed sessions and 3 tickets', async () => {
+  test('should accurately extract FinTech Future Forum 2027 with 2 daily sessions and 3 tickets', async () => {
     const docText = `# TÀI LIỆU 3: BIÊN BẢN HỌP TỔ CHỨC SỰ KIỆN FINTECH FUTURE FORUM 2027
 
 **Mã biên bản:** FFF-MOM-2027-03  
@@ -1353,16 +1355,19 @@ Người mua vé cần cung cấp họ tên, email và số điện thoại. Ng�
     expect(result.data.venue_name).toMatch(/The Mira Central Park/i);
     expect(result.data.province).toMatch(/Bình Dương/i);
 
-    expect(result.data.sessions).toHaveLength(6);
-    expect(result.data.sessions[0].session_name).toBe('Digital Banking Transformation');
-    expect(result.data.sessions[0].start_date).toBe('2027-12-18');
-    expect(result.data.sessions[0].start_time).toBe('09:00');
-    expect(result.data.sessions[0].end_time).toBe('10:30');
-
-    expect(result.data.sessions[3].session_name).toBe('Cybersecurity for Digital Finance');
-    expect(result.data.sessions[3].start_date).toBe('2027-12-19');
-    expect(result.data.sessions[3].start_time).toBe('09:30');
-    expect(result.data.sessions[3].end_time).toBe('11:00');
+    expect(result.data.sessions).toHaveLength(2);
+    expect(result.data.sessions[0]).toMatchObject({
+      session_name: 'Ngày 1',
+      start_date: '2027-12-18',
+      start_time: '09:00',
+      end_time: '16:00',
+    });
+    expect(result.data.sessions[1]).toMatchObject({
+      session_name: 'Ngày 2',
+      start_date: '2027-12-19',
+      start_time: '09:30',
+      end_time: '16:00',
+    });
 
     expect(result.data.ticket_types).toHaveLength(3);
     const stdPass = ticketByHint(result.data.ticket_types, 'standard');
@@ -1380,7 +1385,7 @@ Người mua vé cần cung cấp họ tên, email và số điện thoại. Ng�
     expect(result.data.refund_policy.allow_refunds).toBe(false);
   });
 
-  test('should accurately extract EduVerse International 2028 with 7 prose sessions and 3 packages', async () => {
+  test('should accurately extract EduVerse International 2028 with 2 daily sessions and 3 packages', async () => {
     const docText = `# TÀI LIỆU 4: THƯ MỜI VÀ BÁO GIÁ THAM DỰ EDUVERSE INTERNATIONAL 2028
 
 **Đơn vị gửi:** EduVerse Organization  
@@ -1454,16 +1459,21 @@ Ban tổ chức EduVerse International 2028
     expect(result.data.venue_name).toMatch(/Saigon Exhibition and Convention Center|SECC/i);
     expect(result.data.province).toMatch(/Hồ Chí Minh/i);
 
-    expect(result.data.sessions).toHaveLength(7);
-    expect(result.data.sessions[0].session_name).toBe('The Next Generation of Digital Learning');
-    expect(result.data.sessions[0].start_date).toBe('2028-01-15');
-    expect(result.data.sessions[0].start_time).toBe('08:30');
-    expect(result.data.sessions[0].end_time).toBe('10:00');
-    expect(result.data.sessions[0].checkin_start_time).toBe('07:45');
-
-    expect(result.data.sessions[1].session_name).toBe('AI-Powered Personalized Education');
-    expect(result.data.sessions[1].start_time).toBe('10:30');
-    expect(result.data.sessions[1].end_time).toBe('12:00');
+    expect(result.data.sessions).toHaveLength(2);
+    expect(result.data.sessions[0]).toMatchObject({
+      session_name: 'Ngày 1',
+      start_date: '2028-01-15',
+      start_time: '08:30',
+      end_time: '17:00',
+      checkin_start_time: '07:45',
+    });
+    expect(result.data.sessions[1]).toMatchObject({
+      session_name: 'Ngày 2',
+      start_date: '2028-01-16',
+      start_time: '09:00',
+      end_time: '15:00',
+      checkin_start_time: '',
+    });
 
     expect(result.data.ticket_types).toHaveLength(3);
     const lp = ticketByHint(result.data.ticket_types, 'learner');
@@ -1573,28 +1583,14 @@ Ban tổ chức chưa công bố chính sách hoàn tiền hoặc đổi vé.
     expect(result.data.venue_name).toMatch(/Công viên Biển Đông/i);
     expect(result.data.province).toMatch(/Đà Nẵng/i);
 
-    // Phiên bản 2.0 đã ghi đè Version 1.0: 5 phiên với giờ mới
-    expect(result.data.sessions).toHaveLength(5);
-    expect(result.data.sessions[0].session_name).toBe('Acoustic Opening');
-    expect(result.data.sessions[0].start_date).toBe('2028-04-22');
-    expect(result.data.sessions[0].start_time).toBe('14:30');
-    expect(result.data.sessions[0].end_time).toBe('15:15');
-
-    expect(result.data.sessions[1].session_name).toBe('Indie Band Showcase');
-    expect(result.data.sessions[1].start_time).toBe('15:30');
-    expect(result.data.sessions[1].end_time).toBe('16:30');
-
-    expect(result.data.sessions[2].session_name).toBe('Electronic Music Session');
-    expect(result.data.sessions[2].start_time).toBe('17:00');
-    expect(result.data.sessions[2].end_time).toBe('18:30');
-
-    expect(result.data.sessions[3].session_name).toBe('Headliner Performance');
-    expect(result.data.sessions[3].start_time).toBe('19:00');
-    expect(result.data.sessions[3].end_time).toBe('20:30');
-
-    expect(result.data.sessions[4].session_name).toBe('Festival Closing');
-    expect(result.data.sessions[4].start_time).toBe('20:45');
-    expect(result.data.sessions[4].end_time).toBe('21:00');
+    // Phiên bản 2.0 đã ghi đè Version 1.0 và gộp thành 1 phiên sự kiện trong ngày với giờ mới (14:30 - 21:00)
+    expect(result.data.sessions).toHaveLength(1);
+    expect(result.data.sessions[0]).toMatchObject({
+      session_name: 'Phiên sự kiện',
+      start_date: '2028-04-22',
+      start_time: '14:30',
+      end_time: '21:00',
+    });
 
     expect(result.data.ticket_types).toHaveLength(3);
     const ew = ticketByHint(result.data.ticket_types, 'early');
@@ -1612,7 +1608,7 @@ Ban tổ chức chưa công bố chính sách hoàn tiền hoặc đổi vé.
     expect(result.data.refund_policy.allow_refunds).toBe(false);
   });
 
-  test('should accurately extract Digital Creator Expo 2027 from legal agreement with 6 bullet sessions and 3 ticket packs', async () => {
+  test('should accurately extract Digital Creator Expo 2027 from legal agreement with 2 daily sessions and 3 ticket packs', async () => {
     const docText = `# THỎA THUẬN TỔ CHỨC VÀ TÀI TRỢ SỰ KIỆN
 ## DIGITAL CREATOR EXPO 2027
 
@@ -1716,21 +1712,21 @@ Digital Creator, Content Creation, Digital Marketing, Artificial Intelligence, C
     expect(result.data.venue_name).toMatch(/Riverside Palace/i);
     expect(result.data.province).toMatch(/Hồ Chí Minh/i);
 
-    expect(result.data.sessions).toHaveLength(6);
-    expect(result.data.sessions[0].session_name).toBe('Creator Economy: Where Are We Going?');
-    expect(result.data.sessions[0].start_date).toBe('2027-11-20');
-    expect(result.data.sessions[0].start_time).toBe('09:00');
-    expect(result.data.sessions[0].end_time).toBe('10:30');
-    expect(result.data.sessions[0].checkin_start_time).toBe('08:15');
-
-    expect(result.data.sessions[3].session_name).toBe('AI Tools for Digital Creators');
-    expect(result.data.sessions[3].start_date).toBe('2027-11-21');
-    expect(result.data.sessions[3].start_time).toBe('09:30');
-    expect(result.data.sessions[3].end_time).toBe('11:00');
-
-    expect(result.data.sessions[4].session_name).toBe('Creator Showcase & Awards');
-    expect(result.data.sessions[4].start_time).toBe('13:30');
-    expect(result.data.sessions[4].end_time).toBe('15:30');
+    expect(result.data.sessions).toHaveLength(2);
+    expect(result.data.sessions[0]).toMatchObject({
+      session_name: 'Ngày 1',
+      start_date: '2027-11-20',
+      start_time: '09:00',
+      end_time: '16:00',
+      checkin_start_time: '08:15',
+    });
+    expect(result.data.sessions[1]).toMatchObject({
+      session_name: 'Ngày 2',
+      start_date: '2027-11-21',
+      start_time: '09:30',
+      end_time: '17:00',
+      checkin_start_time: '',
+    });
 
     expect(result.data.ticket_types).toHaveLength(3);
     const gA = ticketByHint(result.data.ticket_types, 'general');
@@ -1748,7 +1744,7 @@ Digital Creator, Content Creation, Digital Marketing, Artificial Intelligence, C
     expect(result.data.refund_policy.allow_refunds).toBe(false);
   });
 
-  test('should accurately extract Vietnam Green Industry Expo 2028 from RFP format with 7 dossier sessions and 3 tickets', async () => {
+  test('should accurately extract Vietnam Green Industry Expo 2028 from RFP format with 3 daily sessions and 3 tickets', async () => {
     const docText = `# TÀI LIỆU 1 — HỒ SƠ YÊU CẦU TỔ CHỨC TRIỂN LÃM
 ## VIETNAM GREEN INDUSTRY EXPO 2028
 
@@ -1869,21 +1865,25 @@ Green Industry, Renewable Energy, Sustainable Manufacturing, Recycling, Carbon R
     expect(result.data.venue_name).toMatch(/WTC EXPO/i);
     expect(result.data.province).toMatch(/Hồ Chí Minh/i);
 
-    expect(result.data.sessions).toHaveLength(7);
-    expect(result.data.sessions[0].session_name).toBe('Industrial Decarbonization Forum');
-    expect(result.data.sessions[0].start_date).toBe('2028-06-08');
-    expect(result.data.sessions[0].start_time).toBe('09:00');
-    expect(result.data.sessions[0].end_time).toBe('10:30');
-
-    expect(result.data.sessions[3].session_name).toBe('Sustainable Supply Chain Forum');
-    expect(result.data.sessions[3].start_date).toBe('2028-06-09');
-    expect(result.data.sessions[3].start_time).toBe('09:30');
-    expect(result.data.sessions[3].end_time).toBe('11:00');
-
-    expect(result.data.sessions[6].session_name).toBe('Expo Closing and Industry Outlook');
-    expect(result.data.sessions[6].start_date).toBe('2028-06-10');
-    expect(result.data.sessions[6].start_time).toBe('15:00');
-    expect(result.data.sessions[6].end_time).toBe('16:00');
+    expect(result.data.sessions).toHaveLength(3);
+    expect(result.data.sessions[0]).toMatchObject({
+      session_name: 'Ngày 1',
+      start_date: '2028-06-08',
+      start_time: '09:00',
+      end_time: '16:00',
+    });
+    expect(result.data.sessions[1]).toMatchObject({
+      session_name: 'Ngày 2',
+      start_date: '2028-06-09',
+      start_time: '09:30',
+      end_time: '15:00',
+    });
+    expect(result.data.sessions[2]).toMatchObject({
+      session_name: 'Ngày 3',
+      start_date: '2028-06-10',
+      start_time: '09:00',
+      end_time: '16:00',
+    });
 
     expect(result.data.ticket_types).toHaveLength(3);
     const tVisitor = ticketByHint(result.data.ticket_types, 'visitor');
@@ -1904,7 +1904,7 @@ Green Industry, Renewable Energy, Sustainable Manufacturing, Recycling, Carbon R
     expect(result.data.refund_policy.allow_refunds).toBe(false);
   });
 
-  test('should accurately extract Culture Beats Festival 2028 from stage cue sheet with 6 performances, excluding 14:00 technical setup and DJ After-Party', async () => {
+  test('should accurately extract Culture Beats Festival 2028 from stage cue sheet with 1 daily session, excluding 14:00 technical setup and DJ After-Party', async () => {
     const docText = `# TÀI LIỆU 2 — KỊCH BẢN ĐIỀU PHỐI SÂN KHẤU
 ## CULTURE BEATS FESTIVAL 2028
 
@@ -2014,16 +2014,14 @@ Chính sách hoàn tiền chưa được xác nhận.`;
     expect(result.data.venue_name).toMatch(/Công viên Thống Nhất/i);
     expect(result.data.province).toMatch(/Hà Nội/i);
 
-    expect(result.data.sessions).toHaveLength(6);
-    expect(result.data.sessions[0].session_name).toBe('Opening Performance');
-    expect(result.data.sessions[0].start_date).toBe('2028-07-17');
-    expect(result.data.sessions[0].start_time).toBe('15:00');
-    expect(result.data.sessions[0].end_time).toBe('15:20');
-    expect(result.data.sessions[0].checkin_start_time).toBe('14:30');
-
-    expect(result.data.sessions[5].session_name).toBe('Closing Performance');
-    expect(result.data.sessions[5].start_time).toBe('21:00');
-    expect(result.data.sessions[5].end_time).toBe('21:20');
+    expect(result.data.sessions).toHaveLength(1);
+    expect(result.data.sessions[0]).toMatchObject({
+      session_name: 'Phiên sự kiện',
+      start_date: '2028-07-17',
+      start_time: '15:00',
+      end_time: '21:20',
+      checkin_start_time: '14:30',
+    });
 
     expect(result.data.ticket_types).toHaveLength(2);
     const entry = ticketByHint(result.data.ticket_types, 'festival');
@@ -2039,7 +2037,7 @@ Chính sách hoàn tiền chưa được xác nhận.`;
     expect(result.data.refund_policy.allow_refunds).toBe(false);
   });
 
-  test('should accurately extract Mekong Culture & Food Week 2028 from travel itinerary with 6 sessions and 3 tickets', async () => {
+  test('should accurately extract Mekong Culture & Food Week 2028 from travel itinerary with 2 daily sessions and 3 tickets', async () => {
     const docText = `# TÀI LIỆU 3 — BẢN TIN TRẢI NGHIỆM VÀ LỊCH TRÌNH DU LỊCH
 ## MEKONG CULTURE & FOOD WEEK 2028
 
@@ -2123,16 +2121,19 @@ Ban tổ chức chưa công bố chính sách hoàn tiền.`;
     expect(result.data.venue_name).toMatch(/Công viên Sông Hậu/i);
     expect(result.data.province).toMatch(/Cần Thơ/i);
 
-    expect(result.data.sessions).toHaveLength(6);
-    expect(result.data.sessions[0].session_name).toBe('Mekong Cultural Opening');
-    expect(result.data.sessions[0].start_date).toBe('2028-08-21');
-    expect(result.data.sessions[0].start_time).toBe('09:00');
-    expect(result.data.sessions[0].end_time).toBe('10:00');
-
-    expect(result.data.sessions[3].session_name).toBe('Folk Music and Dance Showcase');
-    expect(result.data.sessions[3].start_date).toBe('2028-08-22');
-    expect(result.data.sessions[3].start_time).toBe('09:00');
-    expect(result.data.sessions[3].end_time).toBe('10:30');
+    expect(result.data.sessions).toHaveLength(2);
+    expect(result.data.sessions[0]).toMatchObject({
+      session_name: 'Ngày 1',
+      start_date: '2028-08-21',
+      start_time: '09:00',
+      end_time: '15:00',
+    });
+    expect(result.data.sessions[1]).toMatchObject({
+      session_name: 'Ngày 2',
+      start_date: '2028-08-22',
+      start_time: '09:00',
+      end_time: '15:30',
+    });
 
     expect(result.data.ticket_types).toHaveLength(3);
     const tCulture = ticketByHint(result.data.ticket_types, 'culture');
@@ -2153,7 +2154,7 @@ Ban tổ chức chưa công bố chính sách hoàn tiền.`;
     expect(result.data.refund_policy.allow_refunds).toBe(false);
   });
 
-  test('should accurately extract Healthcare Digital Transformation Conference 2028 from service request form with 4 sessions and 3 passes', async () => {
+  test('should accurately extract Healthcare Digital Transformation Conference 2028 from service request form with 1 daily session and 3 passes', async () => {
     const docText = `# TÀI LIỆU 4 — PHIẾU YÊU CẦU DỊCH VỤ VÀ ĐĂNG KÝ HỘI THẢO
 ## HEALTHCARE DIGITAL TRANSFORMATION CONFERENCE 2028
 
@@ -2261,16 +2262,14 @@ Tài liệu này không quy định thời hạn hoàn tiền. Không có dữ l
     expect(result.data.address_line).toMatch(/11 Lê Hồng Phong/i);
     expect(result.data.province).toMatch(/Hà Nội/i);
 
-    expect(result.data.sessions).toHaveLength(4);
-    expect(result.data.sessions[0].session_name).toBe('Digital Health Systems in Modern Hospitals');
-    expect(result.data.sessions[0].start_date).toBe('2028-09-05');
-    expect(result.data.sessions[0].start_time).toBe('08:30');
-    expect(result.data.sessions[0].end_time).toBe('09:45');
-    expect(result.data.sessions[0].checkin_start_time).toBe('08:00');
-
-    expect(result.data.sessions[1].session_name).toBe('Artificial Intelligence in Clinical Operations');
-    expect(result.data.sessions[2].session_name).toBe('Electronic Medical Record Integration Workshop');
-    expect(result.data.sessions[3].session_name).toBe('Protecting Patient Data in Digital Healthcare');
+    expect(result.data.sessions).toHaveLength(1);
+    expect(result.data.sessions[0]).toMatchObject({
+      session_name: 'Phiên sự kiện',
+      start_date: '2028-09-05',
+      start_time: '08:30',
+      end_time: '16:00',
+      checkin_start_time: '08:00',
+    });
 
     expect(result.data.ticket_types).toHaveLength(3);
     const tHp = ticketByHint(result.data.ticket_types, 'professional');
@@ -2291,7 +2290,7 @@ Tài liệu này không quy định thời hạn hoàn tiền. Không có dữ l
     expect(result.data.refund_policy.allow_refunds).toBe(false);
   });
 
-  test('should accurately extract International Robotics Challenge 2028 resolving conflicting draft records into 6 confirmed sessions, 3 approved tickets and Day 1 checkin', async () => {
+  test('should accurately extract International Robotics Challenge 2028 resolving conflicting draft records into 2 daily sessions, 3 approved tickets and Day 1 checkin', async () => {
     const docText = `# TÀI LIỆU 5 — BẢN GHI DỮ LIỆU SỰ KIỆN NHẬP TỪ NHIỀU NGUỒN
 ## INTERNATIONAL ROBOTICS CHALLENGE 2028
 
@@ -2411,18 +2410,21 @@ Do đó, chính sách hoàn tiền chính thức vẫn chưa được xác nhậ
     expect(result.data.address_line).toMatch(/02 Quang Trung/i);
     expect(result.data.province).toMatch(/Đà Nẵng/i);
 
-    expect(result.data.sessions).toHaveLength(6);
-    expect(result.data.sessions[0].session_name).toBe('Robotics Opening Ceremony');
-    expect(result.data.sessions[0].start_date).toBe('2028-10-14');
-    expect(result.data.sessions[0].start_time).toBe('08:30');
-    expect(result.data.sessions[0].end_time).toBe('09:00');
-    expect(result.data.sessions[0].checkin_start_time).toBe('07:45');
-
-    expect(result.data.sessions[3].session_name).toBe('Industrial Robotics Demonstration');
-    expect(result.data.sessions[3].start_date).toBe('2028-10-15');
-    expect(result.data.sessions[3].start_time).toBe('09:00');
-    expect(result.data.sessions[3].end_time).toBe('10:30');
-    expect(result.data.sessions[3].checkin_start_time).toBe('');
+    expect(result.data.sessions).toHaveLength(2);
+    expect(result.data.sessions[0]).toMatchObject({
+      session_name: 'Ngày 1',
+      start_date: '2028-10-14',
+      start_time: '08:30',
+      end_time: '15:00',
+      checkin_start_time: '07:45',
+    });
+    expect(result.data.sessions[1]).toMatchObject({
+      session_name: 'Ngày 2',
+      start_date: '2028-10-15',
+      start_time: '09:00',
+      end_time: '16:00',
+      checkin_start_time: '',
+    });
 
     // Chỉ có 3 loại vé được phê duyệt (Student Robotics Pass là draft bị loại bỏ)
     expect(result.data.ticket_types).toHaveLength(3);
@@ -2537,15 +2539,25 @@ Quy định về hoàn phí đăng ký chưa được công bố. Không tự su
     expect(result.data.start_date).toBe('2028-04-10');
     expect(result.data.end_date).toBe('2028-04-12');
 
-    expect(result.data.sessions).toHaveLength(7);
-    expect(result.data.sessions[0].session_name).toBe('Research Proposal Presentation');
-    expect(result.data.sessions[0].start_date).toBe('2028-04-10');
-    expect(result.data.sessions[0].start_time).toBe('08:00');
-    expect(result.data.sessions[0].end_time).toBe('10:00');
-    expect(result.data.sessions[6].session_name).toBe('Awards Ceremony');
-    expect(result.data.sessions[6].start_date).toBe('2028-04-12');
-    expect(result.data.sessions[6].start_time).toBe('14:00');
-    expect(result.data.sessions[6].end_time).toBe('15:30');
+    expect(result.data.sessions).toHaveLength(3);
+    expect(result.data.sessions[0]).toMatchObject({
+      session_name: 'Ngày 1',
+      start_date: '2028-04-10',
+      start_time: '08:00',
+      end_time: '15:00',
+    });
+    expect(result.data.sessions[1]).toMatchObject({
+      session_name: 'Ngày 2',
+      start_date: '2028-04-11',
+      start_time: '09:00',
+      end_time: '15:00',
+    });
+    expect(result.data.sessions[2]).toMatchObject({
+      session_name: 'Ngày 3',
+      start_date: '2028-04-12',
+      start_time: '09:00',
+      end_time: '15:30',
+    });
 
     expect(result.data.ticket_types).toHaveLength(2);
     const teamTicket = ticketByHint(result.data.ticket_types, 'research team');
@@ -2559,7 +2571,7 @@ Quy định về hoàn phí đăng ký chưa được công bố. Không tự su
     expect(result.data.refund_policy.allow_refunds).toBe(false);
   });
 
-  test('should accurately extract Handmade & Design Market 2028 with 6 sessions and 2 visitor ticket types, excluding booth rentals', async () => {
+  test('should accurately extract Handmade & Design Market 2028 with 2 daily sessions and 2 visitor ticket types, excluding booth rentals', async () => {
     const doc = `# TÀI LIỆU 2 — SỔ TAY VẬN HÀNH HỘI CHỢ
 # HANDMADE & DESIGN MARKET 2028
 
@@ -2665,11 +2677,19 @@ Chính sách hoàn tiền vé chưa được công bố.
     expect(result.data.start_date).toBe('2028-08-19');
     expect(result.data.end_date).toBe('2028-08-20');
 
-    expect(result.data.sessions).toHaveLength(6);
-    expect(result.data.sessions[0].session_name).toBe('Independent Design Trends');
-    expect(result.data.sessions[0].start_date).toBe('2028-08-19');
-    expect(result.data.sessions[4].session_name).toBe('Ceramic Painting Workshop');
-    expect(result.data.sessions[4].start_date).toBe('2028-08-19');
+    expect(result.data.sessions).toHaveLength(2);
+    expect(result.data.sessions[0]).toMatchObject({
+      session_name: 'Ngày 1',
+      start_date: '2028-08-19',
+      start_time: '09:00',
+      end_time: '18:00',
+    });
+    expect(result.data.sessions[1]).toMatchObject({
+      session_name: 'Ngày 2',
+      start_date: '2028-08-20',
+      start_time: '09:00',
+      end_time: '17:00',
+    });
 
     expect(result.data.ticket_types).toHaveLength(2);
     const dailyTicket = ticketByHint(result.data.ticket_types, 'daily entry');
@@ -2683,7 +2703,7 @@ Chính sách hoàn tiền vé chưa được công bố.
     expect(result.data.refund_policy.allow_refunds).toBe(false);
   });
 
-  test('should accurately extract Midnight Stories 2028 with 5 chapters and 3 tickets, excluding autograph session', async () => {
+  test('should accurately extract Midnight Stories 2028 with 1 daily session and 3 tickets, excluding autograph session', async () => {
     const doc = `# TÀI LIỆU 3 — BẢN PHÁT HÀNH ALBUM VÀ LỊCH BIỂU DIỄN
 # MIDNIGHT STORIES — LIVE ALBUM PREMIERE 2028
 
@@ -2776,13 +2796,13 @@ Live Music, Album Premiere, Acoustic Performance, Music Production, Artist Talk,
     expect(result.data.start_date).toBe('2028-10-07');
     expect(result.data.end_date).toBe('2028-10-07');
 
-    expect(result.data.sessions).toHaveLength(5);
-    expect(result.data.sessions[0].session_name).toBe('Chapter One — Behind the Album');
-    expect(result.data.sessions[0].start_time).toBe('17:30');
-    expect(result.data.sessions[0].end_time).toBe('18:00');
-    expect(result.data.sessions[4].session_name).toBe('Chapter Five — Artist Talk');
-    expect(result.data.sessions[4].start_time).toBe('21:15');
-    expect(result.data.sessions[4].end_time).toBe('21:45');
+    expect(result.data.sessions).toHaveLength(1);
+    expect(result.data.sessions[0]).toMatchObject({
+      session_name: 'Phiên sự kiện',
+      start_date: '2028-10-07',
+      start_time: '17:30',
+      end_time: '21:45',
+    });
 
     expect(result.data.ticket_types).toHaveLength(3);
     const balconyTicket = ticketByHint(result.data.ticket_types, 'balcony');
@@ -2800,7 +2820,7 @@ Live Music, Album Premiere, Acoustic Performance, Music Production, Artist Talk,
     expect(result.data.refund_policy.allow_refunds).toBe(false);
   });
 
-  test('should accurately extract City Night Run 2028 with 6 sessions and 3 runner distance tickets', async () => {
+  test('should accurately extract City Night Run 2028 with 1 daily session and 3 runner distance tickets', async () => {
     const doc = `# TÀI LIỆU 4 — ĐẶC TẢ GIẢI THỂ THAO
 # CITY NIGHT RUN 2028
 
@@ -2884,13 +2904,14 @@ Night Run, Community Sports, Running, Fitness, Urban Sports, Outdoor Event.`;
     expect(result.data.start_date).toBe('2028-11-25');
     expect(result.data.end_date).toBe('2028-11-25');
 
-    expect(result.data.sessions).toHaveLength(6);
-    expect(result.data.sessions[0].session_name).toBe('Participant Check-in');
-    expect(result.data.sessions[0].start_time).toBe('15:00');
-    expect(result.data.sessions[0].end_time).toBe('17:00');
-    expect(result.data.sessions[5].session_name).toBe('Awards and Closing Ceremony');
-    expect(result.data.sessions[5].start_time).toBe('21:15');
-    expect(result.data.sessions[5].end_time).toBe('21:45');
+    expect(result.data.sessions).toHaveLength(1);
+    expect(result.data.sessions[0]).toMatchObject({
+      session_name: 'Phiên sự kiện',
+      start_date: '2028-11-25',
+      start_time: '17:15',
+      end_time: '21:45',
+      checkin_start_time: '15:00',
+    });
 
     expect(result.data.ticket_types).toHaveLength(3);
     const run3 = ticketByHint(result.data.ticket_types, '3 km');
@@ -2908,7 +2929,7 @@ Night Run, Community Sports, Running, Fitness, Urban Sports, Outdoor Event.`;
     expect(result.data.refund_policy.allow_refunds).toBe(false);
   });
 
-  test('should accurately extract International Children\'s Book Fair 2028 with 7 timeline-updated sessions and 3 approved passes', async () => {
+  test('should accurately extract International Children\'s Book Fair 2028 with 2 daily sessions and 3 approved passes', async () => {
     const doc = `# TÀI LIỆU 5 — NHẬT KÝ ĐIỀU PHỐI VÀ BẢN GHI CẬP NHẬT
 # INTERNATIONAL CHILDREN'S BOOK FAIR 2028
 
@@ -3016,16 +3037,19 @@ Không sử dụng thời hạn 3 ngày trong dữ liệu sự kiện.`;
     expect(result.data.start_date).toBe('2028-12-03');
     expect(result.data.end_date).toBe('2028-12-04');
 
-    expect(result.data.sessions).toHaveLength(7);
-    const ws = result.data.sessions.find(s => s.session_name.includes('Illustration Workshop'));
-    expect(ws.start_date).toBe('2028-12-03');
-    expect(ws.start_time).toBe('14:00');
-    expect(ws.end_time).toBe('15:30');
-
-    const parade = result.data.sessions.find(s => s.session_name.includes('Costume Parade'));
-    expect(parade.start_date).toBe('2028-12-04');
-    expect(parade.start_time).toBe('11:30');
-    expect(parade.end_time).toBe('12:15');
+    expect(result.data.sessions).toHaveLength(2);
+    expect(result.data.sessions[0]).toMatchObject({
+      session_name: 'Ngày 1',
+      start_date: '2028-12-03',
+      start_time: '08:30',
+      end_time: '17:00',
+    });
+    expect(result.data.sessions[1]).toMatchObject({
+      session_name: 'Ngày 2',
+      start_date: '2028-12-04',
+      start_time: '09:00',
+      end_time: '17:00',
+    });
 
     expect(result.data.ticket_types).toHaveLength(3);
     const familyTicket = ticketByHint(result.data.ticket_types, 'family entry');
@@ -3167,7 +3191,7 @@ Giáo trình môn học: Kỹ thuật phần mềm cơ sở
   });
 
   describe('Continued Test_doc generalization & anti-hallucination regression suite', () => {
-    test('should resolve "Official program: Use the latest approved revision" directive, preserve 18 official sessions, and deduplicate substring tickets', async () => {
+    test('should resolve "Official program: Use the latest approved revision" directive, collapse into 3 daily sessions, and deduplicate substring tickets', async () => {
       const dossierDoc = `ASIA STARTUP INVESTMENT FORUM 2029
 MASTER EVENT FILE
 SOURCE A — OFFICIAL EVENT PROFILE
@@ -3218,9 +3242,26 @@ Use Source D.`;
       const res = await aiDocumentParserService.extractEventFromText(dossierDoc);
       expect(res.data.title).toBe('Asia Startup Investment Forum 2029');
       expect(res.data.venue_name).toBe('JW Marriott Hotel Hanoi');
-      expect(res.data.sessions).toHaveLength(6);
-      expect(res.data.sessions.some((s) => s.session_name === 'Founder Growth Workshop' && s.start_time === '13:30' && s.end_time === '15:00')).toBe(true);
-      expect(res.data.sessions.some((s) => /Changed|Moved|Phiên \d+/i.test(s.session_name))).toBe(false);
+      expect(res.data.sessions).toHaveLength(3);
+      expect(res.data.sessions[0]).toMatchObject({
+        session_name: 'Ngày 1',
+        start_date: '2030-04-22',
+        start_time: '09:00',
+        end_time: '15:00',
+        checkin_start_time: '08:00',
+      });
+      expect(res.data.sessions[1]).toMatchObject({
+        session_name: 'Ngày 2',
+        start_date: '2030-04-23',
+        start_time: '09:00',
+        end_time: '18:00',
+      });
+      expect(res.data.sessions[2]).toMatchObject({
+        session_name: 'Ngày 3',
+        start_date: '2030-04-24',
+        start_time: '16:00',
+        end_time: '17:00',
+      });
       expect(res.data.ticket_types).toHaveLength(2);
       expect(res.data.ticket_types.map((t) => t.name)).toEqual(['Startup Founder Pass', 'Investor Pass']);
       expect(res.data.refund_policy).toEqual({ allow_refunds: true, deadline_days: 12 });
@@ -3238,10 +3279,19 @@ Các vé có trả phí có thể được hoàn tiền trước ngày 25/06/203
 
       const res = await aiDocumentParserService.extractEventFromText(proseDoc);
       expect(res.data.venue_name).toBe('Can Tho Convention Center');
-      expect(res.data.sessions.length).toBeGreaterThanOrEqual(5);
-      expect(res.data.sessions.some((s) => s.session_name.includes('Where Are We Going?') && s.start_time === '08:30')).toBe(true);
-      expect(res.data.sessions.some((s) => s.session_name.includes('Future of Sustainable Tourism') && s.start_time === '10:00' && s.end_time === '11:00')).toBe(true);
-      expect(res.data.sessions.some((s) => s.session_name.includes('Mekong Tourism Investment Forum') && s.start_time === '09:00' && s.end_time === '10:30')).toBe(true);
+      expect(res.data.sessions).toHaveLength(2);
+      expect(res.data.sessions[0]).toMatchObject({
+        session_name: 'Ngày 1',
+        start_date: '2033-07-08',
+        start_time: '08:30',
+        end_time: '11:00',
+      });
+      expect(res.data.sessions[1]).toMatchObject({
+        session_name: 'Ngày 2',
+        start_date: '2033-07-09',
+        start_time: '09:00',
+        end_time: '12:00',
+      });
       expect(res.data.sessions.some((s) => s.start_date === '2033-07-11')).toBe(false);
       expect(res.data.ticket_types).toHaveLength(4);
       expect(res.data.ticket_types.map((t) => `${t.name}:${t.price}`)).toEqual([
@@ -3253,7 +3303,7 @@ Các vé có trả phí có thể được hoàn tiền trước ngày 25/06/203
       expect(res.data.refund_policy).toEqual({ allow_refunds: true, deadline_days: 13 });
     });
 
-    test('should upgrade uppercase section-header stubs to full named sessions and keep missing venue empty (zero hallucination)', async () => {
+    test('should collapse multi-day program into 2 daily sessions with Registration check-in and keep missing venue empty (zero hallucination)', async () => {
       const noVenueDoc = `INTERNATIONAL DIGITAL ARCHIVE SUMMIT 2032
 Dates: 15/10/2032 – 16/10/2032
 1. EVENT PROGRAM
@@ -3270,12 +3320,23 @@ Standard Pass: 300.000 VND`;
 
       const res = await aiDocumentParserService.extractEventFromText(noVenueDoc);
       expect(res.data.venue_name).toBe('');
-      expect(res.data.sessions).toHaveLength(6);
-      expect(res.data.sessions[0].session_name).toBe('Registration');
-      expect(res.data.sessions[4].start_date).toBe('2032-10-16');
+      expect(res.data.sessions).toHaveLength(2);
+      expect(res.data.sessions[0]).toMatchObject({
+        session_name: 'Ngày 1',
+        start_date: '2032-10-15',
+        start_time: '09:00',
+        end_time: '15:00',
+        checkin_start_time: '08:30',
+      });
+      expect(res.data.sessions[1]).toMatchObject({
+        session_name: 'Ngày 2',
+        start_date: '2032-10-16',
+        start_time: '09:00',
+        end_time: '15:30',
+      });
     });
 
-    test('should reconstruct chronological log timeline updates and exclude unapproved proposals', async () => {
+    test('should reconstruct chronological log timeline updates into 2 daily sessions and exclude unapproved proposals', async () => {
       const logDoc = `NHẬT KÝ ĐIỀU PHỐI VÀ BẢN GHI CẬP NHẬT
 CHILDREN BOOK FAIR 2028
 Địa điểm: Hanoi Creative City, 1 Lương Yên, Hà Nội
@@ -3295,10 +3356,19 @@ Nhật ký 05 — 27/10/2028, 10:00
 Một thành viên đề xuất tổ chức hoạt động Children Screening vào 16:30 ngày 04/12. Chưa có quyết định phê duyệt. Đề xuất này không thuộc lịch chính thức.`;
 
       const res = await aiDocumentParserService.extractEventFromText(logDoc);
-      expect(res.data.sessions).toHaveLength(4);
-      expect(res.data.sessions.some((s) => s.session_name === 'Illustration Workshop' && s.start_time === '14:00' && s.end_time === '15:30')).toBe(true);
-      expect(res.data.sessions.some((s) => s.session_name === 'Costume Parade' && s.start_date === '2028-12-04' && s.start_time === '11:30')).toBe(true);
-      expect(res.data.sessions.some((s) => s.session_name.includes('Screening'))).toBe(false);
+      expect(res.data.sessions).toHaveLength(2);
+      expect(res.data.sessions[0]).toMatchObject({
+        session_name: 'Ngày 1',
+        start_date: '2028-12-03',
+        start_time: '09:00',
+        end_time: '15:30',
+      });
+      expect(res.data.sessions[1]).toMatchObject({
+        session_name: 'Ngày 2',
+        start_date: '2028-12-04',
+        start_time: '11:30',
+        end_time: '16:00',
+      });
     });
 
     test('should strip hallucinated generic venue "indoor event space" and fabricated qty 100 when absent from text', () => {

@@ -652,6 +652,13 @@ class WaitingRoomService {
 
     // Sync to Redis
     if (redis.isOpen) {
+      if (payload.reset_queue) {
+        await redis.del([
+          KEYS.QUEUE(eventId),
+          KEYS.ACTIVE(eventId),
+          KEYS.ACTIVE_EXPIRY(eventId),
+        ]);
+      }
       const metaKey = KEYS.META(eventId);
       await redis.hSet(metaKey, {
         initialized: '1',
