@@ -552,6 +552,68 @@ describe('IoT Check-in Device Flow', () => {
         }),
       );
     });
+
+    it('includes full database ticket details (event, buyer, ticket type, seat, checked_in_at) on OK and USED', async () => {
+      const autoDevice = { ...activeDevice, name: 'Cong A1', auto_confirm: true, config_version: 4 };
+      const fullTicketRow = {
+        id: 'ticket-2',
+        ticket_code: 'EH-77DE4EF8C3',
+        event_id: autoDevice.assigned_event_id,
+        event_slug: 'tech-2026',
+        event_title: 'Tech Summit 2026',
+        status: 'VALID',
+        attendee_name: 'Bui Tuan Khanh',
+        attendee_email: 'khanh@example.com',
+        buyer_name: 'Bui Tuan Khanh',
+        buyer_email: 'khanh@example.com',
+        buyer_phone: '0912345678',
+        ticket_type_name: 'VIP Khu vuc 1',
+        row_label: 'B',
+        seat_number: '14',
+        checked_in_at: '2026-11-18T14:25:00.000Z',
+        checked_in_device_id: autoDevice.id,
+      };
+
+      mockTicketsRepository.findTicketByRef.mockResolvedValue(fullTicketRow);
+      mockTicketsRepository.validateTicketCheckInState.mockReturnValue(null);
+      mockTicketsRepository.checkInTicketByDevice.mockResolvedValue({
+        state: 'CHECKED_IN',
+        ticket: fullTicketRow,
+      });
+
+      const okRes = await iotService.scanTicket(autoDevice, { qr_code: 'EH-77DE4EF8C3', action: 'auto' });
+      expect(okRes.httpStatus).toBe(200);
+      expect(okRes.body).toMatchObject({
+        success: true,
+        result: 'OK',
+        ticket_code: 'EH-77DE4EF8C3',
+        event_name: 'Tech Summit 2026',
+        buyer_name: 'Bui Tuan Khanh',
+        buyer_email: 'khanh@example.com',
+        buyer_phone: '0912345678',
+        ticket_type_name: 'VIP Khu vuc 1',
+        seat_label: 'B14',
+        checked_in_at: '2026-11-18T14:25:00.000Z',
+        checked_in_by: autoDevice.name,
+      });
+
+      mockTicketsRepository.validateTicketCheckInState.mockReturnValue('ALREADY_CHECKED_IN');
+      const usedRes = await iotService.scanTicket(autoDevice, { qr_code: 'EH-77DE4EF8C3', action: 'auto' });
+      expect(usedRes.httpStatus).toBe(409);
+      expect(usedRes.body).toMatchObject({
+        success: false,
+        result: 'USED',
+        ticket_code: 'EH-77DE4EF8C3',
+        event_name: 'Tech Summit 2026',
+        buyer_name: 'Bui Tuan Khanh',
+        buyer_email: 'khanh@example.com',
+        buyer_phone: '0912345678',
+        ticket_type_name: 'VIP Khu vuc 1',
+        seat_label: 'B14',
+        checked_in_at: '2026-11-18T14:25:00.000Z',
+        checked_in_by: autoDevice.name,
+      });
+    });
   });
 
   describe('getDeviceHistory', () => {
