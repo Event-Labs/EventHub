@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { fetchStaffCheckInReport } from '@/services/operations.js'
-import { Badge, StaffPage, StaffPanel, StaffTable } from './StaffComponents.jsx'
+import { StaffPage, StaffPanel } from './StaffComponents.jsx'
+import { SharedGateCheckInHistoryPanel } from './StaffQrCheckInPage.jsx'
 
 const getAutoLocale = () =>
   ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
@@ -10,19 +11,6 @@ const getAutoLocale = () =>
 
 const numberFormatter = {
   format: (num) => new Intl.NumberFormat(getAutoLocale()).format(num || 0)
-}
-
-function formatDateTime(value) {
-  const isEn = getAutoLocale() === 'en-US'
-  if (!value) return isEn ? 'Updating' : 'Chưa cập nhật'
-  return new Date(value).toLocaleString(getAutoLocale())
-}
-
-function checkInMethodLabel(method) {
-  const isEn = getAutoLocale() === 'en-US'
-  if (method === 'ESP32_QR') return isEn ? 'IoT Device (QR)' : 'Thiết bị IoT (QR)'
-  if (method === 'QR') return isEn ? 'QR Scan' : 'Quét mã QR'
-  return isEn ? 'Manual' : 'Thủ công'
 }
 
 export function StaffCheckInCountPage() {
@@ -160,25 +148,7 @@ export function StaffCheckInCountPage() {
           </div>
 
           <div className="mt-5">
-            <StaffTable
-              headers={['Thời gian', 'Người tham dự', 'Sự kiện', 'Loại vé', 'Cổng', 'Phương thức', 'Thực hiện bởi']}
-              rows={(report.recent_checkins || []).map((item) => [
-                formatDateTime(item.checked_in_at),
-                item.attendee_name,
-                item.event_title,
-                <Badge key={`${item.id}-type`} tone="purple">{item.ticket_type_name}</Badge>,
-                item.checked_in_gate ? <Badge key={`${item.id}-gate`} tone="blue">{item.checked_in_gate}</Badge> : '—',
-                checkInMethodLabel(item.method),
-                item.checked_in_by_name
-                  ? `${item.checkin_source === 'IOT' ? '[IoT] ' : ''}${item.checked_in_by_name}`
-                  : '—',
-              ])}
-            />
-            {(report.recent_checkins || []).length === 0 && (
-              <p className="rounded-b-2xl border border-t-0 border-border-soft/30 bg-surface px-5 py-5 text-sm text-muted">
-                Chưa có lượt soát vé nào.
-              </p>
-            )}
+            <SharedGateCheckInHistoryPanel />
           </div>
       </>
     </StaffPage>

@@ -1452,7 +1452,7 @@ function buildPaginationPages(currentPage, totalPages) {
   return pages
 }
 
-function SharedGateCheckInHistoryPanel({ eventId, localRecentTickets = [], refreshKey = 0, compact = false }) {
+export function SharedGateCheckInHistoryPanel({ eventId, localRecentTickets = [], refreshKey = 0, compact = false }) {
   const { isEnglish } = useLanguage()
   const [data, setData] = useState({
     assignments: [],

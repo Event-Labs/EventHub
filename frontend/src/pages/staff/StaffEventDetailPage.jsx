@@ -4,8 +4,9 @@ import { Armchair, Calendar, Clock, DoorOpen, Layers, Loader2, MapPin, Users } f
 import { Link, useParams } from 'react-router-dom'
 import { fetchSessionSeats } from '@/services/events.js'
 import { fetchStaffCheckInReport } from '@/services/operations.js'
-import { Avatar, Badge, StaffPage, StaffPanel, StaffTable } from './StaffComponents.jsx'
+import { Avatar, Badge, StaffPage, StaffPanel } from './StaffComponents.jsx'
 import { SeatMapCanvas } from './StaffDirectBookingPage.jsx'
+import { SharedGateCheckInHistoryPanel } from './StaffQrCheckInPage.jsx'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
 import { cleanAndFormatVenue } from '@/i18n/eventTranslations.js'
 import { translatePhrase } from '@/i18n/phraseDictionary.js'
@@ -259,19 +260,7 @@ export function StaffEventDetailPage() {
       </div>
 
       <div className="mt-5">
-        <StaffTable
-          headers={['Thời gian', 'Người tham dự', 'Loại vé', 'Cổng', 'Phương thức', 'Thực hiện bởi']}
-          rows={(report.recent_checkins || []).map((item) => [
-            formatDateTime(item.checked_in_at),
-            item.attendee_name,
-            item.ticket_type_name,
-            item.checked_in_gate ? <Badge key={`${item.id}-gate`} tone="purple">{item.checked_in_gate}</Badge> : '—',
-            checkInMethodLabel(item.method),
-            item.checked_in_by_name
-              ? `${item.checkin_source === 'IOT' ? '[IoT] ' : ''}${item.checked_in_by_name}`
-              : 'Chưa xác định',
-          ])}
-        />
+        <SharedGateCheckInHistoryPanel eventId={eventId} />
       </div>
     </StaffPage>
   )
