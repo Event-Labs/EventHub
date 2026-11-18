@@ -99,15 +99,19 @@ describe('EventHub AI Chatbot Multi-Scenario Test Matrix', () => {
 
     spyExecTool = jest.spyOn(aiAssistantService, 'executeTool').mockImplementation(async (userId, toolName, args, context) => {
       if (toolName === 'proposeSmartBooking') {
+        const qty = args.quantity || (args.specificSeats ? args.specificSeats.length : 2);
+        const pRow = args.preferredRow || 'A';
         const seats = args.specificSeats && args.specificSeats.length > 0
           ? args.specificSeats.join(', ')
-          : (args.preferredRow ? `${args.preferredRow}1, ${args.preferredRow}2` : 'A10, A11');
-        const qty = args.quantity || (args.specificSeats ? args.specificSeats.length : 2);
+          : (args.preferredRow
+            ? Array.from({ length: qty }, (_, i) => `${pRow}${1 + i}`).join(', ')
+            : Array.from({ length: qty }, (_, i) => `A${10 + i}`).join(', '));
         const total = qty * 50000;
         if (context) {
           context.lastGeneratedActionTag = `[ACTION:BOOKING_PROPOSAL:${encodeURIComponent(JSON.stringify({
             eventSlug: args.eventId,
             quantity: qty,
+            ticket_type_id: args.ticketTypeId || 'tt-porsche-1',
             seats: seats.split(', '),
             totalAmount: total
           }))}]`;
@@ -498,6 +502,51 @@ describe('EventHub AI Chatbot Multi-Scenario Test Matrix', () => {
       expect(updatedProp.attendees[0].name).toBe('CIMS');
       expect(updatedProp.attendees[1].name).toBe('Đạt');
       expect(updatedProp.attendees[1].email).toBe('ndat29112004@gmail.com');
+    });
+
+    test('Kịch bản 14: Yêu cầu đặt thêm vé ("thêm 1 vé nữa") kế thừa đúng hạng vé và hàng ghế từ đề xuất trước', async () => {
+      const history = [];
+
+      const initialProposal = {
+        eventId: mockPorscheEvent.id,
+        eventSlug: mockPorscheEvent.slug,
+        eventTitle: mockPorscheEvent.title,
+        ticket_type_id: 'tt-porsche-2',
+        ticketTypeName: 'Khu vực 2',
+        quantity: 3,
+        seats: [
+          { id: 'seat-a13', label: 'A13', row_label: 'A', seat_number: 13, price: 100000 },
+          { id: 'seat-a14', label: 'A14', row_label: 'A', seat_number: 14, price: 100000 },
+          { id: 'seat-a15', label: 'A15', row_label: 'A', seat_number: 15, price: 100000 }
+        ],
+        selectedSeatIds: ['seat-a13', 'seat-a14', 'seat-a15'],
+        items: [{ ticket_type_id: 'tt-porsche-2', quantity: 3, sessionSeatIds: ['seat-a13', 'seat-a14', 'seat-a15'] }],
+        totalAmount: 300000,
+        requireAttendeeInfo: false,
+        attendees: [],
+        isAttendeesComplete: true,
+        holdExpiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString()
+      };
+
+      const proposalTag = `[ACTION:BOOKING_PROPOSAL:${encodeURIComponent(JSON.stringify(initialProposal))}]`;
+      history.push({ role: 'user', content: 'đặt giúp tôi 3 vé porsche khu vực 2 hàng A' });
+      history.push({
+        role: 'assistant',
+        content: `Dạ Eve đã chọn 3 ghế A13, A14, A15 cho bạn rồi nhé!\n\n${proposalTag}`
+      });
+
+      // User says "thêm 1 vé nữa"
+      const res = await aiAssistantService.chat('user-1', 'thêm 1 vé nữa', history);
+
+      expect(res.role).toBe('assistant');
+      expect(res.content).toContain('[ACTION:BOOKING_PROPOSAL:');
+
+      const actionMatch = res.content.match(/\[ACTION:BOOKING_PROPOSAL:([^\]]+)\]/i);
+      expect(actionMatch).not.toBeNull();
+      const updatedProp = JSON.parse(decodeURIComponent(actionMatch[1]));
+      expect(updatedProp.quantity).toBe(4);
+      expect(updatedProp.ticket_type_id).toBe('tt-porsche-2');
+      expect(updatedProp.seats).toHaveLength(4);
     });
   });
 });

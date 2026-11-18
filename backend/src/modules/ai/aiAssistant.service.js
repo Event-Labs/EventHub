@@ -1613,8 +1613,8 @@ function findLastBookingProposal(cleanHistory, allEventTickets = []) {
           const data = JSON.parse(decoded);
           const seats = data.seats || [];
           const s0 = seats[0];
-          const ticketTypeId = s0?.ticketTypeId || s0?.ticket_type_id || data.items?.[0]?.ticket_type_id || data.items?.[0]?.ticketTypeId || null;
-          const ticketTypeName = s0?.ticketTypeName || s0?.ticket_type_name || data.items?.[0]?.ticketType?.name || null;
+          const ticketTypeId = data.ticket_type_id || data.ticketTypeId || s0?.ticketTypeId || s0?.ticket_type_id || data.items?.[0]?.ticket_type_id || data.items?.[0]?.ticketTypeId || null;
+          const ticketTypeName = data.ticketTypeName || data.ticket_type_name || s0?.ticketTypeName || s0?.ticket_type_name || data.items?.[0]?.ticketType?.name || null;
           const qty = data.quantity || seats.length || (data.items?.reduce((s, it) => s + (it.quantity || 0), 0)) || 1;
           const seatLabels = seats.map(s => (typeof s === 'string' ? s : (s?.label || ''))).filter(Boolean);
 
@@ -1622,6 +1622,7 @@ function findLastBookingProposal(cleanHistory, allEventTickets = []) {
             event_slug: data.eventId || data.event_slug || null,
             ticket_type_id: ticketTypeId,
             ticket_type_name: ticketTypeName,
+            session: data.session || null,
             quantity: qty,
             seats: seatLabels,
             totalAmount: data.totalAmount,
@@ -3093,11 +3094,17 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
           /(?:ghế\s*khác|ghe\s*khac|vị\s*trí\s*khác|vi\s*tri\s*khac|chỗ\s*khác|cho\s*khac)/i.test(normCurrent)
         ) && !isChangeRowRequest;
 
+        const isQuantityAdjustmentRequest = (
+          /(?:thêm|them|bớt|bot|tăng|tang|giảm|giam|nữa|nua|more|add|reduce|remove)\s*(?:\d+|một|hai|ba|bốn|năm|sau|bay|tam|chin|muoi)?\s*(?:vé|ve|ghế|ghe|chỗ|cho|tickets?|seats?)?/i.test(currentMessage) ||
+          /(?:them|bot|tang|giam|nua|more|add|reduce|remove)\s*(?:\d+|mot|hai|ba|bon|nam|sau|bay|tam|chin|muoi)?\s*(?:ve|ghe|cho|tickets?|seats?)?/i.test(normCurrent)
+        );
+
         const isSeatAdjustmentRequest = (
           /(?:lệch|lech|bị\s*lệch|bi\s*lech|chính\s*giữa|chinh\s*giua|ở\s*giữa|o\s*giua|giữa\s*hàng|giua\s*hang|đổi\s*ghế|doi\s*ghe|đổi\s*hàng|doi\s*hang|đổi\s*sang|doi\s*sang|chuyển\s*sang|chuyen\s*sang|chọn\s*lại|chon\s*lai|hàng\s*khác|hang\s*khac|sang\s*hang|sang\s*hàng|đổi\s*vé|doi\s*ve|đổi\s*loại|doi\s*loai|chuyển\s*loại|chuyen\s*loai|ghế\s*khác|ghe\s*khac|vị\s*trí\s*khác|vi\s*tri\s*khac|chỗ\s*khác|cho\s*khac)/i.test(currentMessage) ||
           /(?:lech|bi\s*lech|chinh\s*giua|o\s*giua|giua\s*hang|doi\s*ghe|doi\s*hang|doi\s*sang|chuyen\s*sang|chon\s*lai|hang\s*khac|sang\s*hang|doi\s*ve|doi\s*loai|chuyen\s*loai|ghe\s*khac|vi\s*tri\s*khac|cho\s*khac)/i.test(normCurrent) ||
           isChangeRowRequest ||
-          isChangeSameRowSeats
+          isChangeSameRowSeats ||
+          isQuantityAdjustmentRequest
         );
 
         const userMessages = [
@@ -3165,6 +3172,11 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
 
         let eventId = detail.slug || detail.id;
         const sessions = detail.sessions || [];
+        const allEventTickets = detail.ticket_types || [];
+        const lastProp = findLastBookingProposal(history, allEventTickets);
+        const prevPropQty = lastProp?.quantity || null;
+        const lastPropFirstSeat = typeof lastProp?.seats?.[0] === 'string' ? lastProp?.seats?.[0] : (lastProp?.seats?.[0]?.label || '');
+        const lastPropRow = lastPropFirstSeat ? lastPropFirstSeat.charAt(0).toUpperCase() : null;
 
         // Match session
         let matchedSession = null;
@@ -3179,6 +3191,9 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
             matchedSession = sessions[sIdx];
           }
         }
+        if (!matchedSession && lastProp?.session?.id) {
+          matchedSession = sessions.find(s => String(s.id) === String(lastProp.session.id)) || null;
+        }
         if (!matchedSession) {
           matchedSession = sessions[0] || null;
         }
@@ -3189,7 +3204,6 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
           detail.ticket_types?.some(t => t.is_seated === true)
         );
 
-        const allEventTickets = detail.ticket_types || [];
         let requestedTickets = [];
         const rawTickets = args.tickets || (args.parsedTickets || null);
         if (Array.isArray(rawTickets) && rawTickets.length > 0) {
@@ -3210,11 +3224,6 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
             }
           }
         }
-
-        const lastProp = findLastBookingProposal(history, allEventTickets);
-        const prevPropQty = lastProp?.quantity || null;
-        const lastPropFirstSeat = typeof lastProp?.seats?.[0] === 'string' ? lastProp?.seats?.[0] : (lastProp?.seats?.[0]?.label || '');
-        const lastPropRow = lastPropFirstSeat ? lastPropFirstSeat.charAt(0).toUpperCase() : null;
 
         if (specificSeats.length === 0) {
           specificSeats = extractSpecificSeats(currentMessage, preferredRow || lastPropRow);
@@ -3240,6 +3249,8 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
         }
         if (isChangeRowRequest) {
           preferredRow = '';
+        } else if (!preferredRow && lastPropRow) {
+          preferredRow = lastPropRow;
         }
 
         const parsedQFromCurrent = parseQuantityFromText(currentMessage, prevPropQty);
@@ -3293,8 +3304,8 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
           // Do not inherit row from previous zone when switching zones
           const rowInCurrent = currentMessage.match(/(?:hàng\s*(?:ghế\s*)?|dãy\s*(?:ghế\s*)?|row\s*)([a-zA-Z\d]+)/i);
           preferredRow = rowInCurrent ? rowInCurrent[1] : '';
-        } else if (!wantsDifferentTierInTool && (isChangeRowRequest || isSeatAdjustmentRequest) && !ticketTypeId && lastProp?.ticket_type_id) {
-          // Preserve previous tier when user is adjusting seats or changing rows
+        } else if (!wantsDifferentTierInTool && !ticketTypeId && lastProp?.ticket_type_id) {
+          // Preserve previous tier whenever modifying an existing proposal unless user explicitly requested a different tier
           const prevMatched = allEventTickets.find(t => String(t.id) === String(lastProp.ticket_type_id));
           if (prevMatched) {
             ticketTypeId = prevMatched.id;
@@ -3359,10 +3370,21 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
               }
             }
           }
-          // If still no ticket tier specified, default to the cheapest tier!
+          // If still no ticket tier specified, default to the cheapest tier suitable for seat map!
           if (!ticketTypeId) {
-            const sortedByPrice = [...allEventTickets].sort((a, b) => Number(a.price) - Number(b.price));
+            const candidateTiers = allEventTickets.filter(t => {
+              if (matchedSession?.id && t.event_session_id && String(t.event_session_id) !== String(matchedSession.id)) {
+                return false;
+              }
+              if (hasSeatMap && t.is_seated === false) {
+                return false;
+              }
+              return true;
+            });
+            const validPool = candidateTiers.length > 0 ? candidateTiers : allEventTickets;
+            const sortedByPrice = [...validPool].sort((a, b) => Number(a.price) - Number(b.price));
             ticketTypeId = sortedByPrice[0]?.id;
+            ticketTypeName = sortedByPrice[0]?.name;
           }
         }
 
@@ -3479,10 +3501,16 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
             holdExpiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
           }
 
+          const primaryAllocItem = allocResultItems?.[0];
+          const primaryTicketId = ticketTypeId || primaryAllocItem?.ticket_type_id || primaryAllocItem?.ticketType?.id || null;
+          const primaryTicketObj = allEventTickets.find(t => String(t.id) === String(primaryTicketId));
+
           proposalData = {
             eventId: detail.id,
             eventSlug: detail.slug,
             eventTitle: detail.title,
+            ticket_type_id: primaryTicketId,
+            ticketTypeName: primaryTicketObj?.name || ticketTypeName || '',
             eventStartTime: matchedSession.start_time || detail.start_time,
             eventEndTime: matchedSession.end_time || detail.end_time,
             session: {
@@ -4460,14 +4488,6 @@ Bạn hãy xác nhận đã chuyển sang sự kiện "${activeEvent.title}", gi
         /(?:ghế\s*khác|ghe\s*khac|vị\s*trí\s*khác|vi\s*tri\s*khac|chỗ\s*khác|cho\s*khac)/i.test(normMsg)
       ) && !isChangeRowRequest;
 
-      const isSeatAdjustmentRequest = !eventChangeInfo.isChange && (
-        /(?:lệch|lech|bị\s*lệch|bi\s*lech|chính\s*giữa|chinh\s*giua|ở\s*giữa|o\s*giua|giữa\s*hàng|giua\s*hang|đổi\s*ghế|doi\s*ghe|chọn\s*ghế|chon\s*ghe|lấy\s*ghế|lay\s*ghe|đổi\s*hàng|doi\s*hang|đổi\s*sang|doi\s*sang|chuyển\s*sang|chuyen\s*sang|chọn\s*lại|chon\s*lai|hàng\s*khác|hang\s*khac|sang\s*hang|sang\s*hàng|đổi\s*vé|doi\s*ve|đổi\s*loại|doi\s*loai|chuyển\s*loại|chuyen\s*loai|ghế\s*khác|ghe\s*khac|vị\s*trí\s*khác|vi\s*tri\s*khac|chỗ\s*khác|cho\s*khac)/i.test(message) ||
-        /(?:lech|bi\s*lech|chinh\s*giua|o\s*giua|giua\s*hang|doi\s*ghe|chon\s*ghe|lay\s*ghe|doi\s*hang|doi\s*sang|chuyen\s*sang|chon\s*lai|hang\s*khac|sang\s*hang|doi\s*ve|doi\s*loai|chuyen\s*loai|ghe\s*khac|vi\s*tri\s*khac|cho\s*khac)/i.test(normMsg) ||
-        wantsDifferentTier ||
-        isChangeRowRequest ||
-        isChangeSameRowSeats
-      );
-
       // 2. Extract last proposal from history (ignore old proposal if switching/abandoning event):
       const ticketTypesList = eventDetail?.ticket_types || [];
       const lastProposal = (isEventSwitched || eventChangeInfo.isChange)
@@ -4478,6 +4498,31 @@ Bạn hãy xác nhận đã chuyển sang sự kiện "${activeEvent.title}", gi
       const firstSeatLabel = typeof firstSeat === 'string' ? firstSeat : (firstSeat?.label || '');
       const prevRow = firstSeatLabel ? firstSeatLabel.charAt(0).toUpperCase() : null;
       const excludeRow = isChangeRowRequest ? prevRow : null;
+
+      const isQuantityAdjustment = Boolean(
+        lastProposal &&
+        !eventChangeInfo.isChange &&
+        !isEventInfoInquiry(message) &&
+        (
+          parseQuantityFromText(message, prevProposalQty) !== null ||
+          /(?:thêm|them|bớt|bot|tăng|tang|giảm|giam|nữa|nua|more|add|reduce|remove)\s*(?:\d+|một|hai|ba|bốn|năm|sau|bay|tam|chin|muoi)?\s*(?:vé|ve|ghế|ghe|chỗ|cho|tickets?|seats?)?/i.test(message)
+        )
+      );
+
+      const isChangeSeatLocationRequest = !eventChangeInfo.isChange && (
+        isChangeSameRowSeats ||
+        /(?:đổi\s*ghế|doi\s*ghe|chọn\s*lại\s*ghế|chon\s*lai\s*ghe|lấy\s*ghế\s*khác|lay\s*ghe\s*khac|ghế\s*khác|ghe\s*khac|vị\s*trí\s*khác|vi\s*tri\s*khac|chỗ\s*khác|cho\s*khac)/i.test(message) ||
+        /(?:doi\s*ghe|chon\s*lai\s*ghe|lay\s*ghe\s*khac|ghe\s*khac|vi\s*tri\s*khac|cho\s*khac)/i.test(normMsg)
+      );
+
+      const isSeatAdjustmentRequest = !eventChangeInfo.isChange && (
+        /(?:lệch|lech|bị\s*lệch|bi\s*lech|chính\s*giữa|chinh\s*giua|ở\s*giữa|o\s*giua|giữa\s*hàng|giua\s*hang|đổi\s*ghế|doi\s*ghe|chọn\s*ghế|chon\s*ghe|lấy\s*ghế|lay\s*ghe|đổi\s*hàng|doi\s*hang|đổi\s*sang|doi\s*sang|chuyển\s*sang|chuyen\s*sang|chọn\s*lại|chon\s*lai|hàng\s*khác|hang\s*khac|sang\s*hang|sang\s*hàng|đổi\s*vé|doi\s*ve|đổi\s*loại|doi\s*loai|chuyển\s*loại|chuyen\s*loai|ghế\s*khác|ghe\s*khac|vị\s*trí\s*khác|vi\s*tri\s*khac|chỗ\s*khác|cho\s*khac)/i.test(message) ||
+        /(?:lech|bi\s*lech|chinh\s*giua|o\s*giua|giua\s*hang|doi\s*ghe|chon\s*ghe|lay\s*ghe|doi\s*hang|doi\s*sang|chuyen\s*sang|chon\s*lai|hang\s*khac|sang\s*hang|doi\s*ve|doi\s*loai|chuyen\s*loai|ghe\s*khac|vi\s*tri\s*khac|cho\s*khac)/i.test(normMsg) ||
+        wantsDifferentTier ||
+        isChangeRowRequest ||
+        isChangeSameRowSeats ||
+        isQuantityAdjustment
+      );
 
       const hasUnfulfilledBookingInHistory = (
         !lastProposal &&
@@ -4519,7 +4564,7 @@ Bạn hãy xác nhận đã chuyển sang sự kiện "${activeEvent.title}", gi
         ? specificSeatsInMsg
         : preservedSeatsFromProposal;
 
-      const excludeSeatsInMsg = (isChangeSameRowSeats || (isSeatAdjustmentRequest && !isChangeRowRequest && specificSeatsInMsg.length === 0))
+      const excludeSeatsInMsg = (isChangeSeatLocationRequest && !isChangeRowRequest && specificSeatsInMsg.length === 0 && !isQuantityAdjustment)
         ? (lastProposal?.seats || [])
         : [];
 
@@ -4647,9 +4692,10 @@ Bạn hãy xác nhận đã chuyển sang sự kiện "${activeEvent.title}", gi
         effTargetTier = cheapestTicket;
         const q = requestedQty || seatedOrderQty || 1;
         effDetectedTickets = [{ ticket: cheapestTicket, quantity: q }];
-      } else if (!wantsDifferentTier && (isChangeRowRequest || isSeatAdjustmentRequest || specificSeatsInMsg.length > 0) && lastProposal?.ticket_type_id) {
-        // Preserve previous tier when user is adjusting seats or changing row
-        const prevMatchedTier = targetCandidateTickets.find(t => String(t.id) === String(lastProposal.ticket_type_id));
+      } else if (!wantsDifferentTier && (isChangeRowRequest || isSeatAdjustmentRequest || specificSeatsInMsg.length > 0 || isQuantityAdjustment) && lastProposal?.ticket_type_id) {
+        // Preserve previous tier when user is adjusting seats, changing row, or adjusting quantity
+        const prevMatchedTier = targetCandidateTickets.find(t => String(t.id) === String(lastProposal.ticket_type_id)) ||
+          (eventDetail?.ticket_types || []).find(t => String(t.id) === String(lastProposal.ticket_type_id));
         if (prevMatchedTier) {
           effTargetTier = prevMatchedTier;
           const q = requestedQty || seatedOrderQty || prevProposalQty || 1;
@@ -4816,9 +4862,9 @@ Bạn hãy xác nhận đã chuyển sang sự kiện "${activeEvent.title}", gi
 
           const directToolRes = await this.executeTool(userId, 'proposeSmartBooking', {
             eventId: activeEvent.slug,
-            sessionId: (sessionList?.[0]?.id || eventDetail?.sessions?.[0]?.id || activeEvent.sessions?.[0]?.id || activeSessionId || ''),
+            sessionId: (lastProposal?.session?.id || sessionList?.[0]?.id || eventDetail?.sessions?.[0]?.id || activeEvent.sessions?.[0]?.id || activeSessionId || ''),
             quantity: effQty,
-            preferredRow: requestedRow || (isCenterInMsg ? 'trung tâm' : ''),
+            preferredRow: requestedRow || (!excludeRow && prevRow ? prevRow : (isCenterInMsg ? 'trung tâm' : '')),
             excludeRow: excludeRow || null,
             excludeSeats: excludeSeatsInMsg.length > 0 ? excludeSeatsInMsg : undefined,
             specificSeats: specificSeatsInMsg.length > 0 ? specificSeatsInMsg : undefined,
@@ -5029,9 +5075,9 @@ ${getRemainingTicketsDescription(detectedTickets, collectedAttendees.length)}`
               logger.info(`[AgentLoop] Directly triggering proposeSmartBooking as AI model fallback...`);
               await this.executeTool(userId, 'proposeSmartBooking', {
                 eventId: activeEvent.slug,
-                sessionId: activeSessionId,
+                sessionId: lastProposal?.session?.id || activeSessionId,
                 quantity: effQty,
-                preferredRow: requestedRow || (isCenterInMsg ? 'trung tâm' : ''),
+                preferredRow: requestedRow || (!excludeRow && prevRow ? prevRow : (isCenterInMsg ? 'trung tâm' : '')),
                 excludeRow,
                 ticketTypeId: effTargetTier?.id,
                 ticketTypeName: effTargetTier?.name
@@ -5168,9 +5214,9 @@ ${getRemainingTicketsDescription(detectedTickets, collectedAttendees.length)}`
           logger.info(`[AgentLoop] Auto-triggering proposeSmartBooking because user requested autonomous booking but model skipped tool call.`);
           await this.executeTool(userId, 'proposeSmartBooking', {
             eventId: activeEvent.slug,
-            sessionId: (sessionList?.[0]?.id || eventDetail?.sessions?.[0]?.id || activeEvent.sessions?.[0]?.id || ''),
+            sessionId: (lastProposal?.session?.id || sessionList?.[0]?.id || eventDetail?.sessions?.[0]?.id || activeEvent.sessions?.[0]?.id || ''),
             quantity: effAutoQty,
-            preferredRow: requestedRow || (isCenterInMsg ? 'trung tâm' : ''),
+            preferredRow: requestedRow || (!excludeRow && prevRow ? prevRow : (isCenterInMsg ? 'trung tâm' : '')),
             ticketTypeId: targetTier?.id || null,
             ticketTypeName: targetTier?.name || '',
             tickets: ticketsArg
