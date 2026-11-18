@@ -77,7 +77,7 @@ export function CosmicSpaceBackground({ active = true }) {
       {
         id: 'blue_giant',
         name: 'Blue Gas Giant',
-        texture: '/planets/texture_blue_giant.png',
+        texture: '/planets/texture_blue_giant.webp',
         radius: 50,
         // Responsive anchor: fraction of width/height
         anchor: { x: 0.38, y: 0.28 }, // upper right
@@ -91,7 +91,7 @@ export function CosmicSpaceBackground({ active = true }) {
       {
         id: 'peach_moon',
         name: 'Peach Moon',
-        texture: '/planets/texture_peach_moon.png',
+        texture: '/planets/texture_peach_moon.webp',
         radius: 24,
         anchor: { x: -0.38, y: 0.24 }, // upper left
         axialTiltZ: 0.16, // ~9 deg
@@ -104,7 +104,7 @@ export function CosmicSpaceBackground({ active = true }) {
       {
         id: 'purple_swirl',
         name: 'Purple Swirl Planet',
-        texture: '/planets/texture_purple_swirl.png',
+        texture: '/planets/texture_purple_swirl.webp',
         radius: 48,
         anchor: { x: -0.42, y: -0.26 }, // lower left
         axialTiltZ: 0.40, // ~23 deg
@@ -117,7 +117,7 @@ export function CosmicSpaceBackground({ active = true }) {
       {
         id: 'pink_moon',
         name: 'Pink Moon',
-        texture: '/planets/texture_pink_moon.png',
+        texture: '/planets/texture_pink_moon.webp',
         radius: 20,
         anchor: { x: 0.32, y: -0.36 }, // lower right
         axialTiltZ: 0.22, // ~13 deg
@@ -130,7 +130,7 @@ export function CosmicSpaceBackground({ active = true }) {
       {
         id: 'striped_edge',
         name: 'Striped Gas Giant',
-        texture: '/planets/texture_striped_edge.png',
+        texture: '/planets/texture_striped_edge.webp',
         radius: 56,
         anchor: { x: 0.49, y: -0.05 }, // middle right edge
         axialTiltZ: 0.24, // ~14 deg
@@ -472,7 +472,7 @@ export function CosmicSpaceBackground({ active = true }) {
       <div
         className="absolute inset-0 bg-[#030712] bg-cover bg-center transition-opacity duration-700"
         style={{
-          backgroundImage: "url('/space-stars-bg.png')",
+          backgroundImage: "url('/space-stars-bg.webp')",
           backgroundBlendMode: 'screen',
         }}
       />

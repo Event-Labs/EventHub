@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef } from 'react'
-import goldenCloudsBgSrc from '@/assets/golden-clouds-bg.png'
+import goldenCloudsBgSrc from '@/assets/golden-clouds-bg.webp'
 
 /**
  * CelestialSkyCanvas

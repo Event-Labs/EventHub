@@ -1,79 +1,95 @@
+import { lazy } from 'react'
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { AppLayout } from '@/layouts/AppLayout.jsx'
-import { BookingCheckoutPage } from '@/pages/customer/booking/BookingCheckoutPage.jsx'
-import {
-  BookingAttendeesPage,
-  BookingPaymentPage,
-  BookingReviewPage,
-  BookingSeatsPage,
-} from '@/pages/customer/booking/BookingFlowPages.jsx'
-import { EventDetailPage } from '@/pages/customer/events/EventDetailPage.jsx'
-import { WaitingRoomPage } from '@/pages/customer/waiting-room/WaitingRoomPage.jsx'
-import { EventsPage } from '@/pages/customer/events/EventsPage.jsx'
-import { FavoriteEventsPage } from '@/pages/customer/favorites/FavoriteEventsPage.jsx'
-import { FeedbackPage } from '@/pages/customer/FeedbackPage.jsx'
-import { CustomerComplaintsPage } from '@/pages/customer/CustomerComplaintsPage.jsx'
-import { OrganizerBusinessEmailVerifyPage } from '@/pages/customer/OrganizerBusinessEmailVerifyPage.jsx'
-import { OrganizerRequestPage } from '@/pages/customer/OrganizerRequestPage.jsx'
 import { HomePage } from '@/pages/public/HomePage.jsx'
-import { LoginPage } from '@/pages/auth/LoginPage.jsx'
-import { LockedAccountPage } from '@/pages/auth/LockedAccountPage.jsx'
-import { MyTicketsPage } from '@/pages/customer/tickets/MyTicketsPage.jsx'
-import { NotificationsPage } from '@/pages/customer/NotificationsPage.jsx'
-import { NotFoundPage } from '@/pages/public/NotFoundPage.jsx'
-import { PaymentConfirmationPage } from '@/pages/customer/booking/PaymentConfirmationPage.jsx'
-import {
-  AdminAccountsPage,
-  AdminAnalyticsPage,
-  AdminEventCategoriesPage,
-  AdminEventReviewPage,
-  AdminFinancePage,
-  AdminLayout,
-  AdminOrganizerDetailPage,
-  AdminOrganizersPage,
-  AdminOrganizerRequestsPage,
-  AdminPlansPage,
-  AdminProfilePage,
-  AdminEventReviewDetailPage,
-  AdminEventCancellationDetailPage,
-  AdminDevicesPage,
-} from '@/pages/admin/AdminPages.jsx'
-import { AdminDisputesPage } from '@/pages/admin/AdminDisputesPage.jsx'
-import { OrganizerAnnouncementsPage } from '@/pages/organizer/OrganizerAnnouncementsPage.jsx'
-import { OrganizerAttendeesPage } from '@/pages/organizer/OrganizerAttendeesPage.jsx'
-import { OrganizerOrdersPage } from '@/pages/organizer/OrganizerOrdersPage.jsx'
-import { OrganizerDashboardPage as OrganizerPortalDashboardPage } from '@/pages/organizer/OrganizerDashboardPage.jsx'
-import { OrganizerFeedbackReportPage } from '@/pages/organizer/OrganizerFeedbackReportPage.jsx'
-import { CreateEventPage } from '@/pages/organizer/CreateEventPage.jsx'
-import { OrganizerEventsPage } from '@/pages/organizer/OrganizerEventsPage.jsx'
-import { OrganizerEventDetailPage } from '@/pages/organizer/OrganizerEventDetailPage.jsx'
-import { OrganizerLayout } from '@/pages/organizer/OrganizerLayout.jsx'
-import { OrganizerRefundsPage } from '@/pages/organizer/OrganizerRefundsPage.jsx'
-import { OrganizerRefundDetailPage } from '@/pages/organizer/OrganizerRefundDetailPage.jsx'
-import { OrganizerPromosPage } from '@/pages/organizer/OrganizerPromosPage.jsx'
-import { OrganizerVenuesPage } from '@/pages/organizer/OrganizerVenuesPage.jsx'
-import { OrganizerVenueSeatMapsPage } from '@/pages/organizer/OrganizerVenueSeatMapsPage.jsx'
-import { OrganizerSubscriptionsPage } from '@/pages/organizer/OrganizerSubscriptionsPage.jsx'
-import { OrganizerStaffManagementPage } from '@/pages/organizer/OrganizerStaffManagementPage.jsx'
-import { OrganizerCheckinDashboardPage } from '@/pages/organizer/OrganizerCheckinDashboardPage.jsx'
-import { OrganizerTicketSalesPage } from '@/pages/organizer/OrganizerTicketSalesPage.jsx'
-import { OrganizerSubscriptionPaymentPage } from '@/pages/organizer/OrganizerSubscriptionPaymentPage.jsx'
-import { OrganizerPaymentSettingsPage } from '@/pages/organizer/OrganizerPaymentSettingsPage.jsx'
-import { StaffCheckInCountPage } from '@/pages/staff/StaffCheckInCountPage.jsx'
-import { StaffDashboardPage as StaffPortalDashboardPage } from '@/pages/staff/StaffDashboardPage.jsx'
-import { StaffDirectBookingPage } from '@/pages/staff/StaffDirectBookingPage.jsx'
-import { StaffEventDetailPage } from '@/pages/staff/StaffEventDetailPage.jsx'
-import { StaffEventsPage, NoAssignedEventsPage } from '@/pages/staff/StaffEventsPage.jsx'
-import { StaffLayout } from '@/pages/staff/StaffLayout.jsx'
-import { CameraDeniedPage, ManualCheckInPage, StaffQrCheckInPage } from '@/pages/staff/StaffQrCheckInPage.jsx'
-import { TicketResultPage } from '@/pages/staff/StaffResultsPage.jsx'
-import { ProfilePage } from '@/pages/shared/ProfilePage.jsx'
-import { PlatformPoliciesPage } from '@/pages/shared/PlatformPoliciesPage.jsx'
-import { RegisterPage } from '@/pages/auth/RegisterPage.jsx'
-import { ForgotPasswordPage } from '@/pages/auth/ForgotPasswordPage.jsx'
-import { VerifyEmailPage } from '@/pages/auth/VerifyEmailPage.jsx'
-import { ResetPasswordPage } from '@/pages/auth/ResetPasswordPage.jsx'
-import { TicketDetailPage } from '@/pages/customer/tickets/TicketDetailPage.jsx'
+import { EventsPage } from '@/pages/customer/events/EventsPage.jsx'
+import { EventDetailPage } from '@/pages/customer/events/EventDetailPage.jsx'
+
+// Helper for lazy loading named exports
+const lazyNamed = (importer, name) =>
+  lazy(() => importer().then((m) => ({ default: m[name] })))
+
+// Booking
+const BookingCheckoutPage = lazyNamed(() => import('@/pages/customer/booking/BookingCheckoutPage.jsx'), 'BookingCheckoutPage')
+const BookingAttendeesPage = lazyNamed(() => import('@/pages/customer/booking/BookingFlowPages.jsx'), 'BookingAttendeesPage')
+const BookingPaymentPage = lazyNamed(() => import('@/pages/customer/booking/BookingFlowPages.jsx'), 'BookingPaymentPage')
+const BookingReviewPage = lazyNamed(() => import('@/pages/customer/booking/BookingFlowPages.jsx'), 'BookingReviewPage')
+const BookingSeatsPage = lazyNamed(() => import('@/pages/customer/booking/BookingFlowPages.jsx'), 'BookingSeatsPage')
+const PaymentConfirmationPage = lazyNamed(() => import('@/pages/customer/booking/PaymentConfirmationPage.jsx'), 'PaymentConfirmationPage')
+
+// Customer Secondary
+const WaitingRoomPage = lazyNamed(() => import('@/pages/customer/waiting-room/WaitingRoomPage.jsx'), 'WaitingRoomPage')
+const FavoriteEventsPage = lazyNamed(() => import('@/pages/customer/favorites/FavoriteEventsPage.jsx'), 'FavoriteEventsPage')
+const FeedbackPage = lazyNamed(() => import('@/pages/customer/FeedbackPage.jsx'), 'FeedbackPage')
+const CustomerComplaintsPage = lazyNamed(() => import('@/pages/customer/CustomerComplaintsPage.jsx'), 'CustomerComplaintsPage')
+const OrganizerBusinessEmailVerifyPage = lazyNamed(() => import('@/pages/customer/OrganizerBusinessEmailVerifyPage.jsx'), 'OrganizerBusinessEmailVerifyPage')
+const OrganizerRequestPage = lazyNamed(() => import('@/pages/customer/OrganizerRequestPage.jsx'), 'OrganizerRequestPage')
+const MyTicketsPage = lazyNamed(() => import('@/pages/customer/tickets/MyTicketsPage.jsx'), 'MyTicketsPage')
+const TicketDetailPage = lazyNamed(() => import('@/pages/customer/tickets/TicketDetailPage.jsx'), 'TicketDetailPage')
+const NotificationsPage = lazyNamed(() => import('@/pages/customer/NotificationsPage.jsx'), 'NotificationsPage')
+const NotFoundPage = lazyNamed(() => import('@/pages/public/NotFoundPage.jsx'), 'NotFoundPage')
+const ProfilePage = lazyNamed(() => import('@/pages/shared/ProfilePage.jsx'), 'ProfilePage')
+const PlatformPoliciesPage = lazyNamed(() => import('@/pages/shared/PlatformPoliciesPage.jsx'), 'PlatformPoliciesPage')
+
+// Auth
+const LoginPage = lazyNamed(() => import('@/pages/auth/LoginPage.jsx'), 'LoginPage')
+const LockedAccountPage = lazyNamed(() => import('@/pages/auth/LockedAccountPage.jsx'), 'LockedAccountPage')
+const RegisterPage = lazyNamed(() => import('@/pages/auth/RegisterPage.jsx'), 'RegisterPage')
+const ForgotPasswordPage = lazyNamed(() => import('@/pages/auth/ForgotPasswordPage.jsx'), 'ForgotPasswordPage')
+const VerifyEmailPage = lazyNamed(() => import('@/pages/auth/VerifyEmailPage.jsx'), 'VerifyEmailPage')
+const ResetPasswordPage = lazyNamed(() => import('@/pages/auth/ResetPasswordPage.jsx'), 'ResetPasswordPage')
+
+// Admin
+const AdminLayout = lazyNamed(() => import('@/pages/admin/AdminPages.jsx'), 'AdminLayout')
+const AdminAccountsPage = lazyNamed(() => import('@/pages/admin/AdminPages.jsx'), 'AdminAccountsPage')
+const AdminAnalyticsPage = lazyNamed(() => import('@/pages/admin/AdminPages.jsx'), 'AdminAnalyticsPage')
+const AdminEventCategoriesPage = lazyNamed(() => import('@/pages/admin/AdminPages.jsx'), 'AdminEventCategoriesPage')
+const AdminEventReviewPage = lazyNamed(() => import('@/pages/admin/AdminPages.jsx'), 'AdminEventReviewPage')
+const AdminFinancePage = lazyNamed(() => import('@/pages/admin/AdminPages.jsx'), 'AdminFinancePage')
+const AdminOrganizerDetailPage = lazyNamed(() => import('@/pages/admin/AdminPages.jsx'), 'AdminOrganizerDetailPage')
+const AdminOrganizersPage = lazyNamed(() => import('@/pages/admin/AdminPages.jsx'), 'AdminOrganizersPage')
+const AdminOrganizerRequestsPage = lazyNamed(() => import('@/pages/admin/AdminPages.jsx'), 'AdminOrganizerRequestsPage')
+const AdminPlansPage = lazyNamed(() => import('@/pages/admin/AdminPages.jsx'), 'AdminPlansPage')
+const AdminProfilePage = lazyNamed(() => import('@/pages/admin/AdminPages.jsx'), 'AdminProfilePage')
+const AdminEventReviewDetailPage = lazyNamed(() => import('@/pages/admin/AdminPages.jsx'), 'AdminEventReviewDetailPage')
+const AdminEventCancellationDetailPage = lazyNamed(() => import('@/pages/admin/AdminPages.jsx'), 'AdminEventCancellationDetailPage')
+const AdminDevicesPage = lazyNamed(() => import('@/pages/admin/AdminPages.jsx'), 'AdminDevicesPage')
+const AdminDisputesPage = lazyNamed(() => import('@/pages/admin/AdminDisputesPage.jsx'), 'AdminDisputesPage')
+
+// Organizer
+const OrganizerLayout = lazyNamed(() => import('@/pages/organizer/OrganizerLayout.jsx'), 'OrganizerLayout')
+const OrganizerPortalDashboardPage = lazyNamed(() => import('@/pages/organizer/OrganizerDashboardPage.jsx'), 'OrganizerDashboardPage')
+const OrganizerEventsPage = lazyNamed(() => import('@/pages/organizer/OrganizerEventsPage.jsx'), 'OrganizerEventsPage')
+const CreateEventPage = lazyNamed(() => import('@/pages/organizer/CreateEventPage.jsx'), 'CreateEventPage')
+const OrganizerEventDetailPage = lazyNamed(() => import('@/pages/organizer/OrganizerEventDetailPage.jsx'), 'OrganizerEventDetailPage')
+const OrganizerAttendeesPage = lazyNamed(() => import('@/pages/organizer/OrganizerAttendeesPage.jsx'), 'OrganizerAttendeesPage')
+const OrganizerCheckinDashboardPage = lazyNamed(() => import('@/pages/organizer/OrganizerCheckinDashboardPage.jsx'), 'OrganizerCheckinDashboardPage')
+const OrganizerTicketSalesPage = lazyNamed(() => import('@/pages/organizer/OrganizerTicketSalesPage.jsx'), 'OrganizerTicketSalesPage')
+const OrganizerOrdersPage = lazyNamed(() => import('@/pages/organizer/OrganizerOrdersPage.jsx'), 'OrganizerOrdersPage')
+const OrganizerRefundsPage = lazyNamed(() => import('@/pages/organizer/OrganizerRefundsPage.jsx'), 'OrganizerRefundsPage')
+const OrganizerRefundDetailPage = lazyNamed(() => import('@/pages/organizer/OrganizerRefundDetailPage.jsx'), 'OrganizerRefundDetailPage')
+const OrganizerStaffManagementPage = lazyNamed(() => import('@/pages/organizer/OrganizerStaffManagementPage.jsx'), 'OrganizerStaffManagementPage')
+const OrganizerFeedbackReportPage = lazyNamed(() => import('@/pages/organizer/OrganizerFeedbackReportPage.jsx'), 'OrganizerFeedbackReportPage')
+const OrganizerPromosPage = lazyNamed(() => import('@/pages/organizer/OrganizerPromosPage.jsx'), 'OrganizerPromosPage')
+const OrganizerVenuesPage = lazyNamed(() => import('@/pages/organizer/OrganizerVenuesPage.jsx'), 'OrganizerVenuesPage')
+const OrganizerVenueSeatMapsPage = lazyNamed(() => import('@/pages/organizer/OrganizerVenueSeatMapsPage.jsx'), 'OrganizerVenueSeatMapsPage')
+const OrganizerAnnouncementsPage = lazyNamed(() => import('@/pages/organizer/OrganizerAnnouncementsPage.jsx'), 'OrganizerAnnouncementsPage')
+const OrganizerSubscriptionsPage = lazyNamed(() => import('@/pages/organizer/OrganizerSubscriptionsPage.jsx'), 'OrganizerSubscriptionsPage')
+const OrganizerSubscriptionPaymentPage = lazyNamed(() => import('@/pages/organizer/OrganizerSubscriptionPaymentPage.jsx'), 'OrganizerSubscriptionPaymentPage')
+const OrganizerPaymentSettingsPage = lazyNamed(() => import('@/pages/organizer/OrganizerPaymentSettingsPage.jsx'), 'OrganizerPaymentSettingsPage')
+
+// Staff
+const StaffLayout = lazyNamed(() => import('@/pages/staff/StaffLayout.jsx'), 'StaffLayout')
+const StaffPortalDashboardPage = lazyNamed(() => import('@/pages/staff/StaffDashboardPage.jsx'), 'StaffDashboardPage')
+const StaffEventsPage = lazyNamed(() => import('@/pages/staff/StaffEventsPage.jsx'), 'StaffEventsPage')
+const NoAssignedEventsPage = lazyNamed(() => import('@/pages/staff/StaffEventsPage.jsx'), 'NoAssignedEventsPage')
+const StaffEventDetailPage = lazyNamed(() => import('@/pages/staff/StaffEventDetailPage.jsx'), 'StaffEventDetailPage')
+const StaffDirectBookingPage = lazyNamed(() => import('@/pages/staff/StaffDirectBookingPage.jsx'), 'StaffDirectBookingPage')
+const StaffQrCheckInPage = lazyNamed(() => import('@/pages/staff/StaffQrCheckInPage.jsx'), 'StaffQrCheckInPage')
+const CameraDeniedPage = lazyNamed(() => import('@/pages/staff/StaffQrCheckInPage.jsx'), 'CameraDeniedPage')
+const ManualCheckInPage = lazyNamed(() => import('@/pages/staff/StaffQrCheckInPage.jsx'), 'ManualCheckInPage')
+const TicketResultPage = lazyNamed(() => import('@/pages/staff/StaffResultsPage.jsx'), 'TicketResultPage')
+const StaffCheckInCountPage = lazyNamed(() => import('@/pages/staff/StaffCheckInCountPage.jsx'), 'StaffCheckInCountPage')
 
 export const router = createBrowserRouter([
   {

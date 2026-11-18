@@ -9,7 +9,7 @@ import { Badge, StaffPage, StaffPanel } from './StaffComponents.jsx'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { QRCodeImage } from '@/components/QRCodeImage.jsx'
-import logoSrc from '@/assets/eventhub-logo.png'
+import logoSrc from '@/assets/eventhub-logo.webp'
 import { translatePhrase } from '@/i18n/phraseDictionary.js'
 import { cleanAndFormatVenue } from '@/i18n/eventTranslations.js'
 

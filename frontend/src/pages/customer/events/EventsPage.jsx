@@ -41,7 +41,7 @@ function buildQuery(filters) {
 
 
 export function EventsPage() {
-  const { isEnglish, t } = useLanguage()
+  const { isEnglish } = useLanguage()
   const toast = useToast()
   const [searchParams, setSearchParams] = useSearchParams()
   const location = useLocation()
@@ -68,12 +68,49 @@ export function EventsPage() {
   const eventsQuery = useQuery({
     queryKey: ['events', queryParams],
     queryFn: () => fetchEvents(queryParams),
-    refetchInterval: 30_000,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    placeholderData: (previousData) => previousData,
+    initialData: () => {
+      // Check if this is the default page 1 query
+      const isDefaultPage1 =
+        (!queryParams.page || String(queryParams.page) === '1') &&
+        queryParams.sort_by === 'start_time' &&
+        queryParams.sort_order === 'asc' &&
+        !queryParams.keyword &&
+        !queryParams.category_slug &&
+        !queryParams.location &&
+        !queryParams.start_date &&
+        !queryParams.end_date &&
+        !queryParams.min_price &&
+        !queryParams.max_price
+
+      if (isDefaultPage1) {
+        const pool = queryClient.getQueryData(['home-events', 'upcoming-pool'])
+        if (pool?.items?.length) {
+          const total = pool.pagination?.total ?? pool.items.length
+          return {
+            items: pool.items.slice(0, 9),
+            pagination: {
+              page: 1,
+              limit: 9,
+              total,
+              total_pages: Math.max(1, Math.ceil(total / 9)),
+            },
+          }
+        }
+      }
+      return undefined
+    },
+    initialDataUpdatedAt: () => {
+      return queryClient.getQueryState(['home-events', 'upcoming-pool'])?.dataUpdatedAt
+    },
   })
 
   const categoriesQuery = useQuery({
     queryKey: ['event-categories'],
     queryFn: fetchEventCategories,
+    staleTime: 10 * 60 * 1000,
   })
 
   const favoriteMutation = useMutation({
@@ -96,8 +133,6 @@ export function EventsPage() {
     onSettled: () => refreshFavoriteQueries(queryClient),
   })
 
-  const [showFilters, setShowFilters] = useState(false)
-
   const activeFilterCount = useMemo(() => {
     let count = 0
     if (draft.location) count++
@@ -108,12 +143,7 @@ export function EventsPage() {
     return count
   }, [draft])
 
-  // Automatically expand filters if user landed with specific filter parameters
-  useEffect(() => {
-    if (activeFilterCount > 0) {
-      setShowFilters(true)
-    }
-  }, []) // only on mount
+  const [showFilters, setShowFilters] = useState(() => activeFilterCount > 0)
 
   const submitFilters = (event) => {
     event.preventDefault()

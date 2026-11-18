@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Outlet, NavLink, Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { Bell, CheckCheck, Compass, Heart, Home, Ticket, User } from 'lucide-react'
 import {
@@ -17,7 +17,7 @@ import { ActiveHoldFloatingBar } from '@/components/ActiveHoldFloatingBar.jsx'
 import { CosmicStarryBackground } from '@/components/CosmicStarryBackground.jsx'
 import { LanguageSwitcher } from '@/i18n/LanguageSwitcher.jsx'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
-import logoSrc from '@/assets/eventhub-logo.png'
+import logoSrc from '@/assets/eventhub-logo.webp'
 
 function getCenterNavItems(isEnglish) {
   return isEnglish
@@ -583,7 +583,15 @@ export function AppLayout() {
             : 'pt-20 sm:pt-24 lg:pt-28'
         }`}
       >
-        <Outlet />
+        <Suspense
+          fallback={
+            <div className="flex min-h-[40vh] w-full items-center justify-center p-8">
+              <div className="size-8 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
+            </div>
+          }
+        >
+          <Outlet />
+        </Suspense>
       </main>
       <footer
         className={`relative border-t border-border-soft bg-panel-soft/30 backdrop-blur-md pb-16 md:pb-0 ${
