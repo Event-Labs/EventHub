@@ -32,6 +32,20 @@ export function hasActiveSeatHold(cart) {
 
 export function getResumeBookingPath(cart) {
   if (!cart) return '/events'
+
+  // If all tickets in cart are free (0đ), the booking flow never has a payment step
+  const isAllFreeTickets = Boolean(
+    cart.items &&
+    cart.items.length > 0 &&
+    cart.items.every((it) => Number(it.ticketType?.price ?? it.ticketType?.unit_price ?? 0) === 0)
+  )
+
+  if (isAllFreeTickets) {
+    if (cart.currentStep === 1) return '/booking/seats'
+    if (cart.currentStep === 2) return '/booking/attendees'
+    return '/booking/review'
+  }
+
   if (cart.currentPath) return cart.currentPath
   if (cart.currentStep === 4 || cart.orderId) {
     return cart.orderId ? `/booking/payment?orderId=${cart.orderId}` : '/booking/payment'
