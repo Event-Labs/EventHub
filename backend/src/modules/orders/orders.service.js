@@ -191,9 +191,15 @@ class OrdersService {
       }
     }
 
+    const ticketTypeIds = [...new Set(payload.items.map((item) => item.ticket_type_id))];
+    const ticketPriceRows = await ordersRepository.findTicketTypePrices(ticketTypeIds);
+    const priceMap = new Map(ticketPriceRows.map((r) => [r.id, Number(r.price || 0)]));
+
     const normalizedItems = payload.items.map((item) => {
       const quantity = Number(item.quantity);
-      const unitPrice = Number(item.unit_price || item.price || 0);
+      const unitPrice = priceMap.has(item.ticket_type_id)
+        ? priceMap.get(item.ticket_type_id)
+        : Number(item.unit_price || item.price || 0);
       return {
         ticket_type_id: item.ticket_type_id,
         session_seat_ids: item.session_seat_ids || [],
@@ -270,9 +276,9 @@ class OrdersService {
             is_completed: true,
           };
         } catch (err) {
-          // If error indicates payable amount > 0, proceed to regular PayOS flow
-          if (err.message && err.message.includes('lớn hơn 0')) {
-            // Not a zero-amount order, fall through
+          // If error indicates payable amount > 0, proceed to regular PayOS flow ONLY if subtotal > 0
+          if (subtotal > 0 && err.message && err.message.includes('lớn hơn 0')) {
+            // Partial discount voucher, fall through to create pending PayOS payment
           } else {
             throw err;
           }

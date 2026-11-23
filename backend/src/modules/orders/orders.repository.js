@@ -982,6 +982,15 @@ class OrdersRepository {
     return rows;
   }
 
+  async findTicketTypePrices(ticketTypeIds = []) {
+    if (!ticketTypeIds.length) return [];
+    const { rows } = await db.query(
+      `SELECT id, price FROM ticket_types WHERE id = ANY($1::uuid[])`,
+      [ticketTypeIds],
+    );
+    return rows;
+  }
+
   /**
    * Staff Complimentary Ticket Booking (Decision 2.8)
    * Locking order: events (advisory lock) -> ticket_types (FOR UPDATE) -> orders -> tickets -> session_seats (FOR UPDATE)

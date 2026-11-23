@@ -447,6 +447,14 @@ function initialCartFromLocation(location) {
       restoredCart.holdExpiresAt = null
       restoredCart.hold_expires_at = null
     }
+
+    // Guard: If entering seats step (step 1) or if cart is 0đ, clear any stale orderId and payment path
+    if (locationCart?.currentStep === 1 || restoredCart.currentStep === 1 || payableTotal(restoredCart) === 0) {
+      restoredCart.orderId = null
+      if (restoredCart.currentPath?.includes('/booking/payment')) {
+        restoredCart.currentPath = payableTotal(restoredCart) === 0 ? '/booking/review' : '/booking/seats'
+      }
+    }
   }
 
   return restoredCart
@@ -930,6 +938,7 @@ export function BookingSeatsPage() {
 
     setInvalidSeatId(null)
     setSelectedSeatIds(nextSeatIds)
+    setCart((current) => (current ? { ...current, orderId: null } : current))
   }
 
   const updateUnseatedQuantity = (ticketType, delta) => {
@@ -969,6 +978,7 @@ export function BookingSeatsPage() {
 
       return {
         ...current,
+        orderId: null,
         hasSeatMap,
         items: items.filter((item) => Number(item.quantity || 0) > 0),
       }
@@ -1605,12 +1615,8 @@ export function BookingReviewPage() {
   useEffect(() => {
     if (promosQuery.isSuccess && promoCode) {
       const found = availablePromos.find((p) => String(p.code).trim().toUpperCase() === String(promoCode).trim().toUpperCase())
-      if (found) {
-        if (!selectedPromo) setSelectedPromo(found)
-      } else {
-        setPromoCode('')
-        setSelectedPromo(null)
-        setPromoInput('')
+      if (found && !selectedPromo) {
+        setSelectedPromo(found)
       }
     }
   }, [promosQuery.isSuccess, availablePromos, promoCode, selectedPromo])
@@ -1647,6 +1653,7 @@ export function BookingReviewPage() {
       setPromoCode(found.code)
       setSelectedPromo(found)
       setPromoInput(found.code)
+      setCart((prev) => (prev ? { ...prev, orderId: null } : prev))
       toast.success(
         isEnglish
           ? `Promo code ${found.code} applied successfully!`
@@ -1665,6 +1672,7 @@ export function BookingReviewPage() {
     setPromoCode('')
     setSelectedPromo(null)
     setPromoInput('')
+    setCart((prev) => (prev ? { ...prev, orderId: null } : prev))
     toast.info('Đã hủy áp dụng mã khuyến mãi.')
   }
 
@@ -1770,7 +1778,12 @@ export function BookingReviewPage() {
         return
       }
 
-      if (nextCart.orderId) {
+      const isZeroPayable = payableTotal(nextCart) === 0
+
+      if (isZeroPayable) {
+        // Free ticket or 100% discount promo: Never resume an old pending payment order!
+        nextCart.orderId = null
+      } else if (nextCart.orderId) {
         try {
           const status = await fetchOrderStatus(nextCart.orderId)
           if (status?.order?.status === 'PENDING' && status?.payment) {
@@ -1804,9 +1817,9 @@ export function BookingReviewPage() {
         idempotency_key: idempotencyKey,
       }, { idempotencyKey })
 
-      if (checkoutData.is_completed || checkoutData.order?.status === 'CONFIRMED' || !checkoutData.requires_payment) {
-        toast.success('Đặt vé thành công! Vé của bạn đã sẵn sàng.')
-        clearBookingDraft()
+      if (checkoutData.is_completed || checkoutData.order?.status === 'CONFIRMED' || !checkoutData.requires_payment || isZeroPayable) {
+        toast.success(isEnglish ? 'Booking successful! Your tickets are ready.' : 'Đặt vé thành công! Vé của bạn đã sẵn sàng.')
+        clearBookingDraft(nextCart.eventId)
         navigate('/my-tickets', { replace: true })
         return
       }
@@ -2030,12 +2043,6 @@ export function BookingReviewPage() {
                         Tôi đã đọc và đồng ý với điều khoản tham dự và chính sách hoàn tiền của sự kiện này
                         <span className="ml-1 text-error font-bold">*</span>
                       </span>
-                      {termsError && (
-                        <p className="mt-1.5 flex items-center gap-1.5 text-xs font-semibold text-error animate-pulse">
-                          <AlertTriangle className="size-4 shrink-0" />
-                          <span>Vui lòng tích chọn xác nhận đồng ý trước khi chuyển sang bước thanh toán</span>
-                        </p>
-                      )}
                     </div>
                   </label>
                 </div>
@@ -2050,7 +2057,7 @@ export function BookingReviewPage() {
             isPaused
               ? 'Tạm dừng bán vé'
               : checkingAvailability
-                ? 'Đang tạo thanh toán...'
+                ? (payableTotal({ ...cart, promoCode, promo: selectedPromo }) === 0 ? 'Đang hoàn tất đặt vé...' : 'Đang tạo thanh toán...')
                 : payableTotal({ ...cart, promoCode, promo: selectedPromo }) === 0
                   ? 'Xác nhận đặt vé miễn phí'
                   : 'Xác nhận và thanh toán'
@@ -2112,6 +2119,12 @@ export function BookingPaymentPage() {
     const timer = window.setInterval(() => setTick((v) => v + 1), 1000)
     return () => window.clearInterval(timer)
   }, [])
+
+  useEffect(() => {
+    if (cart && payableTotal(cart) === 0 && !orderId) {
+      navigate('/booking/review', { replace: true, state: { cart } })
+    }
+  }, [cart, orderId, navigate])
 
   useEffect(() => {
     if (!cart?.items?.length) return
