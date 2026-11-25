@@ -772,7 +772,7 @@ function PortalNotificationBell({ theme, portalRole: passedRole }) {
   const token = getAuthToken()
 
   const portalRole = useMemo(() => {
-    if (passedRole) return passedRole
+    if (passedRole) return String(passedRole).toUpperCase()
     if (location.pathname.startsWith('/admin')) return 'ADMIN'
     if (location.pathname.startsWith('/organizer')) return 'ORGANIZER'
     if (location.pathname.startsWith('/staff')) return 'STAFF'
@@ -885,61 +885,22 @@ function PortalNotificationBell({ theme, portalRole: passedRole }) {
     }
     setNotificationOpen(false)
 
-    const meta = notification.metadata || {}
-    if (meta.action_url) {
-      navigate(meta.action_url)
-      return
-    }
-
+    let target = `/notifications#notification-${notification.id}`
     if (portalRole === 'ADMIN') {
-      const title = (notification.title || '').toLowerCase()
-      if (title.includes('organizer') || title.includes('hồ sơ')) {
-        navigate('/admin/organizer-requests')
-        return
-      }
-      if (title.includes('esp32') || title.includes('thiết bị')) {
-        navigate('/admin/devices')
-        return
-      }
-      if (title.includes('khiếu nại') || title.includes('hoàn')) {
-        navigate('/admin/disputes')
-        return
-      }
-      navigate('/admin/events/review')
-      return
+      target = `/admin/notifications#notification-${notification.id}`
+    } else if (portalRole === 'ORGANIZER') {
+      target = `/organizer/notifications#notification-${notification.id}`
+    } else if (portalRole === 'STAFF') {
+      target = `/staff/notifications#notification-${notification.id}`
     }
 
-    if (portalRole === 'ORGANIZER') {
-      if (notification.event_id) {
-        navigate(`/organizer/events/${notification.event_id}`)
-        return
-      }
-      const title = (notification.title || '').toLowerCase()
-      if (title.includes('hoàn')) {
-        navigate('/organizer/refunds')
-        return
-      }
-      if (title.includes('nhân sự') || title.includes('staff')) {
-        navigate('/organizer/staff-management')
-        return
-      }
-      navigate('/organizer/notifications')
-      return
-    }
+    navigate(target)
 
-    if (portalRole === 'STAFF') {
-      const title = (notification.title || '').toLowerCase()
-      // For staff invitations or duty assignments, route directly to staff notifications
-      if (title.includes('lời mời') || title.includes('invitation') || title.includes('staff') || !notification.event_id) {
-        navigate(`/staff/notifications#notification-${notification.id}`)
-        return
-      }
-      // If user has event assignment detail
-      navigate(`/staff/events/${notification.event_id}`)
-      return
-    }
-
-    navigate(`/notifications#notification-${notification.id}`)
+    window.dispatchEvent(
+      new CustomEvent('eventhub:scroll-notification', {
+        detail: { id: notification.id },
+      }),
+    )
   }
 
   return (
@@ -1047,14 +1008,17 @@ function PortalNotificationBell({ theme, portalRole: passedRole }) {
             })}
           </div>
 
-          <Link
-            to={viewAllUrl}
-            onClick={() => setNotificationOpen(false)}
-            className={`block border-t px-4 py-2.5 text-center text-xs font-extrabold text-[#C99A47] hover:text-[#E6C17A] transition-colors ${isLight ? 'border-[#C99A47]/20 bg-[#F5EBDD]/50 hover:bg-[#F5EBDD]' : 'border-border-soft/30 hover:bg-white/[0.04]'
+          <button
+            type="button"
+            onClick={() => {
+              setNotificationOpen(false)
+              navigate(viewAllUrl)
+            }}
+            className={`block w-full border-t px-4 py-2.5 text-center text-xs font-extrabold text-[#C99A47] hover:text-[#E6C17A] transition-colors cursor-pointer ${isLight ? 'border-[#C99A47]/20 bg-[#F5EBDD]/50 hover:bg-[#F5EBDD]' : 'border-border-soft/30 hover:bg-white/[0.04]'
               }`}
           >
             {t('nav.viewAllNotifications')}
-          </Link>
+          </button>
         </div>
       )}
     </div>
