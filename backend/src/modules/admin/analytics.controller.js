@@ -81,6 +81,16 @@ class AdminAnalyticsController {
       next(err);
     }
   };
+
+  getSecurityMetrics = async (req, res, next) => {
+    try {
+      const data = await analyticsService.getSecurityMetrics();
+      res.status(200).json(ApiResponse.success(data, 'Security metrics fetched successfully'));
+    } catch (err) {
+      logger.error('[AdminAnalyticsController] getSecurityMetrics error:', err);
+      next(err);
+    }
+  };
 }
 
 module.exports = new AdminAnalyticsController();

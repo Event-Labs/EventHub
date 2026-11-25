@@ -33,6 +33,10 @@ class InMemoryRedisEngine {
   async set(key, value, options = {}) {
     let expiresAt = null;
     if (options && typeof options === 'object') {
+      if (options.NX) {
+        const existing = this._checkStringExpiry(key);
+        if (existing) return null;
+      }
       if (options.EX) expiresAt = Date.now() + Number(options.EX) * 1000;
       else if (options.PX) expiresAt = Date.now() + Number(options.PX);
     }
@@ -42,6 +46,30 @@ class InMemoryRedisEngine {
 
   async setEx(key, ttlSeconds, value) {
     return this.set(key, value, { EX: ttlSeconds });
+  }
+
+  async incr(key) {
+    const entry = this._checkStringExpiry(key);
+    const current = entry ? parseInt(entry.value || '0', 10) : 0;
+    const next = current + 1;
+    const expiresAt = entry ? entry.expiresAt : null;
+    this.strings.set(key, { value: String(next), expiresAt });
+    return next;
+  }
+
+  async expire(key, ttlSeconds) {
+    const entry = this.strings.get(key);
+    if (!entry) return 0;
+    entry.expiresAt = Date.now() + Number(ttlSeconds) * 1000;
+    return 1;
+  }
+
+  async ttl(key) {
+    const entry = this._checkStringExpiry(key);
+    if (!entry) return -2;
+    if (!entry.expiresAt) return -1;
+    const remaining = Math.floor((entry.expiresAt - Date.now()) / 1000);
+    return remaining > 0 ? remaining : -2;
   }
 
   async del(keyOrKeys) {
@@ -428,6 +456,36 @@ class InMemoryRedisEngine {
       return expired.length;
     }
 
+    // 5. ATOMIC RATE LIMITER (INCR + EXPIRE via Lua)
+    if (script.includes('INCR') && script.includes('EXPIRE')) {
+      const key = keys[0];
+      const ttlSeconds = Number(args[0]);
+      const cur = await this.incr(key);
+      const curTtl = await this.ttl(key);
+      if (cur === 1 || curTtl === -1) {
+        await this.expire(key, ttlSeconds);
+      }
+      const finalTtl = await this.ttl(key);
+      return [cur, finalTtl];
+    }
+
+    // 6. SAFE UNLOCK IDEMPOTENCY LOCK (Validate lockToken before DEL)
+    if (script.includes('lockToken') || script.includes('ARGV[1]')) {
+      const key = keys[0];
+      const expectedToken = String(args[0]);
+      const raw = await this.get(key);
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          if (parsed && String(parsed.lockToken) === expectedToken) {
+            await this.del(key);
+            return 1;
+          }
+        } catch (_) {}
+      }
+      return 0;
+    }
+
     return null;
   }
 
@@ -465,20 +523,34 @@ class InMemoryRedisEngine {
 }
 
 const memoryEngine = new InMemoryRedisEngine();
+const isProd = process.env.NODE_ENV === 'production';
+const allowMemoryInProd = process.env.REDIS_ALLOW_UNSAFE_IN_MEMORY_IN_PROD === 'true';
+
 let useMemoryFallback =
-  !process.env.REDIS_URL ||
-  process.env.REDIS_URL === 'memory' ||
-  process.env.REDIS_FALLBACK_MEMORY === 'true';
+  !isProd &&
+  (!process.env.REDIS_URL ||
+    process.env.REDIS_URL === 'memory' ||
+    process.env.REDIS_FALLBACK_MEMORY === 'true');
+
+if (isProd && (!process.env.REDIS_URL || process.env.REDIS_URL === 'memory') && !allowMemoryInProd) {
+  logger.error('[Redis CRITICAL] Production must connect to a shared distributed Redis instance, not in-memory fallback!');
+}
 
 let rawClient = null;
 let quotaWarningLogged = false;
 
-function switchToFallback() {
+function switchToFallback(reason = '') {
+  if (isProd && !allowMemoryInProd) {
+    logger.error(
+      `[Redis CRITICAL] Redis connection failed in PRODUCTION (${reason}). InMemory fallback is BLOCKED in production to prevent multi-server desynchronization.`,
+    );
+    return;
+  }
   if (!useMemoryFallback) {
     useMemoryFallback = true;
     if (!quotaWarningLogged) {
       quotaWarningLogged = true;
-      logger.info('[Redis] Using In-Memory Redis Engine.');
+      logger.warn(`[Redis] Using In-Memory Redis Engine fallback: ${reason}`);
     }
     if (rawClient) {
       rawClient.disconnect().catch(() => {});
@@ -499,8 +571,17 @@ function isQuotaOrConnectionError(err) {
 
 if (!useMemoryFallback) {
   rawClient = createClient({
-    url: process.env.REDIS_URL,
-    password: process.env.REDIS_PASSWORD,
+    url: process.env.REDIS_URL || 'redis://localhost:6379',
+    password: process.env.REDIS_PASSWORD || undefined,
+    socket: {
+      reconnectStrategy: (retries) => {
+        if (retries > 30) {
+          logger.error('[Redis] Max reconnection attempts reached (30).');
+          return new Error('Max reconnection attempts reached');
+        }
+        return Math.min(retries * 150, 3000);
+      },
+    },
   });
 
   rawClient.on('error', (err) => {
@@ -512,6 +593,8 @@ if (!useMemoryFallback) {
   });
 
   rawClient.on('connect', () => logger.info('Connected to Redis'));
+  rawClient.on('reconnecting', () => logger.warn('[Redis] Reconnecting to Redis server...'));
+  rawClient.on('ready', () => logger.info('[Redis] Connection ready and authenticated.'));
 }
 
 // Transparent Proxy that routes to rawClient when healthy and automatically fails over to memoryEngine
