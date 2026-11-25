@@ -183,6 +183,17 @@ class OrdersRepository {
       `,
     );
 
+    await db.query(
+      `
+      UPDATE ticket_hold_sessions ths
+      SET status = 'EXPIRED', updated_at = now()
+      FROM orders o
+      WHERE ths.order_id = o.id
+        AND ths.status = 'ACTIVE'
+        AND o.status = 'EXPIRED'
+      `,
+    );
+
 
     await db.query(
       `
@@ -713,26 +724,27 @@ class OrdersRepository {
                 WHERE th.ticket_type_id = $1
                   AND th.status = 'ACTIVE'
                   AND th.expires_at > now()
+                  AND (th.user_id IS DISTINCT FROM $2::uuid OR th.order_id IS NOT NULL)
               ), 0) AS active_hold_quantity
             FROM order_items oi
             JOIN orders o ON o.id = oi.order_id
             WHERE oi.ticket_type_id = $1
             `,
-            [item.ticket_type_id],
+            [item.ticket_type_id, userId],
           );
 
           const sold = Number(availabilityResult.rows[0]?.sold_quantity || 0);
           const held = Number(availabilityResult.rows[0]?.active_hold_quantity || 0);
           const available = Number(ticketType.quantity) - sold - held;
           if (item.quantity > available) {
-            throw new AppError('S\u1ed1 l\u01b0\u1ee3ng v\u00e9 c\u00f2n l\u1ea1i kh\u00f4ng \u0111\u1ee7.', 409, ErrorCodes.ORDER_TICKET_UNAVAILABLE);
+            throw new AppError('Số lượng vé còn lại không đủ.', 409, ErrorCodes.ORDER_TICKET_UNAVAILABLE);
           }
 
           const attendeeInfo = [];
           if (requireAttendeeInfo) {
             const queue = attendeeQueues.get(attendeeKey(item.ticket_type_id));
             if (!queue || queue.length < Number(item.quantity)) {
-              throw new AppError('Th\u00f4ng tin ng\u01b0\u1eddi tham d\u1ef1 kh\u00f4ng kh\u1edbp v\u1edbi s\u1ed1 l\u01b0\u1ee3ng v\u00e9.', 400, ErrorCodes.INVALID_INPUT);
+              throw new AppError('Thông tin người tham dự không khớp với số lượng vé.', 400, ErrorCodes.INVALID_INPUT);
             }
             attendeeInfo.push(...queue.splice(0, Number(item.quantity)));
           }
@@ -754,15 +766,45 @@ class OrdersRepository {
           );
           orderItems.push({ ...itemResult.rows[0], ticket_type_name: ticketType.name });
 
-          await client.query(
+          const claimedHold = await client.query(
             `
-            INSERT INTO ticket_holds (user_id, ticket_type_id, session_seat_id, quantity, order_id, expires_at, status)
-            VALUES ($1, $2, NULL, $3, $4, $5, 'ACTIVE')
+            UPDATE ticket_holds
+            SET order_id = $4, expires_at = $5, quantity = $3, updated_at = now()
+            WHERE id = (
+              SELECT id FROM ticket_holds
+              WHERE user_id = $1
+                AND ticket_type_id = $2
+                AND session_seat_id IS NULL
+                AND order_id IS NULL
+                AND status = 'ACTIVE'
+              ORDER BY created_at DESC
+              LIMIT 1
+            )
+            RETURNING id
             `,
             [userId, item.ticket_type_id, item.quantity, order.id, expiredAt],
           );
+
+          if (!claimedHold.rows[0]) {
+            await client.query(
+              `
+              INSERT INTO ticket_holds (user_id, ticket_type_id, session_seat_id, quantity, order_id, expires_at, status)
+              VALUES ($1, $2, NULL, $3, $4, $5, 'ACTIVE')
+              `,
+              [userId, item.ticket_type_id, item.quantity, order.id, expiredAt],
+            );
+          }
         }
       }
+
+      await client.query(
+        `
+        UPDATE ticket_hold_sessions
+        SET order_id = $1, updated_at = now()
+        WHERE user_id = $2 AND event_id = $3 AND status = 'ACTIVE'
+        `,
+        [order.id, userId, eventId],
+      );
 
       const paymentOrderResult = await client.query(
         `
@@ -2126,6 +2168,14 @@ class OrdersRepository {
       );
       await client.query(
         `
+        UPDATE ticket_hold_sessions
+        SET status = 'CANCELLED', released_at = now(), updated_at = now()
+        WHERE order_id = $1 AND status = 'ACTIVE'
+        `,
+        [orderId],
+      );
+      await client.query(
+        `
         UPDATE session_seats
         SET status = 'AVAILABLE',
             held_by = NULL,
@@ -2448,17 +2498,77 @@ class OrdersRepository {
       }
 
       if (order.status === 'EXPIRED') {
+        // 1. Check Seated items: ensure seats have not been assigned to or held by another order
         const seatsCheck = await client.query(
           `
-          SELECT ss.id, ss.status
+          SELECT ss.id, ss.status, ss.order_id, ss.held_by, s.row_label, s.seat_number
           FROM order_items oi
           JOIN session_seats ss ON ss.id = oi.session_seat_id
-          WHERE oi.order_id = $1 AND ss.status NOT IN ('HELD', 'AVAILABLE')
+          LEFT JOIN seats s ON s.id = ss.seat_id
+          WHERE oi.order_id = $1
+          FOR UPDATE OF ss
           `,
           [order.id],
         );
-        if (seatsCheck.rows.length > 0) {
-          throw new AppError('Ghế đã được người khác đặt sau khi hết hạn giữ chỗ.', 400, ErrorCodes.ORDER_TICKET_UNAVAILABLE);
+
+        for (const seatRow of seatsCheck.rows) {
+          const isTakenByOther =
+            seatRow.status === 'SOLD' ||
+            seatRow.status === 'BOOKED' ||
+            (seatRow.order_id && seatRow.order_id !== order.id) ||
+            (seatRow.held_by && seatRow.held_by !== order.user_id && seatRow.status === 'HELD');
+
+          if (isTakenByOther) {
+            throw new AppError(
+              `Ghế ${seatRow.row_label || ''}${seatRow.seat_number || ''} đã được người khác đặt sau khi hết hạn giữ chỗ.`,
+              400,
+              ErrorCodes.ORDER_TICKET_UNAVAILABLE,
+            );
+          }
+        }
+
+        // 2. Check General Admission items: ensure total capacity is not exceeded while order was expired
+        const gaItems = await client.query(
+          `
+          SELECT oi.ticket_type_id, tt.name, tt.quantity, SUM(oi.quantity) as req_qty
+          FROM order_items oi
+          JOIN ticket_types tt ON tt.id = oi.ticket_type_id
+          WHERE oi.order_id = $1 AND oi.session_seat_id IS NULL
+          GROUP BY oi.ticket_type_id, tt.name, tt.quantity
+          FOR UPDATE OF tt
+          `,
+          [order.id],
+        );
+
+        for (const ga of gaItems.rows) {
+          const soldRes = await client.query(
+            `
+            SELECT COALESCE(SUM(oi2.quantity), 0) AS sold_qty
+            FROM order_items oi2
+            JOIN orders o2 ON o2.id = oi2.order_id
+            WHERE oi2.ticket_type_id = $1 AND o2.status = 'PAID'
+            `,
+            [ga.ticket_type_id],
+          );
+          const holdRes = await client.query(
+            `
+            SELECT COALESCE(SUM(quantity), 0) AS hold_qty
+            FROM ticket_holds
+            WHERE ticket_type_id = $1 AND status = 'ACTIVE' AND (order_id IS NULL OR order_id != $2)
+            `,
+            [ga.ticket_type_id, order.id],
+          );
+          const soldCount = parseInt(soldRes.rows[0]?.sold_qty || '0', 10);
+          const holdCount = parseInt(holdRes.rows[0]?.hold_qty || '0', 10);
+          const reqCount = parseInt(ga.req_qty || '0', 10);
+
+          if (soldCount + holdCount + reqCount > ga.quantity) {
+            throw new AppError(
+              `Loại vé "${ga.name}" đã hết số lượng khả dụng sau khi hết hạn giữ chỗ.`,
+              400,
+              ErrorCodes.ORDER_TICKET_UNAVAILABLE,
+            );
+          }
         }
       }
 
@@ -2503,11 +2613,22 @@ class OrdersRepository {
       );
       await client.query(
         `
-        UPDATE session_seats
-        SET status = 'SOLD',
-            held_until = NULL
+        UPDATE ticket_hold_sessions
+        SET status = 'CONFIRMED', updated_at = now()
         WHERE order_id = $1
-          AND status IN ('HELD', 'AVAILABLE')
+          AND status IN ('ACTIVE', 'EXPIRED')
+        `,
+        [order.id],
+      );
+      await client.query(
+        `
+        UPDATE session_seats ss
+        SET status = 'SOLD',
+            held_until = NULL,
+            order_id = $1
+        FROM order_items oi
+        WHERE ss.id = oi.session_seat_id
+          AND oi.order_id = $1
         `,
         [order.id],
       );
@@ -3012,12 +3133,13 @@ class OrdersRepository {
                 WHERE th.ticket_type_id = $1
                   AND th.status = 'ACTIVE'
                   AND th.expires_at > now()
+                  AND (th.user_id IS DISTINCT FROM $2::uuid OR th.order_id IS NOT NULL)
               ), 0) AS active_hold_quantity
             FROM order_items oi
             JOIN orders o ON o.id = oi.order_id
             WHERE oi.ticket_type_id = $1
             `,
-            [item.ticket_type_id],
+            [item.ticket_type_id, userId],
           );
           const { sold_quantity, active_hold_quantity } = availabilityResult.rows[0];
           if (sold_quantity + active_hold_quantity + item.quantity > Number(ticketType.quantity)) {
@@ -3240,6 +3362,31 @@ class OrdersRepository {
           WHERE id = $1
           `,
           [promo.id],
+        );
+      }
+
+      // 10. Update active hold session and ticket_holds to CONFIRMED
+      if (userId) {
+        await client.query(
+          `
+          UPDATE ticket_holds
+          SET status = 'CONFIRMED', order_id = $1, updated_at = now()
+          WHERE user_id = $2
+            AND (order_id = $1 OR order_id IS NULL)
+            AND status = 'ACTIVE'
+          `,
+          [order.id, userId],
+        );
+
+        await client.query(
+          `
+          UPDATE ticket_hold_sessions
+          SET status = 'CONFIRMED', order_id = $1, updated_at = now()
+          WHERE user_id = $2
+            AND event_id = $3
+            AND status = 'ACTIVE'
+          `,
+          [order.id, userId, eventId],
         );
       }
 

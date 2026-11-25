@@ -21,7 +21,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { cancelOrder, checkoutOrder, fetchOrderStatus } from '@/services/orders.js'
-import { checkTicketAvailability, fetchEventDetail, fetchSessionSeats, holdSeats, releaseSeatHolds } from '@/services/events.js'
+import { checkTicketAvailability, fetchEventDetail, fetchSessionSeats, holdSeats, releaseSeatHolds, fetchActiveHold, cancelActiveHold } from '@/services/events.js'
 import { getProfile } from '@/services/user.service.js'
 import promotionService from '@/services/promotions.js'
 import { getApiMessage } from '@/lib/messages.js'
@@ -569,6 +569,42 @@ export function BookingSeatsPage() {
   }, [location.state])
 
   useEffect(() => {
+    let isMounted = true
+    const syncHoldWithServer = async () => {
+      if (!cart?.eventId) return
+      try {
+        const res = await fetchActiveHold(cart.eventId)
+        if (isMounted && res?.hasActiveHold && res.hold) {
+          const hold = res.hold
+          if (hold.remainingSeconds > 0) {
+            setCart((prev) => {
+              const currentSeats = prev?.selectedSeatIds || []
+              const serverSeats = hold.selectedSeatIds || []
+              const hasDiff = currentSeats.length === 0 && serverSeats.length > 0
+              const updated = {
+                ...prev,
+                holdId: hold.id,
+                holdExpiresAt: hold.expiresAt,
+                hold_expires_at: hold.expiresAt,
+                orderId: hold.orderId || prev?.orderId || null,
+                selectedSeatIds: hasDiff ? serverSeats : currentSeats,
+                items: (prev?.items?.length > 0) ? prev.items : (hold.items || []),
+              }
+              saveBookingDraft(updated)
+              return updated
+            })
+            if (hold.selectedSeatIds?.length > 0) {
+              setSelectedSeatIds((prevSeats) => (prevSeats.length === 0 ? hold.selectedSeatIds : prevSeats))
+            }
+          }
+        }
+      } catch (_) {}
+    }
+    syncHoldWithServer()
+    return () => { isMounted = false }
+  }, [cart?.eventId])
+
+  useEffect(() => {
     if (cart?.holdExpiresAt && secondsLeft(cart.holdExpiresAt) <= 0) {
       setCart((prev) => ({
         ...prev,
@@ -802,11 +838,19 @@ export function BookingSeatsPage() {
     }
     setCheckingAvailability(true)
     try {
-      const hold = await holdSeats(availabilityPayloadFromCart(nextCart))
+      // Reuse existing holdIdempotencyKey if retrying current selection; create once per logical action
+      const idempotencyKey =
+        nextCart.holdIdempotencyKey ||
+        `hold-${nextCart.eventId}-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`}`
+      nextCart.holdIdempotencyKey = idempotencyKey
+
+      const hold = await holdSeats(availabilityPayloadFromCart(nextCart), idempotencyKey)
       const holdExpiresAt = hold.hold_expires_at || new Date(Date.now() + 15 * 60 * 1000).toISOString()
       const heldCart = {
         ...nextCart,
         hasSeatMap,
+        holdIdempotencyKey: idempotencyKey,
+        holdId: hold.hold_id || nextCart.holdId || null,
         holdExpiresAt,
         hold_expires_at: holdExpiresAt,
       }
@@ -863,7 +907,7 @@ export function BookingSeatsPage() {
   const resetSelection = async () => {
     setResettingSelection(true)
     try {
-      if (hasActiveSeatHold(displayCart) && displayCart.selectedSeatIds?.length > 0) {
+      if (hasActiveSeatHold(displayCart)) {
         await releaseSeatHolds({
           event_id: displayCart.eventId,
           session_seat_ids: displayCart.items.flatMap((item) => item.sessionSeatIds || []),
@@ -1883,6 +1927,12 @@ export function BookingReviewPage() {
                       {formatPrice(Number(item.ticketType.price || 0) * item.quantity, isEnglish)}
                     </p>
                   </div>
+                  {item.seatLabels?.length > 0 && (
+                    <div className="mt-2 w-fit max-w-full rounded-md border border-primary/30 bg-primary/10 px-2.5 py-1.5 text-xs font-bold text-primary break-words leading-relaxed">
+                      {isEnglish ? 'Seat: ' : 'Ghế: '}
+                      <span>{item.seatLabels.join(', ')}</span>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -2680,36 +2730,39 @@ function OrderCard({
           const qty = ticket.qty
 
           return (
-            <div key={ticket.id} className="grid grid-cols-[1fr_auto] gap-3 text-sm">
-              <div className="flex min-w-0 items-start gap-2">
-                <span
-                  className="mt-1 size-3 shrink-0 rounded-sm border border-white/20"
-                  style={{ backgroundColor: ticket.color }}
-                />
-                <div className="min-w-0">
-                  <p className={qty > 0 ? 'font-semibold text-white' : 'font-semibold text-slate-400'}>{ticket.name}</p>
-                  {qty > 0 ? (
-                    <p className="text-white font-medium text-xs sm:text-sm">
-                      {formatPrice(ticket.price, isEnglish)} {'\u00d7'} {String(qty).padStart(2, '0')}
-                    </p>
-                  ) : (
-                    <p className="text-slate-500">{formatPrice(ticket.price, isEnglish)} {isEnglish ? '/ ticket' : '/ vé'}</p>
-                  )}
-                  {ticket.seatLabels?.length > 0 && (
-                    <p className="mt-2 inline-flex max-w-full rounded-md border border-primary/30 bg-primary/10 px-2 py-1 text-xs font-bold text-primary">
-                      {isEnglish ? 'Seat' : 'Ghế'}: <span className="ml-1 truncate">{ticket.seatLabels.join(', ')}</span>
-                    </p>
-                  )}
+            <div key={ticket.id} className="text-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-start gap-2">
+                  <span
+                    className="mt-1 size-3 shrink-0 rounded-sm border border-white/20"
+                    style={{ backgroundColor: ticket.color }}
+                  />
+                  <div className="min-w-0">
+                    <p className={qty > 0 ? 'font-semibold text-white' : 'font-semibold text-slate-400'}>{ticket.name}</p>
+                    {qty > 0 ? (
+                      <p className="text-white font-medium text-xs sm:text-sm">
+                        {formatPrice(ticket.price, isEnglish)} {'\u00d7'} {String(qty).padStart(2, '0')}
+                      </p>
+                    ) : (
+                      <p className="text-slate-500">{formatPrice(ticket.price, isEnglish)} {isEnglish ? '/ ticket' : '/ vé'}</p>
+                    )}
+                  </div>
                 </div>
+                <p className={qty > 0 ? 'font-bold text-white shrink-0' : 'font-bold text-slate-500 shrink-0'}>
+                  {qty > 0 ? formatPrice(ticket.price * qty, isEnglish) : '-'}
+                </p>
               </div>
-              <p className={qty > 0 ? 'font-bold text-white' : 'font-bold text-slate-500'}>
-                {qty > 0 ? formatPrice(ticket.price * qty, isEnglish) : '-'}
-              </p>
+              {ticket.seatLabels?.length > 0 && (
+                <div className="mt-2 w-fit max-w-full rounded-md border border-primary/30 bg-primary/10 px-2.5 py-1.5 text-xs font-bold text-primary break-words leading-relaxed">
+                  {isEnglish ? 'Seat: ' : 'Ghế: '}
+                  <span>{ticket.seatLabels.join(', ')}</span>
+                </div>
+              )}
             </div>
           )
         })}
         {itemsToRender.length === 0 && (
-          <p className="py-2 text-center text-xs text-muted">{isEnglish ? 'No tickets selected yet' : 'Chưa có vé nào được chọn'}</p>
+          <p className="py-2 text-center text-sm italic text-muted">{isEnglish ? 'No tickets selected yet' : 'Chưa có vé nào được chọn'}</p>
         )}
       </div>
 
