@@ -131,17 +131,6 @@ function getNotificationDisplay(notification, isEnglish = false) {
 }
 
 function getNotificationTarget(notification) {
-  if (isStaffInvitationNotification(notification)) return `/notifications#notification-${notification.id}`
-
-  const title = (notification.title || '').toLowerCase()
-  const content = (notification.content || '').toLowerCase()
-  if (title.includes('organizer') || content.includes('organizer')) {
-    if (title.includes('đã được duyệt') || content.includes('phê duyệt thành công')) {
-      return '/organizer'
-    }
-    return '/organizer-request?mode=edit'
-  }
-
   return `/notifications#notification-${notification.id}`
 }
 
@@ -518,6 +507,11 @@ export function AppLayout() {
                             if (!notification.is_read) markReadMutation.mutate(notification.id)
                             setNotificationOpen(false)
                             navigate(getNotificationTarget(notification))
+                            window.dispatchEvent(
+                              new CustomEvent('eventhub:scroll-notification', {
+                                detail: { id: notification.id },
+                              }),
+                            )
                           }}
                           className={`block w-full border-b border-border-soft px-4 py-3 text-left last:border-b-0 hover:bg-panel-soft ${notification.is_read ? '' : 'bg-[#C99A47]/10'
                             }`}
@@ -533,13 +527,16 @@ export function AppLayout() {
                       )
                     })}
                   </div>
-                  <Link
-                    to="/notifications"
-                    onClick={() => setNotificationOpen(false)}
-                    className="block border-t border-border-soft px-4 py-3 text-center text-sm font-bold text-[#E6C17A] hover:bg-panel-soft"
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNotificationOpen(false)
+                      navigate('/notifications')
+                    }}
+                    className="block w-full border-t border-border-soft px-4 py-3 text-center text-sm font-bold text-[#E6C17A] hover:bg-panel-soft cursor-pointer"
                   >
                     {isEnglish ? 'View all' : 'Xem tất cả'}
-                  </Link>
+                  </button>
                 </div>
               )}
               {open && (

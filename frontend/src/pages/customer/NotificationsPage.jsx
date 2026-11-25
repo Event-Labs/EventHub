@@ -180,19 +180,38 @@ export function NotificationsPage() {
 
   // Auto-scroll to specific notification if target id is in hash or query param
   useEffect(() => {
+    const scrollToTarget = (targetId) => {
+      if (!targetId) return
+      setActiveFilter('all')
+      setPage(1)
+      const timer = setTimeout(() => {
+        const el = document.getElementById(`notification-${targetId}`)
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          el.classList.add('ring-2', 'ring-[#C99A47]', 'ring-offset-2', 'ring-offset-slate-900', 'shadow-2xl', 'shadow-[#C99A47]/30')
+          setTimeout(() => {
+            el.classList.remove('ring-2', 'ring-[#C99A47]', 'ring-offset-2', 'ring-offset-slate-900', 'shadow-2xl', 'shadow-[#C99A47]/30')
+          }, 3500)
+        }
+      }, 350)
+      return () => clearTimeout(timer)
+    }
+
     const rawTarget = location.hash?.replace('#notification-', '') || new URLSearchParams(location.search).get('id')
-    if (!rawTarget) return
-    const timer = setTimeout(() => {
-      const el = document.getElementById(`notification-${rawTarget}`)
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-        el.classList.add('ring-2', 'ring-[#C99A47]', 'ring-offset-2', 'ring-offset-slate-900')
-        setTimeout(() => {
-          el.classList.remove('ring-2', 'ring-[#C99A47]', 'ring-offset-2', 'ring-offset-slate-900')
-        }, 3500)
+    if (rawTarget) {
+      scrollToTarget(rawTarget)
+    }
+
+    const handleCustomScroll = (e) => {
+      if (e.detail?.id) {
+        scrollToTarget(e.detail.id)
       }
-    }, 300)
-    return () => clearTimeout(timer)
+    }
+
+    window.addEventListener('eventhub:scroll-notification', handleCustomScroll)
+    return () => {
+      window.removeEventListener('eventhub:scroll-notification', handleCustomScroll)
+    }
   }, [location.hash, location.search, notificationsQuery.data])
   const invitationsQuery = useQuery({
     queryKey: ['staff-invitations', 'me'],
@@ -267,22 +286,22 @@ export function NotificationsPage() {
     <div className="mx-auto max-w-7xl px-3.5 sm:px-6 lg:px-8 xl:px-12 pt-4 sm:pt-8 pb-8 sm:pb-12">
       <SectionHeader
         title={isEnglish ? 'Notification Center' : 'Trung tâm thông báo'}
-        description={isEnglish ? 'Track event updates, payments, and invitations tailored for you.' : 'Theo dõi cập nhật sự kiện, thanh toán và lời mời dành cho bạn.'}
+        className="mb-6 sm:mb-8"
         action={displayNotifications.length ? (
           <button
             type="button"
             onClick={() => markAllMutation.mutate()}
             disabled={unreadCount === 0 || markAllMutation.isPending}
-            className="inline-flex h-11 items-center gap-2 rounded-full border border-border-soft/50 bg-panel-soft px-5 text-sm font-bold text-content transition hover:border-primary/50 hover:text-primary disabled:cursor-not-allowed disabled:opacity-45"
+            className="inline-flex h-10 sm:h-11 items-center gap-2 rounded-xl sm:rounded-full border border-[#C99A47] bg-[#0f1b33] px-4 sm:px-5 text-xs sm:text-sm font-extrabold text-[#E6C17A] shadow-md shadow-[#C99A47]/20 transition-all hover:bg-gradient-to-r hover:from-[#C99A47] hover:to-[#E6C17A] hover:text-[#081126] hover:shadow-lg hover:shadow-[#C99A47]/35 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:border-[#C99A47]/40 disabled:hover:bg-[#0f1b33] disabled:hover:text-[#E6C17A] cursor-pointer"
           >
-            {markAllMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <CheckCheck className="size-4" />}
+            {markAllMutation.isPending ? <Loader2 className="size-4 animate-spin text-[#E6C17A]" /> : <CheckCheck className="size-4 text-[#E6C17A]" />}
             {isEnglish ? 'Mark all as read' : 'Đánh dấu tất cả đã đọc'}
           </button>
         ) : null}
       />
 
       {/* ── Phần 1: Bộ lọc ── */}
-      <div className="relative z-10 mb-6 flex w-full justify-end">
+      <div className="relative z-10 pt-3 sm:pt-6 mb-6 sm:mb-8 flex w-full justify-end">
         <div className="flex flex-wrap items-center gap-2">
           {filters.map((filter) => (
             <button

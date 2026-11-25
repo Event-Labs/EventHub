@@ -108,26 +108,9 @@ function resolveActionUrl(notification) {
   if (meta.action_url) return meta.action_url
 
   const targetRole = notification.target_role || 'CUSTOMER'
-  const title = (notification.title || '').toLowerCase()
-
-  if (targetRole === 'ADMIN') {
-    if (title.includes('organizer') || title.includes('hồ sơ')) return '/admin/organizer-requests'
-    if (title.includes('esp32') || title.includes('thiết bị')) return '/admin/devices'
-    if (title.includes('khiếu nại') || title.includes('hoàn')) return '/admin/disputes'
-    return '/admin/events/review'
-  }
-
-  if (targetRole === 'ORGANIZER') {
-    if (notification.event_id) return `/organizer/events/${notification.event_id}`
-    if (title.includes('hoàn')) return '/organizer/refunds'
-    if (title.includes('nhân sự') || title.includes('staff')) return '/organizer/staff-management'
-    return '/organizer/notifications'
-  }
-
-  if (targetRole === 'STAFF') {
-    if (notification.event_id) return `/staff/events/${notification.event_id}`
-    return '/staff/notifications'
-  }
+  if (targetRole === 'ADMIN') return `/admin/notifications#notification-${notification.id}`
+  if (targetRole === 'ORGANIZER') return `/organizer/notifications#notification-${notification.id}`
+  if (targetRole === 'STAFF') return `/staff/notifications#notification-${notification.id}`
 
   return `/notifications#notification-${notification.id}`
 }

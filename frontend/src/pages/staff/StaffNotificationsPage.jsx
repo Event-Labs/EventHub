@@ -1,13 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Bell,
-  Calendar,
   Check,
   CheckCheck,
   ChevronLeft,
   ChevronRight,
   Clock,
-  ExternalLink,
+  Clock3,
   Inbox,
   Loader2,
   MapPin,
@@ -15,8 +14,9 @@ import {
   UserCheck,
   X,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useLocation } from 'react-router-dom'
+import { SectionHeader } from '@/components/SectionHeader.jsx'
 import {
   fetchNotifications,
   markAllNotificationsRead,
@@ -27,7 +27,7 @@ import {
   declineStaffInvitation,
   fetchMyStaffInvitations,
 } from '@/services/operations.js'
-import { formatNotificationDisplay, stripNotificationHtml } from '@/lib/notifications.js'
+import { formatNotificationDisplay } from '@/lib/notifications.js'
 import { getRememberLoginPreference, setAuthSession } from '@/lib/auth.js'
 import { cn } from '@/lib/utils.js'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
@@ -60,13 +60,12 @@ export function StaffNotificationsPage() {
   const { isVietnamese } = useLanguage()
   const isEnglish = !isVietnamese
   const location = useLocation()
-  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const toast = useToast()
 
   const [activeFilter, setActiveFilter] = useState('all')
   const [page, setPage] = useState(1)
-  const limit = 15
+  const limit = 10
 
   const notificationsQuery = useQuery({
     queryKey: ['notifications', 'staff', { page, activeFilter }],
@@ -84,23 +83,42 @@ export function StaffNotificationsPage() {
     queryFn: fetchMyStaffInvitations,
   })
 
-  // Auto-scroll to specific notification
+  // Auto-scroll to specific notification if target id is in hash or query param or custom event
   useEffect(() => {
+    const scrollToTarget = (targetId) => {
+      if (!targetId) return
+      setActiveFilter('all')
+      setPage(1)
+      const timer = setTimeout(() => {
+        const el = document.getElementById(`notification-${targetId}`)
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          el.classList.add('ring-2', 'ring-[#C99A47]', 'ring-offset-2', 'ring-offset-slate-900', 'shadow-2xl', 'shadow-[#C99A47]/30')
+          setTimeout(() => {
+            el.classList.remove('ring-2', 'ring-[#C99A47]', 'ring-offset-2', 'ring-offset-slate-900', 'shadow-2xl', 'shadow-[#C99A47]/30')
+          }, 3500)
+        }
+      }, 350)
+      return () => clearTimeout(timer)
+    }
+
     const rawTarget =
       location.hash?.replace('#notification-', '') ||
       new URLSearchParams(location.search).get('id')
-    if (!rawTarget) return
-    const timer = setTimeout(() => {
-      const el = document.getElementById(`notification-${rawTarget}`)
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-        el.classList.add('ring-2', 'ring-[#C99A47]', 'ring-offset-2', 'ring-offset-slate-900')
-        setTimeout(() => {
-          el.classList.remove('ring-2', 'ring-[#C99A47]', 'ring-offset-2', 'ring-offset-slate-900')
-        }, 3500)
+    if (rawTarget) {
+      scrollToTarget(rawTarget)
+    }
+
+    const handleCustomScroll = (e) => {
+      if (e.detail?.id) {
+        scrollToTarget(e.detail.id)
       }
-    }, 300)
-    return () => clearTimeout(timer)
+    }
+
+    window.addEventListener('eventhub:scroll-notification', handleCustomScroll)
+    return () => {
+      window.removeEventListener('eventhub:scroll-notification', handleCustomScroll)
+    }
   }, [location.hash, location.search, notificationsQuery.data])
 
   const markReadMutation = useMutation({
@@ -130,13 +148,19 @@ export function StaffNotificationsPage() {
           remember: getRememberLoginPreference(),
         })
       }
-      toast.success(data?.message || (isEnglish ? 'Invitation accepted successfully' : 'Bạn đã đồng ý tham gia làm nhân sự sự kiện!'))
+      toast.success(
+        data?.message ||
+          (isEnglish ? 'Invitation accepted successfully' : 'Bạn đã đồng ý tham gia làm nhân sự sự kiện!'),
+      )
       queryClient.invalidateQueries({ queryKey: ['staff-invitations', 'me'] })
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
       queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] })
     },
     onError: (err) => {
-      toast.error(err.response?.data?.message || (isEnglish ? 'Failed to accept invitation' : 'Không thể chấp nhận lời mời. Vui lòng thử lại.'))
+      toast.error(
+        err.response?.data?.message ||
+          (isEnglish ? 'Failed to accept invitation' : 'Không thể chấp nhận lời mời. Vui lòng thử lại.'),
+      )
     },
   })
 
@@ -149,7 +173,10 @@ export function StaffNotificationsPage() {
       queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] })
     },
     onError: (err) => {
-      toast.error(err.response?.data?.message || (isEnglish ? 'Failed to decline invitation' : 'Không thể từ chối lời mời. Vui lòng thử lại.'))
+      toast.error(
+        err.response?.data?.message ||
+          (isEnglish ? 'Failed to decline invitation' : 'Không thể từ chối lời mời. Vui lòng thử lại.'),
+      )
     },
   })
 
@@ -158,156 +185,131 @@ export function StaffNotificationsPage() {
   const pagination = notificationsQuery.data?.pagination || { page: 1, total: 0, total_pages: 1 }
 
   const invitationsList = invitationsQuery.data || []
-  const invitationsById = new Map(invitationsList.map((inv) => [inv.id, inv]))
+  const invitationsById = useMemo(() => new Map(invitationsList.map((inv) => [inv.id, inv])), [invitationsList])
 
-  const items = rawItems.filter((item) => {
-    if (activeFilter === 'all' || activeFilter === 'unread') return true
-    const title = (item.title || '').toLowerCase()
-    if (activeFilter === 'invitations') {
-      return title.includes('lời mời') || title.includes('invitation')
-    }
-    if (activeFilter === 'assignments') {
-      return title.includes('phân công') || title.includes('nhiệm vụ') || title.includes('ca trực')
-    }
-    return true
-  })
+  const items = useMemo(() => {
+    return rawItems.filter((item) => {
+      if (!item) return false
+      if (activeFilter === 'all' || activeFilter === 'unread') return true
+      const title = (item.title || '').toLowerCase()
+      if (activeFilter === 'invitations') {
+        return title.includes('lời mời') || title.includes('invitation')
+      }
+      if (activeFilter === 'assignments') {
+        return title.includes('phân công') || title.includes('nhiệm vụ') || title.includes('ca trực')
+      }
+      return true
+    })
+  }, [rawItems, activeFilter])
 
-  const handleNotificationClick = (item) => {
-    if (!item.is_read) {
-      markReadMutation.mutate(item.id)
-    }
-    const meta = item.metadata || {}
-    if (meta.action_url && !meta.action_url.includes('/notifications')) {
-      navigate(meta.action_url)
-      return
-    }
-    if (item.event_id) {
-      navigate(`/staff/events/${item.event_id}`)
-      return
-    }
-  }
-
-  const FILTERS = [
-    { value: 'all', label: isEnglish ? 'All Staff Notifications' : 'Tất cả thông báo' },
-    { value: 'unread', label: isEnglish ? 'Unread' : 'Chưa đọc' },
-    { value: 'invitations', label: isEnglish ? 'Staff Invitations' : 'Lời mời làm Staff' },
-    { value: 'assignments', label: isEnglish ? 'Duty Assignments' : 'Phân công ca trực' },
-  ]
+  const FILTERS = useMemo(
+    () => [
+      { value: 'all', label: isEnglish ? 'All Staff Notifications' : 'Tất cả thông báo' },
+      { value: 'unread', label: isEnglish ? 'Unread' : 'Chưa đọc' },
+      { value: 'invitations', label: isEnglish ? 'Staff Invitations' : 'Lời mời làm Staff' },
+      { value: 'assignments', label: isEnglish ? 'Duty Assignments' : 'Phân công ca trực' },
+    ],
+    [isEnglish],
+  )
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white flex items-center gap-2.5">
-            <span className="p-2 rounded-xl bg-[#C99A47]/15 text-[#E6C17A] border border-[#C99A47]/30">
-              <Bell className="size-5" />
-            </span>
-            {isEnglish ? 'Staff Notifications' : 'Thông báo Nhân viên sự kiện'}
-          </h1>
-          <p className="mt-1 text-xs sm:text-sm text-slate-400">
-            {isEnglish
-              ? 'Respond to staff invitations and view your assigned shifts and check-in gates.'
-              : 'Phản hồi lời mời làm nhân sự, theo dõi ca trực và cổng soát vé được phân công.'}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          {unreadCount > 0 && (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#C99A47]/15 text-[#E6C17A] border border-[#C99A47]/30">
-              <span className="size-2 rounded-full bg-[#E6C17A] animate-pulse" />
-              {unreadCount} {isEnglish ? 'unread' : 'chưa đọc'}
-            </span>
-          )}
-          <button
-            type="button"
-            onClick={() => markAllMutation.mutate()}
-            disabled={unreadCount === 0 || markAllMutation.isPending}
-            className="inline-flex h-9.5 items-center gap-2 rounded-xl border border-white/10 bg-slate-900/80 px-4 text-xs font-bold text-slate-200 transition hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {markAllMutation.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <CheckCheck className="size-4" />}
-            {isEnglish ? 'Mark all as read' : 'Đánh dấu tất cả đã đọc'}
-          </button>
-        </div>
-      </div>
-
-      {/* Filter Tabs */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-white/10 pb-3">
-        {FILTERS.map((f) => (
-          <button
-            key={f.value}
-            type="button"
-            onClick={() => {
-              setActiveFilter(f.value)
-              setPage(1)
-            }}
-            className={cn(
-              'inline-flex h-9 items-center gap-2 rounded-xl px-4 text-xs font-bold transition-all',
-              activeFilter === f.value
-                ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md shadow-[#C99A47]/20 font-black'
-                : 'border border-white/10 bg-slate-900/60 text-slate-300 hover:bg-white/10 hover:text-white',
+      <SectionHeader
+        title={isEnglish ? 'Staff Notifications' : 'Thông báo Nhân viên sự kiện'}
+        className="mb-6 sm:mb-8"
+        action={
+          <div className="flex items-center gap-3">
+            {unreadCount > 0 && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#C99A47]/15 text-[#E6C17A] border border-[#C99A47]/30">
+                <span className="size-2 rounded-full bg-[#E6C17A] animate-pulse" />
+                {unreadCount} {isEnglish ? 'unread' : 'chưa đọc'}
+              </span>
             )}
-          >
-            {f.label}
-          </button>
-        ))}
+            {rawItems.length > 0 && (
+              <button
+                type="button"
+                onClick={() => markAllMutation.mutate()}
+                disabled={unreadCount === 0 || markAllMutation.isPending}
+                className="inline-flex h-10 sm:h-11 items-center gap-2 rounded-xl sm:rounded-full border border-[#C99A47] bg-[#0f1b33] px-4 sm:px-5 text-xs sm:text-sm font-extrabold text-[#E6C17A] shadow-md shadow-[#C99A47]/20 transition-all hover:bg-gradient-to-r hover:from-[#C99A47] hover:to-[#E6C17A] hover:text-[#081126] hover:shadow-lg hover:shadow-[#C99A47]/35 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:border-[#C99A47]/40 disabled:hover:bg-[#0f1b33] disabled:hover:text-[#E6C17A] cursor-pointer"
+              >
+                {markAllMutation.isPending ? <Loader2 className="size-4 animate-spin text-[#E6C17A]" /> : <CheckCheck className="size-4 text-[#E6C17A]" />}
+                {isEnglish ? 'Mark all as read' : 'Đánh dấu tất cả đã đọc'}
+              </button>
+            )}
+          </div>
+        }
+      />
+
+      {/* ── Phần 1: Bộ lọc ── */}
+      <div className="relative z-10 pt-3 sm:pt-6 mb-6 sm:mb-8 flex w-full justify-end">
+        <div className="flex flex-wrap items-center gap-2">
+          {FILTERS.map((filter) => (
+            <button
+              key={filter.value}
+              type="button"
+              onClick={() => {
+                setActiveFilter(filter.value)
+                setPage(1)
+              }}
+              className={cn(
+                'inline-flex h-9 shrink-0 items-center rounded-xl px-4 text-xs font-bold transition-all cursor-pointer select-none',
+                activeFilter === filter.value
+                  ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md shadow-[#C99A47]/20 font-black'
+                  : 'border border-white/10 bg-slate-900/60 text-slate-300 hover:bg-white/10 hover:text-white',
+              )}
+            >
+              {filter.label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* List */}
-      <div className="space-y-4">
+      {/* ── Phần 2: Nội dung thông báo ── */}
+      <section className="relative z-10 space-y-3.5">
         {notificationsQuery.isLoading && (
-          <div className="flex flex-col items-center justify-center p-12 rounded-2xl border border-white/10 bg-slate-900/50">
-            <Loader2 className="size-8 animate-spin text-cyan-400" />
-            <p className="mt-3 text-xs text-slate-400">{isEnglish ? 'Loading notifications...' : 'Đang tải thông báo...'}</p>
+          <div className="rounded-2xl border border-white/10 bg-[#0f172a] p-8 shadow-xl">
+            <StatePanel message={isEnglish ? 'Loading notifications...' : 'Đang tải thông báo...'} loading />
           </div>
         )}
-
         {notificationsQuery.isError && (
-          <div className="flex flex-col items-center justify-center p-12 rounded-2xl border border-red-500/20 bg-red-500/10 text-center">
-            <Inbox className="size-12 text-red-400 mb-3" />
-            <h3 className="text-sm font-bold text-white">{isEnglish ? 'Failed to load notifications' : 'Không thể tải thông báo'}</h3>
-            <p className="mt-1 text-xs text-slate-400 max-w-sm mb-4">
-              {notificationsQuery.error?.message || (isEnglish ? 'An error occurred while fetching notifications.' : 'Đã có lỗi xảy ra khi tải danh sách thông báo.')}
-            </p>
-            <button
-              type="button"
-              onClick={() => notificationsQuery.refetch()}
-              className="px-4 py-2 rounded-xl bg-cyan-500 text-slate-950 text-xs font-bold hover:bg-cyan-400 transition"
-            >
-              {isEnglish ? 'Retry' : 'Thử lại'}
-            </button>
+          <div className="rounded-2xl border border-white/10 bg-[#0f172a] p-8 shadow-xl">
+            <StatePanel
+              message={isEnglish ? 'Failed to load notifications.' : 'Không thể tải thông báo.'}
+              tone="error"
+              onRetry={() => notificationsQuery.refetch()}
+              retryLabel={isEnglish ? 'Retry' : 'Thử lại'}
+            />
+          </div>
+        )}
+        {!notificationsQuery.isLoading && !notificationsQuery.isError && rawItems.length === 0 && (
+          <div className="rounded-2xl border border-white/10 bg-[#0f172a] p-8 shadow-xl">
+            <StatePanel message={isEnglish ? 'You have no notifications yet.' : 'Bạn chưa có thông báo nào.'} />
+          </div>
+        )}
+        {!notificationsQuery.isLoading && !notificationsQuery.isError && rawItems.length > 0 && items.length === 0 && (
+          <div className="rounded-2xl border border-white/10 bg-[#0f172a] p-8 shadow-xl">
+            <StatePanel message={isEnglish ? 'No notifications match this filter.' : 'Không có thông báo phù hợp với bộ lọc này.'} />
           </div>
         )}
 
-        {!notificationsQuery.isLoading && !notificationsQuery.isError && items.length === 0 && (
-          <div className="flex flex-col items-center justify-center p-12 rounded-2xl border border-white/10 bg-slate-900/40 text-center">
-            <Inbox className="size-12 text-slate-500 mb-3" />
-            <h3 className="text-sm font-bold text-white">{isEnglish ? 'No notifications found' : 'Không có thông báo nào'}</h3>
-            <p className="mt-1 text-xs text-slate-400 max-w-sm">
-              {isEnglish
-                ? 'You do not have any staff-related notifications at this time.'
-                : 'Hiện tại bạn chưa có thông báo nhân sự nào.'}
-            </p>
-          </div>
-        )}
-
-        {items.map((item) => {
-          let display = { title: item.title || '', content: item.content || '', preview: '' }
+        {items.map((notification) => {
+          let display = { title: notification.title || '', content: notification.content || '', preview: '' }
           try {
-            const formatted = formatNotificationDisplay(item, isEnglish)
+            const formatted = formatNotificationDisplay(notification, isEnglish)
             if (formatted) display = formatted
           } catch (e) {
-            console.error('Error formatting staff notification:', item, e)
+            console.error('Error formatting staff notification:', notification, e)
           }
-          const isUnread = !item.is_read
-          const metaJson = parseJsonMeta(item.content)
+
+          const isUnread = !notification.is_read
+          const metaJson = parseJsonMeta(notification.content)
           const isInvitation =
-            item.title === 'STAFF_INVITATION' ||
-            item.title === 'Lời mời làm staff' ||
-            item.title === 'Staff Invitation' ||
+            notification.title === 'STAFF_INVITATION' ||
+            notification.title === 'Lời mời làm staff' ||
+            notification.title === 'Staff Invitation' ||
             Boolean(metaJson.invitation_id)
 
-          const invitationId = metaJson.invitation_id || item.id
+          const invitationId = metaJson.invitation_id || notification.id
           const liveInvitation = invitationsById.get(invitationId)
           const currentStatus = liveInvitation?.status || metaJson.status || 'PENDING'
           const role = metaJson.staff_role || 'Staff'
@@ -316,183 +318,273 @@ export function StaffNotificationsPage() {
           const sessionName = metaJson.session_name
           const expiresAt = metaJson.expires_at || liveInvitation?.expires_at
 
+          const title = isInvitation
+            ? isEnglish
+              ? `Staff Invitation: ${notification.event?.title || metaJson.event_title || 'Event'}`
+              : `Lời mời làm nhân sự: ${notification.event?.title || metaJson.event_title || 'Sự kiện'}`
+            : display.title
+
+          const defaultAction = notification.metadata?.action_url
+            ? { to: notification.metadata.action_url, label: isEnglish ? 'View Details' : 'Xem chi tiết' }
+            : notification.event_id
+              ? { to: `/staff/events/${notification.event_id}`, label: isEnglish ? 'Go to event dashboard' : 'Đến trang làm việc' }
+              : null
+
           return (
-            <div
-              key={item.id}
-              id={`notification-${item.id}`}
-              onClick={() => handleNotificationClick(item)}
+            <article
+              key={notification.id}
+              id={`notification-${notification.id}`}
               className={cn(
-                'group relative flex flex-col gap-4 p-5 rounded-2xl border transition-all cursor-pointer backdrop-blur-sm',
+                'group relative overflow-hidden rounded-2xl border p-5 sm:p-6 shadow-xl transition-all duration-300',
                 isUnread
-                  ? 'border-[#C99A47]/40 bg-gradient-to-r from-[#C99A47]/10 via-[#0f1b33] to-[#0f1b33] shadow-lg shadow-[#C99A47]/5 hover:border-[#C99A47]/70'
-                  : 'border-white/10 bg-slate-900/60 hover:bg-slate-900/90 hover:border-white/20',
+                  ? 'border-primary/30 bg-[#0f172a] hover:border-primary/50 hover:bg-[#131d38]'
+                  : 'border-white/10 bg-[#0f172a] hover:border-white/20 hover:bg-[#131d38]',
               )}
             >
-              <div className="flex items-start gap-4 min-w-0">
-                <div
+              {isUnread && <span className="absolute left-0 top-0 h-full w-1 bg-primary" />}
+              <div className="flex gap-3 sm:gap-4">
+                <span
                   className={cn(
-                    'grid size-11 rounded-xl place-items-center shrink-0 border transition-transform group-hover:scale-105',
-                    isUnread
-                      ? 'bg-gradient-to-br from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] border-[#E6C17A]/50 shadow-md shadow-[#C99A47]/30'
-                      : 'bg-slate-800 text-slate-300 border-white/10',
+                    'grid size-11 shrink-0 place-items-center rounded-xl border sm:size-12',
+                    isInvitation
+                      ? 'border-cyan-500/25 bg-cyan-500/10 text-cyan-400'
+                      : isUnread
+                        ? 'border-primary/25 bg-primary/10 text-primary'
+                        : 'border-white/10 bg-slate-800 text-slate-300',
                   )}
                 >
                   {isInvitation ? <UserCheck className="size-5" /> : <Bell className="size-5" />}
-                </div>
+                </span>
 
                 <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2 mb-1.5">
-                    <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-                      STAFF
-                    </span>
-                    {isUnread && (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                        {isEnglish ? 'NEW' : 'MỚI'}
-                      </span>
-                    )}
-                    <span className="text-[11px] text-slate-400">
-                      {formatDateTime(item.created_at, isEnglish)}
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-5">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="font-display text-base font-extrabold text-content sm:text-lg">
+                          {title}
+                        </h3>
+                        {isUnread && (
+                          <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-primary">
+                            {isEnglish ? 'New' : 'Mới'}
+                          </span>
+                        )}
+                        {isInvitation && currentStatus === 'ACCEPTED' && (
+                          <span className="rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-emerald-400">
+                            {isEnglish ? 'Accepted' : 'Đã chấp nhận'}
+                          </span>
+                        )}
+                        {isInvitation && currentStatus === 'DECLINED' && (
+                          <span className="rounded-full border border-rose-500/30 bg-rose-500/15 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-rose-400">
+                            {isEnglish ? 'Declined' : 'Đã từ chối'}
+                          </span>
+                        )}
+                        {isInvitation && currentStatus === 'PENDING' && (
+                          <span className="rounded-full border border-amber-500/30 bg-amber-500/15 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-amber-400">
+                            {isEnglish ? 'Response Required' : 'Chờ phản hồi'}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <span className="inline-flex shrink-0 items-center gap-1.5 text-sm font-semibold text-white [html.light_&]:text-[#0D1B2A]">
+                      <Clock3 className="size-4 text-white [html.light_&]:text-[#0D1B2A]" /> {formatDateTime(notification.created_at, isEnglish)}
                     </span>
                   </div>
 
-                  <h3 className={cn('text-sm sm:text-base font-bold text-white leading-snug', isUnread && 'font-black text-[#FAF4EB]')}>
-                    {isInvitation
-                      ? (isEnglish
-                          ? `Staff Invitation: ${item.event?.title || metaJson.event_title || 'Event'}`
-                          : `Lời mời làm nhân sự: ${item.event?.title || metaJson.event_title || 'Sự kiện'}`)
-                      : display.title}
-                  </h3>
-
+                  {/* Body Content */}
                   {isInvitation ? (
-                    <div className="mt-3 space-y-2">
-                      <p className="text-xs sm:text-sm text-slate-300">
-                        {metaJson.organization_name || 'Ban tổ chức'} đã mời bạn tham gia hỗ trợ với vai trò{' '}
-                        <strong className="text-cyan-300">{role}</strong>.
+                    <div className="mt-2.5 space-y-2">
+                      <p className="text-sm sm:text-base leading-relaxed text-slate-100 font-normal">
+                        {metaJson.organization_name || (isEnglish ? 'Event Organizer' : 'Ban tổ chức')} đã mời bạn tham gia hỗ trợ với vai trò{' '}
+                        <strong className="text-cyan-300 font-bold">{role}</strong>.
                       </p>
 
                       {/* Shift details badge */}
                       <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-slate-400">
                         {sessionName && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 border border-white/10 text-slate-200">
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-800/80 border border-white/10 text-slate-200">
                             <Clock className="size-3.5 text-cyan-400" />
                             {sessionName}
                           </span>
                         )}
                         {gate && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 border border-white/10 text-slate-200">
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-800/80 border border-white/10 text-slate-200">
                             <QrCode className="size-3.5 text-cyan-400" />
                             Cổng: {gate}
                           </span>
                         )}
                         {zone && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 border border-white/10 text-slate-200">
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-800/80 border border-white/10 text-slate-200">
                             <MapPin className="size-3.5 text-cyan-400" />
                             Khu vực: {zone}
                           </span>
                         )}
-                        {expiresAt && (
-                          <span className="text-[11px] text-slate-400">
+                        {expiresAt && currentStatus === 'PENDING' && (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-400">
+                            <Clock3 className="size-3.5" />
                             Hạn phản hồi: {formatDateTime(expiresAt, isEnglish)}
                           </span>
                         )}
                       </div>
                     </div>
+                  ) : typeof display.content === 'string' && /<[a-z][\s\S]*>/i.test(display.content) ? (
+                    <div
+                      className="mt-2.5 w-full text-sm sm:text-base leading-relaxed text-slate-100 font-normal [html.light_&]:text-[#0D1B2A] break-words [overflow-wrap:anywhere] [&_p]:break-words [&_p]:[overflow-wrap:anywhere] [&_a]:text-primary [&_a]:underline [&_a]:break-all [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_img]:max-w-full [&_img]:rounded-lg"
+                      dangerouslySetInnerHTML={{ __html: display.content }}
+                    />
                   ) : (
-                    <p className="mt-1.5 text-xs sm:text-sm text-slate-300/90 leading-relaxed break-words whitespace-pre-line">
-                      {display.preview || stripNotificationHtml(display.content)}
+                    <p className="mt-2.5 w-full text-sm sm:text-base leading-relaxed text-slate-100 font-normal whitespace-pre-line [html.light_&]:text-[#0D1B2A] break-words [overflow-wrap:anywhere]">
+                      {display.content}
                     </p>
                   )}
-                </div>
-              </div>
 
-              {/* Action row for invitations */}
-              {isInvitation && (
-                <div
-                  className="flex items-center justify-between gap-3 pt-3 mt-1 border-t border-white/10"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div className="text-xs">
-                    {currentStatus === 'ACCEPTED' && (
-                      <span className="inline-flex items-center gap-1.5 font-bold text-emerald-400">
-                        <Check className="size-4" />
-                        {isEnglish ? 'Accepted' : 'Đã chấp nhận'}
-                      </span>
+                  {/* Actions Row */}
+                  <div className="mt-4 flex flex-wrap items-center gap-2">
+                    {isInvitation && currentStatus === 'PENDING' && (
+                      <>
+                        <button
+                          type="button"
+                          disabled={acceptMutation.isPending || declineMutation.isPending}
+                          onClick={() => acceptMutation.mutate(invitationId)}
+                          className="inline-flex h-9 items-center gap-1.5 rounded-full bg-gradient-to-r from-[#C99A47] to-[#E6C17A] px-4 text-xs font-black text-[#0D1B2A] shadow-md shadow-[#C99A47]/20 transition-all hover:brightness-110 active:scale-95 cursor-pointer disabled:opacity-40"
+                        >
+                          {acceptMutation.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
+                          {isEnglish ? 'Accept & Join' : 'Đồng ý tham gia'}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={declineMutation.isPending || acceptMutation.isPending}
+                          onClick={() => declineMutation.mutate(invitationId)}
+                          className="inline-flex h-9 items-center gap-1.5 rounded-full border border-rose-500/40 bg-rose-500/10 px-4 text-xs font-bold text-rose-300 transition hover:bg-rose-500/20 active:scale-95 cursor-pointer disabled:opacity-40"
+                        >
+                          <X className="size-3.5" />
+                          {isEnglish ? 'Decline' : 'Từ chối'}
+                        </button>
+                      </>
                     )}
-                    {currentStatus === 'DECLINED' && (
-                      <span className="inline-flex items-center gap-1.5 font-bold text-rose-400">
-                        <X className="size-4" />
-                        {isEnglish ? 'Declined' : 'Đã từ chối'}
-                      </span>
+
+                    {isInvitation && currentStatus === 'ACCEPTED' && notification.event_id && (
+                      <Link
+                        to={`/staff/events/${notification.event_id}`}
+                        onClick={() => {
+                          if (isUnread) markReadMutation.mutate(notification.id)
+                        }}
+                        className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border-soft/40 bg-panel-soft px-4 text-sm font-bold text-content transition hover:border-primary/50 hover:text-primary"
+                      >
+                        {isEnglish ? 'Go to event dashboard' : 'Đến trang làm việc'} <ChevronRight className="size-4" />
+                      </Link>
                     )}
-                    {currentStatus === 'PENDING' && (
-                      <span className="text-slate-400 font-medium">
-                        {isEnglish ? 'Response required' : 'Vui lòng xác nhận tham gia'}
-                      </span>
+
+                    {!isInvitation && defaultAction && (
+                      <Link
+                        to={defaultAction.to}
+                        onClick={() => {
+                          if (isUnread) markReadMutation.mutate(notification.id)
+                        }}
+                        className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border-soft/40 bg-panel-soft px-4 text-sm font-bold text-content transition hover:border-primary/50 hover:text-primary"
+                      >
+                        {defaultAction.label} <ChevronRight className="size-4" />
+                      </Link>
+                    )}
+
+                    {isUnread && (
+                      <button
+                        type="button"
+                        onClick={() => markReadMutation.mutate(notification.id)}
+                        className="ml-auto inline-flex h-9 items-center gap-1.5 rounded-full px-3.5 text-xs font-bold text-muted transition hover:bg-white/5 hover:text-content cursor-pointer"
+                      >
+                        <CheckCheck className="size-4" /> {isEnglish ? 'Read' : 'Đã đọc'}
+                      </button>
                     )}
                   </div>
-
-                  {currentStatus === 'PENDING' && (
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        disabled={declineMutation.isPending || acceptMutation.isPending}
-                        onClick={() => declineMutation.mutate(invitationId)}
-                        className="inline-flex h-9 items-center gap-1.5 px-4 rounded-xl text-xs font-bold border border-rose-500/30 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 transition disabled:opacity-40"
-                      >
-                        <X className="size-3.5" />
-                        {isEnglish ? 'Decline' : 'Từ chối'}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={acceptMutation.isPending || declineMutation.isPending}
-                        onClick={() => acceptMutation.mutate(invitationId)}
-                        className="inline-flex h-9 items-center gap-1.5 px-5 rounded-xl text-xs font-black bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md shadow-[#C99A47]/25 hover:opacity-90 transition disabled:opacity-40"
-                      >
-                        {acceptMutation.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
-                        {isEnglish ? 'Accept & Join' : 'Đồng ý tham gia'}
-                      </button>
-                    </div>
-                  )}
-
-                  {currentStatus === 'ACCEPTED' && item.event_id && (
-                    <Link
-                      to={`/staff/events/${item.event_id}`}
-                      className="inline-flex items-center gap-1 text-xs font-bold text-[#E6C17A] hover:underline"
-                    >
-                      {isEnglish ? 'Go to event dashboard' : 'Đến trang làm việc'}
-                      <ExternalLink className="size-3.5" />
-                    </Link>
-                  )}
                 </div>
-              )}
-            </div>
+              </div>
+            </article>
           )
         })}
-      </div>
+      </section>
 
-      {/* Pagination */}
+      {/* ── Phần 3: Phân trang ── */}
       {pagination.total_pages > 1 && (
-        <div className="flex items-center justify-center gap-2 pt-4">
+        <div className="relative z-10 mt-8 flex w-full justify-center">
+          <Pagination
+            page={pagination.page}
+            totalPages={pagination.total_pages}
+            onPageChange={setPage}
+            isEnglish={isEnglish}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function Pagination({ page, totalPages, onPageChange, isEnglish = false }) {
+  const pages = Array.from({ length: totalPages }, (_, index) => index + 1)
+    .filter((item) => item === 1 || item === totalPages || Math.abs(item - page) <= 1)
+
+  return (
+    <nav className="flex items-center gap-2" aria-label={isEnglish ? 'Notifications pagination' : 'Phân trang thông báo'}>
+      <button
+        type="button"
+        onClick={() => onPageChange(page - 1)}
+        disabled={page <= 1}
+        className="grid size-9 sm:size-10 place-items-center rounded-full border border-white/10 bg-[#151d34] text-slate-200 transition-all hover:bg-white/10 hover:text-white disabled:border-white/5 disabled:bg-[#151d34]/40 disabled:text-slate-600 disabled:cursor-not-allowed cursor-pointer"
+        aria-label={isEnglish ? 'Previous page' : 'Trang trước'}
+      >
+        <ChevronLeft className="size-5" />
+      </button>
+
+      {pages.map((item, index) => (
+        <div key={item} className="flex items-center gap-2">
+          {index > 0 && item - pages[index - 1] > 1 && (
+            <span className="px-1 text-xs font-bold text-slate-500 select-none">…</span>
+          )}
           <button
             type="button"
-            disabled={page <= 1}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            className="grid size-9 place-items-center rounded-xl border border-white/10 bg-slate-900/80 text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-30"
+            onClick={() => onPageChange(item)}
+            aria-current={item === page ? 'page' : undefined}
+            className={cn(
+              'grid size-9 sm:size-10 place-items-center rounded-full text-xs font-bold transition-all cursor-pointer',
+              item === page
+                ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] font-black shadow-md shadow-[#C99A47]/30'
+                : 'border border-white/10 bg-[#151d34] text-slate-300 hover:bg-white/10 hover:text-white',
+            )}
           >
-            <ChevronLeft className="size-4" />
-          </button>
-          <span className="text-xs font-bold text-slate-300 px-3">
-            {page} / {pagination.total_pages}
-          </span>
-          <button
-            type="button"
-            disabled={page >= pagination.total_pages}
-            onClick={() => setPage((p) => Math.min(pagination.total_pages, p + 1))}
-            className="grid size-9 place-items-center rounded-xl border border-white/10 bg-slate-900/80 text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-30"
-          >
-            <ChevronRight className="size-4" />
+            {item}
           </button>
         </div>
+      ))}
+
+      <button
+        type="button"
+        onClick={() => onPageChange(page + 1)}
+        disabled={page >= totalPages}
+        className="grid size-9 sm:size-10 place-items-center rounded-full border border-white/10 bg-[#151d34] text-slate-200 transition-all hover:bg-white/10 hover:text-white disabled:border-white/5 disabled:bg-[#151d34]/40 disabled:text-slate-600 disabled:cursor-not-allowed cursor-pointer"
+        aria-label={isEnglish ? 'Next page' : 'Trang sau'}
+      >
+        <ChevronRight className="size-5" />
+      </button>
+    </nav>
+  )
+}
+
+function StatePanel({ message, tone = 'default', loading = false, onRetry = null, retryLabel = 'Retry' }) {
+  return (
+    <div className={cn('flex min-h-64 flex-col items-center justify-center p-8 text-center', tone === 'error' ? 'text-red-400' : 'text-slate-400')}>
+      {loading ? (
+        <Loader2 className="mb-4 size-8 animate-spin text-primary" />
+      ) : (
+        <Inbox className="mb-4 size-10 opacity-50 text-slate-500" />
+      )}
+      <p className="text-sm font-semibold text-slate-300">{message}</p>
+      {onRetry && (
+        <button
+          type="button"
+          onClick={onRetry}
+          className="mt-4 px-4 py-2 rounded-xl bg-[#C99A47] text-[#0D1B2A] text-xs font-bold hover:bg-[#E6C17A] transition"
+        >
+          {retryLabel}
+        </button>
       )}
     </div>
   )
