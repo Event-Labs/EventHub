@@ -331,6 +331,7 @@ class OrganizerEventsRepository {
         SELECT json_agg(json_build_object(
           'id', es.id,
           'session_name', es.session_name,
+          'name', es.session_name,
           'start_time', es.start_time,
           'end_time', es.end_time,
           'venue_id', es.venue_id,
@@ -343,6 +344,29 @@ class OrganizerEventsRepository {
             SELECT json_agg(ss.seat_id)
             FROM session_seats ss
             WHERE ss.event_session_id = es.id AND ss.status = 'BLOCKED'
+          ), '[]'::json),
+          'ticket_types', COALESCE((
+            SELECT json_agg(json_build_object(
+              'id', tt_s.id,
+              'event_session_id', tt_s.event_session_id,
+              'name', tt_s.name,
+              'description', tt_s.description,
+              'price', tt_s.price,
+              'quantity', tt_s.quantity,
+              'max_per_order', tt_s.max_per_order,
+              'sale_start', tt_s.sale_start,
+              'sale_end', tt_s.sale_end,
+              'is_seated', tt_s.is_seated,
+              'zone_id', (
+                SELECT s_sub.zone_id
+                FROM ticket_type_seats tts_sub
+                JOIN seats s_sub ON s_sub.id = tts_sub.seat_id
+                WHERE tts_sub.ticket_type_id = tt_s.id
+                LIMIT 1
+              )
+            ) ORDER BY tt_s.price ASC)
+            FROM ticket_types tt_s
+            WHERE tt_s.event_session_id = es.id
           ), '[]'::json),
           'venue', json_build_object(
             'id', v.id,

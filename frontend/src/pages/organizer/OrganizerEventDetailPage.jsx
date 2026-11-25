@@ -675,40 +675,69 @@ export function OrganizerEventDetailPage() {
                     <DemandPredictionCard eventId={eventId} />
 
                     <OrganizerPanel>
-                        <h3 className="font-bold text-content flex items-center gap-2">
-                            <Ticket className="size-5 text-tertiary" /> {isEnglish ? 'Ticket Tiers Allocation' : 'Phân bổ hạng vé'}
+                        <h3 className="text-lg sm:text-xl font-bold text-content tracking-tight">
+                            {isEnglish ? 'Ticket Tiers Allocation' : 'Phân bổ hạng vé'}
                         </h3>
                         <div className="mt-4 space-y-3">
-                            {event.sessions?.slice(0, 5).map((session) => (
-                                <div key={session.id} className="border-b border-border-soft/20 pb-3 last:border-0 last:pb-0">
-                                    <p className="text-sm font-semibold truncate" title={session.name}>{session.name}</p>
-                                    <div className="mt-2 space-y-2 text-xs">
-                                        {(session.ticket_types || []).map((tt) => {
-                                            const isTtPaused = (event?.sales_blocks || []).some(
-                                                (b) => !b.released_at && b.metadata?.scope === 'SPECIFIC' && String(b.metadata?.ticket_type_id) === String(tt.id)
-                                            )
-                                            return (
-                                                <div key={tt.id} className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-subtle">{tt.name}</span>
-                                                        {isTtPaused && (
-                                                            <span className="rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-bold text-amber-400">
-                                                                {isEnglish ? 'Sales Paused' : 'Tạm dừng bán'}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    <span className="font-semibold text-content">{formatCurrency(tt.price)}</span>
+                            {event.sessions && event.sessions.length > 0 ? (
+                                event.sessions.slice(0, 5).map((session, sIdx) => {
+                                    const sessionName = session.name || session.session_name || `${isEnglish ? 'Session' : 'Phiên'} ${sIdx + 1}`
+                                    const sessionTicketTypes = (session.ticket_types && session.ticket_types.length > 0)
+                                        ? session.ticket_types
+                                        : (event.ticket_types || []).filter((tt) => String(tt.event_session_id) === String(session.id))
+
+                                    return (
+                                        <div key={session.id || sIdx} className="border-b border-border-soft/20 pb-3 last:border-0 last:pb-0">
+                                            <p className="text-sm font-semibold truncate text-content" title={sessionName}>{sessionName}</p>
+                                            <div className="mt-2 space-y-2 text-xs">
+                                                {sessionTicketTypes.map((tt) => {
+                                                    const isTtPaused = (event?.sales_blocks || []).some(
+                                                        (b) => !b.released_at && b.metadata?.scope === 'SPECIFIC' && String(b.metadata?.ticket_type_id) === String(tt.id)
+                                                    )
+                                                    return (
+                                                        <div key={tt.id} className="flex items-center justify-between">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-subtle">{tt.name}</span>
+                                                                {isTtPaused && (
+                                                                    <span className="rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-bold text-amber-400">
+                                                                        {isEnglish ? 'Sales Paused' : 'Tạm dừng bán'}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <span className="font-semibold text-content">{formatCurrency(tt.price)}</span>
+                                                        </div>
+                                                    )
+                                                })}
+                                                {sessionTicketTypes.length === 0 && (
+                                                    <p className="text-subtle italic">{isEnglish ? 'No ticket tiers' : 'Chưa có hạng vé'}</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )
+                                })
+                            ) : event.ticket_types && event.ticket_types.length > 0 ? (
+                                <div className="space-y-2 text-xs">
+                                    {event.ticket_types.map((tt) => {
+                                        const isTtPaused = (event?.sales_blocks || []).some(
+                                            (b) => !b.released_at && b.metadata?.scope === 'SPECIFIC' && String(b.metadata?.ticket_type_id) === String(tt.id)
+                                        )
+                                        return (
+                                            <div key={tt.id} className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-subtle">{tt.name}</span>
+                                                    {isTtPaused && (
+                                                        <span className="rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-bold text-amber-400">
+                                                            {isEnglish ? 'Sales Paused' : 'Tạm dừng bán'}
+                                                        </span>
+                                                    )}
                                                 </div>
-                                            )
-                                        })}
-                                        {(!session.ticket_types || session.ticket_types.length === 0) && (
-                                            <p className="text-subtle italic">{isEnglish ? 'No ticket tiers' : 'Chưa có hạng vé'}</p>
-                                        )}
-                                    </div>
+                                                <span className="font-semibold text-content">{formatCurrency(tt.price)}</span>
+                                            </div>
+                                        )
+                                    })}
                                 </div>
-                            ))}
-                            {(!event.sessions || event.sessions.length === 0) && (
-                                <p className="text-sm text-subtle text-center py-4">{isEnglish ? 'No event sessions' : 'Chưa có phiên sự kiện'}</p>
+                            ) : (
+                                <p className="text-sm text-subtle text-center py-4">{isEnglish ? 'No ticket tiers' : 'Chưa có hạng vé'}</p>
                             )}
                         </div>
                     </OrganizerPanel>
