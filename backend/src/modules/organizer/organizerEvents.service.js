@@ -69,6 +69,28 @@ function mapEvent(row) {
     null;
   const venue = row.venue || firstSessionVenue || null;
 
+  const eventTicketTypes = (row.ticket_types || []).map((tt) => ({
+    ...tt,
+    price: Number(tt.price),
+  }));
+
+  const mappedSessions = sessions.map((s) => {
+    const sName = s.session_name || s.name || '';
+    const rawSTickets = (Array.isArray(s.ticket_types) && s.ticket_types.length > 0)
+      ? s.ticket_types
+      : eventTicketTypes.filter((tt) => String(tt.event_session_id) === String(s.id));
+    const sTickets = rawSTickets.map((tt) => ({
+      ...tt,
+      price: Number(tt.price),
+    }));
+    return {
+      ...s,
+      name: sName,
+      session_name: sName,
+      ticket_types: sTickets,
+    };
+  });
+
   return {
     ...row,
     venue_name: venueName,
@@ -87,11 +109,8 @@ function mapEvent(row) {
       typeof row.refund_policy === 'string'
         ? JSON.parse(row.refund_policy)
         : row.refund_policy || {},
-    sessions: row.sessions || [],
-    ticket_types: (row.ticket_types || []).map((tt) => ({
-      ...tt,
-      price: Number(tt.price),
-    })),
+    sessions: mappedSessions,
+    ticket_types: eventTicketTypes,
   };
 }
 
