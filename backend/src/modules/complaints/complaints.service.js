@@ -3,6 +3,7 @@ const ErrorCodes = require('../../core/errors/errorCodes');
 const logger = require('../../core/logger');
 const complaintsRepository = require('./complaints.repository');
 const notificationsRepository = require('../notifications/notifications.repository');
+const notificationsService = require('../notifications/notifications.service');
 const db = require('../../infrastructure/database/db.client');
 const { sendEmail } = require('../../infrastructure/email/email.service');
 
@@ -85,15 +86,54 @@ class ComplaintsService {
 
     // Notify customer
     try {
-      await notificationsRepository.createNotification({
-        userId,
+      await notificationsService.notifyCustomer(userId, {
         eventId: finalEventId || null,
         title: 'Khiếu nại của bạn đã được tiếp nhận',
         content: `Hệ thống EventHub đã ghi nhận khiếu nại "${complaint.title}" (Mã: #${complaint.id.slice(0, 8)}). Ban Quản trị sẽ xem xét và phản hồi trong thời gian sớm nhất.`,
         type: 'SYSTEM',
+        metadata: {
+          complaint_id: complaint.id,
+          action_url: '/customer/complaints',
+        },
       });
     } catch (notifErr) {
       logger.warn(`[ComplaintsService] Failed to send notification to customer: ${notifErr.message}`);
+    }
+
+    // Notify admins
+    notificationsService.notifyAdmins({
+      title: `Khiếu nại mới #${complaint.id.slice(0, 8)}`,
+      content: `Khách hàng đã gửi khiếu nại về "${complaint.title}" (Danh mục: ${category}). Vui lòng kiểm tra và xử lý.`,
+      type: 'SYSTEM',
+      eventId: finalEventId || null,
+      metadata: {
+        complaint_id: complaint.id,
+        action_url: '/admin/disputes',
+      },
+    }).catch((err) => logger.warn(`[ComplaintsService] Failed to notify admins: ${err.message}`));
+
+    // Notify organizer if event or organizer is known
+    if (finalOrganizerId) {
+      (async () => {
+        try {
+          const orgUserRes = await db.query('SELECT user_id FROM organizers WHERE id = $1', [finalOrganizerId]);
+          const orgUserId = orgUserRes.rows[0]?.user_id;
+          if (orgUserId) {
+            await notificationsService.notifyOrganizer(orgUserId, {
+              title: `Khiếu nại mới từ khán giả: "${complaint.title}"`,
+              content: `Khán giả đã gửi khiếu nại liên quan đến sự kiện của bạn. Ban Quản trị đang tiếp nhận và xem xét.`,
+              type: 'SYSTEM',
+              eventId: finalEventId || null,
+              metadata: {
+                complaint_id: complaint.id,
+                event_id: finalEventId,
+              },
+            });
+          }
+        } catch (orgErr) {
+          logger.warn(`[ComplaintsService] Failed to notify organizer: ${orgErr.message}`);
+        }
+      })();
     }
 
     return complaint;
@@ -136,12 +176,15 @@ class ComplaintsService {
     if (['RESOLVED', 'REJECTED'].includes(status) && existing.customer_id) {
       const statusLabel = status === 'RESOLVED' ? 'Đã được giải quyết' : 'Đã được xử lý / Bác bỏ';
       try {
-        await notificationsRepository.createNotification({
-          userId: existing.customer_id,
+        await notificationsService.notifyCustomer(existing.customer_id, {
           eventId: existing.event_id || null,
           title: `Khiếu nại #${existing.id.slice(0, 8)}: ${statusLabel}`,
           content: `Ban Quản trị EventHub đã phản hồi khiếu nại "${existing.title}": ${adminNote ? `"${adminNote}"` : 'Trạng thái khiếu nại đã được cập nhật.'}`,
           type: 'SYSTEM',
+          metadata: {
+            complaint_id: existing.id,
+            action_url: '/customer/complaints',
+          },
         });
       } catch (notifErr) {
         logger.warn(`[ComplaintsService] Failed to send resolution notification: ${notifErr.message}`);

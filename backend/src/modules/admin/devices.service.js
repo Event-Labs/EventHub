@@ -1,6 +1,9 @@
 const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
+const logger = require('../../core/logger');
+const notificationsService = require('../notifications/notifications.service');
 const adminDevicesRepository = require('./devices.repository');
+const notificationsRepository = require('../notifications/notifications.repository');
 const {
   DEVICE_ONLINE_THRESHOLD_SEC,
   PENDING_SECRET_TTL_MINUTES,
@@ -148,7 +151,7 @@ class AdminDevicesService {
     const secretHash = sha256Hex(deviceSecret);
     const pendingSecretExpiresAt = new Date(Date.now() + PENDING_SECRET_TTL_MINUTES * 60 * 1000);
 
-    return adminDevicesRepository.approveDevice(id, {
+    const approved = await adminDevicesRepository.approveDevice(id, {
       name: payload.name,
       assignedEventId: payload.assigned_event_id || null,
       assignedGateId: resolvedGate?.id || null,
@@ -159,6 +162,26 @@ class AdminDevicesService {
       pendingSecretExpiresAt,
       approvedBy: adminUserId,
     });
+
+    if (payload.assigned_event_id) {
+      notificationsRepository.getOrganizerUserIdByEventId(payload.assigned_event_id).then((organizerUserId) => {
+        if (organizerUserId) {
+          notificationsService.notifyOrganizer(organizerUserId, {
+            title: 'Thiết bị ESP32 đã được phân bổ cho sự kiện',
+            content: `Thiết bị check-in "${payload.name || 'ESP32'}" đã được Admin phê duyệt và phân bổ cho sự kiện của bạn${resolvedGate?.name ? ` tại cổng "${resolvedGate.name}"` : ''}.`,
+            type: 'SYSTEM',
+            eventId: payload.assigned_event_id,
+            metadata: {
+              device_id: id,
+              event_id: payload.assigned_event_id,
+              action_url: `/organizer/events/${payload.assigned_event_id}`,
+            },
+          }).catch((err) => logger.warn(`[NOTIFY_ORGANIZER_DEVICE_APPROVE_FAIL] ${err.message}`));
+        }
+      }).catch((e) => logger.warn(`[GET_ORGANIZER_FAIL] ${e.message}`));
+    }
+
+    return approved;
   }
 
   async updateDevice(id, payload) {
@@ -198,13 +221,33 @@ class AdminDevicesService {
       nextGateName = null;
     }
 
-    return adminDevicesRepository.updateDeviceConfig(id, {
+    const updated = await adminDevicesRepository.updateDeviceConfig(id, {
       name: payload.name,
       assignedEventId: payload.assigned_event_id,
       assignedGateId: nextGateId,
       assignedGate: nextGateName,
       autoConfirm: payload.auto_confirm,
     });
+
+    if (payload.assigned_event_id && eventChanged) {
+      notificationsRepository.getOrganizerUserIdByEventId(payload.assigned_event_id).then((organizerUserId) => {
+        if (organizerUserId) {
+          notificationsService.notifyOrganizer(organizerUserId, {
+            title: 'Thiết bị ESP32 được phân bổ cho sự kiện',
+            content: `Thiết bị check-in "${payload.name || rawDevice.name}" đã được phân bổ cho sự kiện của bạn.`,
+            type: 'SYSTEM',
+            eventId: payload.assigned_event_id,
+            metadata: {
+              device_id: id,
+              event_id: payload.assigned_event_id,
+              action_url: `/organizer/events/${payload.assigned_event_id}`,
+            },
+          }).catch((err) => logger.warn(`[NOTIFY_ORGANIZER_DEVICE_UPDATE_FAIL] ${err.message}`));
+        }
+      }).catch((e) => logger.warn(`[GET_ORGANIZER_FAIL] ${e.message}`));
+    }
+
+    return updated;
   }
 
   async disableDevice(id) {

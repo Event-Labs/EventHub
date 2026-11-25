@@ -21,13 +21,41 @@ class NotificationsRepository {
     return rows[0];
   }
 
-  async createNotification({ userId, eventId = null, title, content, type = 'SYSTEM' }) {
+  async getAdminUserIds() {
+    const { rows } = await db.query(
+      `
+      SELECT DISTINCT u.id
+      FROM users u
+      JOIN user_roles ur ON u.id = ur.user_id
+      JOIN roles r ON ur.role_id = r.id
+      WHERE r.name = 'ADMIN' AND u.status = 'ACTIVE'
+      `,
+    );
+    return rows.map((r) => r.id);
+  }
+
+  async getOrganizerUserIdByEventId(eventId) {
+    if (!eventId) return null;
+    const { rows } = await db.query(
+      `
+      SELECT o.user_id
+      FROM events e
+      JOIN organizers o ON o.id = e.organizer_id
+      WHERE e.id = $1
+      LIMIT 1
+      `,
+      [eventId],
+    );
+    return rows[0]?.user_id || null;
+  }
+
+  async createNotification({ userId, eventId = null, title, content, type = 'SYSTEM', targetRole = 'CUSTOMER', metadata = {} }) {
     const { rows } = await db.query(
       `
       WITH inserted AS (
-        INSERT INTO notifications (user_id, event_id, title, content, type)
-        VALUES ($1, $2, $3, $4, $5)
-        RETURNING id, user_id, event_id, title, content, type, is_read, created_at
+        INSERT INTO notifications (user_id, event_id, title, content, type, target_role, metadata)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING id, user_id, event_id, title, content, type, target_role, metadata, is_read, created_at
       )
       SELECT
         n.id,
@@ -36,6 +64,8 @@ class NotificationsRepository {
         n.title,
         n.content,
         n.type,
+        n.target_role,
+        n.metadata,
         n.is_read,
         n.created_at,
         e.title AS event_title,
@@ -43,12 +73,12 @@ class NotificationsRepository {
       FROM inserted n
       LEFT JOIN events e ON e.id = n.event_id
       `,
-      [userId, eventId, title, content, type],
+      [userId, eventId, title, content, type, targetRole, metadata],
     );
     return rows[0];
   }
 
-  async listByUser(userId, { limit, offset, unreadOnly, category = 'all' }) {
+  async listByUser(userId, { limit, offset, unreadOnly, category = 'all', targetRole = null }) {
     const unreadClause = unreadOnly ? 'AND is_read = false' : '';
     const listCategoryClause = category === 'invitation'
       ? `AND n.title IN ('STAFF_INVITATION', 'Lời mời làm staff')`
@@ -56,6 +86,24 @@ class NotificationsRepository {
     const countCategoryClause = category === 'invitation'
       ? `AND title IN ('STAFF_INVITATION', 'Lời mời làm staff')`
       : '';
+
+    let roleClause = '';
+    let roleCountClause = '';
+    const queryParams = [userId, limit, offset];
+    const countParams = [userId];
+
+    if (targetRole && targetRole !== 'ALL') {
+      if (targetRole === 'CUSTOMER') {
+        roleClause = `AND (n.target_role = 'CUSTOMER' OR n.target_role IS NULL)`;
+        roleCountClause = `AND (target_role = 'CUSTOMER' OR target_role IS NULL)`;
+      } else {
+        queryParams.push(targetRole);
+        roleClause = `AND n.target_role = $${queryParams.length}`;
+        countParams.push(targetRole);
+        roleCountClause = `AND target_role = $${countParams.length}`;
+      }
+    }
+
     const { rows } = await db.query(
       `
       SELECT
@@ -65,6 +113,8 @@ class NotificationsRepository {
         n.title,
         n.content,
         n.type,
+        n.target_role,
+        n.metadata,
         n.is_read,
         n.created_at,
         e.title AS event_title,
@@ -74,10 +124,11 @@ class NotificationsRepository {
       WHERE n.user_id = $1
       ${unreadClause}
       ${listCategoryClause}
+      ${roleClause}
       ORDER BY n.created_at DESC
       LIMIT $2 OFFSET $3
       `,
-      [userId, limit, offset],
+      queryParams,
     );
 
     const countResult = await db.query(
@@ -87,17 +138,29 @@ class NotificationsRepository {
       WHERE user_id = $1
       ${unreadClause}
       ${countCategoryClause}
+      ${roleCountClause}
       `,
-      [userId],
+      countParams,
     );
 
     return { rows, total: countResult.rows[0]?.total || 0 };
   }
 
-  async unreadCount(userId) {
+  async unreadCount(userId, targetRole = null) {
+    let roleClause = '';
+    const params = [userId];
+    if (targetRole && targetRole !== 'ALL') {
+      if (targetRole === 'CUSTOMER') {
+        roleClause = `AND (target_role = 'CUSTOMER' OR target_role IS NULL)`;
+      } else {
+        params.push(targetRole);
+        roleClause = `AND target_role = $2`;
+      }
+    }
+
     const { rows } = await db.query(
-      'SELECT COUNT(*)::int AS total FROM notifications WHERE user_id = $1 AND is_read = false',
-      [userId],
+      `SELECT COUNT(*)::int AS total FROM notifications WHERE user_id = $1 AND is_read = false ${roleClause}`,
+      params,
     );
     return rows[0]?.total || 0;
   }
@@ -108,15 +171,26 @@ class NotificationsRepository {
       UPDATE notifications
       SET is_read = true
       WHERE id = $1 AND user_id = $2
-      RETURNING id, user_id, event_id, title, content, type, is_read, created_at
+      RETURNING id, user_id, event_id, title, content, type, target_role, metadata, is_read, created_at
       `,
       [notificationId, userId],
     );
     return rows[0];
   }
 
-  async markAllRead(userId) {
-    await db.query('UPDATE notifications SET is_read = true WHERE user_id = $1 AND is_read = false', [userId]);
+  async markAllRead(userId, targetRole = null) {
+    let roleClause = '';
+    const params = [userId];
+    if (targetRole && targetRole !== 'ALL') {
+      if (targetRole === 'CUSTOMER') {
+        roleClause = `AND (target_role = 'CUSTOMER' OR target_role IS NULL)`;
+      } else {
+        params.push(targetRole);
+        roleClause = `AND target_role = $2`;
+      }
+    }
+
+    await db.query(`UPDATE notifications SET is_read = true WHERE user_id = $1 AND is_read = false ${roleClause}`, params);
   }
 
   async findOrganizerEvents(organizerId) {

@@ -2731,8 +2731,8 @@ class OrdersRepository {
 
   async findPaidOrderEmailDetails(orderId) {
     const { rows } = await db.query(
-      `SELECT o.id, o.order_code, o.buyer_name, o.buyer_email, o.subtotal, o.discount_amount,
-        o.platform_fee, o.total_amount, COALESCE(o.locale, u.locale, 'vi') AS locale, event_info.title AS event_title,
+      `SELECT o.id, o.user_id, o.order_code, o.buyer_name, o.buyer_email, o.subtotal, o.discount_amount,
+        o.platform_fee, o.total_amount, COALESCE(o.locale, u.locale, 'vi') AS locale, event_info.id AS event_id, event_info.title AS event_title,
         event_info.banner_url, event_info.thumbnail_url,
         po.paid_at, COALESCE(po.provider_transaction_id, po.provider_order_code::text) AS transaction_code
       FROM orders o

@@ -1,5 +1,7 @@
 const iotRepository = require('./iot.repository');
 const ticketsService = require('../tickets/tickets.service');
+const notificationsService = require('../notifications/notifications.service');
+const logger = require('../../core/logger');
 const {
   PAIRING_TTL_MINUTES,
   POLL_INTERVAL_SEC,
@@ -92,6 +94,18 @@ class IotService {
       pairingExpiresAt,
       lastIp: clientIp,
     });
+
+    notificationsService.notifyAdmins({
+      title: 'Thiết bị ESP32 mới chờ ghép nối',
+      content: `Thiết bị ESP32 (MAC: ${macAddress}, Mã ghép nối: ${pairingCode}) đang chờ Admin phê duyệt và ghép nối.`,
+      type: 'SYSTEM',
+      metadata: {
+        device_id: device.id,
+        mac_address: macAddress,
+        pairing_code: pairingCode,
+        action_url: '/admin/devices',
+      },
+    }).catch((err) => logger.warn(`[NOTIFY_ADMIN_ESP32_FAIL] ${err.message}`));
 
     return {
       httpStatus: 200,

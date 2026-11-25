@@ -9,12 +9,29 @@ const booleanQuerySchema = z.preprocess(
   z.boolean(),
 );
 
+const targetRoleSchema = z.preprocess(
+  (value) => {
+    if (typeof value === 'string' && value.trim()) return value.trim().toUpperCase();
+    return undefined;
+  },
+  z.enum(['CUSTOMER', 'ORGANIZER', 'STAFF', 'ADMIN', 'ALL']).optional(),
+);
+
 const listNotificationsSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(50).default(20),
   unread_only: booleanQuerySchema.default(false),
   category: z.enum(['all', 'invitation']).default('all'),
+  target_role: targetRoleSchema,
 });
+
+const unreadCountQuerySchema = z.object({
+  target_role: targetRoleSchema,
+});
+
+const markAllReadSchema = z.object({
+  target_role: targetRoleSchema,
+}).optional();
 
 const notificationIdSchema = z.object({
   notificationId: z.string().uuid(),
@@ -44,6 +61,8 @@ const createAnnouncementSchema = z.object({
 
 module.exports = {
   listNotificationsSchema,
+  unreadCountQuerySchema,
+  markAllReadSchema,
   notificationIdSchema,
   createAnnouncementSchema,
 };

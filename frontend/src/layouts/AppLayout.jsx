@@ -15,6 +15,7 @@ import { ProfileAvatar } from '@/pages/shared/ProfileAvatar.jsx'
 import { CustomerAiAssistantWidget } from '@/components/ai/CustomerAiAssistantWidget.jsx'
 import { ActiveHoldFloatingBar } from '@/components/ActiveHoldFloatingBar.jsx'
 import { CosmicStarryBackground } from '@/components/CosmicStarryBackground.jsx'
+import { DesktopNotificationToast } from '@/components/DesktopNotificationToast.jsx'
 import { LanguageSwitcher } from '@/i18n/LanguageSwitcher.jsx'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
 import logoSrc from '@/assets/eventhub-logo.webp'
@@ -225,8 +226,8 @@ export function AppLayout() {
   const hasStaffRole = currentUserRoles.includes('staff')
 
   const notificationsQuery = useQuery({
-    queryKey: ['notifications', 'nav'],
-    queryFn: () => fetchNotifications({ limit: 5 }),
+    queryKey: ['notifications', 'nav', 'CUSTOMER'],
+    queryFn: () => fetchNotifications({ limit: 5, target_role: 'CUSTOMER' }),
     enabled: loggedIn,
   })
 
@@ -255,7 +256,7 @@ export function AppLayout() {
   })
 
   const markAllMutation = useMutation({
-    mutationFn: markAllNotificationsRead,
+    mutationFn: () => markAllNotificationsRead({ target_role: 'CUSTOMER' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
       queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] })
@@ -302,12 +303,30 @@ export function AppLayout() {
     if (!token) return undefined
 
     const source = new EventSource(getNotificationStreamUrl(token))
+    const handleNotification = (event) => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] })
+
+      try {
+        const data = JSON.parse(event.data)
+        if (data?.title) {
+          window.dispatchEvent(
+            new CustomEvent('eventhub:desktop-notification', {
+              detail: data,
+            }),
+          )
+        }
+      } catch {
+        // ignore JSON parse error
+      }
+    }
+
     const refreshNotifications = () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
       queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] })
     }
 
-    source.addEventListener('notification', refreshNotifications)
+    source.addEventListener('notification', handleNotification)
     source.addEventListener('unread_count', refreshNotifications)
     source.onerror = () => {
       source.close()
@@ -728,6 +747,9 @@ export function AppLayout() {
           </NavLink>
         </nav>
       )}
+
+      {/* Real-time Desktop Notification Toast */}
+      <DesktopNotificationToast />
     </div>
   )
 }

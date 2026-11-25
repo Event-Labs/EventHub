@@ -4,6 +4,7 @@ const operationsRepository = require('./operations.repository');
 const AppError = require('../../core/errors/AppError');
 const ErrorCodes = require('../../core/errors/errorCodes');
 const notificationsService = require('../notifications/notifications.service');
+const notificationsRepository = require('../notifications/notifications.repository');
 const { sendEmail } = require('../../infrastructure/email/email.service');
 const logger = require('../../core/logger');
 
@@ -497,6 +498,39 @@ class OperationsService {
 
     const invitation = await operationsRepository.createStaffInvitation(invitationPayload);
 
+    const metaContent = JSON.stringify({
+      status: 'PENDING',
+      invitation_id: invitation.id,
+      organizer_id: organizer.id,
+      organization_name: organizer.organization_name || 'Ban tổ chức',
+      invited_email: invitedUser.email,
+      staff_role: payload.staff_role || 'Staff',
+      gate_id: resolvedGate?.gateId || null,
+      gate: resolvedGate !== undefined ? resolvedGate.gateName : payload.gate,
+      zone: payload.zone || null,
+      session_ids: normalizedSessionIds,
+      session_name: sessionName,
+      invited_by: userId,
+      expires_at: invitation.expires_at,
+    });
+
+    notificationsService.notifyStaff(invitedUser.id, {
+      title: 'Lời mời làm staff',
+      content: metaContent,
+      type: 'EVENT',
+      eventId: payload.event_id,
+      metadata: {
+        invitation_id: invitation.id,
+        event_id: payload.event_id,
+        event_title: event.title,
+        staff_role: payload.staff_role || 'Staff',
+        gate: resolvedGate?.gateName || payload.gate || null,
+        zone: payload.zone || null,
+        session_name: sessionName,
+        action_url: '/staff/notifications',
+      },
+    }).catch((err) => logger.warn(`[NOTIFY_STAFF_INVITE_FAIL] ${err.message}`));
+
     const emailSent = await this.sendStaffInvitationEmail({
       email: invitedUser.email,
       event,
@@ -565,6 +599,17 @@ class OperationsService {
 
     const updated = await operationsRepository.updateStaffAssignment(eventId, staffId, updatePayload);
 
+    notificationsService.notifyStaff(staffId, {
+      title: `Cập nhật phân công sự kiện "${event.title}"`,
+      content: `Ban tổ chức đã cập nhật phân công của bạn tại sự kiện "${event.title}": Vai trò ${updatePayload.staffRole || 'Staff'}${updatePayload.gate ? ` (Cổng: ${updatePayload.gate})` : ''}${updatePayload.zone ? ` (Khu vực: ${updatePayload.zone})` : ''}.`,
+      type: 'EVENT',
+      eventId,
+      metadata: {
+        event_id: eventId,
+        action_url: `/staff/events/${eventId}`,
+      },
+    }).catch((err) => logger.warn(`[NOTIFY_STAFF_UPDATE_ASSIGNMENT_FAIL] ${err.message}`));
+
     return updated;
   }
 
@@ -577,6 +622,17 @@ class OperationsService {
     if (!removed) {
       throw new AppError('Không tìm thấy phân công staff cho sự kiện này.', 404, ErrorCodes.RESOURCE_NOT_FOUND);
     }
+
+    notificationsService.notifyStaff(staffId, {
+      title: `Ngừng phân công sự kiện "${event.title}"`,
+      content: `Ban tổ chức đã điều chỉnh nhân sự và kết thúc phân công của bạn tại sự kiện "${event.title}".`,
+      type: 'EVENT',
+      eventId,
+      metadata: {
+        event_id: eventId,
+        action_url: '/staff/events',
+      },
+    }).catch((err) => logger.warn(`[NOTIFY_STAFF_REMOVE_FAIL] ${err.message}`));
 
     return { event_id: eventId, staff_id: staffId, removed: true };
   }
@@ -650,6 +706,24 @@ class OperationsService {
       throw new AppError('Lời mời này đã được phản hồi trước đó.', 400, ErrorCodes.INVALID_INPUT);
     }
 
+    // Thông báo cho Organizer rằng staff đã đồng ý
+    notificationsRepository.getOrganizerUserIdByEventId(invitation.event_id).then((orgUserId) => {
+      const targetOrgUserId = invitation.invited_by || orgUserId;
+      if (targetOrgUserId) {
+        notificationsService.notifyOrganizer(targetOrgUserId, {
+          title: 'Nhân sự đã chấp nhận lời mời',
+          content: `Nhân viên "${user.full_name || user.email}" đã đồng ý tham gia hỗ trợ sự kiện "${invitation.event_title || 'sự kiện'}" với vai trò ${invitation.staff_role || 'Staff'}.`,
+          type: 'EVENT',
+          eventId: invitation.event_id,
+          metadata: {
+            event_id: invitation.event_id,
+            staff_id: user.id,
+            action_url: '/organizer/staff-management',
+          },
+        }).catch((err) => logger.warn(`[NOTIFY_ORGANIZER_STAFF_ACCEPT_FAIL] ${err.message}`));
+      }
+    }).catch((e) => logger.warn(`[GET_ORGANIZER_FAIL] ${e.message}`));
+
     const session = await this.generateAccessTokenForUser(user);
 
     return {
@@ -675,7 +749,27 @@ class OperationsService {
       throw new AppError('Lời mời này đã được phản hồi trước đó.', 400, ErrorCodes.INVALID_INPUT);
     }
 
-    return operationsRepository.declineInvitation(invitationId, user.id);
+    const declineResult = await operationsRepository.declineInvitation(invitationId, user.id);
+
+    // Thông báo cho Organizer rằng staff đã từ chối
+    notificationsRepository.getOrganizerUserIdByEventId(invitation.event_id).then((orgUserId) => {
+      const targetOrgUserId = invitation.invited_by || orgUserId;
+      if (targetOrgUserId) {
+        notificationsService.notifyOrganizer(targetOrgUserId, {
+          title: 'Nhân sự đã từ chối lời mời',
+          content: `Người dùng "${user.full_name || user.email}" đã từ chối lời mời làm staff cho sự kiện "${invitation.event_title || 'sự kiện'}".`,
+          type: 'EVENT',
+          eventId: invitation.event_id,
+          metadata: {
+            event_id: invitation.event_id,
+            staff_id: user.id,
+            action_url: '/organizer/staff-management',
+          },
+        }).catch((err) => logger.warn(`[NOTIFY_ORGANIZER_STAFF_DECLINE_FAIL] ${err.message}`));
+      }
+    }).catch((e) => logger.warn(`[GET_ORGANIZER_FAIL] ${e.message}`));
+
+    return declineResult;
   }
 
   async listStaffAssignedEvents(staffId) {
