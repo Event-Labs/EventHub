@@ -24,6 +24,10 @@ class AdminAnalyticsService {
   async getEventsByCategory() {
     return analyticsRepository.getEventsByCategory();
   }
+
+  async getSecurityMetrics() {
+    return analyticsRepository.getSecurityMetrics();
+  }
 }
 
 module.exports = new AdminAnalyticsService();

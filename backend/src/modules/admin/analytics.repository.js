@@ -247,6 +247,33 @@ class AdminAnalyticsRepository {
 
     return rows;
   }
+
+  async getSecurityMetrics() {
+    const holdsStats = await db.query(`
+      SELECT
+        COUNT(*) FILTER (WHERE status = 'ACTIVE' AND expires_at > NOW())::int AS active_holds,
+        COUNT(*) FILTER (WHERE status = 'EXPIRED')::int AS expired_holds,
+        COUNT(*) FILTER (WHERE status = 'CANCELLED')::int AS cancelled_holds,
+        COUNT(*) FILTER (WHERE status = 'CONFIRMED')::int AS confirmed_holds
+      FROM ticket_hold_sessions
+    `);
+    const recentLogs = await db.query(`
+      SELECT action, risk_score, created_at, details
+      FROM security_activity_logs
+      ORDER BY created_at DESC
+      LIMIT 20
+    `);
+    const rateLimitViolations = await db.query(`
+      SELECT COUNT(*)::int AS count
+      FROM security_activity_logs
+      WHERE action = 'RATE_LIMIT_EXCEEDED' AND created_at >= NOW() - INTERVAL '24 hours'
+    `);
+    return {
+      holds: holdsStats.rows[0] || { active_holds: 0, expired_holds: 0, cancelled_holds: 0, confirmed_holds: 0 },
+      rateLimitViolations24h: rateLimitViolations.rows[0]?.count || 0,
+      recentLogs: recentLogs.rows,
+    };
+  }
 }
 
 module.exports = new AdminAnalyticsRepository();

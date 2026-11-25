@@ -4,6 +4,11 @@ const optionalAuth = require('../../middlewares/optionalAuth.middleware');
 const { protect } = require('../../middlewares/auth.middleware');
 const { cacheMiddleware } = require('../../middlewares/cache.middleware');
 const { requireBookingToken } = require('../waiting-room/waitingRoom.middleware');
+const {
+  holdSeatsRateLimiter,
+  releaseSeatHoldsRateLimiter,
+  checkAvailabilityRateLimiter,
+} = require('../../middlewares/rateLimiter.middleware');
 
 const router = express.Router();
 
@@ -18,10 +23,14 @@ router.get('/organizers', cacheMiddleware(60, { isUserSpecific: false }), events
 router.get('/sessions/:sessionId/seats', cacheMiddleware(3, { isUserSpecific: false }), eventsController.getSessionSeats);
 
 // Các endpoint đặt / giữ vé thời gian thực: TUYỆT ĐỐI KHÔNG CACHE
-router.post('/availability/check', protect, eventsController.checkTicketAvailability);
-router.post('/availability/hold', protect, requireBookingToken, eventsController.holdSeats);
-router.post('/availability/release', protect, eventsController.releaseSeatHolds);
+router.post('/availability/check', protect, checkAvailabilityRateLimiter, eventsController.checkTicketAvailability);
+router.post('/availability/hold', protect, holdSeatsRateLimiter, requireBookingToken, eventsController.holdSeats);
+router.post('/availability/release', protect, releaseSeatHoldsRateLimiter, eventsController.releaseSeatHolds);
 router.get('/favorites/me', protect, eventsController.getFavoriteEvents);
+
+// Quản lý và khôi phục phiên giữ vé ACTIVE (Section 3 & 4)
+router.get('/:identifier/active-hold', protect, eventsController.getActiveHold);
+router.post('/:identifier/hold/cancel', protect, releaseSeatHoldsRateLimiter, eventsController.cancelActiveHold);
 
 router.post('/:eventId/favorite', protect, eventsController.addFavorite);
 router.delete('/:eventId/favorite', protect, eventsController.removeFavorite);

@@ -47,13 +47,26 @@ export async function checkTicketAvailability(payload) {
 }
 
 
-export async function holdSeats(payload) {
-  const response = await http.post('/events/availability/hold', payload)
+export async function holdSeats(payload, idempotencyKey = null) {
+  const headers = idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}
+  const response = await http.post('/events/availability/hold', payload, { headers })
   return response.data.data
 }
 
 export async function releaseSeatHolds(payload) {
   const response = await http.post('/events/availability/release', payload)
+  return response.data.data
+}
+
+export async function fetchActiveHold(identifier) {
+  const encoded = encodeURIComponent(String(identifier || '').trim())
+  const response = await http.get(`/events/${encoded}/active-hold`)
+  return response.data.data
+}
+
+export async function cancelActiveHold(identifier) {
+  const encoded = encodeURIComponent(String(identifier || '').trim())
+  const response = await http.post(`/events/${encoded}/hold/cancel`)
   return response.data.data
 }
 

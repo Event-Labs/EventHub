@@ -723,12 +723,18 @@ class EventsRepository {
   async expireStandaloneSeatHolds(client = db) {
     await client.query(
       `
-      WITH expired AS (
-        UPDATE ticket_holds
+      WITH expired_sessions AS (
+        UPDATE ticket_hold_sessions
         SET status = 'EXPIRED', updated_at = now()
         WHERE status = 'ACTIVE'
-          AND order_id IS NULL
           AND expires_at <= now()
+        RETURNING id
+      ),
+      expired AS (
+        UPDATE ticket_holds
+        SET status = 'EXPIRED', updated_at = now()
+        WHERE (status = 'ACTIVE' AND order_id IS NULL AND expires_at <= now())
+           OR (hold_id IN (SELECT id FROM expired_sessions) AND status = 'ACTIVE')
         RETURNING session_seat_id
       )
       UPDATE session_seats ss
@@ -740,7 +746,6 @@ class EventsRepository {
       WHERE ss.id = e.session_seat_id
         AND ss.status = 'HELD'
         AND ss.order_id IS NULL
-        AND ss.held_until <= now()
       `,
     );
   }
@@ -767,29 +772,248 @@ class EventsRepository {
     return Number(rows[0]?.quantity || 0);
   }
 
+  async findActiveHoldByUserAndEvent(userId, eventId) {
+    if (!userId || !eventId) {
+      return { hasActiveHold: false };
+    }
+    const isUuid = (val) => typeof val === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(val);
+    let resolvedEventId = eventId;
+    if (!isUuid(resolvedEventId)) {
+      try {
+        const evRes = await db.query('SELECT id FROM events WHERE slug = $1 LIMIT 1', [resolvedEventId]);
+        resolvedEventId = evRes.rows[0]?.id || null;
+      } catch (_) {
+        resolvedEventId = null;
+      }
+    }
+    if (!resolvedEventId) {
+      return { hasActiveHold: false };
+    }
+
+    await this.expireStandaloneSeatHolds();
+
+    let sessionRes = await db.query(
+      `
+      SELECT id, user_id, event_id, status, expires_at, order_id, created_at, updated_at
+      FROM ticket_hold_sessions
+      WHERE user_id = $1 AND event_id = $2 AND status = 'ACTIVE'
+      LIMIT 1
+      `,
+      [userId, resolvedEventId],
+    );
+
+    let session = sessionRes.rows[0];
+
+    // Fallback: Check if user has active standalone ticket_holds that were created before migration
+    if (!session) {
+      const legacyHoldRes = await db.query(
+        `
+        SELECT th.id, th.expires_at, th.ticket_type_id
+        FROM ticket_holds th
+        JOIN ticket_types tt ON tt.id = th.ticket_type_id
+        JOIN event_sessions es ON es.id = tt.event_session_id
+        WHERE th.user_id = $1
+          AND es.event_id = $2
+          AND th.status = 'ACTIVE'
+          AND th.order_id IS NULL
+          AND th.expires_at > now()
+        ORDER BY th.created_at DESC
+        LIMIT 1
+        `,
+        [userId, resolvedEventId],
+      );
+
+      if (legacyHoldRes.rows[0]) {
+        const legacyExpiresAt = legacyHoldRes.rows[0].expires_at;
+        try {
+          const newSessionRes = await db.query(
+            `
+            INSERT INTO ticket_hold_sessions (user_id, event_id, status, expires_at)
+            VALUES ($1, $2, 'ACTIVE', $3)
+            ON CONFLICT (user_id, event_id) WHERE status = 'ACTIVE'
+            DO UPDATE SET updated_at = now()
+            RETURNING id, user_id, event_id, status, expires_at, order_id
+            `,
+            [userId, resolvedEventId, legacyExpiresAt],
+          );
+          session = newSessionRes.rows[0];
+
+          await db.query(
+            `
+            UPDATE ticket_holds th
+            SET hold_id = $1, event_id = $2
+            FROM ticket_types tt
+            JOIN event_sessions es ON es.id = tt.event_session_id
+            WHERE th.ticket_type_id = tt.id
+              AND es.event_id = $2
+              AND th.user_id = $3
+              AND th.status = 'ACTIVE'
+              AND th.order_id IS NULL
+            `,
+            [session.id, resolvedEventId, userId],
+          );
+        } catch (_) {}
+      }
+    }
+
+    if (!session) {
+      return { hasActiveHold: false };
+    }
+
+    if (new Date(session.expires_at).getTime() <= Date.now()) {
+      await this.expireStandaloneSeatHolds();
+      return { hasActiveHold: false };
+    }
+
+    // Query all items for this active hold
+    const itemsRes = await db.query(
+      `
+      SELECT
+        th.id AS hold_item_id,
+        th.ticket_type_id,
+        th.session_seat_id,
+        th.quantity,
+        th.order_id,
+        tt.name AS ticket_type_name,
+        tt.price,
+        tt.is_seated,
+        tt.event_session_id,
+        es.start_time AS session_start_time,
+        es.end_time AS session_end_time,
+        s.row_label,
+        s.seat_number
+      FROM ticket_holds th
+      JOIN ticket_types tt ON tt.id = th.ticket_type_id
+      JOIN event_sessions es ON es.id = tt.event_session_id
+      LEFT JOIN session_seats ss ON ss.id = th.session_seat_id
+      LEFT JOIN seats s ON s.id = ss.seat_id
+      WHERE (th.hold_id = $1 OR (th.user_id = $2 AND th.event_id = $3 AND th.order_id IS NULL))
+        AND th.status = 'ACTIVE'
+        AND th.expires_at > now()
+      `,
+      [session.id, userId, resolvedEventId],
+    );
+
+    if (itemsRes.rows.length === 0) {
+      return { hasActiveHold: false };
+    }
+
+    const itemsMap = new Map();
+    const remainingItems = [];
+    const allSeatIds = [];
+    let eventSessionId = null;
+
+    for (const row of itemsRes.rows) {
+      eventSessionId = row.event_session_id;
+      const seatId = row.session_seat_id;
+      const label = (row.row_label || '') + (row.seat_number || '');
+
+      remainingItems.push({
+        seatId: seatId || null,
+        label: seatId ? label : null,
+        ticketTypeId: row.ticket_type_id,
+        quantity: Number(row.quantity || 1),
+      });
+
+      if (seatId) {
+        allSeatIds.push(seatId);
+      }
+
+      if (!itemsMap.has(row.ticket_type_id)) {
+        itemsMap.set(row.ticket_type_id, {
+          ticketType: {
+            id: row.ticket_type_id,
+            name: row.ticket_type_name,
+            price: Number(row.price || 0),
+            is_seated: Boolean(row.is_seated),
+            event_session_id: row.event_session_id,
+          },
+          ticket_type_id: row.ticket_type_id,
+          ticket_type_name: row.ticket_type_name,
+          price: Number(row.price || 0),
+          is_seated: Boolean(row.is_seated),
+          quantity: 0,
+          session_seat_ids: [],
+          sessionSeatIds: [],
+          seats: [],
+        });
+      }
+
+      const group = itemsMap.get(row.ticket_type_id);
+      group.quantity += Number(row.quantity || 1);
+      if (seatId) {
+        group.session_seat_ids.push(seatId);
+        group.sessionSeatIds.push(seatId);
+        group.seats.push({ id: seatId, label });
+      }
+    }
+
+    return {
+      hasActiveHold: true,
+      hold: {
+        id: session.id,
+        eventId: resolvedEventId,
+        eventSessionId,
+        status: 'ACTIVE',
+        expiresAt: session.expires_at,
+        remainingSeconds: Math.max(0, Math.floor((new Date(session.expires_at).getTime() - Date.now()) / 1000)),
+        orderId: session.order_id || null,
+        items: Array.from(itemsMap.values()),
+        selectedSeatIds: allSeatIds,
+        remainingItems,
+      },
+    };
+  }
+
   async holdSeats(userId, payload) {
     const client = await db.getClient();
-    const requestedSeatIds = payload.items.flatMap((item) => item.session_seat_ids || []);
+    const isUuid = (val) => typeof val === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(val);
+    let resolvedEventId = payload.event_id;
 
     try {
+      if (resolvedEventId && !isUuid(resolvedEventId)) {
+        try {
+          const evRes = await client.query('SELECT id FROM events WHERE slug = $1 LIMIT 1', [resolvedEventId]);
+          resolvedEventId = evRes.rows[0]?.id || resolvedEventId;
+        } catch (_) {}
+      }
+
       await client.query('BEGIN');
       await this.expireStandaloneSeatHolds(client);
 
-      if (requestedSeatIds.length === 0) {
+      const totalQuantity = (payload.items || []).reduce((sum, it) => sum + Number(it.quantity || 0), 0);
+      if (totalQuantity === 0) {
         await client.query('COMMIT');
-        return { hold_expires_at: null, hold_seconds: HOLD_SECONDS, seats: [] };
+        return { hold_expires_at: null, hold_seconds: HOLD_SECONDS, seats: [], items: [] };
       }
 
-      const expiresAtResult = await client.query(
-        `SELECT now() + ($1 * interval '1 second') AS expired_at`,
-        [HOLD_SECONDS],
+      // Check for existing ACTIVE hold session for (userId, resolvedEventId)
+      const existingSessionRes = await client.query(
+        `
+        SELECT id, expires_at, status
+        FROM ticket_hold_sessions
+        WHERE user_id = $1 AND event_id = $2 AND status = 'ACTIVE'
+        FOR UPDATE
+        `,
+        [userId, resolvedEventId],
       );
-      const expiresAt = expiresAtResult.rows[0].expired_at;
+
+      let activeSession = existingSessionRes.rows[0] || null;
+
+      if (activeSession && new Date(activeSession.expires_at).getTime() <= Date.now()) {
+        await client.query(
+          `UPDATE ticket_hold_sessions SET status = 'EXPIRED', updated_at = now() WHERE id = $1`,
+          [activeSession.id],
+        );
+        activeSession = null;
+      }
+
+      // Validate ticket types and event rules
       const ticketTypeIds = [...new Set(payload.items.map((item) => item.ticket_type_id))];
       const ticketTypesResult = await client.query(
         `
         SELECT
-          tt.id, tt.event_session_id, tt.name, tt.max_per_order, tt.sale_start, tt.sale_end, tt.is_seated,
+          tt.id, tt.event_session_id, tt.name, tt.quantity AS total_quantity, tt.max_per_order, tt.sale_start, tt.sale_end, tt.is_seated,
           es.status AS session_status, es.end_time AS session_end_time,
           e.id AS event_id, e.end_time AS event_end_time, e.status AS event_status, e.visibility,
           e.approval_status, e.deleted_at, e.sales_status, e.display_state, e.sales_blocks
@@ -808,21 +1032,15 @@ class EventsRepository {
 
       const ticketTypeMap = new Map(ticketTypesResult.rows.map((row) => [row.id, row]));
       const now = Date.now();
-      const heldSeats = [];
 
       for (const item of payload.items) {
         const ticketType = ticketTypeMap.get(item.ticket_type_id);
         const selectedSeatIds = item.session_seat_ids || [];
 
-        if (
-          !ticketType ||
-          ticketType.event_id !== payload.event_id ||
-          ticketType.deleted_at
-        ) {
+        if (!ticketType || ticketType.event_id !== resolvedEventId || ticketType.deleted_at) {
           throw new AppError('Sự kiện hiện không khả dụng để đặt vé.', 400, ErrorCodes.EVENT_NOT_AVAILABLE);
         }
 
-        // Section 10.2: Point 1 - Hold Creation Checks
         if (ticketType.event_status === 'CANCELLED' || ticketType.event_status === 'ENDED') {
           throw new AppError('Sự kiện đã kết thúc hoặc đã bị hủy.', 400, ErrorCodes.EVENT_NOT_AVAILABLE);
         }
@@ -840,20 +1058,17 @@ class EventsRepository {
             if (b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id) {
               return String(b.metadata.ticket_type_id) === String(item.ticket_type_id);
             }
-            if (b.metadata?.scope === 'SEATS') {
-              return false;
-            }
+            if (b.metadata?.scope === 'SEATS') return false;
             return true;
           });
+
         if (isTicketPaused) {
           const SYSTEM_CODES = ['ORGANIZER_PAUSE', 'HIDE', 'SUSPENDED', 'ADMIN_PAUSE', 'REFUND_OVERDUE', 'CANCELLATION_REQUESTED', 'CANCELLING'];
           const relevantBlocks = activeBlocks.filter((b) => {
             if (b.metadata?.scope === 'SPECIFIC' && b.metadata?.ticket_type_id) {
               return String(b.metadata.ticket_type_id) === String(item.ticket_type_id);
             }
-            if (b.metadata?.scope === 'SEATS') {
-              return false;
-            }
+            if (b.metadata?.scope === 'SEATS') return false;
             return true;
           });
           const reasons = relevantBlocks
@@ -891,113 +1106,264 @@ class EventsRepository {
         const saleStart = ticketType.sale_start ? new Date(ticketType.sale_start).getTime() : null;
         const saleEnd = ticketType.sale_end ? new Date(ticketType.sale_end).getTime() : null;
         if ((eventEnd && eventEnd < now) || (sessionEnd && sessionEnd < now)) {
-          throw new AppError('S\u1ef1 ki\u1ec7n ho\u1eb7c su\u1ea5t di\u1ec5n \u0111\u00e3 k\u1ebft th\u00fac, kh\u00f4ng th\u1ec3 b\u00e1n v\u00e9.', 400, ErrorCodes.ORDER_TICKET_SALE_CLOSED);
+          throw new AppError('Sự kiện hoặc suất diễn đã kết thúc, không thể bán vé.', 400, ErrorCodes.ORDER_TICKET_SALE_CLOSED);
         }
         if ((saleStart && saleStart > now) || (saleEnd && saleEnd < now)) {
-          throw new AppError(`V\u00e9 "${ticketType.name}" hi\u1ec7n ch\u01b0a m\u1edf b\u00e1n ho\u1eb7c \u0111\u00e3 ng\u1eebng b\u00e1n.`, 400, ErrorCodes.ORDER_TICKET_SALE_CLOSED);
+          throw new AppError(`Vé "${ticketType.name}" hiện chưa mở bán hoặc đã ngừng bán.`, 400, ErrorCodes.ORDER_TICKET_SALE_CLOSED);
         }
         if ((ticketType.is_seated || selectedSeatIds.length > 0) && selectedSeatIds.length !== Number(item.quantity)) {
           throw new AppError('Số ghế đã chọn không khớp với số lượng vé.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
         }
         if (ticketType.max_per_order && Number(item.quantity) > Number(ticketType.max_per_order)) {
-          throw new AppError(`B\u1ea1n ch\u1ec9 \u0111\u01b0\u1ee3c ph\u00e9p mua t\u1ed1i \u0111a ${Number(ticketType.max_per_order)} v\u00e9 cho lo\u1ea1i v\u00e9 n\u00e0y trong m\u1ed9t \u0111\u01a1n h\u00e0ng.`, 400, ErrorCodes.ORDER_INVALID_ITEMS);
+          throw new AppError(`Bạn chỉ được phép mua tối đa ${Number(ticketType.max_per_order)} vé cho loại vé này trong một đơn hàng.`, 400, ErrorCodes.ORDER_INVALID_ITEMS);
         }
-        if (!ticketType.is_seated && selectedSeatIds.length === 0) {
-          continue;
-        }
+      }
 
-        const hasSeatMapping = await client.query(
-          'SELECT EXISTS (SELECT 1 FROM ticket_type_seats WHERE ticket_type_id = $1) AS has_mapping',
-          [item.ticket_type_id],
+      // Check current items held by active session (if any)
+      let currentSessionItems = [];
+      if (activeSession) {
+        const curItemsRes = await client.query(
+          `SELECT id, ticket_type_id, session_seat_id, quantity FROM ticket_holds WHERE hold_id = $1 AND status = 'ACTIVE'`,
+          [activeSession.id],
         );
-        const requiresMapping = Boolean(hasSeatMapping.rows[0]?.has_mapping);
+        currentSessionItems = curItemsRes.rows;
+      }
 
-        const seatsResult = await client.query(
+      // Check if requested items are identical to currently held items
+      const requestedSeatIds = payload.items.flatMap((item) => item.session_seat_ids || []);
+      const currentSeatIds = currentSessionItems.map((r) => r.session_seat_id).filter(Boolean);
+      const isIdenticalSeats =
+        requestedSeatIds.length === currentSeatIds.length &&
+        requestedSeatIds.every((id) => currentSeatIds.includes(id));
+
+      const isIdenticalGA = payload.items.every((it) => {
+        if (it.session_seat_ids && it.session_seat_ids.length > 0) return true;
+        const match = currentSessionItems.find((ci) => ci.ticket_type_id === it.ticket_type_id && !ci.session_seat_id);
+        return match && Number(match.quantity) === Number(it.quantity);
+      });
+
+      if (activeSession && isIdenticalSeats && isIdenticalGA) {
+        // Return existing hold session without extending expires_at
+        await client.query('COMMIT');
+        const remainingSeconds = Math.max(0, Math.floor((new Date(activeSession.expires_at).getTime() - Date.now()) / 1000));
+        return {
+          hold_id: activeSession.id,
+          hold_expires_at: activeSession.expires_at,
+          hold_seconds: remainingSeconds,
+          seats: requestedSeatIds,
+          is_existing_hold: true,
+        };
+      }
+
+      // Determine hold expiration: If updating existing session, KEEP existing expires_at; if new, compute now + 15m
+      let expiresAt;
+      let sessionId;
+
+      if (activeSession) {
+        sessionId = activeSession.id;
+        expiresAt = activeSession.expires_at;
+      } else {
+        const expResult = await client.query(`SELECT now() + ($1 * interval '1 second') AS expired_at`, [HOLD_SECONDS]);
+        expiresAt = expResult.rows[0].expired_at;
+
+        const insertSessionRes = await client.query(
           `
-          SELECT
-            ss.id, ss.status, ss.held_by, ss.held_until, ss.order_id,
-            s.is_disabled, s.row_label, s.seat_number,
-            tts.ticket_type_id AS mapped_ticket_type_id,
-            EXISTS (
-              SELECT 1
-              FROM order_items oi_sold
-              JOIN orders o_sold ON o_sold.id = oi_sold.order_id
-              LEFT JOIN tickets t_sold ON t_sold.order_item_id = oi_sold.id
-              WHERE COALESCE(t_sold.session_seat_id, oi_sold.session_seat_id) = ss.id
-                AND o_sold.status IN ('PAID', 'CONFIRMED')
-                AND (t_sold.id IS NULL OR t_sold.status <> 'CANCELLED')
-            ) AS has_paid_ticket
-          FROM session_seats ss
-          JOIN seats s ON s.id = ss.seat_id
-          LEFT JOIN ticket_type_seats tts ON tts.seat_id = s.id AND tts.ticket_type_id = $2
-          WHERE ss.id = ANY($1::uuid[])
-            AND ss.event_session_id = $3
-          FOR UPDATE OF ss
+          INSERT INTO ticket_hold_sessions (user_id, event_id, status, expires_at)
+          VALUES ($1, $2, 'ACTIVE', $3)
+          ON CONFLICT (user_id, event_id) WHERE status = 'ACTIVE'
+          DO UPDATE SET updated_at = NOW()
+          RETURNING id, expires_at
           `,
-          [selectedSeatIds, item.ticket_type_id, ticketType.event_session_id],
+          [userId, resolvedEventId, expiresAt],
         );
+        sessionId = insertSessionRes.rows[0].id;
+        expiresAt = insertSessionRes.rows[0].expires_at;
+      }
 
-        if (seatsResult.rows.length !== selectedSeatIds.length) {
-          throw new AppError('M\u1ed9t ho\u1eb7c nhi\u1ec1u gh\u1ebf \u0111\u00e3 ch\u1ecdn kh\u00f4ng h\u1ee3p l\u1ec7.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
-        }
+      // Validate inventory and prepare new held items
+      const heldSeats = [];
+      const heldItems = [];
+      const newSeatIds = [];
 
-        for (const seat of seatsResult.rows) {
-          const heldByOther =
-            seat.status === 'HELD' &&
-            seat.held_until &&
-            new Date(seat.held_until).getTime() > now &&
-            String(seat.held_by) !== String(userId);
+      for (const item of payload.items) {
+        const ticketType = ticketTypeMap.get(item.ticket_type_id);
+        const selectedSeatIds = item.session_seat_ids || [];
 
-          if (
-            seat.is_disabled ||
-            seat.has_paid_ticket ||
-            seat.status === 'SOLD' ||
-            heldByOther ||
-            (requiresMapping && !seat.mapped_ticket_type_id)
-          ) {
-            throw new AppError('Rất tiếc, ghế bạn chọn vừa có người đặt. Vui lòng chọn ghế khác.', 409, ErrorCodes.ORDER_TICKET_UNAVAILABLE);
+        if (ticketType.is_seated || selectedSeatIds.length > 0) {
+          const hasSeatMapping = await client.query(
+            'SELECT EXISTS (SELECT 1 FROM ticket_type_seats WHERE ticket_type_id = $1) AS has_mapping',
+            [item.ticket_type_id],
+          );
+          const requiresMapping = Boolean(hasSeatMapping.rows[0]?.has_mapping);
+
+          const seatsResult = await client.query(
+            `
+            SELECT
+              ss.id, ss.status, ss.held_by, ss.held_until, ss.order_id,
+              s.is_disabled, s.row_label, s.seat_number,
+              tts.ticket_type_id AS mapped_ticket_type_id,
+              EXISTS (
+                SELECT 1
+                FROM order_items oi_sold
+                JOIN orders o_sold ON o_sold.id = oi_sold.order_id
+                LEFT JOIN tickets t_sold ON t_sold.order_item_id = oi_sold.id
+                WHERE COALESCE(t_sold.session_seat_id, oi_sold.session_seat_id) = ss.id
+                  AND o_sold.status IN ('PAID', 'CONFIRMED')
+                  AND (t_sold.id IS NULL OR t_sold.status <> 'CANCELLED')
+              ) AS has_paid_ticket
+            FROM session_seats ss
+            JOIN seats s ON s.id = ss.seat_id
+            LEFT JOIN ticket_type_seats tts ON tts.seat_id = s.id AND tts.ticket_type_id = $2
+            WHERE ss.id = ANY($1::uuid[])
+              AND ss.event_session_id = $3
+            FOR UPDATE OF ss
+            `,
+            [selectedSeatIds, item.ticket_type_id, ticketType.event_session_id],
+          );
+
+          if (seatsResult.rows.length !== selectedSeatIds.length) {
+            throw new AppError('Một hoặc nhiều ghế đã chọn không hợp lệ.', 400, ErrorCodes.ORDER_INVALID_ITEMS);
           }
 
+          for (const seat of seatsResult.rows) {
+            const heldByOther =
+              seat.status === 'HELD' &&
+              seat.held_until &&
+              new Date(seat.held_until).getTime() > now &&
+              String(seat.held_by) !== String(userId);
+
+            if (
+              seat.is_disabled ||
+              seat.has_paid_ticket ||
+              seat.status === 'SOLD' ||
+              heldByOther ||
+              (requiresMapping && !seat.mapped_ticket_type_id)
+            ) {
+              throw new AppError('Rất tiếc, ghế bạn chọn vừa có người đặt. Vui lòng chọn ghế khác.', 409, ErrorCodes.ORDER_TICKET_UNAVAILABLE);
+            }
+            newSeatIds.push(seat.id);
+            heldSeats.push({
+              session_seat_id: seat.id,
+              label: `${seat.row_label || ''}${seat.seat_number || ''}`,
+              ticket_type_id: item.ticket_type_id,
+            });
+          }
+        } else {
+          // General Admission ticket: Verify stock availability in transaction (Section 9)
+          const gaAvailabilityRes = await client.query(
+            `
+            SELECT
+              COALESCE(SUM(oi.quantity) FILTER (WHERE o.status IN ('PAID', 'CONFIRMED')), 0)::int AS sold_quantity,
+              COALESCE((
+                SELECT SUM(th.quantity)::int
+                FROM ticket_holds th
+                WHERE th.ticket_type_id = $1
+                  AND th.status = 'ACTIVE'
+                  AND th.expires_at > now()
+                  AND (th.hold_id IS DISTINCT FROM $2::uuid)
+              ), 0) AS other_active_hold_quantity
+            FROM order_items oi
+            JOIN orders o ON o.id = oi.order_id
+            WHERE oi.ticket_type_id = $1
+            `,
+            [item.ticket_type_id, sessionId],
+          );
+
+          const sold = Number(gaAvailabilityRes.rows[0]?.sold_quantity || 0);
+          const otherHolds = Number(gaAvailabilityRes.rows[0]?.other_active_hold_quantity || 0);
+          const totalQty = Number(ticketType.total_quantity || 0);
+          const availableGA = totalQty - sold - otherHolds;
+
+          if (Number(item.quantity) > availableGA) {
+            throw new AppError(`Loại vé "${ticketType.name}" chỉ còn ${Math.max(0, availableGA)} vé khả dụng.`, 409, ErrorCodes.ORDER_TICKET_UNAVAILABLE);
+          }
+        }
+      }
+
+      // Safe update: If updating existing hold, release previous seats not in new selection
+      if (activeSession) {
+        const oldSeatIds = currentSessionItems.map((r) => r.session_seat_id).filter(Boolean);
+        const seatsToRelease = oldSeatIds.filter((id) => !newSeatIds.includes(id));
+
+        if (seatsToRelease.length > 0) {
           await client.query(
             `
             UPDATE session_seats
-            SET status = 'HELD', held_by = $2, held_until = $3, order_id = NULL
-            WHERE id = $1
+            SET status = 'AVAILABLE', held_by = NULL, held_until = NULL, order_id = NULL
+            WHERE id = ANY($1::uuid[]) AND held_by = $2 AND status = 'HELD'
             `,
-            [seat.id, userId, expiresAt],
+            [seatsToRelease, userId],
           );
+        }
 
+        // Mark previous hold items as RELEASED
+        await client.query(
+          `
+          UPDATE ticket_holds
+          SET status = 'RELEASED', released_at = now(), updated_at = now()
+          WHERE hold_id = $1 AND status = 'ACTIVE'
+          `,
+          [sessionId],
+        );
+      }
+
+      // Reserve seats in session_seats
+      if (newSeatIds.length > 0) {
+        await client.query(
+          `
+          UPDATE session_seats
+          SET status = 'HELD', held_by = $2, held_until = $3, order_id = NULL
+          WHERE id = ANY($1::uuid[])
+          `,
+          [newSeatIds, userId, expiresAt],
+        );
+      }
+
+      // Insert new rows into ticket_holds
+      for (const item of payload.items) {
+        const ticketType = ticketTypeMap.get(item.ticket_type_id);
+        const selectedSeatIds = item.session_seat_ids || [];
+
+        if (ticketType.is_seated || selectedSeatIds.length > 0) {
+          for (const seatId of selectedSeatIds) {
+            await client.query(
+              `
+              INSERT INTO ticket_holds (user_id, event_id, hold_id, ticket_type_id, session_seat_id, quantity, order_id, expires_at, status)
+              VALUES ($1, $2, $3, $4, $5, 1, NULL, $6, 'ACTIVE')
+              `,
+              [userId, resolvedEventId, sessionId, item.ticket_type_id, seatId, expiresAt],
+            );
+          }
+        } else {
           await client.query(
             `
-            UPDATE ticket_holds
-            SET status = 'CANCELLED', updated_at = now()
-            WHERE user_id = $1
-              AND ticket_type_id = $2
-              AND session_seat_id = $3
-              AND order_id IS NULL
-              AND status = 'ACTIVE'
+            INSERT INTO ticket_holds (user_id, event_id, hold_id, ticket_type_id, session_seat_id, quantity, order_id, expires_at, status)
+            VALUES ($1, $2, $3, $4, NULL, $5, NULL, $6, 'ACTIVE')
             `,
-            [userId, item.ticket_type_id, seat.id],
+            [userId, resolvedEventId, sessionId, item.ticket_type_id, item.quantity, expiresAt],
           );
-
-          await client.query(
-            `
-            INSERT INTO ticket_holds (user_id, ticket_type_id, session_seat_id, quantity, order_id, expires_at, status)
-            VALUES ($1, $2, $3, 1, NULL, $4, 'ACTIVE')
-            `,
-            [userId, item.ticket_type_id, seat.id, expiresAt],
-          );
-
-          heldSeats.push({
-            session_seat_id: seat.id,
-            label: `${seat.row_label || ''}${seat.seat_number || ''}`,
+          heldItems.push({
             ticket_type_id: item.ticket_type_id,
+            quantity: item.quantity,
           });
         }
       }
 
+      await client.query(
+        `UPDATE ticket_hold_sessions SET updated_at = now() WHERE id = $1`,
+        [sessionId],
+      );
+
       await client.query('COMMIT');
-      return { hold_expires_at: expiresAt, hold_seconds: HOLD_SECONDS, seats: heldSeats };
+
+      const remainingSeconds = Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000));
+      return {
+        hold_id: sessionId,
+        hold_expires_at: expiresAt,
+        hold_seconds: remainingSeconds,
+        seats: heldSeats,
+        items: heldItems,
+      };
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
@@ -1027,10 +1393,26 @@ class EventsRepository {
 
       await client.query('BEGIN');
       await this.expireStandaloneSeatHolds(client);
+
+      // Cancel ticket_hold_sessions
+      if (eventId) {
+        await client.query(
+          `
+          UPDATE ticket_hold_sessions
+          SET status = 'CANCELLED', released_at = now(), updated_at = now()
+          WHERE user_id = $1
+            AND event_id = $2
+            AND status = 'ACTIVE'
+          `,
+          [userId, eventId],
+        );
+      }
+
+      // Cancel ticket_holds
       await client.query(
         `
         UPDATE ticket_holds th
-        SET status = 'CANCELLED', updated_at = now()
+        SET status = 'CANCELLED', released_at = now(), updated_at = now()
         FROM ticket_types tt
         JOIN event_sessions es ON es.id = tt.event_session_id
         WHERE th.ticket_type_id = tt.id
@@ -1042,6 +1424,7 @@ class EventsRepository {
         `,
         [eventId, userId, seatIds],
       );
+
       const releasedResult = await client.query(
         `
         UPDATE session_seats ss
@@ -1057,6 +1440,7 @@ class EventsRepository {
         `,
         [eventId, userId, seatIds],
       );
+
       await client.query('COMMIT');
       return { released_count: releasedResult.rowCount };
     } catch (error) {
