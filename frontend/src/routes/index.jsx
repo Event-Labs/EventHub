@@ -4,10 +4,13 @@ import { AppLayout } from '@/layouts/AppLayout.jsx'
 import { HomePage } from '@/pages/public/HomePage.jsx'
 import { EventsPage } from '@/pages/customer/events/EventsPage.jsx'
 import { EventDetailPage } from '@/pages/customer/events/EventDetailPage.jsx'
+import { AdminNotificationsPage } from '@/pages/admin/AdminNotificationsPage.jsx'
+import { OrganizerNotificationsPage } from '@/pages/organizer/OrganizerNotificationsPage.jsx'
+import { StaffNotificationsPage } from '@/pages/staff/StaffNotificationsPage.jsx'
 
 // Helper for lazy loading named exports
 const lazyNamed = (importer, name) =>
-  lazy(() => importer().then((m) => ({ default: m[name] })))
+  lazy(() => importer().then((m) => ({ default: m[name] || m.default })))
 
 // Booking
 const BookingCheckoutPage = lazyNamed(() => import('@/pages/customer/booking/BookingCheckoutPage.jsx'), 'BookingCheckoutPage')
@@ -101,6 +104,10 @@ export const router = createBrowserRouter([
         element: <AdminAnalyticsPage />,
       },
       {
+        path: 'notifications',
+        element: <AdminNotificationsPage />,
+      },
+      {
         path: 'accounts',
         element: <AdminAccountsPage />,
       },
@@ -185,6 +192,10 @@ export const router = createBrowserRouter([
       {
         index: true,
         element: <OrganizerPortalDashboardPage />,
+      },
+      {
+        path: 'notifications',
+        element: <OrganizerNotificationsPage />,
       },
       {
         path: 'events',
@@ -283,6 +294,10 @@ export const router = createBrowserRouter([
       {
         index: true,
         element: <StaffPortalDashboardPage />,
+      },
+      {
+        path: 'notifications',
+        element: <StaffNotificationsPage />,
       },
       {
         path: 'events',

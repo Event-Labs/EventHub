@@ -17,6 +17,7 @@ const {
 } = require('../events/eventLifecycleHelper');
 const aiImageReviewService = require('../ai/aiImageReview.service');
 const logger = require('../../core/logger');
+const notificationsService = require('../notifications/notifications.service');
 const ollamaClient = require('../../infrastructure/ai/ollama.client');
 
 const ORGANIZER_PROFILE_OTP_KEY = 'organizer_profile_sensitive_otp';
@@ -584,6 +585,18 @@ class OrganizerEventsService {
           [JSON.stringify(revision), JSON.stringify(auditTrail), eventId],
         );
 
+        notificationsService.notifyAdmins({
+          title: `Yêu cầu duyệt thay đổi sự kiện: "${currentEvent.title}"`,
+          content: `Nhà tổ chức đã gửi yêu cầu xét duyệt thay đổi (${revision.change_class}) cho sự kiện "${currentEvent.title}". Vui lòng kiểm tra.`,
+          type: 'EVENT',
+          eventId,
+          metadata: {
+            event_id: eventId,
+            revision_id: revision.id,
+            action_url: `/admin/events/review/${eventId}`,
+          },
+        }).catch((err) => logger.warn(`[NOTIFY_ADMIN_REVISION_FAIL] ${err.message}`));
+
         return {
           ...mapEvent(currentEvent),
           pending_revision: revision,
@@ -623,6 +636,18 @@ class OrganizerEventsService {
           `UPDATE events SET pending_revision = $1::jsonb, audit_trail = $2::jsonb, version = version + 1, updated_at = NOW() WHERE id = $3`,
           [JSON.stringify(revision), JSON.stringify(auditTrail), eventId],
         );
+
+        notificationsService.notifyAdmins({
+          title: `Yêu cầu duyệt thay đổi sự kiện: "${currentEvent.title}"`,
+          content: `Nhà tổ chức đã gửi yêu cầu xét duyệt thay đổi (${revision.change_class}) cho sự kiện "${currentEvent.title}". Vui lòng kiểm tra.`,
+          type: 'EVENT',
+          eventId,
+          metadata: {
+            event_id: eventId,
+            revision_id: revision.id,
+            action_url: `/admin/events/review/${eventId}`,
+          },
+        }).catch((err) => logger.warn(`[NOTIFY_ADMIN_REVISION_FAIL] ${err.message}`));
 
         return {
           ...mapEvent(currentEvent),
@@ -928,6 +953,30 @@ class OrganizerEventsService {
         console.warn(`[submitEvent] Failed to initialize auto-review for event ${eventId}: ${err.message}`);
       }
     }, 1000);
+
+    // Gửi thông báo cho Admin có sự kiện mới nộp duyệt
+    notificationsService.notifyAdmins({
+      title: `Yêu cầu duyệt sự kiện: "${fullEvent.title}"`,
+      content: `Nhà tổ chức đã gửi yêu cầu phê duyệt cho sự kiện "${fullEvent.title}". Vui lòng kiểm tra và xét duyệt nội dung.`,
+      type: 'EVENT',
+      eventId,
+      metadata: {
+        event_id: eventId,
+        action_url: `/admin/events/review/${eventId}`,
+      },
+    }).catch((err) => logger.warn(`[NOTIFY_ADMIN_SUBMIT_EVENT_FAIL] ${err.message}`));
+
+    // Gửi thông báo xác nhận cho Organizer
+    notificationsService.notifyOrganizer(userId, {
+      title: `Sự kiện "${fullEvent.title}" đã gửi phê duyệt`,
+      content: `Sự kiện "${fullEvent.title}" của bạn đã được gửi tới Ban Quản Trị. Hệ thống sẽ phản hồi kết quả xét duyệt sớm nhất.`,
+      type: 'EVENT',
+      eventId,
+      metadata: {
+        event_id: eventId,
+        action_url: `/organizer/events/${eventId}`,
+      },
+    }).catch((err) => logger.warn(`[NOTIFY_ORGANIZER_SUBMIT_EVENT_FAIL] ${err.message}`));
 
     return mapEvent(event);
   }

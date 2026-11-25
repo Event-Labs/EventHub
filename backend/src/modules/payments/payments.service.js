@@ -6,6 +6,8 @@ const payosClient = require('../../infrastructure/payos/payos.client');
 const paymentsRepository = require('./payments.repository');
 const ticketConfirmationEmail = require('../tickets/ticketConfirmationEmail.service');
 const organizerPaymentsService = require('../organizer-payments/organizerPayments.service');
+const notificationsService = require('../notifications/notifications.service');
+const notificationsRepository = require('../notifications/notifications.repository');
 const fieldCrypto = require('../../core/security/fieldCrypto');
 const logger = require('../../core/logger');
 
@@ -28,6 +30,43 @@ class PaymentsService {
       logger.info(`[PAYMENT_EMAIL] details loaded orderId=${orderId} ticketCount=${details.tickets.length} hasRecipient=${Boolean(details.order.buyer_email)}`);
       const sent = await ticketConfirmationEmail.sendOrderConfirmation(details.order, details.tickets);
       logger.info(`[PAYMENT_EMAIL] finished orderId=${orderId} sent=${sent}`);
+
+      // Thông báo cho Customer đã mua vé thành công
+      if (details.order?.user_id) {
+        notificationsService.notifyCustomer(details.order.user_id, {
+          title: `Đặt vé thành công - Đơn hàng #${details.order.order_code}`,
+          content: `Bạn đã thanh toán thành công đơn hàng #${details.order.order_code} (${details.tickets.length} vé) cho sự kiện "${details.order.event_title}". Vé đã sẵn sàng trong tài khoản của bạn.`,
+          type: 'PAYMENT',
+          eventId: details.order.event_id || null,
+          metadata: {
+            order_id: details.order.id,
+            order_code: details.order.order_code,
+            event_id: details.order.event_id,
+            action_url: '/tickets',
+          },
+        }).catch((err) => logger.warn(`[NOTIFY_CUSTOMER_ORDER_PAID_FAIL] ${err.message}`));
+      }
+
+      // Thông báo cho Organizer sự kiện có đơn hàng mới
+      if (details.order?.event_id) {
+        notificationsRepository.getOrganizerUserIdByEventId(details.order.event_id).then((orgUserId) => {
+          if (orgUserId) {
+            notificationsService.notifyOrganizer(orgUserId, {
+              title: `Đơn hàng mới: Sự kiện "${details.order.event_title}"`,
+              content: `Đơn hàng #${details.order.order_code} đã thanh toán thành công (${details.tickets.length} vé - ${Number(details.order.total_amount).toLocaleString('vi-VN')} VND).`,
+              type: 'PAYMENT',
+              eventId: details.order.event_id,
+              metadata: {
+                order_id: details.order.id,
+                order_code: details.order.order_code,
+                event_id: details.order.event_id,
+                action_url: '/organizer/orders',
+              },
+            }).catch((err) => logger.warn(`[NOTIFY_ORGANIZER_NEW_ORDER_FAIL] ${err.message}`));
+          }
+        }).catch((e) => logger.warn(`[GET_ORGANIZER_USER_FAIL] ${e.message}`));
+      }
+
       return sent;
     } catch (error) {
       logger.error(`[PAYMENT_EMAIL] failed orderId=${orderId} code=${error.code || 'unknown'} message=${JSON.stringify(error.message || '')} stack=${JSON.stringify(error.stack || '')}`);

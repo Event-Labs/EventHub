@@ -7,6 +7,8 @@ const notificationStream = require('./notifications.stream');
 const {
   createAnnouncementSchema,
   listNotificationsSchema,
+  unreadCountQuerySchema,
+  markAllReadSchema,
   notificationIdSchema,
 } = require('./notifications.validation');
 
@@ -23,7 +25,8 @@ class NotificationsController {
 
   unreadCount = async (req, res, next) => {
     try {
-      const data = await notificationsService.unreadCount(req.user.sub);
+      const query = unreadCountQuerySchema.parse(req.query);
+      const data = await notificationsService.unreadCount(req.user.sub, query.target_role);
       res.status(200).json(ApiResponse.success(data, 'Unread count fetched successfully'));
     } catch (error) {
       next(error);
@@ -42,7 +45,9 @@ class NotificationsController {
 
   markAllRead = async (req, res, next) => {
     try {
-      const data = await notificationsService.markAllRead(req.user.sub);
+      const parsedBody = markAllReadSchema.parse(req.body || {});
+      const targetRole = parsedBody?.target_role || req.query.target_role || null;
+      const data = await notificationsService.markAllRead(req.user.sub, targetRole);
       res.status(200).json(ApiResponse.success(data, 'Notifications marked as read'));
     } catch (error) {
       next(error);

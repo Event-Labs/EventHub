@@ -181,6 +181,28 @@ class OrganizerRequestsService {
 
     const request = mapRequest(row);
 
+    // Gửi thông báo cho toàn bộ Admin về yêu cầu đăng ký Organizer mới
+    notificationsService.notifyAdmins({
+      title: `Yêu cầu đăng ký Organizer mới: "${request.organization_name}"`,
+      content: `Người dùng đã gửi hồ sơ đăng ký trở thành Nhà tổ chức (${request.request_type === 'ORGANIZATION' ? 'Doanh nghiệp' : 'Cá nhân'}). Vui lòng kiểm tra và xét duyệt.`,
+      type: 'SYSTEM',
+      metadata: {
+        request_id: request.id,
+        action_url: '/admin/organizer-requests',
+      },
+    }).catch((err) => logger.warn(`[NOTIFY_ADMIN_ORGANIZER_REQ_FAIL] ${err.message}`));
+
+    // Gửi thông báo xác nhận cho người dùng
+    notificationsService.notifyCustomer(userId, {
+      title: 'Hồ sơ đăng ký Organizer đã được tiếp nhận',
+      content: `Hồ sơ đăng ký cho "${request.organization_name}" đã được nộp thành công. Ban Quản trị EventHub sẽ xem xét và phản hồi sớm nhất.`,
+      type: 'SYSTEM',
+      metadata: {
+        request_id: request.id,
+        action_url: '/organizer-request',
+      },
+    }).catch((err) => logger.warn(`[NOTIFY_USER_ORGANIZER_REQ_FAIL] ${err.message}`));
+
     if (request.request_type === 'ORGANIZATION') {
       await this.sendBusinessEmailVerification(request);
     }
@@ -320,6 +342,28 @@ class OrganizerRequestsService {
       requestAction: 'PROFILE_UPDATE',
       changeSummary: changedLabels.join(', '),
     });
+
+    // Gửi thông báo cho Admin về yêu cầu cập nhật hồ sơ KYC
+    notificationsService.notifyAdmins({
+      title: `Yêu cầu cập nhật hồ sơ Organizer: "${organizer.organization_name}"`,
+      content: `Nhà tổ chức "${organizer.organization_name}" đã gửi yêu cầu cập nhật thông tin xác minh (${changedLabels.join(', ')}). Vui lòng kiểm tra và xét duyệt.`,
+      type: 'SYSTEM',
+      metadata: {
+        request_id: row.id,
+        action_url: '/admin/organizer-requests',
+      },
+    }).catch((err) => logger.warn(`[NOTIFY_ADMIN_ORGANIZER_UPDATE_REQ_FAIL] ${err.message}`));
+
+    // Gửi thông báo xác nhận cho Organizer
+    notificationsService.notifyOrganizer(userId, {
+      title: 'Yêu cầu cập nhật hồ sơ đã được gửi',
+      content: `Yêu cầu cập nhật thông tin cho "${organizer.organization_name}" đã được gửi tới Ban Quản Trị để xét duyệt.`,
+      type: 'SYSTEM',
+      metadata: {
+        request_id: row.id,
+        action_url: '/organizer/profile',
+      },
+    }).catch((err) => logger.warn(`[NOTIFY_ORGANIZER_UPDATE_REQ_FAIL] ${err.message}`));
 
     return mapRequest(row);
   }
@@ -506,6 +550,10 @@ class OrganizerRequestsService {
             title: 'Hồ sơ Organizer đã được duyệt',
             content: `Hồ sơ đăng ký của tổ chức "${reviewedRequest.organization_name}" đã được phê duyệt. Thông tin tài khoản đã được gửi đến email ${reviewedRequest.business_email}.`,
             type: 'SYSTEM',
+            targetRole: 'ORGANIZER',
+            metadata: {
+              action_url: '/organizer',
+            },
           });
         }
       } else {
@@ -517,6 +565,10 @@ class OrganizerRequestsService {
               title: 'Hồ sơ Organizer đã được duyệt',
               content: `Chúc mừng! Hồ sơ đăng ký Organizer của bạn cho "${reviewedRequest.organization_name}" đã được phê duyệt. Bạn có thể đăng xuất và đăng nhập lại để bắt đầu tạo sự kiện.`,
               type: 'SYSTEM',
+              targetRole: 'ORGANIZER',
+              metadata: {
+                action_url: '/organizer',
+              },
             },
             applicantEmail
               ? {
@@ -552,6 +604,10 @@ class OrganizerRequestsService {
             title: 'Hồ sơ Organizer chưa được duyệt',
             content: `Rất tiếc, hồ sơ đăng ký Organizer của bạn cho "${reviewedRequest.organization_name}" chưa được phê duyệt.${formattedNote ? `\nLý do: ${formattedNote}` : ''}\nBạn có thể cập nhật thông tin và gửi lại yêu cầu.`,
             type: 'SYSTEM',
+            targetRole: 'CUSTOMER',
+            metadata: {
+              action_url: '/organizer-request?mode=edit',
+            },
           },
           recipientEmail
             ? {

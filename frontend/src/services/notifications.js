@@ -5,8 +5,8 @@ export async function fetchNotifications(params = {}) {
   return response.data.data
 }
 
-export async function fetchUnreadNotificationCount() {
-  const response = await http.get('/notifications/unread-count')
+export async function fetchUnreadNotificationCount(params = {}) {
+  const response = await http.get('/notifications/unread-count', { params })
   return response.data.data
 }
 
@@ -15,8 +15,8 @@ export async function markNotificationRead(notificationId) {
   return response.data.data
 }
 
-export async function markAllNotificationsRead() {
-  const response = await http.patch('/notifications/read-all')
+export async function markAllNotificationsRead(payload = {}) {
+  const response = await http.patch('/notifications/read-all', payload)
   return response.data.data
 }
 

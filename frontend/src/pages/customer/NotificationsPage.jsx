@@ -145,9 +145,9 @@ function iconFor(type) {
 
 function getNotificationFilters(isEnglish) {
   return [
-    { value: 'all', label: isEnglish ? 'All' : 'Tất cả' },
+    { value: 'all', label: isEnglish ? 'All Notifications' : 'Tất cả thông báo' },
     { value: 'unread', label: isEnglish ? 'Unread' : 'Chưa đọc' },
-    { value: 'invitation', label: isEnglish ? 'Staff Invitations' : 'Lời mời staff' },
+    { value: 'invitation', label: isEnglish ? 'Staff Invitations' : 'Lời mời làm Staff' },
   ]
 }
 
@@ -168,10 +168,11 @@ export function NotificationsPage() {
   const filters = useMemo(() => getNotificationFilters(isEnglish), [isEnglish])
 
   const notificationsQuery = useQuery({
-    queryKey: ['notifications', page, activeFilter],
+    queryKey: ['notifications', 'customer', page, activeFilter],
     queryFn: () => fetchNotifications({
       page,
-      limit: 5,
+      limit: 10,
+      target_role: 'CUSTOMER',
       ...(activeFilter === 'unread' ? { unread_only: true } : {}),
       category: activeFilter === 'invitation' ? 'invitation' : 'all',
     }),
@@ -211,7 +212,7 @@ export function NotificationsPage() {
   })
 
   const markAllMutation = useMutation({
-    mutationFn: markAllNotificationsRead,
+    mutationFn: () => markAllNotificationsRead({ target_role: 'CUSTOMER' }),
     onSuccess: () => {
       toast.success(isEnglish ? 'All notifications marked as read.' : 'Đã đánh dấu tất cả thông báo là đã đọc.')
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
@@ -292,10 +293,10 @@ export function NotificationsPage() {
                 setPage(1)
               }}
               className={cn(
-                'inline-flex h-9 shrink-0 items-center rounded-full px-4 text-xs font-bold transition-all cursor-pointer select-none',
+                'inline-flex h-9 shrink-0 items-center rounded-xl px-4 text-xs font-bold transition-all cursor-pointer select-none',
                 activeFilter === filter.value
-                  ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md shadow-[#C99A47]/30'
-                  : 'border border-white/10 bg-[#151d34] text-slate-300 hover:bg-white/10 hover:text-white',
+                  ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md shadow-[#C99A47]/20 font-black'
+                  : 'border border-white/10 bg-slate-900/60 text-slate-300 hover:bg-white/10 hover:text-white',
               )}
             >
               {filter.label}

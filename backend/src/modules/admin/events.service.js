@@ -2235,6 +2235,11 @@ class EventsAdminService {
         title,
         content,
         type: 'EVENT',
+        targetRole: 'ORGANIZER',
+        metadata: {
+          event_id: eventId,
+          action_url: `/organizer/events/${eventId}`,
+        },
       },
       organizerEmail ? { email: organizerEmail } : {},
     );
@@ -2257,6 +2262,11 @@ class EventsAdminService {
         title,
         content,
         type: 'EVENT',
+        targetRole: 'ORGANIZER',
+        metadata: {
+          event_id: eventId,
+          action_url: `/organizer/events/${eventId}`,
+        },
       },
       organizerEmail ? { email: organizerEmail } : {},
     );
@@ -2275,6 +2285,11 @@ class EventsAdminService {
         title,
         content,
         type: 'EVENT',
+        targetRole: 'ORGANIZER',
+        metadata: {
+          event_id: eventId,
+          action_url: `/organizer/events/${eventId}`,
+        },
       },
       organizerEmail ? { email: organizerEmail } : {},
     );
@@ -3499,6 +3514,11 @@ class EventsAdminService {
         title,
         content,
         type: 'EVENT',
+        targetRole: 'ORGANIZER',
+        metadata: {
+          event_id: eventId,
+          action_url: `/organizer/events/${eventId}`,
+        },
       },
       organizerEmail ? { email: organizerEmail } : {},
     );

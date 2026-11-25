@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { Bell, Calendar, ChartNoAxesCombined, CircleDollarSign, FileText, Home, LayoutDashboard, MapPin, MessageSquareText, Percent, RotateCcw, Settings, Settings2, ShoppingCart, TicketCheck, User, UserCog, Users } from 'lucide-react'
+import { Calendar, ChartNoAxesCombined, CircleDollarSign, FileText, Home, LayoutDashboard, MapPin, Megaphone, MessageSquareText, Percent, RotateCcw, Settings, Settings2, ShoppingCart, TicketCheck, User, UserCog, Users } from 'lucide-react'
 import { getStoredUser, getStoredUserKey, getUserRoles, isAdminUser } from '@/lib/auth.js'
 import { ProfileAvatar } from '@/pages/shared/ProfileAvatar.jsx'
 import { RolePortalLayout } from '@/pages/shared/RolePortalLayout.jsx'
@@ -13,7 +13,9 @@ function parseStoredUser() {
 const navSections = [
   {
     label: 'Tổng quan',
-    items: [{ label: 'Tổng quan', to: '/organizer', icon: LayoutDashboard, end: true }],
+    items: [
+      { label: 'Tổng quan', to: '/organizer', icon: LayoutDashboard, end: true },
+    ],
   },
   {
     label: 'Sự kiện',
@@ -60,7 +62,7 @@ const navSections = [
     children: [
       { label: 'Thanh toán', to: '/organizer/settings/payment', icon: CircleDollarSign },
       { label: 'Gói dịch vụ', to: '/organizer/subscriptions', icon: FileText },
-      { label: 'Thông báo', to: '/organizer/announcements', icon: Bell },
+      { label: 'Bảng tin gửi khán giả', to: '/organizer/announcements', icon: Megaphone },
       { label: 'Chính sách', to: '/organizer/policies', icon: Settings },
     ],
   },
@@ -100,6 +102,7 @@ export function OrganizerLayout() {
     <RolePortalLayout
       user={user}
       isAllowed={isAllowed}
+      portalRole="ORGANIZER"
       portalLabel="Cổng nhà tổ chức"
       roleLabel="Nhà tổ chức"
       profileTo="/organizer/profile"
