@@ -1201,7 +1201,7 @@ export function OrganizerRequestPage() {
               style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)', color: '#0D1B2A' }}
             >
               {(requestMutation.isPending || isUploading) && (
-                <Loader2 className="size-5 animate-spin" />
+                <Loader2 className="size-5 animate-spin text-[#E6C17A]" />
               )}
               {isUploading
                 ? 'Đang tải tài liệu...'

@@ -3003,6 +3003,9 @@ class OrdersRepository {
       let promo = null;
       let discountAmount = 0;
       if (promoCode) {
+        if (subtotal <= 0) {
+          throw new AppError('Đơn hàng miễn phí không thể áp dụng mã ưu đãi.', 400, ErrorCodes.INVALID_INPUT);
+        }
         await promotionsRepository.ensureSupportSchema(client);
         const promoResult = await client.query(
           `

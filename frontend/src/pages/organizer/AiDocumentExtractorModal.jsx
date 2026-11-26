@@ -561,7 +561,7 @@ export function AiDocumentExtractorModal({
                 <div className="w-full mb-3">
                   <div className="flex items-center justify-between text-xs font-medium text-slate-400 mb-1 px-0.5">
                     <span className="flex items-center gap-1.5 text-indigo-300 text-[11px]">
-                      <Loader2 className="w-3 h-3 animate-spin text-indigo-400" />
+                      <Loader2 className="w-3 h-3 animate-spin text-[#E6C17A]" />
                       <span>Tiến trình xử lý</span>
                     </span>
                     <span className="text-slate-300 font-semibold font-mono text-xs [html.light_&]:text-slate-700">{loadingProgress}%</span>
@@ -933,7 +933,7 @@ export function AiDocumentExtractorModal({
                           <div className="flex flex-col items-center justify-center p-2">
                             {isUploadingThumbnail ? (
                               <>
-                                <Loader2 className="w-6 h-6 text-amber-400 animate-spin mb-1.5" />
+                                <Loader2 className="w-6 h-6 text-[#E6C17A] animate-spin mb-1.5" />
                                 <span className="text-xs font-semibold text-slate-300 [html.light_&]:text-slate-700">Đang tải lên...</span>
                               </>
                             ) : (
@@ -1000,7 +1000,7 @@ export function AiDocumentExtractorModal({
                           <div className="flex flex-col items-center justify-center p-2">
                             {isUploadingBanner ? (
                               <>
-                                <Loader2 className="w-6 h-6 text-amber-400 animate-spin mb-1.5" />
+                                <Loader2 className="w-6 h-6 text-[#E6C17A] animate-spin mb-1.5" />
                                 <span className="text-xs font-semibold text-slate-300 [html.light_&]:text-slate-700">Đang tải lên...</span>
                               </>
                             ) : (
@@ -1096,7 +1096,7 @@ export function AiDocumentExtractorModal({
                       >
                         {isUploadingPermit ? (
                           <>
-                            <div className="w-3.5 h-3.5 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
+                            <div className="w-3.5 h-3.5 border-2 border-[#E6C17A]/25 border-t-[#E6C17A] rounded-full animate-spin" />
                             <span>Đang tải lên PDF...</span>
                           </>
                         ) : (
@@ -1154,7 +1154,7 @@ export function AiDocumentExtractorModal({
                       >
                         {isUploadingPolicy ? (
                           <>
-                            <div className="w-3.5 h-3.5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                            <div className="w-3.5 h-3.5 border-2 border-[#E6C17A]/25 border-t-[#E6C17A] rounded-full animate-spin" />
                             <span>Đang tải lên PDF...</span>
                           </>
                         ) : (

@@ -201,6 +201,9 @@ export function EventRevenueBarChart({
               fill="url(#eventBarGradient)"
               radius={[0, 6, 6, 0]}
               barSize={20}
+              isAnimationActive={true}
+              animationDuration={800}
+              animationEasing="ease-out"
               onClick={(entry) => {
                 if (onSelectEvent && entry?.event_id) {
                   onSelectEvent(entry.event_id)

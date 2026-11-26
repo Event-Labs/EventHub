@@ -371,7 +371,7 @@ export function OrganizerPaymentSettingsPage() {
   if (loading) {
     return (
       <div className="flex min-h-[400px] items-center justify-center">
-        <Loader2 className="size-8 animate-spin text-primary" />
+        <Loader2 className="size-8 animate-spin text-[#E6C17A]" />
       </div>
     )
   }
@@ -672,7 +672,7 @@ export function OrganizerPaymentSettingsPage() {
                 {testState.status === 'loading' && (
                   <div className="rounded-2xl border border-border-soft/30 bg-panel-soft p-5 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
                     <div className="mb-4 flex items-center gap-2 font-bold text-content [html.light_&]:text-[#0D1B2A]">
-                      <Loader2 className="size-4 animate-spin text-primary [html.light_&]:text-[#C99A47]" />
+                      <Loader2 className="size-4 animate-spin text-[#E6C17A]" />
                       <p>Đang thử nghiệm kết nối...</p>
                     </div>
                     <ul className="space-y-2 text-sm text-subtle [html.light_&]:text-slate-600">
@@ -834,7 +834,7 @@ export function OrganizerPaymentSettingsPage() {
                                 {isSelected && (
                                   <div className="mt-3 space-y-2 border-t border-border-soft/20 pt-3 [html.light_&]:border-slate-200">
                                     <div className="flex items-start gap-2 rounded-lg bg-surface/80 p-3 text-xs text-subtle [html.light_&]:bg-white [html.light_&]:border [html.light_&]:border-slate-200 [html.light_&]:text-slate-600">
-                                      <Info className="mt-0.5 size-4 shrink-0 text-primary [html.light_&]:text-[#C99A47]" />
+                                      <Info className="mt-0.5 size-4 shrink-0 text-[#E6C17A]" />
                                       <span>{stepItem.note}</span>
                                     </div>
 
@@ -1096,7 +1096,7 @@ function CredentialField({ id, label, value, onChange, placeholder, type = 'text
 function SummaryCard({ icon: Icon, title, text }) {
   return (
     <div className="rounded-xl border border-tertiary/20 bg-tertiary/10 p-4 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200 [html.light_&]:shadow-sm">
-      <Icon className="mb-3 size-5 text-primary [html.light_&]:text-[#C99A47]" />
+      <Icon className="mb-3 size-5 text-[#E6C17A]" />
       <p className="font-semibold text-content [html.light_&]:text-[#0D1B2A]">{title}</p>
       <p className="mt-1 text-sm text-subtle [html.light_&]:text-slate-600">{text}</p>
     </div>

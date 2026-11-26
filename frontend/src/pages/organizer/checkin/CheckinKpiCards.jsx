@@ -1,4 +1,5 @@
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
+import AnimatedNumber from '@/components/AnimatedNumber.jsx'
 
 export function CheckinKpiCards({ overall }) {
   const { isEnglish } = useLanguage()
@@ -53,7 +54,7 @@ export function CheckinKpiCards({ overall }) {
           </div>
           <div className="mt-3">
             <span className="font-display text-2xl sm:text-3xl font-black tracking-tight text-white [html.light_&]:text-[#0D1B2A]">
-              {c.value}
+              <AnimatedNumber value={c.value} />
             </span>
             <p className="mt-1 text-[11px] sm:text-xs font-medium text-slate-400 [html.light_&]:text-[#536b88]">
               {c.sub}

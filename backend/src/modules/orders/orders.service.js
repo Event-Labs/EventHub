@@ -211,6 +211,10 @@ class OrdersService {
 
     const subtotal = normalizedItems.reduce((sum, item) => sum + item.line_total, 0);
 
+    if (subtotal <= 0 && payload.promo_code) {
+      throw new AppError('Đơn hàng miễn phí không thể áp dụng mã ưu đãi.', 400, ErrorCodes.INVALID_INPUT);
+    }
+
     // Đơn hàng miễn phí (giá 0đ hoặc áp dụng voucher) -> xác nhận trực tiếp không qua cổng thanh toán
     const couldBeZero = subtotal === 0 || Boolean(payload.promo_code);
     if (couldBeZero) {

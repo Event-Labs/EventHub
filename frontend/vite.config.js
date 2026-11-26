@@ -2,22 +2,41 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
+const clearDevCachePlugin = {
+  name: 'clear-dev-cache',
+  configureServer(server) {
+    server.middlewares.use((req, res, next) => {
+      if (req.method === 'GET' && String(req.headers.accept || '').includes('text/html')) {
+        res.setHeader('Clear-Site-Data', '"cache"')
+      }
+      next()
+    })
+  },
+}
+
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), clearDevCachePlugin],
   resolve: {
     alias: {
       '@': '/src',
     },
+    dedupe: ['react', 'react-dom'],
   },
   server: {
     headers: {
-      'Cache-Control': 'public, max-age=31536000',
+      'Cache-Control': 'no-store',
+      'X-Frame-Options': 'DENY',
+      'Content-Security-Policy': "frame-ancestors 'none'",
+      'X-Content-Type-Options': 'nosniff',
     },
   },
   preview: {
     headers: {
       'Cache-Control': 'public, max-age=31536000',
+      'X-Frame-Options': 'DENY',
+      'Content-Security-Policy': "frame-ancestors 'none'",
+      'X-Content-Type-Options': 'nosniff',
     },
   },
   build: {

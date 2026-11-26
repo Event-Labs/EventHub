@@ -42,7 +42,7 @@ class PaymentsService {
             order_id: details.order.id,
             order_code: details.order.order_code,
             event_id: details.order.event_id,
-            action_url: '/tickets',
+            action_url: '/my-tickets',
           },
         }).catch((err) => logger.warn(`[NOTIFY_CUSTOMER_ORDER_PAID_FAIL] ${err.message}`));
       }

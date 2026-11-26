@@ -3,9 +3,16 @@ const cors = require('cors');
 const hpp = require('hpp');
 
 const securityMiddlewares = (app) => {
-    // Tắt CORP của helmet để không chặn resources cross-origin
+    // Tắt CORP của helmet để không chặn resources cross-origin; chặn tuyệt đối clickjacking
     app.use(helmet({
         crossOriginResourcePolicy: false,
+        frameguard: { action: 'deny' },
+        contentSecurityPolicy: {
+            directives: {
+                ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+                'frame-ancestors': ["'none'"],
+            },
+        },
     }));
 
     app.use(cors({

@@ -460,7 +460,7 @@ export function AdminDisputesPage() {
             {/* Complaints Table */}
             {complaintsQuery.isLoading ? (
               <div className="rounded-2xl border border-border-soft/40 bg-panel-soft p-10 text-center text-sm text-slate-400">
-                <Loader2 className="size-6 animate-spin mx-auto text-rose-400 mb-2" />
+                <Loader2 className="size-6 animate-spin mx-auto text-[#E6C17A] mb-2" />
                 {isEnglish ? 'Loading complaints list...' : 'Đang tải danh sách khiếu nại...'}
               </div>
             ) : complaintItems.length === 0 ? (
@@ -506,8 +506,7 @@ export function AdminDisputesPage() {
                       <span className="font-mono text-xs font-bold text-sky-400">
                         #{item.id?.slice(0, 8)}
                       </span>
-                      <p className="text-[11px] text-slate-400 flex items-center gap-1">
-                        <Clock className="size-3" />
+                      <p className="text-[11px] text-slate-400">
                         {formatDateTime(item.created_at, isEnglish)}
                       </p>
                     </div>,
@@ -529,15 +528,9 @@ export function AdminDisputesPage() {
 
                     // 3. Đối tượng liên quan
                     <div key="target" className="max-w-[200px] space-y-0.5">
-                      {item.event_title ? (
-                        <p className="text-xs font-bold text-white [html.light_&]:text-[#0D1B2A] truncate" title={item.event_title}>
-                          {item.event_title}
-                        </p>
-                      ) : (
-                        <p className="text-xs italic text-slate-500">
-                          {isEnglish ? 'General platform issue' : 'Khiếu nại chung'}
-                        </p>
-                      )}
+                      <p className="text-xs text-white [html.light_&]:text-[#0D1B2A] truncate" title={item.event_title || (isEnglish ? 'General platform issue' : 'Khiếu nại chung')}>
+                        {item.event_title || (isEnglish ? 'General platform issue' : 'Khiếu nại chung')}
+                      </p>
                       {item.organizer_name && (
                         <p className="text-[11px] text-amber-300 [html.light_&]:text-amber-800 truncate font-semibold">
                           {isEnglish ? 'Organizer: ' : 'BTC: '}{item.organizer_name}
@@ -1014,8 +1007,7 @@ export function AdminDisputesPage() {
                       <span className="font-mono text-xs font-bold text-sky-400">
                         #{item.id?.slice(0, 8)}
                       </span>
-                      <p className="text-[11px] text-rose-300 flex items-center gap-1 font-medium">
-                        <Clock className="size-3" />
+                      <p className="text-[11px] text-rose-300 font-medium">
                         {formatDateTime(item.disputed_at || item.updated_at, isEnglish)}
                       </p>
                     </div>,

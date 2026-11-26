@@ -106,7 +106,7 @@ export function OrganizerSubscriptionPaymentPage() {
     return (
       <OrganizerPage title="Thanh toán gói dịch vụ">
         <OrganizerPanel className="flex items-center justify-center py-20">
-          <Loader2 className="size-8 animate-spin text-primary" />
+          <Loader2 className="size-8 animate-spin text-[#E6C17A]" />
         </OrganizerPanel>
       </OrganizerPage>
     )

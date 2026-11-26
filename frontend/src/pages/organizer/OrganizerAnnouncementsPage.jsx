@@ -24,6 +24,7 @@ import { useToast } from '@/providers/ToastProvider.jsx'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
 import { translatePhrase } from '@/i18n/phraseDictionary.js'
 import RichTextEditor from '@/components/RichTextEditor.jsx'
+import { sanitizeHtml } from '@/lib/sanitize.js'
 
 const getAutoLocale = () =>
   ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
@@ -388,7 +389,7 @@ export function OrganizerAnnouncementsPage() {
               <div
                 className="announcement-preview mt-3 text-sm leading-relaxed text-white/90 break-words [overflow-wrap:anywhere] [&_p]:break-words [&_p]:[overflow-wrap:anywhere] [&_p]:mb-2 [&_p:last-child]:mb-0 [&_a]:text-primary [&_a]:underline [&_a]:break-all [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [html.light_&]:text-[#1B365D]"
                 dangerouslySetInnerHTML={{
-                  __html: previewContent || (isEnglish ? '<p style="opacity:0.5">Notification content will appear here</p>' : '<p style="opacity:0.5">Nội dung thông báo sẽ hiển thị tại đây</p>'),
+                  __html: sanitizeHtml(previewContent || (isEnglish ? '<p style="opacity:0.5">Notification content will appear here</p>' : '<p style="opacity:0.5">Nội dung thông báo sẽ hiển thị tại đây</p>')),
                 }}
               />
 

@@ -18,6 +18,7 @@ import {
   fetchLatestAiContentGeneration,
 } from '@/services/organizerEvents.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
+import { sanitizeHtml } from '@/lib/sanitize.js'
 
 const TONE_OPTIONS = [
   'Chuyên nghiệp',
@@ -419,7 +420,7 @@ export function AiEventContentGeneratorModal({
                   {previewTab === 'preview' ? (
                     <div
                       className="max-h-56 overflow-y-auto rounded-xl border border-white/10 bg-[#121930] p-3 text-xs leading-relaxed text-slate-300 prose prose-invert max-w-none"
-                      dangerouslySetInnerHTML={{ __html: contentHtml }}
+                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(contentHtml) }}
                     />
                   ) : (
                     <textarea

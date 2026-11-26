@@ -19,6 +19,7 @@ const aiImageReviewService = require('../ai/aiImageReview.service');
 const logger = require('../../core/logger');
 const notificationsService = require('../notifications/notifications.service');
 const ollamaClient = require('../../infrastructure/ai/ollama.client');
+const { escapeHtml, sanitizeRichHtml } = require('../../core/security/htmlSanitizer');
 
 const ORGANIZER_PROFILE_OTP_KEY = 'organizer_profile_sensitive_otp';
 const ORGANIZER_PROFILE_ACCESS_KEY = 'organizer_profile_sensitive_access';
@@ -117,6 +118,9 @@ function mapEvent(row) {
 function sanitizeEventPayload(payload) {
   const data = { ...payload };
   if (data.category_id === '') data.category_id = null;
+  if (data.description !== undefined && data.description !== null) {
+    data.description = sanitizeRichHtml(data.description);
+  }
   if (data.seating_rules !== undefined) {
     const input =
       typeof data.seating_rules === 'string'
@@ -1363,7 +1367,7 @@ QUY TẮC BẮT BUỘC:
           suggested_titles: parsed.suggested_titles.slice(0, 5),
           selected_title: parsed.selected_title || parsed.suggested_titles[0],
           short_description: (parsed.short_description || '').slice(0, 150),
-          content_html: parsed.content_html || '',
+          content_html: sanitizeRichHtml(parsed.content_html || ''),
           tags: Array.isArray(parsed.tags) ? parsed.tags.slice(0, 6) : ['EventHub', cleanTopic],
         };
       }
@@ -1379,14 +1383,17 @@ QUY TẮC BẮT BUỘC:
       ];
 
       const short_description = `Chào mừng bạn đến với ${cleanTopic} ${audienceText}.${highlightText}`.slice(0, 150);
+      const safeTopicHtml = escapeHtml(cleanTopic);
+      const safeAudienceHtml = escapeHtml(audienceText);
+      const safeHighlightsHtml = escapeHtml(key_highlights || 'Các chuyên gia, nghệ sĩ và diễn giả có tầm ảnh hưởng.');
 
-      const content_html = `<p><strong>Chào mừng bạn đến với sự kiện ${cleanTopic}!</strong></p>
-<p>Sự kiện mang đến không gian trải nghiệm đẳng cấp ${audienceText}. Đây là cơ hội tuyệt vời để giao lưu, học hỏi và kết nối những giá trị mới.</p>
+      const content_html = sanitizeRichHtml(`<p><strong>Chào mừng bạn đến với sự kiện ${safeTopicHtml}!</strong></p>
+<p>Sự kiện mang đến không gian trải nghiệm đẳng cấp ${safeAudienceHtml}. Đây là cơ hội tuyệt vời để giao lưu, học hỏi và kết nối những giá trị mới.</p>
 <br/>
 <p><strong>🌟 Hoạt động và Điểm nhấn nổi bật:</strong></p>
 <ul>
   <li><strong>Chương trình chính:</strong> Trình diễn, chia sẻ kiến thức chuyên sâu và giao lưu trực tiếp.</li>
-  <li><strong>Khách mời đặc biệt:</strong> ${key_highlights || 'Các chuyên gia, nghệ sĩ và diễn giả có tầm ảnh hưởng.'}</li>
+  <li><strong>Khách mời đặc biệt:</strong> ${safeHighlightsHtml}</li>
   <li><strong>Trải nghiệm độc quyền:</strong> Khu vực tương tác, nhận quà lưu niệm và networking dành riêng cho người tham gia.</li>
 </ul>
 <br/>
@@ -1394,7 +1401,7 @@ QUY TẮC BẮT BUỘC:
 <ul>
   <li>Vui lòng mang theo mã vé QR khi đến cổng check-in.</li>
   <li>Tuân thủ quy định và hướng dẫn của Ban tổ chức trong suốt thời gian diễn ra sự kiện.</li>
-</ul>`;
+</ul>`);
 
       const words = cleanTopic.split(/\s+/).filter((w) => w.length > 2);
       const tags = Array.from(

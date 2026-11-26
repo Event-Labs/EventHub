@@ -852,7 +852,7 @@ function RefundButton({ ticket, onRefundSubmitted, isEnglish = false }) {
                 {/* Preview Loading State */}
                 {previewLoading && (
                   <div className="rounded-[16px] border border-white/10 bg-white/[0.02] p-4 text-center text-slate-300 text-xs flex items-center justify-center gap-2.5">
-                    <div className="size-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                    <div className="size-4 border-2 border-[#E6C17A]/25 border-t-[#E6C17A] rounded-full animate-spin" />
                     <span>{isEnglish ? 'Checking policy and calculating refund amount...' : 'Đang kiểm tra chính sách và tính toán số tiền hoàn...'}</span>
                   </div>
                 )}

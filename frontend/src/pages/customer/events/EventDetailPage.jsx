@@ -14,6 +14,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { fetchEventDetail, toggleFavorite, fetchActiveHold, cancelActiveHold } from '@/services/events.js'
 import { cn } from '@/lib/utils.js'
+import { sanitizeHtml } from '@/lib/sanitize.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { optimisticallySetFavorite, refreshFavoriteQueries, restoreFavoriteSnapshots } from '@/lib/favoriteCache.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
@@ -645,7 +646,7 @@ export function EventDetailPage() {
                 <div
                   ref={overviewContentRef}
                   className="block max-w-full text-sm sm:text-base leading-relaxed text-slate-300 font-normal ql-editor ql-content description-html p-0 !max-h-none [&_*]:max-w-full [&_table]:block [&_table]:overflow-x-auto [word-break:normal] [overflow-wrap:break-word] hyphens-none"
-                  dangerouslySetInnerHTML={{ __html: overview }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(overview) }}
                 />
 
                 {/* Lớp phủ mờ mờ ở chân nội dung ngay phía trên mũi tên */}

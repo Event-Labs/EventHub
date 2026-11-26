@@ -348,7 +348,7 @@ function SeatMapPreviewModal({ open, seatMapId, onClose, onEdit }) {
         {/* Content */}
         {loading ? (
           <div className="flex justify-center py-24">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#E6C17A]/25 border-t-[#E6C17A]" />
           </div>
         ) : error ? (
           <div className="p-8 text-center text-sm text-error">{error}</div>
@@ -911,7 +911,7 @@ export function OrganizerVenueSeatMapsPage() {
 
       {loading ? (
         <div className="flex justify-center py-16">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#E6C17A]/25 border-t-[#E6C17A]" />
         </div>
       ) : !seatMaps.length ? (
         <p className="mt-4 text-center text-sm text-muted py-6 border border-dashed border-border-soft/30 rounded-xl bg-panel-soft/30">

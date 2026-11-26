@@ -262,7 +262,7 @@ export function AdminEventCancellationDetailPage() {
   if (isLoading) {
     return (
       <div className="py-24 text-center">
-        <RefreshCw className="mx-auto mb-3 size-6 animate-spin text-slate-400" />
+        <RefreshCw className="mx-auto mb-3 size-6 animate-spin text-[#E6C17A]" />
         <p className="text-sm text-slate-400">{isEnglish ? 'Loading cancellation request details...' : 'Đang tải thông tin yêu cầu hủy...'}</p>
       </div>
     )

@@ -474,7 +474,7 @@ export function RolePortalLayout({
               <Suspense
                 fallback={
                   <div className="flex min-h-[40vh] w-full items-center justify-center p-8">
-                    <div className="size-8 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
+                    <div className="size-8 animate-spin rounded-full border-2 border-[#E6C17A]/25 border-t-[#E6C17A]" />
                   </div>
                 }
               >

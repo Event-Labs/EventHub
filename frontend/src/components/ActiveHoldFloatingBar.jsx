@@ -177,7 +177,7 @@ export function ActiveHoldFloatingBar() {
             disabled={isCancelling}
             className="rounded-full border border-white/20 bg-white/5 px-3.5 py-1.5 text-xs font-semibold text-slate-300 transition hover:bg-rose-500/20 hover:border-rose-500/40 hover:text-rose-200 active:scale-95 disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
           >
-            {isCancelling && <Loader2 className="size-3 animate-spin text-rose-300" />}
+            {isCancelling && <Loader2 className="size-3 animate-spin text-[#E6C17A]" />}
             <span>{isCancelling ? (isEnglish ? 'Cancelling...' : 'Đang hủy...') : (isEnglish ? 'Cancel hold' : 'Hủy giữ chỗ')}</span>
           </button>
           <button

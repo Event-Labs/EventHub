@@ -46,6 +46,7 @@ import { DailyRevenueBarChart } from './overview/DailyRevenueBarChart.jsx'
 import { EventRevenueBarChart } from './overview/EventRevenueBarChart.jsx'
 import { TicketStatusOverviewPanel } from './overview/TicketStatusOverviewPanel.jsx'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
+import AnimatedNumber from '@/components/AnimatedNumber.jsx'
 import { getCategoryName } from '@/i18n/categoryNames.js'
 import { translatePhrase } from '@/i18n/phraseDictionary.js'
 
@@ -179,7 +180,7 @@ function HeroKpiCard({ label, value, sub, icon: Icon, trend, trendValue, tone = 
           <p className="text-xs font-bold uppercase tracking-wider text-slate-400 [html.light_&]:text-[#536b88]">{displayLabel}</p>
         </div>
         <p className="mt-2.5 truncate font-display text-2xl font-black text-white [html.light_&]:text-[#0D1B2A] drop-shadow-sm sm:text-3xl">
-          {displayValue}
+          <AnimatedNumber value={displayValue} />
         </p>
       </div>
 
@@ -624,7 +625,7 @@ function _OldTicketOperationsPanel({ dashboard = {}, isSingleEvent = false, chec
         <h3 className="font-bold text-white [html.light_&]:text-[#0D1B2A]">Tình trạng vé & Check-in</h3>
         <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/15 px-3 py-1 text-xs font-black text-emerald-300 [html.light_&]:bg-emerald-50 [html.light_&]:border-emerald-300 [html.light_&]:text-emerald-700">
           <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
-          {checkinRate}% check-in
+          <AnimatedNumber value={checkinRate} />% check-in
         </span>
       </div>
 
@@ -658,11 +659,11 @@ function _OldTicketOperationsPanel({ dashboard = {}, isSingleEvent = false, chec
               </p>
             </div>
             <p className={`my-1 font-display text-xl sm:text-2xl font-black ${item.textClass}`}>
-              {fmtNumber(item.value)}
+              <AnimatedNumber value={fmtNumber(item.value)} />
             </p>
             <div className="flex min-h-[20px] items-center justify-center">
               <p className={`text-[11px] font-bold ${item.subClass}`}>
-                {item.pct}%
+                <AnimatedNumber value={item.pct} />%
               </p>
             </div>
           </div>
@@ -671,7 +672,7 @@ function _OldTicketOperationsPanel({ dashboard = {}, isSingleEvent = false, chec
 
       <div className="mt-4 flex items-center justify-between border-t border-white/5 pt-3 text-sm [html.light_&]:border-slate-200">
         <span className="font-semibold text-white [html.light_&]:text-[#0D1B2A]">Tổng vé đã phát hành:</span>
-        <strong className="text-base font-black text-white [html.light_&]:text-[#0D1B2A]">{fmtNumber(issued)} vé</strong>
+        <strong className="text-base font-black text-white [html.light_&]:text-[#0D1B2A]"><AnimatedNumber value={fmtNumber(issued)} /> vé</strong>
       </div>
     </div>
   )
@@ -1430,7 +1431,7 @@ export function OrganizerDashboardPage() {
       {loading && !stats ? (
         <OrganizerPanel className="flex items-center justify-center py-24">
           <div className="flex flex-col items-center gap-3">
-            <Loader2 className="size-8 animate-spin text-cyan-400" />
+            <Loader2 className="size-8 animate-spin text-[#E6C17A]" />
             <p className="text-sm font-semibold text-slate-300">
               {isEnglish ? 'Synthesizing operational metrics...' : 'Đang tổng hợp số liệu vận hành...'}
             </p>

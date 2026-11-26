@@ -285,7 +285,7 @@ function OrganizerCheckinHistoryPanel({ eventId }) {
 
       {loading && items.length === 0 ? (
         <div className="flex items-center justify-center gap-2 py-10 text-xs text-slate-400">
-          <Loader2 className="size-4 animate-spin text-primary" />
+          <Loader2 className="size-4 animate-spin text-[#E6C17A]" />
           <span>{isEnglish ? 'Loading check-in history...' : 'Đang tải lịch sử soát vé từ cơ sở dữ liệu...'}</span>
         </div>
       ) : items.length === 0 ? (
@@ -565,7 +565,7 @@ export function OrganizerCheckinDashboardPage() {
         <div className="w-full lg:max-w-xl">
           {eventsLoading ? (
             <div className="flex items-center gap-2 text-sm text-slate-400">
-              <Loader2 className="size-4 animate-spin text-primary" /> {isEnglish ? 'Loading events list...' : 'Đang tải danh sách sự kiện...'}
+              <Loader2 className="size-4 animate-spin text-[#E6C17A]" /> {isEnglish ? 'Loading events list...' : 'Đang tải danh sách sự kiện...'}
             </div>
           ) : events.length === 0 ? (
             <p className="text-sm text-slate-400">{isEnglish ? 'No events found in the system.' : 'Chưa có sự kiện nào trong hệ thống.'}</p>
@@ -614,7 +614,7 @@ export function OrganizerCheckinDashboardPage() {
 
       {initialLoading && !stats ? (
         <OrganizerPanel className="flex flex-col items-center justify-center py-24 text-center">
-          <Loader2 className="size-10 animate-spin text-primary mb-3" />
+          <Loader2 className="size-10 animate-spin text-[#E6C17A] mb-3" />
           <p className="text-sm font-semibold text-white">{isEnglish ? 'Aggregating real-time check-in metrics...' : 'Đang tổng hợp số liệu check-in thời gian thực...'}</p>
         </OrganizerPanel>
       ) : stats ? (

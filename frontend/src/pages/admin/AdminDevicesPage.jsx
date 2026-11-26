@@ -869,6 +869,7 @@ export function AdminDevicesPage() {
           className="shrink-0"
           options={filterEventOptions}
           minWidth="min-w-[200px]"
+          align="right"
         />
 
         {(filters.search || filters.status !== 'ALL' || filters.online !== 'ALL' || filters.event_id) && (

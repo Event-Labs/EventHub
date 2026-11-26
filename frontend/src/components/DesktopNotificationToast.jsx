@@ -1,8 +1,10 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { Bell, X, ExternalLink, ShieldAlert, Sparkles, UserCheck, CheckCircle2 } from 'lucide-react'
 import { markNotificationRead } from '@/services/notifications.js'
 import { formatNotificationDisplay, stripNotificationHtml } from '@/lib/notifications.js'
+import { useLanguage } from '@/i18n/LanguageContext.jsx'
 
 /**
  * Synthesizes a soft, crisp desktop chime using the native Web Audio API
@@ -103,19 +105,33 @@ function getRoleBadge(targetRole) {
   }
 }
 
-function resolveActionUrl(notification) {
-  const meta = notification.metadata || {}
-  if (meta.action_url) return meta.action_url
+function resolveNotificationPageUrl(notification) {
+  const targetRole = String(notification?.target_role || '').trim().toUpperCase()
+  const hash = notification?.id ? `#notification-${notification.id}` : ''
 
-  const targetRole = notification.target_role || 'CUSTOMER'
-  if (targetRole === 'ADMIN') return `/admin/notifications#notification-${notification.id}`
-  if (targetRole === 'ORGANIZER') return `/organizer/notifications#notification-${notification.id}`
-  if (targetRole === 'STAFF') return `/staff/notifications#notification-${notification.id}`
+  if (targetRole === 'ADMIN' || targetRole === 'SUPER_ADMIN') {
+    return `/admin/notifications${hash}`
+  }
+  if (targetRole === 'ORGANIZER') {
+    return `/organizer/notifications${hash}`
+  }
+  if (targetRole === 'STAFF') {
+    return `/staff/notifications${hash}`
+  }
+  if (targetRole === 'CUSTOMER') {
+    return `/notifications${hash}`
+  }
 
-  return `/notifications#notification-${notification.id}`
+  // Fallback for 'ALL' or missing target_role: stay in the active portal's notification page
+  const pathname = typeof window !== 'undefined' ? window.location.pathname : ''
+  if (pathname.startsWith('/admin')) return `/admin/notifications${hash}`
+  if (pathname.startsWith('/organizer')) return `/organizer/notifications${hash}`
+  if (pathname.startsWith('/staff')) return `/staff/notifications${hash}`
+
+  return `/notifications${hash}`
 }
 
-function DesktopToastItem({ notification, onDismiss, onNavigate }) {
+function DesktopToastItem({ notification, onDismiss, onNavigate, isEnglish }) {
   const [hovered, setHovered] = useState(false)
   const [progress, setProgress] = useState(100)
   const DURATION = 8500 // 8.5 seconds
@@ -124,7 +140,7 @@ function DesktopToastItem({ notification, onDismiss, onNavigate }) {
 
   const roleInfo = getRoleBadge(notification.target_role)
   const RoleIcon = roleInfo.icon
-  const display = formatNotificationDisplay(notification, false)
+  const display = formatNotificationDisplay(notification, isEnglish)
   const previewText = display.preview || stripNotificationHtml(display.content || '')
 
   useEffect(() => {
@@ -188,7 +204,7 @@ function DesktopToastItem({ notification, onDismiss, onNavigate }) {
               {roleInfo.label}
             </span>
             <span className="text-[11px] font-medium text-slate-400 shrink-0">
-              Vừa xong
+              {isEnglish ? 'Just now' : 'Vừa xong'}
             </span>
           </div>
 
@@ -199,40 +215,34 @@ function DesktopToastItem({ notification, onDismiss, onNavigate }) {
               onDismiss(notification.id)
             }}
             className="grid size-6 place-items-center rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors shrink-0"
-            title="Đóng thông báo"
+            title={isEnglish ? 'Dismiss' : 'Đóng thông báo'}
           >
             <X className="size-3.5" />
           </button>
         </div>
 
         {/* Content Body */}
-        <div className="pt-2.5 flex items-start gap-3">
-          <div className="size-9 rounded-xl bg-gradient-to-tr from-[#C99A47] to-[#E6C17A] text-[#0A1628] grid place-items-center shrink-0 shadow-md">
-            <Bell className="size-4.5" />
-          </div>
-
-          <div className="min-w-0 flex-1">
-            <h4 className="text-sm font-extrabold text-slate-100 line-clamp-1 group-hover:text-[#E6C17A] transition-colors leading-snug">
-              {display.title}
-            </h4>
-            <p className="mt-1 text-xs text-slate-300 line-clamp-2 leading-relaxed">
-              {previewText}
-            </p>
-          </div>
+        <div className="pt-2.5 min-w-0">
+          <h4 className="text-sm font-extrabold text-slate-100 line-clamp-1 group-hover:text-[#E6C17A] transition-colors leading-snug">
+            {display.title}
+          </h4>
+          <p className="mt-1 text-xs text-slate-300 line-clamp-2 leading-relaxed">
+            {previewText}
+          </p>
         </div>
 
         {/* Footer Action */}
         <div className="mt-3 flex items-center justify-between pt-2 border-t border-white/[0.06] text-xs">
           <span className="text-[11px] text-slate-400 font-medium flex items-center gap-1">
             <CheckCircle2 className="size-3 text-emerald-400" />
-            Nhấp để mở chi tiết
+            {isEnglish ? 'Click to view in notifications' : 'Nhấp để mở trong thông báo'}
           </span>
           <button
             type="button"
             onClick={handleClick}
-            className="inline-flex items-center gap-1 font-bold text-[#E6C17A] hover:underline"
+            className="inline-flex items-center gap-1 font-bold text-[#E6C17A] hover:underline cursor-pointer"
           >
-            Xem ngay
+            {isEnglish ? 'View now' : 'Xem ngay'}
             <ExternalLink className="size-3 ml-0.5" />
           </button>
         </div>
@@ -252,6 +262,8 @@ function DesktopToastItem({ notification, onDismiss, onNavigate }) {
 export function DesktopNotificationToast() {
   const [items, setItems] = useState([])
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const { isEnglish } = useLanguage()
 
   const dismissToast = useCallback((id) => {
     setItems((prev) => prev.filter((item) => item.id !== id))
@@ -259,14 +271,26 @@ export function DesktopNotificationToast() {
 
   const handleNavigate = useCallback((notification) => {
     dismissToast(notification.id)
-    if (notification.id) {
-      markNotificationRead(notification.id).catch(() => {})
+    if (notification.id && !String(notification.id).startsWith('notif-')) {
+      markNotificationRead(notification.id)
+        .then(() => {
+          queryClient.invalidateQueries({ queryKey: ['notifications'] })
+          queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] })
+        })
+        .catch(() => {})
     }
-    const targetUrl = resolveActionUrl(notification)
+    const targetUrl = resolveNotificationPageUrl(notification)
     if (targetUrl) {
       navigate(targetUrl)
     }
-  }, [dismissToast, navigate])
+    if (notification.id) {
+      window.dispatchEvent(
+        new CustomEvent('eventhub:scroll-notification', {
+          detail: { id: notification.id },
+        }),
+      )
+    }
+  }, [dismissToast, navigate, queryClient])
 
   useEffect(() => {
     const handleIncomingNotification = (event) => {
@@ -313,6 +337,7 @@ export function DesktopNotificationToast() {
           notification={notification}
           onDismiss={dismissToast}
           onNavigate={handleNavigate}
+          isEnglish={isEnglish}
         />
       ))}
     </div>
