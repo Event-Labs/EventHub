@@ -10,7 +10,7 @@ import {
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { Modal } from '@/components/Modal.jsx'
-import { Badge, Page, Panel, StatusBadge, Table, TableActionButton } from './AdminComponents.jsx'
+import { Page, Panel, StatusBadge, Table, TableActionButton } from './AdminComponents.jsx'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
 import { translatePhrase } from '@/i18n/phraseDictionary.js'
 

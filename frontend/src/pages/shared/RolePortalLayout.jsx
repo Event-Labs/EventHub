@@ -160,7 +160,7 @@ export function RolePortalLayout({
   bottomItems = [],
   avatar,
 }) {
-  const { isVietnamese, t } = useLanguage()
+  const { isVietnamese, t, language, setLanguage } = useLanguage()
   const location = useLocation()
   const navigate = useNavigate()
   const [sidebarExpanded, setSidebarExpanded] = useState(false)
@@ -175,6 +175,15 @@ export function RolePortalLayout({
     if (location.pathname.startsWith('/staff')) return 'STAFF'
     return 'CUSTOMER'
   }, [explicitPortalRole, location.pathname])
+
+  const isAdmin = isAdminUser(user) || roleLabel === 'Quản trị viên' || roleLabel === 'ADMINISTRATOR' || portalRole === 'ADMIN'
+
+  // Admin role is strictly Vietnamese - synchronize language to 'vi' if needed
+  useEffect(() => {
+    if (isAdmin && language !== 'vi') {
+      setLanguage('vi')
+    }
+  }, [isAdmin, language, setLanguage])
 
   useLayoutEffect(() => {
     if (!sidebarExpanded && panelRef.current) {
@@ -675,7 +684,7 @@ function SidebarItem({ item, expanded, active, fallbackIcon, theme, onClick }) {
 function PortalTopBar({ user, avatar, roleLabel, portalRole, profileTo, theme, onToggleTheme, onOpenMobileMenu }) {
   const { isVietnamese, t } = useLanguage()
   const isLight = theme === 'light'
-  const isAdmin = isAdminUser(user) || roleLabel === 'Quản trị viên' || roleLabel === 'ADMINISTRATOR'
+  const isAdmin = isAdminUser(user) || roleLabel === 'Quản trị viên' || roleLabel === 'ADMINISTRATOR' || portalRole === 'ADMIN'
   const displayRole = getTranslatedRole(roleLabel, isVietnamese)
 
   return (
@@ -726,7 +735,7 @@ function PortalTopBar({ user, avatar, roleLabel, portalRole, profileTo, theme, o
             <span>{isVietnamese ? 'Trang khách hàng' : 'Customer Site'}</span>
           </NavLink>
         )}
-        <LanguageSwitcher theme={theme} className="h-10 sm:h-10.5" />
+        {!isAdmin && <LanguageSwitcher theme={theme} className="h-10 sm:h-10.5" />}
         <div className={`glass-panel flex h-10 sm:h-10.5 items-center gap-1.5 rounded-full px-1.5 sm:px-2 shadow-inner ${isLight ? 'border-[#C99A47]/30 bg-white/70 text-[#1B365D]' : 'border-white/10'
           }`}>
           <TopBarIconButton

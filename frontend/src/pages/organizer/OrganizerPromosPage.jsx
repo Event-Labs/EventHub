@@ -7,7 +7,7 @@ import {
   Search,
   AlertCircle,
   Percent,
-  DollarSign,
+  Ticket,
   Loader2
 } from 'lucide-react'
 import {
@@ -572,13 +572,13 @@ function PromoFormModal({ open, onClose, title, onSubmit, formData, setFormData,
             <div className="min-w-0">
               <span className={`text-sm font-bold uppercase font-display tracking-tight transition-colors ${errors.eventIds ? 'text-error' : 'text-white [html.light_&]:text-[#0D1B2A]'}`}>Sự kiện áp dụng</span>
               <label className={`mt-1.5 flex h-11 items-center justify-between gap-3 rounded-lg border px-3 text-sm font-bold transition cursor-pointer ${formData.applyToAllEvents
-                ? 'border-tertiary/40 bg-tertiary/20 text-white [html.light_&]:text-[#0D1B2A] [html.light_&]:border-amber-400/60 [html.light_&]:bg-amber-50'
+                ? 'border-[#C99A47]/40 bg-[#C99A47]/15 text-white [html.light_&]:text-[#0D1B2A] [html.light_&]:border-amber-400/60 [html.light_&]:bg-amber-50'
                 : 'border-white/15 bg-[#0d172e] text-white [html.light_&]:bg-slate-50 [html.light_&]:border-slate-300 [html.light_&]:text-[#0D1B2A]'
                 }`}>
                 <span>Áp dụng cho tất cả sự kiện</span>
                 <input
                   type="checkbox"
-                  className="size-4 accent-tertiary cursor-pointer"
+                  className="size-4.5 rounded accent-[#C99A47] cursor-pointer"
                   checked={Boolean(formData.applyToAllEvents)}
                   onChange={(e) => setFormData({
                     ...formData,
@@ -631,17 +631,17 @@ function PromoFormModal({ open, onClose, title, onSubmit, formData, setFormData,
             <label className="block min-w-0">
               <span className={`text-sm font-bold uppercase font-display tracking-tight transition-colors ${errors.discount_value ? 'text-error' : 'text-white [html.light_&]:text-[#0D1B2A]'}`}>Giá trị giảm</span>
               <div className="relative mt-1.5">
-                <span className={`pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 ${errors.discount_value ? 'text-error' : 'text-slate-400'}`}>
-                  {formData.discount_type === 'PERCENTAGE' ? <Percent className="size-4" /> : <DollarSign className="size-4" />}
-                </span>
                 <input
                   type="number"
-                  className={`h-11 w-full rounded-lg border border-white/15 bg-[#0d172e] pl-9 pr-3 text-sm text-white font-extrabold outline-none transition focus:border-tertiary focus:ring-2 focus:ring-tertiary/15 placeholder:text-slate-400 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-300 [html.light_&]:text-[#0D1B2A] ${errors.discount_value ? errorFieldClass : ''}`}
+                  className={`h-11 w-full rounded-lg border border-white/15 bg-[#0d172e] pl-3 ${formData.discount_type === 'PERCENTAGE' ? 'pr-9' : 'pr-12'} text-sm text-white font-extrabold outline-none transition focus:border-tertiary focus:ring-2 focus:ring-tertiary/15 placeholder:text-slate-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [html.light_&]:bg-slate-50 [html.light_&]:border-slate-300 [html.light_&]:text-[#0D1B2A] ${errors.discount_value ? errorFieldClass : ''}`}
                   placeholder="0"
                   value={formData.discount_value}
                   onChange={(e) => setFormData({ ...formData, discount_value: e.target.value })}
                   required
                 />
+                <span className={`pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold ${errors.discount_value ? 'text-error' : 'text-slate-400 [html.light_&]:text-slate-600'}`}>
+                  {formData.discount_type === 'PERCENTAGE' ? <Percent className="size-4" /> : 'VND'}
+                </span>
               </div>
               {errors.discount_value && <p className="mt-1 flex items-center gap-1 text-[11px] font-bold text-error uppercase animate-in fade-in slide-in-from-top-1"><AlertCircle className="size-3" /> {errors.discount_value}</p>}
             </label>
@@ -649,14 +649,19 @@ function PromoFormModal({ open, onClose, title, onSubmit, formData, setFormData,
             {formData.discount_type === 'PERCENTAGE' && (
               <label className="block min-w-0">
                 <span className={`text-sm font-bold uppercase font-display tracking-tight transition-colors ${errors.max_discount ? 'text-error' : 'text-white [html.light_&]:text-[#0D1B2A]'}`}>Giảm tối đa</span>
-                <input
-                  type="number"
-                  min="0"
-                  className={`${fieldClass} font-extrabold ${errors.max_discount ? errorFieldClass : ''}`}
-                  placeholder="VND"
-                  value={formData.max_discount}
-                  onChange={(e) => setFormData({ ...formData, max_discount: e.target.value })}
-                />
+                <div className="relative mt-1.5">
+                  <input
+                    type="number"
+                    min="0"
+                    className={`h-11 w-full rounded-lg border border-white/15 bg-[#0d172e] pl-3 pr-12 text-sm text-white font-extrabold outline-none transition focus:border-tertiary focus:ring-2 focus:ring-tertiary/15 placeholder:text-slate-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [html.light_&]:bg-slate-50 [html.light_&]:border-slate-300 [html.light_&]:text-[#0D1B2A] ${errors.max_discount ? errorFieldClass : ''}`}
+                    placeholder="0"
+                    value={formData.max_discount}
+                    onChange={(e) => setFormData({ ...formData, max_discount: e.target.value })}
+                  />
+                  <span className={`pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold ${errors.max_discount ? 'text-error' : 'text-slate-400 [html.light_&]:text-slate-600'}`}>
+                    VND
+                  </span>
+                </div>
                 {errors.max_discount && <p className="mt-1 flex items-center gap-1 text-[11px] font-bold text-error uppercase animate-in fade-in slide-in-from-top-1"><AlertCircle className="size-3" /> {errors.max_discount}</p>}
               </label>
             )}
@@ -726,7 +731,7 @@ function PromoDetailModal({ open, onClose, promo }) {
   if (!promo) return null
 
   const discountValue = parseFloat(promo.discount_value).toLocaleString('vi-VN')
-  const discountIcon = promo.discount_type === 'PERCENTAGE' ? Percent : DollarSign
+  const discountIcon = promo.discount_type === 'PERCENTAGE' ? Percent : Ticket
   const discountTypeLabel = promo.discount_type === 'PERCENTAGE' ? 'Giảm theo phần trăm' : 'Giảm số tiền cố định'
   const discountDisplay = promo.discount_type === 'PERCENTAGE' ? `Giảm ${discountValue}%` : `Giảm ${formatVnd(promo.discount_value)}`
   const maxDiscountDisplay = promo.discount_type === 'PERCENTAGE' && promo.max_discount ? formatVnd(promo.max_discount) : 'Không giới hạn'

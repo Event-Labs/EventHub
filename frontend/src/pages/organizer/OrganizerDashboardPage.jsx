@@ -58,7 +58,7 @@ const getAutoLocale = () =>
     : 'vi-VN'
 
 function fmtCurrency(n) {
-  return `${new Intl.NumberFormat(getAutoLocale()).format(Number(n) || 0)} VNĐ`
+  return `${new Intl.NumberFormat(getAutoLocale()).format(Number(n) || 0)} VND`
 }
 
 function fmtShort(n) {
@@ -177,11 +177,6 @@ function HeroKpiCard({ label, value, sub, icon: Icon, trend, trendValue, tone = 
       <div>
         <div className="flex items-center justify-between">
           <p className="text-xs font-bold uppercase tracking-wider text-slate-400 [html.light_&]:text-[#536b88]">{displayLabel}</p>
-          {Icon && (
-            <div className={`grid size-8 place-items-center rounded-xl border ${toneStyles.iconBg}`}>
-              <Icon className="size-4" />
-            </div>
-          )}
         </div>
         <p className="mt-2.5 truncate font-display text-2xl font-black text-white [html.light_&]:text-[#0D1B2A] drop-shadow-sm sm:text-3xl">
           {displayValue}
@@ -361,7 +356,7 @@ function _OldInteractiveRevenueChart({ data = [], comparisonData = [], compariso
                   fontWeight={700}
                   fill="#E6C17A"
                 >
-                  {pct === 0 ? '0' : fmtShort(pct * maxVal)}
+                  {pct === 0 ? '0' : fmtNumber(Math.round(pct * maxVal))}
                 </text>
               </g>
             )
@@ -1447,15 +1442,14 @@ export function OrganizerDashboardPage() {
           <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <HeroKpiCard
               label={isEnglish ? 'Total Revenue' : 'Tổng doanh thu'}
-              value={fmtShort(overall.gross_revenue || overall.net_revenue)}
+              value={`${fmtNumber(overall.gross_revenue || overall.net_revenue)} VND`}
               sub={
                 Number(overall.total_discount || 0) > 0
-                  ? (isEnglish ? `Includes discount ${fmtShort(overall.total_discount)}` : `Đã gồm chiết khấu ${fmtShort(overall.total_discount)}`)
+                  ? (isEnglish ? `Includes discount ${fmtNumber(overall.total_discount)} VND` : `Đã gồm chiết khấu ${fmtNumber(overall.total_discount)} VND`)
                   : (isEnglish ? 'Direct ticket sales revenue' : 'Doanh thu bán vé trực tiếp')
               }
               trend={grossTrend}
               trendValue={grossTrendVal}
-              icon={CircleDollarSign}
               tone="cyan"
             />
 
@@ -1463,7 +1457,6 @@ export function OrganizerDashboardPage() {
               label={isEnglish ? 'Tickets Sold' : 'Vé đã bán'}
               value={`${fmtNumber(dashboard.issued_tickets)} ${isEnglish ? 'tickets' : 'vé'}`}
               sub={isEnglish ? `Out of ${fmtNumber(dashboard.total_capacity)} available tickets` : `Trên tổng ${fmtNumber(dashboard.total_capacity)} vé khả dụng`}
-              icon={TicketCheck}
               tone="emerald"
             />
 
@@ -1476,7 +1469,6 @@ export function OrganizerDashboardPage() {
                   : (isEnglish ? 'Seat occupancy performance' : 'Hiệu suất tiêu thụ chỗ ngồi')
               }
               progressBar={dashboard.occupancy_rate}
-              icon={TrendingUp}
               tone="amber"
             />
 
@@ -1484,7 +1476,6 @@ export function OrganizerDashboardPage() {
               label={isEnglish ? 'Total Orders' : 'Tổng đơn hàng'}
               value={`${Number(overall.total_orders || 0).toLocaleString('vi-VN')} ${isEnglish ? 'orders' : 'đơn'}`}
               sub={isEnglish ? `Avg order value: ${fmtCurrency(avgOrderValue)} / order` : `Giá trị TB: ${fmtCurrency(avgOrderValue)} / đơn`}
-              icon={ReceiptText}
               tone="purple"
             />
           </div>

@@ -16,9 +16,13 @@ const LanguageContext = createContext(null)
 export function LanguageProvider({ children }) {
   const [language, setLanguageState] = useState(() => {
     try {
+      if (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')) {
+        return 'vi'
+      }
+      const user = getStoredUser()
+      if (user?.role === 'ADMIN') return 'vi'
       const saved = localStorage.getItem(STORAGE_LOCALE_KEY)
       if (saved === 'vi' || saved === 'en') return saved
-      const user = getStoredUser()
       if (user?.locale === 'vi' || user?.locale === 'en') return user.locale
     } catch {
       // Ignore storage access errors
@@ -34,9 +38,10 @@ export function LanguageProvider({ children }) {
     }
   }, [language])
 
-  // Global DOM auto-translation for seamless full-page English experience
+  // Global DOM auto-translation for seamless full-page English experience (disabled for admin role)
   useEffect(() => {
-    if (language !== 'en') {
+    const isAdminRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')
+    if (language !== 'en' || isAdminRoute) {
       // Revert any translated nodes
       if (window.__eventhub_translated_nodes && window.__eventhub_translated_nodes.size > 0) {
         window.__eventhub_translated_nodes.forEach((originalText, node) => {
@@ -261,6 +266,13 @@ export function LanguageProvider({ children }) {
   }, [language])
 
   const setLanguage = useCallback((newLang) => {
+    if (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')) {
+      return
+    }
+    const user = getStoredUser()
+    if (user?.role === 'ADMIN') {
+      return
+    }
     const validLang = newLang === 'en' ? 'en' : 'vi'
     setLanguageState(validLang)
     try {

@@ -1,9 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  Calendar,
   CheckCircle2,
   Eye,
-  EyeOff,
   MapPin,
   Tag,
   Ticket,
@@ -24,7 +22,6 @@ import {
   Play,
   Square,
   Zap,
-  Info,
   X,
   ChevronLeft,
   ChevronRight,
@@ -41,7 +38,6 @@ import {
   runAdminAiReview,
   fetchAdminAutoReviewSettings,
   updateAdminAutoReviewSettings,
-  runAdminBatchAutoReview,
   runAdminSingleAutoReview,
   cancelAdminAutoReview,
   fetchAdminAutoReviewScanStatus,
@@ -154,11 +150,7 @@ function statusBadge(eventOrStatus, approvalStatus, displayState, activeStatus) 
   return <Badge tone={cfg.tone}>{cfg.label}</Badge>
 }
 
-const getAutoLocale = () =>
-  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
-    (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
-    ? 'en-US'
-    : 'vi-VN'
+const getAutoLocale = () => 'vi-VN'
 
 function formatDate(value) {
   if (!value) return '—'

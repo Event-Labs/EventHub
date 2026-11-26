@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Building2, ExternalLink, ShieldCheck, AlertTriangle } from 'lucide-react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Building2, ExternalLink, ShieldCheck } from 'lucide-react'
+import { useNavigate, useParams } from 'react-router-dom'
 import {
   fetchAdminOrganizerDetails,
   updateAdminOrganizerStatus,
@@ -321,22 +321,16 @@ function formatCurrency(value) {
   })
 }
 
-const getAutoLocale = () =>
-  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
-   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
-    ? 'en-US'
-    : 'vi-VN'
+const getAutoLocale = () => 'vi-VN'
 
 function formatDate(value) {
-  const isEn = getAutoLocale() === 'en-US'
-  if (!value) return isEn ? 'N/A' : 'Chưa có'
-  return new Date(value).toLocaleDateString(getAutoLocale())
+  if (!value) return 'Chưa có'
+  return new Date(value).toLocaleDateString('vi-VN')
 }
 
 function formatDateTime(value) {
-  const isEn = getAutoLocale() === 'en-US'
-  if (!value) return isEn ? 'N/A' : 'Chưa có'
-  return new Date(value).toLocaleString(getAutoLocale())
+  if (!value) return 'Chưa có'
+  return new Date(value).toLocaleString('vi-VN')
 }
 
 function maskAccount(value) {

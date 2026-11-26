@@ -980,7 +980,7 @@ export function OrganizerPaymentSettingsPage() {
                       {payoutTestState.balance !== undefined && payoutTestState.balance !== null && (
                         <div className="flex items-center gap-1.5 text-xs font-semibold text-content pt-1 [html.light_&]:text-[#0D1B2A]">
                           <Coins className="size-4 text-warning [html.light_&]:text-amber-600" />
-                          Số dư ví chi hộ: {Number(payoutTestState.balance).toLocaleString('vi-VN')} VNĐ
+                          Số dư ví chi hộ: {Number(payoutTestState.balance).toLocaleString('vi-VN')} VND
                         </div>
                       )}
                     </div>

@@ -202,7 +202,7 @@ function OrganizerCheckinHistoryPanel({ eventId }) {
     <OrganizerPanel>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
-          <History className="size-5 text-slate-400" />
+          <History className="size-5 text-[#E6C17A]" />
           <h2 className="font-bold text-content text-base">
             {isEnglish ? 'Check-in & Scan History' : 'Lịch sử soát vé & check-in'}
           </h2>
@@ -629,7 +629,7 @@ export function OrganizerCheckinDashboardPage() {
               <OrganizerPanel className="h-full">
                 <div className="mb-4 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <BarChart3 className="size-5 text-emerald-400" />
+                    <BarChart3 className="size-5 text-[#E6C17A]" />
                     <h2 className="font-bold text-content text-base">{isEnglish ? 'Check-in by Session' : 'Check-in theo phiên'}</h2>
                   </div>
                   <span className="text-xs text-slate-400">{bySession.length} {isEnglish ? 'sessions' : 'phiên'}</span>
@@ -642,7 +642,7 @@ export function OrganizerCheckinDashboardPage() {
             <div className="xl:col-span-5">
               <OrganizerPanel className="h-full flex flex-col justify-between">
                 <div className="mb-2 flex items-center gap-2">
-                  <PieChart className="size-5 text-cyan-400" />
+                  <PieChart className="size-5 text-[#E6C17A]" />
                   <h2 className="font-bold text-content text-base">{isEnglish ? 'Overall Event Check-in' : 'Tổng thể check-in sự kiện'}</h2>
                 </div>
                 <div className="my-auto py-2">
@@ -656,7 +656,7 @@ export function OrganizerCheckinDashboardPage() {
           <OrganizerPanel>
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Ticket className="size-5 text-amber-400" />
+                <Ticket className="size-5 text-[#E6C17A]" />
                 <h2 className="font-bold text-content text-base">{isEnglish ? 'Check-in by Ticket Tier' : 'Check-in theo hạng vé'}</h2>
               </div>
               <span className="text-xs text-slate-400">{byTicketType.length} {isEnglish ? 'ticket tiers' : 'hạng vé'}</span>
@@ -667,7 +667,7 @@ export function OrganizerCheckinDashboardPage() {
           {/* ── ROW 5: CHECK-IN TREND (OVER TIME) ── */}
           <OrganizerPanel>
             <div className="mb-4 flex items-center gap-2">
-              <TrendingUp className="size-5 text-cyan-400" />
+              <TrendingUp className="size-5 text-[#E6C17A]" />
               <h2 className="font-bold text-content text-base">{isEnglish ? 'Check-in Trend Over Time' : 'Xu hướng check-in theo thời gian'}</h2>
             </div>
             <CheckinTrendLineChart timeline={timeline} />

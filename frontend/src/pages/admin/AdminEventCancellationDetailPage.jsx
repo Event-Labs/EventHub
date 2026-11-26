@@ -7,7 +7,6 @@ import {
   XCircle,
   Clock,
   Building2,
-  Mail,
   Phone,
   Coins,
   ShieldCheck,
@@ -31,11 +30,7 @@ import { useToast } from '@/providers/ToastProvider.jsx'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
 import { translatePhrase } from '@/i18n/phraseDictionary.js'
 
-const getAutoLocale = () =>
-  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
-   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
-    ? 'en-US'
-    : 'vi-VN'
+const getAutoLocale = () => 'vi-VN'
 
 function formatCurrency(amount) {
   const num = Number(amount || 0)

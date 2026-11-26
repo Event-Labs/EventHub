@@ -21,11 +21,7 @@ import { Modal } from '@/components/Modal'
 import adminUserService from '@/services/adminUser'
 import { ProfileAvatar } from '@/pages/shared/ProfileAvatar.jsx'
 
-const getAutoLocale = () =>
-  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
-   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
-    ? 'en-US'
-    : 'vi-VN'
+const getAutoLocale = () => 'vi-VN'
 
 export function UserDetailView({ userId, onBack, onStatusChange, refreshKey }) {
   const [user, setUser] = useState(null)
