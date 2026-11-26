@@ -22,6 +22,7 @@ import {
 } from '@/services/notifications.js'
 import { formatNotificationDisplay } from '@/lib/notifications.js'
 import { cn } from '@/lib/utils.js'
+import { sanitizeHtml } from '@/lib/sanitize.js'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
 import { useToast } from '@/providers/ToastProvider.jsx'
 
@@ -93,25 +94,29 @@ export function OrganizerNotificationsPage() {
 
   // Auto-scroll to specific notification if target id is in hash or query param or custom event
   useEffect(() => {
+    let activeTimer = null
+    let highlightTimer = null
+
     const scrollToTarget = (targetId) => {
       if (!targetId) return
       setActiveFilter('all')
       setPage(1)
-      const timer = setTimeout(() => {
+      if (activeTimer) clearTimeout(activeTimer)
+      activeTimer = setTimeout(() => {
         const el = document.getElementById(`notification-${targetId}`)
         if (el) {
           el.scrollIntoView({ behavior: 'smooth', block: 'center' })
           el.classList.add('ring-2', 'ring-[#C99A47]', 'ring-offset-2', 'ring-offset-slate-900', 'shadow-2xl', 'shadow-[#C99A47]/30')
-          setTimeout(() => {
+          if (highlightTimer) clearTimeout(highlightTimer)
+          highlightTimer = setTimeout(() => {
             el.classList.remove('ring-2', 'ring-[#C99A47]', 'ring-offset-2', 'ring-offset-slate-900', 'shadow-2xl', 'shadow-[#C99A47]/30')
           }, 3500)
         }
       }, 350)
-      return () => clearTimeout(timer)
     }
 
     const rawTarget =
-      location.hash?.replace('#notification-', '') ||
+      (location.hash?.startsWith('#notification-') ? location.hash.slice('#notification-'.length) : '') ||
       new URLSearchParams(location.search).get('id')
     if (rawTarget) {
       scrollToTarget(rawTarget)
@@ -125,6 +130,8 @@ export function OrganizerNotificationsPage() {
 
     window.addEventListener('eventhub:scroll-notification', handleCustomScroll)
     return () => {
+      if (activeTimer) clearTimeout(activeTimer)
+      if (highlightTimer) clearTimeout(highlightTimer)
       window.removeEventListener('eventhub:scroll-notification', handleCustomScroll)
     }
   }, [location.hash, location.search, notificationsQuery.data])
@@ -334,7 +341,7 @@ export function OrganizerNotificationsPage() {
                   {typeof display.content === 'string' && /<[a-z][\s\S]*>/i.test(display.content) ? (
                     <div
                       className="mt-2.5 w-full text-sm sm:text-base leading-relaxed text-slate-100 font-normal [html.light_&]:text-[#0D1B2A] break-words [overflow-wrap:anywhere] [&_p]:break-words [&_p]:[overflow-wrap:anywhere] [&_a]:text-primary [&_a]:underline [&_a]:break-all [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_img]:max-w-full [&_img]:rounded-lg"
-                      dangerouslySetInnerHTML={{ __html: display.content }}
+                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(display.content) }}
                     />
                   ) : (
                     <p className="mt-2.5 w-full text-sm sm:text-base leading-relaxed text-slate-100 font-normal whitespace-pre-line [html.light_&]:text-[#0D1B2A] break-words [overflow-wrap:anywhere]">
@@ -440,7 +447,7 @@ function StatePanel({ message, tone = 'default', loading = false, onRetry = null
   return (
     <div className={cn('flex min-h-64 flex-col items-center justify-center p-8 text-center', tone === 'error' ? 'text-red-400' : 'text-slate-400')}>
       {loading ? (
-        <Loader2 className="mb-4 size-8 animate-spin text-primary" />
+        <Loader2 className="mb-4 size-8 animate-spin text-[#E6C17A]" />
       ) : (
         <Inbox className="mb-4 size-10 opacity-50 text-slate-500" />
       )}

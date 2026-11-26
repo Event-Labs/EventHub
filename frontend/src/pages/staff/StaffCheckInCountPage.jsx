@@ -1,7 +1,9 @@
+import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { fetchStaffCheckInReport } from '@/services/operations.js'
 import { StaffPage, StaffPanel } from './StaffComponents.jsx'
 import { SharedGateCheckInHistoryPanel } from './StaffQrCheckInPage.jsx'
+import AnimatedNumber from '@/components/AnimatedNumber.jsx'
 
 const getAutoLocale = () =>
   ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
@@ -14,6 +16,13 @@ const numberFormatter = {
 }
 
 export function StaffCheckInCountPage() {
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setMounted(true))
+    return () => cancelAnimationFrame(id)
+  }, [])
+
   const reportQuery = useQuery({
     queryKey: ['staff-check-in-report'],
     queryFn: () => fetchStaffCheckInReport(),
@@ -55,7 +64,7 @@ export function StaffCheckInCountPage() {
             ].map(([label, value]) => (
               <StaffPanel key={label}>
                 <p className="text-xs font-bold uppercase text-muted">{label}</p>
-                <p className="mt-2 text-2xl font-extrabold text-content">{numberFormatter.format(value)}</p>
+                <p className="mt-2 text-2xl font-extrabold text-content"><AnimatedNumber value={value} /></p>
               </StaffPanel>
             ))}
           </div>
@@ -63,10 +72,13 @@ export function StaffCheckInCountPage() {
           <StaffPanel className="mt-5">
             <div className="mb-3 flex justify-between text-sm font-bold text-content">
               <span>Tiến độ vào cổng</span>
-              <span>{numberFormatter.format(checkedIn)} / {numberFormatter.format(totalValid)} vé</span>
+              <span><AnimatedNumber value={checkedIn} /> / <AnimatedNumber value={totalValid} /> vé</span>
             </div>
-            <div className="h-4 rounded bg-panel-soft">
-              <div className="h-full rounded bg-success transition-all" style={{ width: `${progress}%` }} />
+            <div className="h-4 rounded bg-panel-soft overflow-hidden">
+              <div
+                className="h-full rounded bg-success transition-all duration-700 ease-out"
+                style={{ width: `${mounted ? progress : 0}%` }}
+              />
             </div>
           </StaffPanel>
 
@@ -93,11 +105,12 @@ export function StaffCheckInCountPage() {
                     </div>
                     <div className="absolute inset-x-2 bottom-0 top-0 flex items-end gap-1 sm:gap-2">
                       {hourlySeries.map((count, hour) => {
-                        const height = count > 0 ? Math.max(5, Math.round((count / maxHourlyCount) * 100)) : 1
+                        const targetH = count > 0 ? Math.max(5, Math.round((count / maxHourlyCount) * 100)) : 1
+                        const height = mounted ? targetH : 1
                         return (
                           <div key={hour} className="group flex h-full min-w-0 flex-1 items-end justify-center">
                             <div
-                              className={`w-full max-w-6 rounded-t transition-[height,background-color] duration-500 ${count > 0 ? 'bg-primary/75 group-hover:bg-primary' : 'bg-primary/15'}`}
+                              className={`w-full max-w-6 rounded-t transition-[height,background-color] duration-700 ease-out ${count > 0 ? 'bg-primary/75 group-hover:bg-primary' : 'bg-primary/15'}`}
                               style={{ height: `${height}%` }}
                               title={`${String(hour).padStart(2, '0')}:00 — ${count} lượt`}
                             />

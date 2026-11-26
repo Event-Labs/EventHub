@@ -26,6 +26,7 @@ const {
 const {
   buildEventCancellationEmail,
 } = require('./eventCancellationEmail.template');
+const { escapeHtml, sanitizeRichHtml } = require('../../core/security/htmlSanitizer');
 
 function mapNotification(row) {
   if (!row) return null;
@@ -248,17 +249,26 @@ class NotificationsService {
     const rawAttachments = Array.isArray(payload.attachments) ? payload.attachments : [];
     const { html: emailPreparedContent, inlineAttachments } = extractInlineDataImages(payload.content);
 
-    const fileEmailAttachments = rawAttachments.map((att) => ({
+    const sanitizedWebBody = sanitizeRichHtml(payload.content);
+    const safeAttachments = rawAttachments
+      .map((att) => ({
+        filename: String(att?.filename || 'Tệp đính kèm'),
+        path: sanitizeSafeUrl(att?.path, env.CLIENT_URL),
+        contentType: att?.contentType,
+      }))
+      .filter((att) => Boolean(att.path));
+
+    const fileEmailAttachments = safeAttachments.map((att) => ({
       filename: att.filename,
-      path: sanitizeSafeUrl(att.path, env.CLIENT_URL) || att.path,
+      path: att.path,
       contentType: att.contentType,
     }));
     const emailAttachments = [...fileEmailAttachments, ...inlineAttachments];
 
     // If attachments exist, format web notification content with links
-    const webContent = rawAttachments.length > 0
-      ? `${payload.content}<div style="margin-top: 16px; padding: 10px 14px; background: rgba(255,255,255,0.05); border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);"><p style="margin: 0 0 6px 0; font-weight: bold; font-size: 13px;">📎 Tệp đính kèm (${rawAttachments.length}):</p><ul style="margin: 0; padding-left: 20px; font-size: 13px;">${rawAttachments.map((att) => `<li style="margin-bottom: 4px;"><a href="${att.path}" target="_blank" rel="noopener noreferrer" style="color: #38bdf8; text-decoration: underline;">${att.filename}</a></li>`).join('')}</ul></div>`
-      : payload.content;
+    const webContent = safeAttachments.length > 0
+      ? `${sanitizedWebBody}<div style="margin-top: 16px; padding: 10px 14px; background: rgba(255,255,255,0.05); border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);"><p style="margin: 0 0 6px 0; font-weight: bold; font-size: 13px;">📎 Tệp đính kèm (${safeAttachments.length}):</p><ul style="margin: 0; padding-left: 20px; font-size: 13px;">${safeAttachments.map((att) => `<li style="margin-bottom: 4px;"><a href="${escapeHtml(att.path)}" target="_blank" rel="noopener noreferrer" style="color: #38bdf8; text-decoration: underline;">${escapeHtml(att.filename)}</a></li>`).join('')}</ul></div>`
+      : sanitizedWebBody;
 
     // Asynchronously dispatch notifications and emails in background batches for immediate performance
     this.dispatchAnnouncementAsync({

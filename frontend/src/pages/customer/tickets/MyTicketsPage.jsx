@@ -173,7 +173,7 @@ export function MyTicketsPage() {
 
       {ticketsQuery.isLoading && (
         <div className="flex items-center justify-center py-20 text-sm gap-2.5" style={{ color: '#94a3b8' }}>
-          <div className="size-5 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" />
+          <div className="size-5 animate-spin rounded-full border-2 border-[#E6C17A]/25 border-t-[#E6C17A]" />
           <span>{isEnglish ? 'Loading tickets...' : 'Đang tải danh sách vé...'}</span>
         </div>
       )}

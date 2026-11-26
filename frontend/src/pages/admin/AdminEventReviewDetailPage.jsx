@@ -64,6 +64,7 @@ import { useToast } from '@/providers/ToastProvider.jsx'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
 import { translatePhrase } from '@/i18n/phraseDictionary.js'
 import { cleanAndFormatVenue, translateEventHtmlDescription } from '@/i18n/eventTranslations.js'
+import { sanitizeHtml, sanitizeUrl } from '@/lib/sanitize.js'
 import { Page, Panel, Badge, StatusBadge, ImagePlaceholder } from './AdminComponents.jsx'
 import { AdminReviewCriteriaModal } from './AdminReviewCriteriaModal.jsx'
 import { AdminSuspendModal } from './AdminSuspendModal.jsx'
@@ -3214,7 +3215,7 @@ export function AdminEventReviewDetailPage() {
                                       {isEnglish ? 'Deleted paragraph' : 'Đoạn đã xóa'}
                                     </span>
                                     {fb.oldBlock.tag === 'li' && <span className="text-rose-400 mr-1.5">•</span>}
-                                    <span dangerouslySetInnerHTML={{ __html: fb.oldBlock.innerHtml || fb.oldBlock.text }} />
+                                    <span dangerouslySetInnerHTML={{ __html: sanitizeHtml(fb.oldBlock.innerHtml || fb.oldBlock.text) }} />
                                   </div>
                                 )
                               }
@@ -3226,7 +3227,7 @@ export function AdminEventReviewDetailPage() {
                                     className={`rounded-lg border border-amber-500/35 bg-amber-500/10 p-2.5 [html.light_&]:bg-amber-50/80 [html.light_&]:border-amber-300 ${getBlockTypographyClass(fb.oldBlock)}`}
                                   >
                                     {fb.oldBlock.tag === 'li' && <span className="text-amber-400 mr-1.5">•</span>}
-                                    <span dangerouslySetInnerHTML={{ __html: fb.oldBlock.innerHtml || fb.oldBlock.text }} />
+                                    <span dangerouslySetInnerHTML={{ __html: sanitizeHtml(fb.oldBlock.innerHtml || fb.oldBlock.text) }} />
                                   </div>
                                 )
                               }
@@ -3235,7 +3236,7 @@ export function AdminEventReviewDetailPage() {
                               return (
                                 <div key={idx} className={getBlockTypographyClass(fb.oldBlock)}>
                                   {fb.oldBlock.tag === 'li' && <span className="text-amber-400 mr-1.5">•</span>}
-                                  <span dangerouslySetInnerHTML={{ __html: fb.oldBlock.innerHtml || fb.oldBlock.text }} />
+                                  <span dangerouslySetInnerHTML={{ __html: sanitizeHtml(fb.oldBlock.innerHtml || fb.oldBlock.text) }} />
                                 </div>
                               )
                             })
@@ -3296,7 +3297,7 @@ export function AdminEventReviewDetailPage() {
                                       {isEnglish ? 'Added paragraph' : 'Đoạn thêm mới'}
                                     </span>
                                     {fb.newBlock.tag === 'li' && <span className="text-emerald-400 mr-1.5">•</span>}
-                                    <span dangerouslySetInnerHTML={{ __html: fb.newBlock.innerHtml || fb.newBlock.text }} />
+                                    <span dangerouslySetInnerHTML={{ __html: sanitizeHtml(fb.newBlock.innerHtml || fb.newBlock.text) }} />
                                   </div>
                                 )
                               }
@@ -3308,7 +3309,7 @@ export function AdminEventReviewDetailPage() {
                                     className={`rounded-lg border border-amber-500/35 bg-amber-500/10 p-2.5 [html.light_&]:bg-amber-50/80 [html.light_&]:border-amber-300 ${getBlockTypographyClass(fb.newBlock)}`}
                                   >
                                     {fb.newBlock.tag === 'li' && <span className="text-amber-400 mr-1.5">•</span>}
-                                    <span dangerouslySetInnerHTML={{ __html: fb.newBlock.innerHtml || fb.newBlock.text }} />
+                                    <span dangerouslySetInnerHTML={{ __html: sanitizeHtml(fb.newBlock.innerHtml || fb.newBlock.text) }} />
                                   </div>
                                 )
                               }
@@ -3317,7 +3318,7 @@ export function AdminEventReviewDetailPage() {
                               return (
                                 <div key={idx} className={getBlockTypographyClass(fb.newBlock)}>
                                   {fb.newBlock.tag === 'li' && <span className="text-amber-400 mr-1.5">•</span>}
-                                  <span dangerouslySetInnerHTML={{ __html: fb.newBlock.innerHtml || fb.newBlock.text }} />
+                                  <span dangerouslySetInnerHTML={{ __html: sanitizeHtml(fb.newBlock.innerHtml || fb.newBlock.text) }} />
                                 </div>
                               )
                             })
@@ -3394,7 +3395,7 @@ export function AdminEventReviewDetailPage() {
                                     +{isEnglish ? 'Added paragraph' : 'Đoạn thêm mới'}
                                   </span>
                                   {fb.newBlock.tag === 'li' && <span className="text-emerald-400 mr-1.5">•</span>}
-                                  <span dangerouslySetInnerHTML={{ __html: fb.newBlock.innerHtml || fb.newBlock.text }} />
+                                  <span dangerouslySetInnerHTML={{ __html: sanitizeHtml(fb.newBlock.innerHtml || fb.newBlock.text) }} />
                                 </div>
                               )
                             }
@@ -3409,7 +3410,7 @@ export function AdminEventReviewDetailPage() {
                                     -{isEnglish ? 'Deleted paragraph' : 'Đoạn đã xóa'}
                                   </span>
                                   {fb.oldBlock.tag === 'li' && <span className="text-rose-400 mr-1.5">•</span>}
-                                  <span dangerouslySetInnerHTML={{ __html: fb.oldBlock.innerHtml || fb.oldBlock.text }} />
+                                  <span dangerouslySetInnerHTML={{ __html: sanitizeHtml(fb.oldBlock.innerHtml || fb.oldBlock.text) }} />
                                 </div>
                               )
                             }
@@ -3421,7 +3422,7 @@ export function AdminEventReviewDetailPage() {
                                   className={`rounded-lg border border-amber-500/35 bg-amber-500/10 p-2.5 [html.light_&]:bg-amber-50/80 [html.light_&]:border-amber-300 ${getBlockTypographyClass(fb.newBlock)}`}
                                 >
                                   {fb.newBlock.tag === 'li' && <span className="text-amber-400 mr-1.5">•</span>}
-                                  <span dangerouslySetInnerHTML={{ __html: fb.newBlock.innerHtml || fb.newBlock.text }} />
+                                  <span dangerouslySetInnerHTML={{ __html: sanitizeHtml(fb.newBlock.innerHtml || fb.newBlock.text) }} />
                                 </div>
                               )
                             }
@@ -3430,7 +3431,7 @@ export function AdminEventReviewDetailPage() {
                             return (
                               <div key={idx} className={getBlockTypographyClass(fb.newBlock)}>
                                 {fb.newBlock.tag === 'li' && <span className="text-amber-400 mr-1.5">•</span>}
-                                <span dangerouslySetInnerHTML={{ __html: fb.newBlock.innerHtml || fb.newBlock.text }} />
+                                <span dangerouslySetInnerHTML={{ __html: sanitizeHtml(fb.newBlock.innerHtml || fb.newBlock.text) }} />
                               </div>
                             )
                           })
@@ -3873,7 +3874,7 @@ export function AdminEventReviewDetailPage() {
                 {event.description ? (
                   <div
                     className="prose prose-sm prose-invert max-w-none text-slate-300 break-words [&_*]:max-w-full [&_table]:block [&_table]:overflow-x-auto [html.light_&]:prose-neutral [html.light_&]:text-[#0D1B2A]"
-                    dangerouslySetInnerHTML={{ __html: translateEventHtmlDescription(typeof event.description === 'string' ? event.description : '', isEnglish) }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(translateEventHtmlDescription(typeof event.description === 'string' ? event.description : '', isEnglish)) }}
                   />
                 ) : (
                   <p className="text-sm italic text-slate-500">Không có mô tả.</p>
@@ -5112,9 +5113,9 @@ function DocumentPreviewModal({ doc, onClose }) {
               </div>
             )}
 
-            {doc.url && (
+            {sanitizeUrl(doc.url) && (
               <a
-                href={doc.url}
+                href={sanitizeUrl(doc.url)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="grid size-9 place-items-center rounded-xl text-slate-400 hover:text-[#E6C17A] hover:bg-white/5 transition"
@@ -5124,9 +5125,9 @@ function DocumentPreviewModal({ doc, onClose }) {
                 <ExternalLink className="size-4" />
               </a>
             )}
-            {doc.url && (
+            {sanitizeUrl(doc.url) && (
               <a
-                href={doc.url}
+                href={sanitizeUrl(doc.url)}
                 download={doc.name}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -5165,7 +5166,7 @@ function DocumentPreviewModal({ doc, onClose }) {
                 <div className="w-full h-full flex flex-col relative rounded-2xl overflow-hidden border border-white/10 bg-slate-950">
                   {isLoadingPdf && (
                     <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-950/90 backdrop-blur-sm gap-3">
-                      <Loader2 className="size-8 text-indigo-400 animate-spin" />
+                      <Loader2 className="size-8 text-[#E6C17A] animate-spin" />
                       <p className="text-xs text-slate-300 font-medium">
                         Đang kết nối luồng hiển thị PDF trực tuyến (không cần tải về)...
                       </p>
@@ -5235,7 +5236,7 @@ function DocumentPreviewModal({ doc, onClose }) {
 
                   {isLoadingText ? (
                     <div className="flex-1 flex flex-col items-center justify-center gap-3">
-                      <Loader2 className="size-8 text-indigo-400 animate-spin" />
+                      <Loader2 className="size-8 text-[#E6C17A] animate-spin" />
                       <p className="text-xs text-slate-400">Đang trích xuất văn bản từ tệp PDF...</p>
                     </div>
                   ) : textExtractError ? (
@@ -5326,7 +5327,7 @@ function DocumentPreviewModal({ doc, onClose }) {
 
                   {isLoadingText ? (
                     <div className="flex-1 flex flex-col items-center justify-center gap-3">
-                      <Loader2 className="size-8 text-indigo-400 animate-spin" />
+                      <Loader2 className="size-8 text-[#E6C17A] animate-spin" />
                       <p className="text-xs text-slate-400">Đang trích xuất nội dung văn bản từ tệp Word...</p>
                     </div>
                   ) : textExtractError ? (

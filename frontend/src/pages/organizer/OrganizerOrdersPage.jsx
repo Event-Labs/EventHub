@@ -233,7 +233,7 @@ export function OrganizerOrdersPage() {
       {/* ── Table ── */}
       {loading ? (
         <OrganizerPanel className="flex items-center justify-center py-16">
-          <Loader2 className="size-7 animate-spin text-primary" />
+          <Loader2 className="size-7 animate-spin text-[#E6C17A]" />
         </OrganizerPanel>
       ) : orders.length === 0 ? (
         <OrganizerPanel className="py-14 text-center">
@@ -405,7 +405,7 @@ function OrderDetailModal({ orderId, onClose }) {
         <div className="px-6 py-5 bg-[#0b1329]">
           {loading && (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="size-7 animate-spin text-primary" />
+              <Loader2 className="size-7 animate-spin text-[#E6C17A]" />
             </div>
           )}
 

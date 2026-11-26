@@ -1004,7 +1004,7 @@ export function OrganizerEventsPage() {
 
       {loading ? (
         <div className="flex justify-center py-16">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#E6C17A]/25 border-t-[#E6C17A]" />
         </div>
       ) : !filtered.length ? (
         <div className="rounded-2xl border border-dashed border-border-soft/40 py-16 text-center text-sm text-subtle flex flex-col items-center justify-center gap-4">

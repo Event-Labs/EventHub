@@ -24,6 +24,7 @@ import {
   OrganizerPage,
   OrganizerPanel,
 } from './OrganizerComponents.jsx'
+import AnimatedNumber from '@/components/AnimatedNumber.jsx'
 import { OrganizerEventPicker } from './OrganizerEventPicker.jsx'
 import { CosmicSelect } from '@/components/CosmicSelect.jsx'
 
@@ -256,7 +257,7 @@ export function OrganizerAttendeesPage() {
       <div className="mb-6 max-w-xl">
         {eventsLoading ? (
           <div className="flex items-center gap-2 text-sm text-subtle">
-            <Loader2 className="size-4 animate-spin text-primary" />
+            <Loader2 className="size-4 animate-spin text-[#E6C17A]" />
             Đang tải sự kiện...
           </div>
         ) : events.length === 0 ? (
@@ -391,7 +392,7 @@ export function OrganizerAttendeesPage() {
           {/* ── Table ── */}
           {loading ? (
             <OrganizerPanel className="flex items-center justify-center py-16">
-              <Loader2 className="size-7 animate-spin text-primary" />
+              <Loader2 className="size-7 animate-spin text-[#E6C17A]" />
             </OrganizerPanel>
           ) : attendees.length === 0 ? (
             <OrganizerPanel className="py-14 text-center">
@@ -522,7 +523,9 @@ function KpiCard({ label, value, tone }) {
   return (
     <div className="rounded-2xl border border-border-soft/30 bg-panel-soft p-5 min-h-[105px] flex flex-col justify-between shadow-sm transition-all hover:border-border-soft/60">
       <p className="text-xs font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">{label}</p>
-      <p className={`mt-3 text-2xl sm:text-3xl font-display font-black ${valueClass}`}>{value}</p>
+      <p className={`mt-3 text-2xl sm:text-3xl font-display font-black ${valueClass}`}>
+        <AnimatedNumber value={value} />
+      </p>
     </div>
   )
 }

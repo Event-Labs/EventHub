@@ -6,6 +6,7 @@ import { Badge, StaffPage, StaffPanel } from './StaffComponents.jsx'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
 import { VI_TO_EN, translatePhrase } from '@/i18n/phraseDictionary.js'
 import { cleanAndFormatVenue } from '@/i18n/eventTranslations.js'
+import AnimatedNumber from '@/components/AnimatedNumber.jsx'
 
 const numberFormatter = new Intl.NumberFormat('vi-VN')
 
@@ -76,7 +77,7 @@ export function StaffDashboardPage() {
             <div>
               <p className="text-[13px] font-bold uppercase tracking-wider text-subtle">{label}</p>
               <p className="mt-2 text-3xl font-black text-content tracking-tight font-display drop-shadow-sm">
-                {loading ? '...' : numberFormatter.format(Number(value || 0))}
+                {loading ? '...' : <AnimatedNumber value={Number(value || 0)} />}
               </p>
             </div>
           </div>

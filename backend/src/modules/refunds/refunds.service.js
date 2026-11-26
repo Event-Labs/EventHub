@@ -431,7 +431,7 @@ class RefundsService {
                 content: `Yêu cầu hoàn tiền cho vé ${refund.ticket_code || 'đơn hàng ' + refund.order_code} đã bị từ chối. Lý do: ${note || 'Không đủ điều kiện theo chính sách'}.`,
                 type: 'PAYMENT',
                 metadata: {
-                  action_url: '/tickets',
+                  action_url: '/my-tickets',
                   event_id: refund.event_id,
                 },
               },
@@ -592,7 +592,7 @@ class RefundsService {
                 content: `Yêu cầu hoàn tiền vé ${refund.ticket_code || 'đơn ' + refund.order_code} đã hoàn tất. Số tiền: ${Number(updated.refund_amount).toLocaleString('vi-VN')} VND.`,
                 type: 'PAYMENT',
                 metadata: {
-                  action_url: '/tickets',
+                  action_url: '/my-tickets',
                   event_id: refund.event_id,
                 },
               },

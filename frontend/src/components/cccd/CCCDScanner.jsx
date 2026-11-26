@@ -238,7 +238,7 @@ export default function CCCDScanner({ initialData = {}, currentKycData = null, o
         <div className="rounded-2xl border border-sky-500/30 bg-slate-900/80 p-5 space-y-4">
           <div className="flex items-center justify-between text-xs text-slate-300">
             <span className="font-bold text-sky-300 flex items-center gap-2">
-              <RefreshCw className="size-4 animate-spin text-sky-400" />
+              <RefreshCw className="size-4 animate-spin text-[#E6C17A]" />
               Đang phân tích và xử lý ảnh CCCD...
             </span>
             <span className="font-mono text-slate-400">
@@ -264,7 +264,7 @@ export default function CCCDScanner({ initialData = {}, currentKycData = null, o
                   {isDone ? (
                     <CheckCircle2 className="size-4 text-emerald-400 shrink-0" />
                   ) : isCurrent ? (
-                    <div className="size-4 rounded-full border-2 border-sky-400 border-t-transparent animate-spin shrink-0" />
+                    <div className="size-4 rounded-full border-2 border-[#E6C17A]/25 border-t-[#E6C17A] animate-spin shrink-0" />
                   ) : (
                     <div className="size-4 rounded-full border border-slate-700 shrink-0" />
                   )}

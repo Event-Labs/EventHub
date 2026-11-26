@@ -1627,7 +1627,7 @@ function AiReviewAssistantCard({ event, onApplyFeedback }) {
       {runMutation.isPending && (
         <div className="mt-4 rounded-xl border border-indigo-500/30 bg-slate-900/90 p-4 shadow-sm backdrop-blur-md">
           <div className="flex items-start gap-3">
-            <RefreshCw className="size-5 animate-spin text-indigo-400 mt-0.5 shrink-0" />
+            <RefreshCw className="size-5 animate-spin text-[#E6C17A] mt-0.5 shrink-0" />
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between">
                 <h5 className="text-xs font-bold text-indigo-300">

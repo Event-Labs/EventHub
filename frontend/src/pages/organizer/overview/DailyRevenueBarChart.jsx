@@ -430,6 +430,9 @@ export function DailyRevenueBarChart({
               dataKey={activeMetric}
               radius={[4, 4, 0, 0]}
               maxBarSize={finalSeries.length <= 14 ? 38 : finalSeries.length <= 31 ? 22 : 14}
+              isAnimationActive={true}
+              animationDuration={800}
+              animationEasing="ease-out"
             >
               {finalSeries.map((entry, index) => {
                 const isPeak = entry.isPeak

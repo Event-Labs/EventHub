@@ -61,7 +61,7 @@ export function VerifyEmailPage() {
                 
                 {status === 'verifying' && (
                     <div className="py-10">
-                        <Loader2 className="mx-auto size-16 animate-spin text-primary" />
+                        <Loader2 className="mx-auto size-16 animate-spin text-[#E6C17A]" />
                         <h2 className="mt-6 text-2xl font-bold text-white drop-shadow-lg">Đang xác thực email...</h2>
                         <p className="mt-2 text-slate-300 text-lg">Vui lòng đợi trong giây lát.</p>
                     </div>

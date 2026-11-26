@@ -4,6 +4,7 @@ import 'react-quill-new/dist/quill.snow.css'
 import './RichTextEditor.css'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
 import { translatePhrase } from '@/i18n/phraseDictionary.js'
+import { sanitizeUrl } from '@/lib/sanitize.js'
 
 const getAutoIsEnglish = () =>
   (typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
@@ -139,9 +140,12 @@ export default function RichTextEditor({
                     const parentA = leaf.domNode.closest ? leaf.domNode.closest('a') : leaf.domNode.parentElement
                     if (parentA && parentA.tagName === 'A') {
                         const href = parentA.getAttribute('href') || parentA.textContent
-                        if (tooltip.preview && href) {
-                            tooltip.preview.textContent = href
-                            tooltip.preview.setAttribute('href', href)
+                        const safeHref = sanitizeUrl(href)
+                        if (tooltip.preview && safeHref) {
+                            tooltip.preview.textContent = safeHref
+                            tooltip.preview.setAttribute('href', safeHref)
+                        } else if (tooltip.preview) {
+                            tooltip.preview.removeAttribute('href')
                         }
                     }
                 }

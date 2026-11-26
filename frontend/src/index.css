@@ -3176,3 +3176,68 @@ input.no-picker-indicator::-webkit-clear-button {
   margin: 0 !important;
 }
 
+/* ==========================================================================
+   GLOBAL SYSTEM LOADING & SPINNER GOLD STYLING
+   All system loaders and spinners use the golden button tone (#E6C17A)
+   ========================================================================== */
+.animate-spin:not([class*="text-[#0D1B2A]"]):not([class*="border-[#0D1B2A]"]) {
+  color: #E6C17A;
+}
+
+/* Circular border-based spinners */
+div.animate-spin:not([class*="border-[#0D1B2A]"]),
+span.animate-spin:not([class*="border-[#0D1B2A]"]) {
+  border-top-color: #E6C17A !important;
+}
+
+div.animate-spin.border-primary,
+span.animate-spin.border-primary,
+div.animate-spin.border-tertiary,
+span.animate-spin.border-tertiary {
+  border-color: rgba(230, 193, 122, 0.25) !important;
+  border-top-color: #E6C17A !important;
+}
+
+div.animate-spin.border-t-primary,
+span.animate-spin.border-t-primary,
+div.animate-spin.border-t-tertiary,
+span.animate-spin.border-t-tertiary {
+  border-top-color: #E6C17A !important;
+}
+
+/* Override non-gold text colors on spinners */
+.animate-spin.text-primary,
+.animate-spin.text-cyan-400,
+.animate-spin.text-tertiary,
+.animate-spin.text-indigo-400,
+.animate-spin.text-sky-400,
+.animate-spin.text-blue-500,
+.animate-spin.text-amber-400,
+.animate-spin.text-slate-400,
+.animate-spin.text-rose-500,
+.animate-spin.text-rose-300 {
+  color: #E6C17A !important;
+}
+
+/* Maintain dark text inside primary gold buttons */
+.org-btn-primary .animate-spin,
+.btn-gold-primary .animate-spin,
+button[class*="from-[#C99A47]"] .animate-spin,
+button[class*="bg-gradient-to-r"][class*="C99A47"] .animate-spin,
+[class*="text-[#0D1B2A]"].animate-spin {
+  color: #0D1B2A !important;
+}
+
+.org-btn-primary span.animate-spin,
+.org-btn-primary div.animate-spin,
+.btn-gold-primary span.animate-spin,
+.btn-gold-primary div.animate-spin,
+button[class*="from-[#C99A47]"] span.animate-spin,
+button[class*="from-[#C99A47]"] div.animate-spin,
+span.animate-spin[class*="border-[#0D1B2A]"],
+div.animate-spin[class*="border-[#0D1B2A]"] {
+  border-color: rgba(13, 27, 42, 0.25) !important;
+  border-top-color: #0D1B2A !important;
+}
+
+

@@ -346,7 +346,7 @@ export function AdminProfilePage() {
   if (loading) {
     return (
       <div className="flex h-96 items-center justify-center">
-        <Loader2 className="size-10 animate-spin text-primary" />
+        <Loader2 className="size-10 animate-spin text-[#E6C17A]" />
       </div>
     )
   }
@@ -419,7 +419,7 @@ export function AdminProfilePage() {
                   )}
                   {uploadingAvatar && (
                     <div className="absolute inset-0 flex items-center justify-center rounded-full bg-slate-950/55 backdrop-blur-[2px]">
-                      <Loader2 className="size-8 animate-spin text-white" />
+                      <Loader2 className="size-8 animate-spin text-[#E6C17A]" />
                     </div>
                   )}
                 </div>
@@ -508,7 +508,7 @@ export function AdminProfilePage() {
             <ProfilePanel icon={Smartphone} title="Phiên đăng nhập">
               {loadingSessions ? (
                 <div className="flex min-h-40 items-center justify-center">
-                  <Loader2 className="size-8 animate-spin text-primary" />
+                  <Loader2 className="size-8 animate-spin text-[#E6C17A]" />
                 </div>
               ) : loginSessions.length > 0 ? (
                 <div className="space-y-3">
@@ -845,7 +845,7 @@ function SecurityCheck({ item, active }) {
   return (
     <div className={`flex items-start gap-3 rounded-xl border px-3 py-3 transition-all ${config.rowClassName} ${active ? 'animate-pulse' : ''}`}>
       {config.loading ? (
-        <Loader2 className="mt-0.5 size-5 shrink-0 animate-spin text-primary" />
+        <Loader2 className="mt-0.5 size-5 shrink-0 animate-spin text-[#E6C17A]" />
       ) : (
         <Icon className={`mt-0.5 size-5 shrink-0 ${config.iconClassName}`} />
       )}

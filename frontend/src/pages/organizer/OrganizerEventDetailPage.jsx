@@ -56,6 +56,7 @@ import { EventActionsDropdown } from './EventActionsDropdown.jsx'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
 import { translatePhrase } from '@/i18n/phraseDictionary.js'
 import { cleanAndFormatVenue, translateEventHtmlDescription } from '@/i18n/eventTranslations.js'
+import { sanitizeHtml } from '@/lib/sanitize.js'
 import '@/components/RichTextEditor.css'
 
 const STATUS_LABELS_VI = {
@@ -443,7 +444,7 @@ export function OrganizerEventDetailPage() {
     if (loading) {
         return (
             <div className="flex justify-center py-16">
-                <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#E6C17A]/25 border-t-[#E6C17A]" />
             </div>
         )
     }
@@ -612,7 +613,7 @@ export function OrganizerEventDetailPage() {
                                                     ? 'overflow-visible'
                                                     : 'max-h-56 overflow-hidden'
                                             }`}
-                                            dangerouslySetInnerHTML={{ __html: translateEventHtmlDescription(event.description, isEnglish) }}
+                                            dangerouslySetInnerHTML={{ __html: sanitizeHtml(translateEventHtmlDescription(event.description, isEnglish)) }}
                                         />
 
                                         {!isDescriptionExpanded && event.description.length > 250 && (

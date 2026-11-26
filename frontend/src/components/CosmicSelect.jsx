@@ -22,6 +22,7 @@ export function CosmicSelect({
   disabled = false,
   minWidth = 'min-w-[160px]',
   size = 'md', // 'sm' | 'md'
+  align = 'auto', // 'auto' | 'left' | 'right'
   label,
   icon: Icon,
 }) {
@@ -55,7 +56,6 @@ export function CosmicSelect({
     const rect = triggerRef.current?.getBoundingClientRect()
     if (!rect) return null
 
-    const popWidth = Math.max(rect.width, size === 'sm' ? 240 : 200)
     const spaceBelow = window.innerHeight - rect.bottom
     const spaceAbove = rect.top
     const itemH = size === 'sm' ? 34 : 40
@@ -67,18 +67,37 @@ export function CosmicSelect({
       top = Math.max(12, rect.top - estimatedHeight - 6)
     }
 
-    let left = rect.left
-    if (left + popWidth > window.innerWidth - 16) {
-      left = Math.max(16, window.innerWidth - popWidth - 16)
+    // Determine horizontal alignment:
+    // Align right if explicitly requested OR if trigger is positioned in the right portion of the screen
+    // or if a standard-width dropdown opening from left would overflow the viewport.
+    const isRight =
+      align === 'right' ||
+      (align !== 'left' && (rect.left + 280 > window.innerWidth - 16 || rect.left > window.innerWidth * 0.55))
+
+    const minW = Math.max(rect.width, size === 'sm' ? 200 : 180)
+
+    if (isRight) {
+      const right = Math.max(16, window.innerWidth - rect.right)
+      const maxW = Math.min(window.innerWidth - 32, rect.right - 16, 480)
+      return {
+        top,
+        right,
+        left: 'auto',
+        minWidth: minW,
+        maxWidth: Math.max(rect.width, maxW),
+      }
     }
 
+    const left = Math.max(16, rect.left)
+    const maxW = Math.min(window.innerWidth - left - 16, 480)
     return {
-      left,
       top,
-      minWidth: Math.max(rect.width, size === 'sm' ? 220 : 180),
-      maxWidth: Math.max(popWidth, 380),
+      left,
+      right: 'auto',
+      minWidth: minW,
+      maxWidth: Math.max(rect.width, maxW),
     }
-  }, [normalizedOptions.length, size])
+  }, [normalizedOptions.length, size, align])
 
   // Synchronously compute position before browser paints whenever open
   useLayoutEffect(() => {
@@ -189,8 +208,9 @@ export function CosmicSelect({
           <div
             ref={popupRef}
             style={{
-              left: `${popupStyle.left}px`,
               top: `${popupStyle.top}px`,
+              left: popupStyle.left !== 'auto' && popupStyle.left !== undefined ? `${popupStyle.left}px` : 'auto',
+              right: popupStyle.right !== 'auto' && popupStyle.right !== undefined ? `${popupStyle.right}px` : 'auto',
               minWidth: `${popupStyle.minWidth}px`,
               maxWidth: `${popupStyle.maxWidth}px`,
             }}

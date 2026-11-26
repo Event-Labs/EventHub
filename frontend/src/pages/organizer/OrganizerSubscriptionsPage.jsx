@@ -90,7 +90,7 @@ export function OrganizerSubscriptionsPage() {
       {/* Loading state */}
       {isLoading && (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="size-6 animate-spin text-primary" />
+          <Loader2 className="size-6 animate-spin text-[#E6C17A]" />
           <span className="ml-3 text-sm font-semibold text-subtle">Đang tải danh sách gói...</span>
         </div>
       )}

@@ -391,7 +391,7 @@ export function OrganizerPromosPage() {
 
       {loading ? (
         <div className="flex h-64 flex-col items-center justify-center gap-3 rounded-xl border border-border-soft/30 bg-surface/80">
-          <Loader2 className="size-8 animate-spin text-primary" />
+          <Loader2 className="size-8 animate-spin text-[#E6C17A]" />
           <p className="text-sm text-muted">Đang tải dữ liệu khuyến mãi...</p>
         </div>
       ) : (

@@ -3337,7 +3337,7 @@ export function SeatMapEditor({ venueId, seatMapId, onSave, onClose }) {
     return createPortal(
       <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background">
         <div className="text-center">
-          <div className="mx-auto mb-3 h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          <div className="mx-auto mb-3 h-10 w-10 animate-spin rounded-full border-4 border-[#E6C17A]/25 border-t-[#E6C17A]" />
           <p className="text-sm text-muted">{isEnglish ? 'Loading seat map...' : 'Đang tải sơ đồ ghế...'}</p>
         </div>
       </div>,
