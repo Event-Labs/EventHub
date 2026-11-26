@@ -7,7 +7,6 @@ import {
   AlertTriangle,
   MapPin,
   Tag,
-  Video,
   Info,
   Ban,
   ShieldAlert,
@@ -31,7 +30,6 @@ import {
   Copy,
   Loader2,
   Square,
-  LayoutGrid,
   Table,
   ChevronDown,
   ChevronUp,
@@ -57,8 +55,6 @@ import {
   suspendAdminEvent,
   unsuspendAdminEvent,
   approveCancellationRequest,
-  initiateForceCancel,
-  confirmForceCancel,
   reviewAdminEventRevision,
 } from '@/services/adminEvents.js'
 import { getApiMessage } from '@/lib/messages.js'
@@ -132,11 +128,7 @@ function formatShortDate(value) {
   }
 }
 
-const getAutoLocale = () =>
-  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
-    (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
-    ? 'en-US'
-    : 'vi-VN'
+const getAutoLocale = () => 'vi-VN'
 
 function formatDate(value) {
   if (!value) return '—'
@@ -4505,15 +4497,11 @@ export function AdminEventReviewDetailPage() {
               <div className="flex flex-1 flex-col overflow-hidden bg-[#081126] rounded-[24px] border border-[#263751] shadow-[0_8px_32px_rgba(0,0,0,0.4)] backdrop-blur-xl min-h-0 [html.light_&]:bg-white [html.light_&]:border-slate-200 [html.light_&]:shadow-lg">
                 {/* AI Assistant Header (Fixed on top of AI card) */}
                 <div className="shrink-0 px-4 py-3 border-b border-[#263751] bg-[#101D32]/95 backdrop-blur-md flex items-center justify-between gap-2 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="grid size-8 place-items-center rounded-xl bg-[#A78BFA]/15 border border-[#A78BFA]/30 text-[#A78BFA] shrink-0 [html.light_&]:bg-purple-50 [html.light_&]:text-purple-700">
-                      <Bot className="size-4" />
-                    </div>
-                    <div className="min-w-0">
-                      <h2 className="font-display text-xs sm:text-sm font-black text-slate-100 drop-shadow-sm tracking-tight uppercase whitespace-nowrap [html.light_&]:text-[#0D1B2A]">
-                        AI Review Assistant
-                      </h2>
-                    </div>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Bot className="size-5 text-[#A78BFA] shrink-0 [html.light_&]:text-purple-700" />
+                    <h2 className="font-display text-xs sm:text-sm font-black text-slate-100 drop-shadow-sm tracking-tight uppercase whitespace-nowrap [html.light_&]:text-[#0D1B2A]">
+                      AI Review Assistant
+                    </h2>
                   </div>
 
                   <div className="flex items-center gap-1.5 shrink-0">
@@ -4565,15 +4553,9 @@ export function AdminEventReviewDetailPage() {
                         <RefreshCw className="size-4 animate-spin" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <h4 className="text-xs font-bold text-[#A78BFA]">
-                            AI đang phân tích & kiểm duyệt sự kiện...
-                          </h4>
-                          <span className="flex items-center gap-1.5 text-[11px] font-semibold text-[#FF4569] bg-[#FF4569]/10 border border-[#FF4569]/30 px-2.5 py-0.5 rounded-lg">
-                            <span className="size-1.5 rounded-full bg-[#FF4569] animate-ping" />
-                            Có thể bấm &quot;Hủy quét&quot; ở trên để dừng
-                          </span>
-                        </div>
+                        <h4 className="text-xs font-bold text-[#A78BFA]">
+                          AI đang phân tích & kiểm duyệt sự kiện...
+                        </h4>
                         <div className="mt-2 space-y-1.5 text-xs text-slate-300">
                           <p className="flex items-center gap-2">
                             <span className="inline-block size-1.5 rounded-full bg-[#A78BFA] animate-ping" />

@@ -10,11 +10,7 @@ import { useToast } from '@/providers/ToastProvider.jsx'
 import { Modal } from '@/components/Modal.jsx'
 import { Badge, Page, Panel, StatusBadge, Table, TableActionButton } from './AdminComponents.jsx'
 
-const getAutoLocale = () =>
-  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
-   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
-    ? 'en-US'
-    : 'vi-VN'
+const getAutoLocale = () => 'vi-VN'
 
 
 const statusFilters = [

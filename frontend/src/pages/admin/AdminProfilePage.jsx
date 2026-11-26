@@ -1150,19 +1150,14 @@ function InputField({ label, className = '', type = 'text', ...props }) {
   )
 }
 
-const getAutoLocale = () =>
-  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
-   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
-    ? 'en-US'
-    : 'vi-VN'
+const getAutoLocale = () => 'vi-VN'
 
 function formatDateTime(value) {
-  const isEn = getAutoLocale() === 'en-US'
-  if (!value) return isEn ? 'Not checked' : 'Chưa kiểm tra'
+  if (!value) return 'Chưa kiểm tra'
   const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return isEn ? 'Not checked' : 'Chưa kiểm tra'
+  if (Number.isNaN(date.getTime())) return 'Chưa kiểm tra'
 
-  return new Intl.DateTimeFormat(getAutoLocale(), {
+  return new Intl.DateTimeFormat('vi-VN', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -1172,12 +1167,11 @@ function formatDateTime(value) {
 }
 
 function formatDate(value) {
-  const isEn = getAutoLocale() === 'en-US'
-  if (!value) return isEn ? 'Updating' : 'Chưa cập nhật'
+  if (!value) return 'Chưa cập nhật'
   const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return isEn ? 'Updating' : 'Chưa cập nhật'
+  if (Number.isNaN(date.getTime())) return 'Chưa cập nhật'
 
-  return new Intl.DateTimeFormat(getAutoLocale(), {
+  return new Intl.DateTimeFormat('vi-VN', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',

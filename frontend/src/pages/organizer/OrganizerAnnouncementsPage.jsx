@@ -268,11 +268,11 @@ export function OrganizerAnnouncementsPage() {
                 </span>
                 <div className="mt-2 flex flex-wrap gap-5 text-sm font-semibold text-content [html.light_&]:text-[#1B365D]">
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={form.web} onChange={update('web')} className="accent-primary" />
+                    <input type="checkbox" checked={form.web} onChange={update('web')} className="size-4 accent-[#C99A47] cursor-pointer" />
                     Website
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={form.email} onChange={update('email')} className="accent-primary" />
+                    <input type="checkbox" checked={form.email} onChange={update('email')} className="size-4 accent-[#C99A47] cursor-pointer" />
                     Email
                   </label>
                 </div>

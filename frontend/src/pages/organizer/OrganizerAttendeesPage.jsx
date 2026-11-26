@@ -278,7 +278,7 @@ export function OrganizerAttendeesPage() {
         <>
           {/* ── KPI row ── */}
           {!loading && pagination.total > 0 && (
-            <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
               <KpiCard label="Tổng người tham dự" value={pagination.total} />
               <KpiCard label="Trang này: Đã check-in" value={checkedInCount} tone="green" />
               <KpiCard label="Trang này: Chưa check-in" value={validCount} tone="blue" />
@@ -517,12 +517,12 @@ function KpiCard({ label, value, tone }) {
       ? 'text-success'
       : tone === 'blue'
         ? 'text-primary'
-        : 'text-content'
+        : 'text-white [html.light_&]:text-[#0D1B2A]'
 
   return (
-    <div className="rounded-xl border border-border-soft/30 bg-panel-soft px-4 py-3">
-      <p className="text-[10px] font-extrabold uppercase tracking-wider text-subtle">{label}</p>
-      <p className={`mt-1 text-2xl font-display font-extrabold ${valueClass}`}>{value}</p>
+    <div className="rounded-2xl border border-border-soft/30 bg-panel-soft p-5 min-h-[105px] flex flex-col justify-between shadow-sm transition-all hover:border-border-soft/60">
+      <p className="text-xs font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">{label}</p>
+      <p className={`mt-3 text-2xl sm:text-3xl font-display font-black ${valueClass}`}>{value}</p>
     </div>
   )
 }

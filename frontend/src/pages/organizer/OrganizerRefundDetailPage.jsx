@@ -12,7 +12,6 @@ import {
   Mail,
   Phone,
   Calendar,
-  DollarSign,
   FileText,
   Copy,
   Check,
@@ -57,16 +56,12 @@ function formatDateTime(value) {
 }
 
 function formatCurrency(value) {
-  if (value === undefined || value === null) return '0 ₫'
+  if (value === undefined || value === null) return '0 VND'
   const isEn = getAutoLocale() === 'en-US'
   if (isEn) {
     return `${new Intl.NumberFormat('en-US').format(value)} VND`
   }
-  return new Intl.NumberFormat('vi-VN', {
-    style: 'currency',
-    currency: 'VND',
-    maximumFractionDigits: 0,
-  }).format(value)
+  return `${new Intl.NumberFormat('vi-VN').format(value)} VND`
 }
 
 function formatShortErrorMessage(error) {

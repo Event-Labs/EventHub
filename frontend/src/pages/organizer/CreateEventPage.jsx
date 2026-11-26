@@ -2310,7 +2310,7 @@ function Step3TicketsSeats({
                   >
                     <input
                       type="checkbox"
-                      className="mt-0.5 h-4 w-4 accent-tertiary"
+                      className="mt-0.5 h-4 w-4 accent-[#C99A47] cursor-pointer"
                       checked={Boolean(formData.seating_rules?.[rule.key])}
                       onChange={(e) =>
                         setFormData((p) => ({

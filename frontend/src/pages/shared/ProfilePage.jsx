@@ -1359,63 +1359,65 @@ function ProfileView({ user, tickets = [], ticketsLoading = false, favorites = [
               </div>
             </Link>
 
-            {/* Cài đặt ngôn ngữ / Language Switcher Row */}
-            <div className="group flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-white/[0.02] px-3.5 py-2.5 transition hover:bg-white/[0.06] hover:border-[#E6C17A]/40 hover:shadow-[0_0_12px_rgba(201,154,71,0.15)]">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-[#C99A47]/10 text-[#E6C17A] transition group-hover:scale-105">
-                  <Globe className="size-4" />
-                </span>
-                <span className="text-xs font-medium text-slate-400 group-hover:text-slate-200 transition">
-                  {isEnglish ? 'Language' : 'Ngôn ngữ'}
-                </span>
-              </div>
+            {/* Cài đặt ngôn ngữ / Language Switcher Row (Chỉ hiển thị cho Customer, Organizer, Staff - không áp dụng cho Admin) */}
+            {user?.role !== 'ADMIN' && (
+              <div className="group flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-white/[0.02] px-3.5 py-2.5 transition hover:bg-white/[0.06] hover:border-[#E6C17A]/40 hover:shadow-[0_0_12px_rgba(201,154,71,0.15)]">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-[#C99A47]/10 text-[#E6C17A] transition group-hover:scale-105">
+                    <Globe className="size-4" />
+                  </span>
+                  <span className="text-xs font-medium text-slate-400 group-hover:text-slate-200 transition">
+                    {isEnglish ? 'Language' : 'Ngôn ngữ'}
+                  </span>
+                </div>
 
-              {/* Switch con nhộng nhỏ gọn, tinh tế trên cùng 1 dòng (VIE / ENG) */}
-              <div
-                className="relative flex h-6 w-[76px] items-center rounded-full p-0.5 bg-[#091224] border border-[#C99A47]/35 shadow-[inset_0_1px_3px_rgba(0,0,0,0.5)] [html.light_&]:bg-slate-200 [html.light_&]:border-slate-300 select-none shrink-0"
-                role="radiogroup"
-                aria-label={isEnglish ? 'Language switcher' : 'Bộ chọn ngôn ngữ'}
-              >
-                {/* Thẻ active trượt mượt mà (GPU accelerated) */}
+                {/* Switch con nhộng nhỏ gọn, tinh tế trên cùng 1 dòng (VIE / ENG) */}
                 <div
-                  className={`absolute top-0.5 bottom-0.5 left-0.5 w-[calc(50%-2px)] rounded-full bg-gradient-to-r from-[#C99A47] to-[#E6C17A] shadow-sm shadow-[#C99A47]/30 transition-transform duration-300 ease-out pointer-events-none ${
-                    isVietnamese ? 'translate-x-0' : 'translate-x-full'
-                  }`}
-                />
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={isVietnamese}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setLanguage('vi')
-                  }}
-                  className={`relative z-10 flex-1 h-full flex items-center justify-center rounded-full text-[8.5px] font-bold tracking-normal text-center transition-colors duration-200 cursor-pointer ${
-                    isVietnamese
-                      ? 'text-[#0D1B2A]'
-                      : 'text-slate-400 hover:text-white [html.light_&]:text-slate-600 [html.light_&]:hover:text-[#0D1B2A]'
-                  }`}
+                  className="relative flex h-6 w-[76px] items-center rounded-full p-0.5 bg-[#091224] border border-[#C99A47]/35 shadow-[inset_0_1px_3px_rgba(0,0,0,0.5)] [html.light_&]:bg-slate-200 [html.light_&]:border-slate-300 select-none shrink-0"
+                  role="radiogroup"
+                  aria-label={isEnglish ? 'Language switcher' : 'Bộ chọn ngôn ngữ'}
                 >
-                  VIE
-                </button>
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={!isVietnamese}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setLanguage('en')
-                  }}
-                  className={`relative z-10 flex-1 h-full flex items-center justify-center rounded-full text-[8.5px] font-bold tracking-normal text-center transition-colors duration-200 cursor-pointer ${
-                    !isVietnamese
-                      ? 'text-[#0D1B2A]'
-                      : 'text-slate-400 hover:text-white [html.light_&]:text-slate-600 [html.light_&]:hover:text-[#0D1B2A]'
-                  }`}
-                >
-                  ENG
-                </button>
+                  {/* Thẻ active trượt mượt mà (GPU accelerated) */}
+                  <div
+                    className={`absolute top-0.5 bottom-0.5 left-0.5 w-[calc(50%-2px)] rounded-full bg-gradient-to-r from-[#C99A47] to-[#E6C17A] shadow-sm shadow-[#C99A47]/30 transition-transform duration-300 ease-out pointer-events-none ${
+                      isVietnamese ? 'translate-x-0' : 'translate-x-full'
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={isVietnamese}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setLanguage('vi')
+                    }}
+                    className={`relative z-10 flex-1 h-full flex items-center justify-center rounded-full text-[8.5px] font-bold tracking-normal text-center transition-colors duration-200 cursor-pointer ${
+                      isVietnamese
+                        ? 'text-[#0D1B2A]'
+                        : 'text-slate-400 hover:text-white [html.light_&]:text-slate-600 [html.light_&]:hover:text-[#0D1B2A]'
+                    }`}
+                  >
+                    VIE
+                  </button>
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={!isVietnamese}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setLanguage('en')
+                    }}
+                    className={`relative z-10 flex-1 h-full flex items-center justify-center rounded-full text-[8.5px] font-bold tracking-normal text-center transition-colors duration-200 cursor-pointer ${
+                      !isVietnamese
+                        ? 'text-[#0D1B2A]'
+                        : 'text-slate-400 hover:text-white [html.light_&]:text-slate-600 [html.light_&]:hover:text-[#0D1B2A]'
+                    }`}
+                  >
+                    ENG
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </aside>
 

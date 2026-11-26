@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   AlertTriangle,
-  ArrowUpRight,
   BarChart2,
   BarChart3,
   Building2,
@@ -10,10 +9,7 @@ import {
   CheckCircle2,
   ChevronRight,
   CircleDollarSign,
-  ClipboardList,
   Crown,
-  Layers,
-  LineChart,
   Loader2,
   PieChart,
   ShoppingCart,
@@ -23,9 +19,8 @@ import {
   Users,
   Zap,
 } from 'lucide-react'
-import { DateRangeFilter, getDateRange, getDateRangeLabel } from '@/components/DateRangeFilter.jsx'
+import { DateRangeFilter, getDateRange } from '@/components/DateRangeFilter.jsx'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
-import { VI_TO_EN } from '@/i18n/phraseDictionary.js'
 import {
   fetchAdminAnalyticsOverview,
   fetchAdminRevenueTrend,
@@ -37,11 +32,7 @@ import { Page, Panel } from './AdminComponents.jsx'
 
 // ─── Formatters & Helpers ────────────────────────────────────────────────────
 
-const getAutoLocale = () =>
-  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
-   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
-    ? 'en-US'
-    : 'vi-VN'
+const getAutoLocale = () => 'vi-VN'
 
 function fmtCurrency(n) {
   return new Intl.NumberFormat(getAutoLocale(), { style: 'currency', currency: 'VND' }).format(Number(n) || 0)
@@ -200,7 +191,7 @@ function AdminMetricCard({
           </div>
         )}
       </div>
-      <p className={`mt-3 text-2xl sm:text-3xl font-black ${t.valColor} [html.light_&]:text-[#0D1B2A] drop-shadow-sm`}>
+      <p className={`mt-3 text-2xl xl:text-3xl font-black ${t.valColor} [html.light_&]:text-[#0D1B2A] drop-shadow-sm truncate`}>
         {value}
       </p>
       {sub && (
@@ -810,7 +801,7 @@ function CategoryDistributionChart({ items = [] }) {
       <div className="pointer-events-none absolute -right-12 -top-12 size-40 rounded-full bg-cyan-500/5 blur-3xl" />
       <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-2">
-          <PieChart className="size-5 text-cyan-400" />
+          <PieChart className="size-5 text-[#E6C17A]" />
           <h2 className="text-base font-bold text-white [html.light_&]:text-[#0D1B2A]">Sự kiện theo danh mục</h2>
         </div>
         <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-bold text-slate-300">
@@ -946,26 +937,20 @@ export function AdminAnalyticsPage() {
     >
       {/* ── 1. Attention Required Banner ("HÀNG ĐỢI XỬ LÝ") ── */}
       {overview && (
-        <div className="relative mb-6 rounded-2xl bg-gradient-to-r from-[#17140b] via-[#0f172a] to-[#17140b] p-5 shadow-[0_0_25px_rgba(245,158,11,0.15)] [html.light_&]:bg-none [html.light_&]:bg-amber-50/90 [html.light_&]:border [html.light_&]:border-amber-400/40 [html.light_&]:shadow-[0_0_20px_rgba(245,158,11,0.15)]">
+        <div className="relative mb-6 rounded-2xl bg-white/[0.05] backdrop-blur-xl p-5 shadow-[0_8px_32px_rgba(0,0,0,0.25)] [html.light_&]:bg-white [html.light_&]:shadow-md">
           <svg className="urgent-banner-led-svg" aria-hidden="true">
             <rect className="urgent-banner-led-track" />
             <rect className="urgent-banner-led-glow" pathLength="100" />
             <rect className="urgent-banner-led-core" pathLength="100" />
           </svg>
-          <div className="pointer-events-none absolute -right-8 -top-8 size-28 rounded-full bg-amber-500/10 blur-2xl [html.light_&]:hidden" />
-          <div className="mb-3.5 flex items-center justify-between">
+          <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="grid size-8 place-items-center rounded-xl bg-amber-500/20 text-amber-400 shadow-sm [html.light_&]:bg-amber-100 [html.light_&]:text-amber-700">
                 <AlertTriangle className="size-4.5" />
               </div>
-              <div>
-                <p className="text-xs font-black uppercase tracking-wider text-amber-400 [html.light_&]:text-amber-800">
-                  {isEnglish ? 'Approval Queue' : 'Hàng đợi phê duyệt'}
-                </p>
-                <p className="text-xs text-slate-400 [html.light_&]:text-[#536b88]">
-                  {isEnglish ? 'Partner requests requiring admin review before going live' : 'Yêu cầu từ các đối tác cần Admin kiểm duyệt trước khi đưa lên sàn'}
-                </p>
-              </div>
+              <p className="text-sm font-black uppercase tracking-wider text-amber-400 [html.light_&]:text-amber-800">
+                {isEnglish ? 'Approval Queue' : 'Hàng đợi phê duyệt'}
+              </p>
             </div>
             {Number(events?.pending_events || 0) + Number(orgReqs?.pending_requests || 0) > 0 ? (
               <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-extrabold text-amber-300 [html.light_&]:bg-amber-100 [html.light_&]:border-amber-300 [html.light_&]:text-amber-800">
@@ -1079,22 +1064,22 @@ export function AdminAnalyticsPage() {
             <AdminMetricCard
               icon={CircleDollarSign}
               label={isEnglish ? 'Total Ticket GMV' : 'Tổng giao dịch vé (GMV)'}
-              value={fmtShort(orders.gross_revenue)}
+              value={`${Number(orders.gross_revenue || 0).toLocaleString('vi-VN')} VND`}
               sub={
                 isEnglish
-                  ? `Gross ticket sales: ${fmtCurrency(orders.gross_revenue)}`
-                  : `Dòng tiền vé bán qua sàn: ${fmtCurrency(orders.gross_revenue)}`
+                  ? 'Total gross ticket sales through platform'
+                  : 'Dòng tiền vé bán qua sàn'
               }
               theme="emerald"
             />
             <AdminMetricCard
               icon={TrendingUp}
               label={isEnglish ? 'Subscription Revenue' : 'Doanh thu gói dịch vụ'}
-              value={fmtShort(subscriptionRevenue?.total_revenue)}
+              value={`${Number(subscriptionRevenue?.total_revenue || 0).toLocaleString('vi-VN')} VND`}
               sub={
                 isEnglish
-                  ? `EventHub net revenue: ${fmtCurrency(subscriptionRevenue?.total_revenue)}`
-                  : `Doanh thu thực nhận EventHub: ${fmtCurrency(subscriptionRevenue?.total_revenue)}`
+                  ? 'EventHub net revenue from subscription plans'
+                  : 'Doanh thu thực nhận EventHub'
               }
               theme="amber"
               onClick={() => navigate('/admin/plans')}

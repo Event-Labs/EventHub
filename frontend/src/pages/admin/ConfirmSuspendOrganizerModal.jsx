@@ -1,4 +1,4 @@
-import { AlertTriangle, Building2, ShieldCheck } from 'lucide-react'
+import { AlertTriangle, ShieldCheck } from 'lucide-react'
 import { Modal } from '@/components/Modal.jsx'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
 
