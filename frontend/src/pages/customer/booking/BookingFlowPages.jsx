@@ -1556,6 +1556,34 @@ export function BookingReviewPage() {
   }, [cart?.eventId])
 
   useEffect(() => {
+    if (!cart?.eventId) return
+    if (cart?.buyer?.name && cart?.buyer?.email && cart?.buyer?.phone) return
+    getProfile()
+      .then((profile) => {
+        if (!profile) return
+        setCart((prev) => {
+          if (!prev) return prev
+          const nextBuyer = {
+            name: prev.buyer?.name || profile.full_name || '',
+            email: prev.buyer?.email || profile.email || '',
+            phone: prev.buyer?.phone || profile.phone || '',
+          }
+          if (
+            nextBuyer.name === (prev.buyer?.name || '') &&
+            nextBuyer.email === (prev.buyer?.email || '') &&
+            nextBuyer.phone === (prev.buyer?.phone || '')
+          ) {
+            return prev
+          }
+          const nextCart = { ...prev, buyer: nextBuyer }
+          saveBookingDraft(nextCart, 'booking-flow')
+          return nextCart
+        })
+      })
+      .catch(() => {})
+  }, [cart?.eventId, cart?.buyer?.name, cart?.buyer?.email, cart?.buyer?.phone])
+
+  useEffect(() => {
     if (!cart?.items?.length && !expiredHandledRef.current) {
       expiredHandledRef.current = true
       clearBookingDraft(cart?.eventId)
@@ -1893,12 +1921,9 @@ export function BookingReviewPage() {
             {collectAttendees ? (
               <div className="grid gap-3 md:grid-cols-2">
                 {expandAttendeeSlots(cart).map((slot, index) => {
-                  const attendeeData = cart?.attendees?.[slot.id] ||
-                    cart?.prefilledAttendees?.[index] ||
-                    (Array.isArray(cart?.attendees) ? cart.attendees[index] : null) ||
-                    Object.values(cart?.attendees || {})[index] || {};
-                  const attendeeName = (attendeeData.name || (index === 0 ? cart.buyer?.name : '') || '').trim()
-                  const attendeeEmail = (attendeeData.email || (index === 0 ? cart.buyer?.email : '') || '').trim()
+                  const attendeeData = resolveSlotAttendeeData(cart, slot, index)
+                  const attendeeName = String(attendeeData.name || '').trim()
+                  const attendeeEmail = String(attendeeData.email || '').trim()
                   return (
                     <div key={slot.id} className="rounded-md border border-border-soft bg-surface p-3">
                       <p className="text-xs font-bold uppercase text-primary">{'Vé'} {index + 1}</p>
@@ -3642,12 +3667,50 @@ function expandAttendeeSlots(cart) {
   return slots
 }
 
+function hasAttendeeValue(entry) {
+  return Boolean(entry && (String(entry.name || '').trim() || String(entry.email || '').trim()))
+}
+
+function resolveSlotAttendeeData(cart, slot, index) {
+  const bySlotId = slot?.id ? cart?.attendees?.[slot.id] : null
+  if (hasAttendeeValue(bySlotId)) return bySlotId
+
+  const prefilled = cart?.prefilledAttendees?.[index]
+  if (hasAttendeeValue(prefilled)) return prefilled
+
+  if (Array.isArray(cart?.attendees) && hasAttendeeValue(cart.attendees[index])) {
+    return cart.attendees[index]
+  }
+
+  if (cart?.attendees && !Array.isArray(cart.attendees)) {
+    const nonEmptyEntries = []
+    const seen = new Set()
+    for (const val of Object.values(cart.attendees)) {
+      if (!hasAttendeeValue(val)) continue
+      const key = `${String(val.name || '').trim().toLowerCase()}|${String(val.email || '').trim().toLowerCase()}`
+      if (!seen.has(key)) {
+        seen.add(key)
+        nonEmptyEntries.push(val)
+      }
+    }
+    if (hasAttendeeValue(nonEmptyEntries[index])) {
+      return nonEmptyEntries[index]
+    }
+  }
+
+  if (index === 0 && (cart?.buyer?.name || cart?.buyer?.email)) {
+    return {
+      name: cart.buyer.name || '',
+      email: cart.buyer.email || '',
+    }
+  }
+
+  return {}
+}
+
 function buildAttendeesPayload(cart) {
   return expandAttendeeSlots(cart).map((slot, index) => {
-    const attendee = cart?.attendees?.[slot.id] ||
-      cart?.prefilledAttendees?.[index] ||
-      (Array.isArray(cart?.attendees) ? cart.attendees[index] : null) ||
-      Object.values(cart?.attendees || {})[index];
+    const attendee = resolveSlotAttendeeData(cart, slot, index)
     const name = (attendee?.name || (index === 0 ? cart.buyer?.name : '') || cart.buyer?.name || '').trim()
     const email = (attendee?.email || (index === 0 ? cart.buyer?.email : '') || cart.buyer?.email || '').trim()
     return {
