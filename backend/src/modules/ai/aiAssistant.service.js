@@ -17,41 +17,235 @@ const logger = require('../../core/logger');
 let cachedPublishedEvents = [];
 let cacheTimestamp = 0;
 
+const HIDDEN_OR_UNPUBLISHED_STATUSES = new Set([
+  'DRAFT',
+  'PENDING',
+  'PENDING_APPROVAL',
+  'REJECTED',
+  'CANCELLED',
+  'ARCHIVED',
+  'HIDDEN',
+  'SUSPENDED',
+  'UNPUBLISHED'
+]);
+const ENDED_STATUSES = new Set(['ENDED', 'COMPLETED']);
+
+/**
+ * Extracts effective earliest start and latest end timestamps (ms) from an event or its sessions.
+ */
+function getEffectiveEventBounds(ev) {
+  if (!ev || typeof ev !== 'object') return { startMs: null, endMs: null };
+  const toMs = (val) => {
+    if (!val) return null;
+    const ms = new Date(val).getTime();
+    return Number.isFinite(ms) ? ms : null;
+  };
+
+  let startMs = toMs(ev.start_time);
+  let endMs = toMs(ev.end_time);
+
+  if (Array.isArray(ev.sessions) && ev.sessions.length > 0) {
+    const sessionStarts = ev.sessions.map(s => toMs(s.start_time)).filter(v => v !== null);
+    const sessionEnds = ev.sessions.map(s => toMs(s.end_time) ?? toMs(s.start_time)).filter(v => v !== null);
+    if (sessionStarts.length > 0) {
+      const minSessStart = Math.min(...sessionStarts);
+      startMs = startMs !== null ? Math.min(startMs, minSessStart) : minSessStart;
+    }
+    if (sessionEnds.length > 0) {
+      const maxSessEnd = Math.max(...sessionEnds);
+      endMs = endMs !== null ? Math.max(endMs, maxSessEnd) : maxSessEnd;
+    }
+  }
+
+  return { startMs, endMs };
+}
+
+/**
+ * Returns true if the event is hidden, unpublished, deleted, cancelled, outside its publish window, or not publicly approved.
+ */
+function isEventHiddenOrUnpublished(ev, nowMs = Date.now()) {
+  if (!ev || typeof ev !== 'object') return true;
+  if (ev.deleted_at) return true;
+  if (ev.is_hidden) return true;
+  if (ev.visibility && ev.visibility !== 'PUBLIC') return true;
+  if (ev.approval_status && ev.approval_status !== 'APPROVED') return true;
+  if (ev.display_state && ev.display_state !== 'VISIBLE') return true;
+
+  const statusUpper = String(ev.status || '').toUpperCase();
+  if (statusUpper && (HIDDEN_OR_UNPUBLISHED_STATUSES.has(statusUpper) || (statusUpper !== 'PUBLISHED' && !ENDED_STATUSES.has(statusUpper)))) {
+    return true;
+  }
+
+  const startPublishMs = ev.start_publish_at ? new Date(ev.start_publish_at).getTime() : null;
+  const endPublishMs = ev.end_publish_at ? new Date(ev.end_publish_at).getTime() : null;
+  if (startPublishMs !== null && Number.isFinite(startPublishMs) && startPublishMs > nowMs) return true;
+  if (endPublishMs !== null && Number.isFinite(endPublishMs) && endPublishMs < nowMs) return true;
+
+  return false;
+}
+
+/**
+ * Returns true if an event has ended (by ENDED/COMPLETED status, ENDED/CLOSED sales_status, or past end_time).
+ */
+function isEventEnded(ev, nowMs = Date.now()) {
+  if (!ev || typeof ev !== 'object') return false;
+  const statusUpper = String(ev.status || '').toUpperCase();
+  if (ENDED_STATUSES.has(statusUpper)) return true;
+
+  const salesUpper = String(ev.sales_status || '').toUpperCase();
+  if (salesUpper === 'ENDED' || salesUpper === 'CLOSED') return true;
+
+  const { startMs, endMs } = getEffectiveEventBounds(ev);
+  if (endMs !== null) {
+    return endMs <= nowMs;
+  }
+  if (startMs !== null) {
+    return startMs <= nowMs;
+  }
+  return false;
+}
+
+/**
+ * Returns true ONLY if the event is publicly visible, published, approved, and currently ongoing or upcoming.
+ */
+function isOngoingOrUpcomingPublicEvent(ev, nowMs = Date.now()) {
+  if (!ev || isEventHiddenOrUnpublished(ev, nowMs)) return false;
+  const statusUpper = String(ev.status || '').toUpperCase();
+  if (statusUpper && statusUpper !== 'PUBLISHED') return false;
+  return !isEventEnded(ev, nowMs);
+}
+
+/**
+ * Concise ended-event notice that deliberately excludes all event details (venue, schedule, prices, refund policy, description).
+ */
+function formatEndedEventReply(title, isEn = false) {
+  const safeTitle = title ? ` **${title}**` : '';
+  if (isEn) {
+    return `The event${safeTitle} has already ended. If you would like Eve to help explore ongoing or upcoming events on EventHub, feel free to ask!`;
+  }
+  return `Dạ sự kiện${safeTitle} đã kết thúc rồi bạn nhé. Nếu bạn muốn tìm hiểu các sự kiện đang diễn ra hoặc sắp diễn ra khác trên EventHub, Eve rất sẵn lòng hỗ trợ ạ!`;
+}
+
+function invalidatePublishedEventsCache() {
+  cachedPublishedEvents = [];
+  cacheTimestamp = 0;
+}
+
+async function fetchPublicEventVisibilityMeta(eventIdOrSlug) {
+  if (!eventIdOrSlug) return null;
+  try {
+    const res = await db.query(
+      `SELECT e.id, e.slug, e.title, e.status, e.visibility, e.approval_status,
+              COALESCE(e.display_state, 'VISIBLE') AS display_state,
+              e.deleted_at, e.start_publish_at, e.end_publish_at,
+              COALESCE(time_summary.start_time, e.start_time) AS start_time,
+              COALESCE(time_summary.end_time, e.end_time) AS end_time,
+              CASE
+                WHEN e.status::text IN ('COMPLETED', 'ENDED', 'CANCELLED') THEN 'CLOSED'
+                WHEN COALESCE(time_summary.end_time, e.end_time) <= NOW() THEN 'ENDED'
+                ELSE COALESCE(e.sales_status, 'ON_SALE')
+              END AS sales_status
+       FROM events e
+       LEFT JOIN LATERAL (
+         SELECT MIN(es.start_time) AS start_time, MAX(es.end_time) AS end_time
+         FROM event_sessions es
+         WHERE es.event_id = e.id
+       ) time_summary ON true
+       WHERE (e.id::text = $1 OR e.slug = $1)
+       LIMIT 1`,
+      [String(eventIdOrSlug)]
+    );
+    return res?.rows?.[0] || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Single source of truth for loading and verifying an event before any chatbot detail or booking flow.
+ * Returns { state: 'ACTIVE' | 'ENDED' | 'HIDDEN' | 'NOT_FOUND', detail, title }.
+ */
+async function resolveEventStateAndDetail(identifier, userId = null) {
+  if (!identifier) return { state: 'NOT_FOUND', detail: null, title: '' };
+
+  const meta = await fetchPublicEventVisibilityMeta(identifier);
+  if (meta) {
+    if (isEventHiddenOrUnpublished(meta)) {
+      return { state: 'HIDDEN', detail: null, title: '' };
+    }
+    if (isEventEnded(meta)) {
+      return { state: 'ENDED', detail: null, title: meta.title || '' };
+    }
+  }
+
+  let detail = null;
+  try {
+    detail = await eventsService.getPublicEventDetail(identifier, userId);
+  } catch (err) {
+    logger.warn(`[AiAssistant] Event not found or inaccessible for identifier "${identifier}": ${err.message}`);
+    return { state: 'NOT_FOUND', detail: null, title: '' };
+  }
+
+  if (!detail) {
+    return { state: 'NOT_FOUND', detail: null, title: '' };
+  }
+
+  // If findPublicEventByIdentifier matched via fuzzy fallback on title/slug, verify authoritative DB visibility meta by detail.id
+  const detailMeta = (!meta && detail.id) ? await fetchPublicEventVisibilityMeta(detail.id) : null;
+  const effectiveMeta = meta || detailMeta;
+
+  if ((effectiveMeta && isEventHiddenOrUnpublished(effectiveMeta)) || isEventHiddenOrUnpublished(detail)) {
+    return { state: 'HIDDEN', detail: null, title: '' };
+  }
+
+  if ((effectiveMeta && isEventEnded(effectiveMeta)) || isEventEnded(detail)) {
+    return { state: 'ENDED', detail: null, title: detail.title || effectiveMeta?.title || '' };
+  }
+
+  if (!isOngoingOrUpcomingPublicEvent(detail)) {
+    return { state: 'HIDDEN', detail: null, title: '' };
+  }
+
+  return { state: 'ACTIVE', detail, title: detail.title || '' };
+}
+
 async function getPublishedEventsCache() {
   const now = Date.now();
   if (cachedPublishedEvents.length > 0 && (now - cacheTimestamp < 30000)) {
-    return cachedPublishedEvents;
+    return cachedPublishedEvents.filter(e => isOngoingOrUpcomingPublicEvent(e, now));
   }
   try {
-    const res = await eventsRepository.findPublicEvents({ limit: 100, offset: 0 });
-    cachedPublishedEvents = (res.rows || []).map(r => {
-      const isPast = r.end_time ? new Date(r.end_time) < new Date(now) : false;
-      const isOnSale = r.status === 'PUBLISHED' && r.sales_status === 'ON_SALE' && !isPast;
-      return {
-        id: r.id,
-        title: r.title,
-        slug: r.slug,
-        short_description: r.short_description || '',
-        category_name: r.category_name,
-        category_slug: r.category_slug,
-        city: r.city || '',
-        venue_name: r.venue_name || '',
-        min_price: r.min_price,
-        start_time: r.start_time,
-        end_time: r.end_time,
-        status: r.status,
-        sales_status: r.sales_status,
-        isOnSale,
-        require_attendee_info: Boolean(r.require_attendee_info),
-        organizer_name: r.organization_name || r.organizer_name || '',
-        organizer_id: r.organizer_id || ''
-      };
-    });
+    const res = await eventsRepository.findPublicEvents({ limit: 100, offset: 0, activeAt: new Date(now) });
+    cachedPublishedEvents = (res?.rows || [])
+      .filter(r => isOngoingOrUpcomingPublicEvent(r, now))
+      .map(r => {
+        const isOnSale = r.status === 'PUBLISHED' && r.sales_status === 'ON_SALE';
+        return {
+          id: r.id,
+          title: r.title,
+          slug: r.slug,
+          short_description: r.short_description || '',
+          category_name: r.category_name,
+          category_slug: r.category_slug,
+          city: r.city || '',
+          venue_name: r.venue_name || '',
+          min_price: r.min_price,
+          start_time: r.start_time,
+          end_time: r.end_time,
+          status: r.status,
+          display_state: r.display_state || 'VISIBLE',
+          sales_status: r.sales_status,
+          isOnSale,
+          require_attendee_info: Boolean(r.require_attendee_info),
+          organizer_name: r.organization_name || r.organizer_name || '',
+          organizer_id: r.organizer_id || ''
+        };
+      });
     cacheTimestamp = now;
   } catch (err) {
     logger.warn(`[AiAssistant] Error updating published events cache: ${err.message}`);
   }
-  return cachedPublishedEvents;
+  return cachedPublishedEvents.filter(e => isOngoingOrUpcomingPublicEvent(e, Date.now()));
 }
 
 let cachedActiveOrganizers = [];
@@ -385,8 +579,18 @@ function isEventInfoInquiry(message) {
   const hasInquiryKeywords = /(?:o\s*dau|o\s*cho\s*nao|nhu\s*the\s*nao|the\s*nao|ra\s*sao|lam\s*sao|cach\s*(?:nao|dat|mua|thuc)?|huong\s*dan|quy\s*trinh|co\s*nen|co\s*the|duoc\s*khong|khong\s*a|khong\s*nhi|bao\s*nhieu|re\s*nhat|dat\s*nhat|re\s*hon|nao\s*re|sao\s*re|gia\s*re|su\s*kien\s*nao|show\s*nao|ve\s*nao|suat\s*nao|may\s*suat|cac\s*suat|co\s*nhung\s*suat)\b/i.test(norm) ||
     /\?$/.test(message.trim());
 
-  // Only disqualify inquiry if it is an explicit imperative booking action without interrogative intent
-  if (!hasInquiryKeywords && /(?:dat|mua|book|booking|buy|purchase|reserve|get|giu cho|chot|muc)\s*(?:giup|ho|luon|ngay|me|please|\d+|ve|cho|ghe|ticket|tickets|seat|seats)\b/i.test(norm)) {
+  // Disqualify inquiry if it is an explicit imperative booking or quantity-adjustment action without interrogative intent
+  const hasImperativeBookingAction =
+    /(?:dat|mua|book|booking|buy|purchase|reserve|get|giu\s*cho|chot|muc)\s*(?:(?:them|bot|tang|giam|lai|tiep|giup|ho|cho|minh|toi|tui|em|anh|luon|ngay|me|please)\s*)*(?:\d+|mot|hai|ba|bon|tu|nam|sau|bay|tam|chin|muoi|ve|cho|ghe|ticket|tickets|seat|seats)\b/i.test(norm) ||
+    /(?:dat\s*them|mua\s*them|lay\s*them|tang\s*them|them|bot|giam)\s+(?:cho\s*(?:minh|toi|tui|em|anh)\s*)?(?:\d+|mot|hai|ba|bon|tu|nam|sau|bay|tam|chin|muoi)\s*(?:ve|cho|ghe|ticket|tickets|seat|seats)\b/i.test(norm);
+  if (!hasInquiryKeywords && hasImperativeBookingAction) {
+    return false;
+  }
+  // Attendee/account info updates/restores are booking state actions, not event info inquiries
+  const isAttendeeInfoDirective =
+    /(?:thong\s*tin\s*(?:nguoi\s*tham\s*(?:du|gia)|nguoi\s*di|khach|tai\s*khoan|cua\s*(?:toi|minh|tui|em|anh)))/i.test(norm) &&
+    !/(?:su\s*kien|dia\s*diem|lich\s*dien|gio\s*dien|gia\s*ve|hang\s*ve)/i.test(norm);
+  if (!hasInquiryKeywords && isAttendeeInfoDirective) {
     return false;
   }
   // Must NOT be security, account, admin, password, or system policies
@@ -1141,6 +1345,7 @@ function isSystemFaqQuery(message) {
 function detectOrganizerInquiry(message, activeOrganizers = [], publishedEvents = []) {
   if (!message) return null;
   const norm = normalizeText(message);
+  const ongoingOrUpcomingEvents = (publishedEvents || []).filter(e => isOngoingOrUpcomingPublicEvent(e));
 
   const hasOrganizerKeyword = /(?:ban\s*to\s*chuc|nha\s*to\s*chuc|organizer|don\s*vi\s*to\s*chuc|doan\s*kich|cong\s*ty)\b/i.test(norm);
   const hasListingKeyword = /(?:co\s*(?:nhung|cac)?\s*(?:su\s*kien|show|kich|chuong\s*trinh|ve|gi)|danh\s*sach|dang\s*co\s*gi|to\s*chuc\s*(?:nhung|cac|gi)|to\s*chuc\s*su\s*kien)/i.test(norm);
@@ -1167,9 +1372,9 @@ function detectOrganizerInquiry(message, activeOrganizers = [], publishedEvents 
     }
   }
 
-  // 2. Also check organizer names from published events
+  // 2. Also check organizer names from ongoing/upcoming published events
   if (!matchedOrg) {
-    for (const ev of publishedEvents) {
+    for (const ev of ongoingOrUpcomingEvents) {
       const evOrgName = ev.organization_name || ev.organizer_name;
       if (!evOrgName) continue;
       const evOrgNorm = normalizeText(evOrgName);
@@ -1217,7 +1422,8 @@ function detectOrganizerInquiry(message, activeOrganizers = [], publishedEvents 
 function formatOrganizerEventsResponse(org, publishedEvents, isEn = false) {
   const orgName = org.organization_name;
 
-  const activeEvents = publishedEvents.filter(e => {
+  const activeEvents = (publishedEvents || []).filter(e => {
+    if (!isOngoingOrUpcomingPublicEvent(e)) return false;
     if (e.organizer_id && org.id && e.organizer_id === org.id) return true;
     const evOrgNorm = normalizeText(e.organization_name || e.organizer_name);
     const targetOrgNorm = normalizeText(orgName);
@@ -1226,8 +1432,8 @@ function formatOrganizerEventsResponse(org, publishedEvents, isEn = false) {
 
   if (activeEvents.length === 0) {
     return isEn
-      ? `Organizer **${orgName}** currently has no upcoming events on EventHub.\n\nWould you like Eve to recommend top featured events happening soon? 🥰`
-      : `Dạ hiện tại Ban tổ chức **${orgName}** chưa có sự kiện nào sắp diễn ra trên hệ thống EventHub nè 🥺.\n\nBạn có muốn Eve gợi ý các sự kiện âm nhạc hay kịch nói hấp dẫn khác đang mở bán vé hôm nay không ạ? 🥰`;
+      ? `Organizer **${orgName}** currently has no ongoing or upcoming events on EventHub.\n\nWould you like Eve to recommend other featured events? 🥰`
+      : `Dạ hiện tại Ban tổ chức **${orgName}** chưa có sự kiện nào đang diễn ra hoặc sắp diễn ra trên hệ thống EventHub nè 🥺.\n\nBạn có muốn Eve gợi ý các sự kiện âm nhạc hay kịch nói hấp dẫn khác đang mở bán vé hôm nay không ạ? 🥰`;
   }
 
   const sortedEvents = [...activeEvents].sort((a, b) => {
@@ -1244,9 +1450,12 @@ function formatOrganizerEventsResponse(org, publishedEvents, isEn = false) {
       ? (Number(e.min_price) === 0 ? (isEn ? 'Free' : 'Miễn phí') : isEn ? `From ${Number(e.min_price).toLocaleString('en-US')} VND` : `Từ ${Number(e.min_price).toLocaleString('vi-VN')}đ`)
       : (isEn ? 'Updating' : 'Đang cập nhật');
     const venue = [e.venue_name, e.city].filter(Boolean).join(', ') || (isEn ? 'Details on page' : 'Xem chi tiết');
+    const isOngoing = e.start_time && new Date(e.start_time).getTime() <= Date.now();
     const statusBadge = e.sales_status === 'ON_SALE'
       ? (isEn ? '**On Sale**' : '**Đang mở bán vé**')
-      : (isEn ? '**Upcoming**' : '**Sắp mở bán**');
+      : isOngoing
+        ? (isEn ? '**Ongoing**' : '**Đang diễn ra**')
+        : (isEn ? '**Upcoming**' : '**Sắp diễn ra**');
 
     return `${index}. **${title}**\n   • Trạng thái: ${statusBadge}\n   • Địa điểm: ${venue}\n   • Giá vé: ${priceStr}`;
   };
@@ -1382,8 +1591,95 @@ const WORD_TO_NUM = {
 };
 const VIETNAMESE_WORD_TO_NUM = WORD_TO_NUM;
 
+function isDifferentTierRequest(message = '', normMsg = null) {
+  if (!message) return false;
+  const norm = normMsg ?? normalizeText(message);
+  // Explicit accented row words ("hàng", "dãy") refer to rows, not ticket tiers
+  if (/\b(?:hàng|dãy)\b/i.test(message)) return false;
+
+  return Boolean(
+    /(?:đổi|chuyển|qua|sang|chọn|lấy|mua)?\s*(?:sang\s*)?(?:khu\s*vực|khu|hạng(?:\s*(?:vé|ghế|chỗ))?|loại(?:\s*(?:vé|ghế|chỗ))?|vùng)\s*khác\b/i.test(message) ||
+    /(?:doi|chuyen|qua|sang|chon|lay|mua)?\s*(?:sang\s*)?(?:khu\s*vuc|khu|hang\s*(?:ve|cho)|loai(?:\s*(?:ve|ghe|cho))?|vung)\s*khac\b/i.test(norm) ||
+    /(?:đổi|chuyển|qua|sang)\s*(?:sang\s*)?(?:khu\s*vực|khu|hạng\s*(?:vé|ghế|chỗ)|loại\s*(?:vé|ghế|chỗ)|vùng)\b/i.test(message) ||
+    /(?:doi|chuyen|qua|sang)\s*(?:sang\s*)?(?:khu\s*vuc|khu|hang\s*ve|loai\s*(?:ve|ghe|cho)|vung)\b/i.test(norm) ||
+    /(?:change|switch|different|other)\s+(?:ticket\s+|seat\s+)?(?:tier|zone|class|category|section)\b/i.test(norm)
+  );
+}
+
+function getCandidateOtherTiers(ticketList = [], prevTierId = null, sessionId = null, requireSeated = false, minQty = 1) {
+  if (!Array.isArray(ticketList) || ticketList.length <= 1) return [];
+
+  let pool = ticketList.filter(t => t.available_quantity === undefined || Number(t.available_quantity) >= minQty);
+  if (pool.length === 0) {
+    pool = ticketList.filter(t => t.available_quantity === undefined || Number(t.available_quantity) > 0);
+  }
+  if (pool.length === 0) pool = [...ticketList];
+
+  if (sessionId) {
+    const sessionPool = pool.filter(t => !t.event_session_id || String(t.event_session_id) === String(sessionId));
+    if (sessionPool.length > 1 || (sessionPool.length === 1 && prevTierId && String(sessionPool[0].id) !== String(prevTierId))) {
+      pool = sessionPool;
+    }
+  }
+
+  if (requireSeated) {
+    const seatedPool = pool.filter(t => t.is_seated !== false);
+    if (seatedPool.length > 1 || (seatedPool.length === 1 && prevTierId && String(seatedPool[0].id) !== String(prevTierId))) {
+      pool = seatedPool;
+    }
+  }
+
+  const prevIdx = prevTierId ? pool.findIndex(t => String(t.id) === String(prevTierId)) : -1;
+  if (prevIdx >= 0) {
+    return [...pool.slice(prevIdx + 1), ...pool.slice(0, prevIdx)];
+  }
+  return pool.filter(t => !prevTierId || String(t.id) !== String(prevTierId));
+}
+
+function classifySeatLocationIntent(message = '', normMsg = null) {
+  const norm = normMsg ?? normalizeText(message);
+  const isTierSwitch = isDifferentTierRequest(message, norm);
+  const hasAccentedTierWord = /\b(?:hạng|loại)\b/i.test(message);
+
+  const isChangeRowRequest = !isTierSwitch && (
+    /(?:đổi|chuyển|chọn)\s*(?:sang\s*)?(?:hàng|dãy|row)\s*(?:ghế\s*)?khác\b/i.test(message) ||
+    (!hasAccentedTierWord && /(?:doi|chuyen|chon)\s*(?:sang\s*)?(?:hang|day|row)\s*(?:ghe\s*)?khac\b/i.test(norm)) ||
+    /(?:hàng\s*khác)/i.test(message) ||
+    (!hasAccentedTierWord && /(?:hang\s*khac)/i.test(norm)) ||
+    /(?:change|switch|different|other)\s+(?:seating\s+)?row\b/i.test(norm)
+  );
+
+  const hasExplicitNamedRow = !hasAccentedTierWord &&
+    /(?:hang|day|row)\s*(?:ghe\s*)?[a-z\d]+\b/i.test(norm) &&
+    !/(?:hang|day)\s*(?:nay|ghe\s*nay)\b/i.test(norm);
+
+  // When customer asks to change seats/positions WITHOUT explicitly requesting another row or tier, default to same-row change first.
+  const isChangeSameRowSeats = !isTierSwitch && !isChangeRowRequest && !hasExplicitNamedRow && (
+    /(?:đổi|chuyển|chọn|lấy)\s*(?:giúp|hộ|cho\s*(?:mình|tôi|em|anh))?\s*(?:sang\s*|lại\s*)?(?:\d+\s*)?(?:ghế|vị\s*trí|chỗ)\s*(?:khác|mới|bên\s*cạnh|cùng\s*hàng|trên\s*hàng\s*này|hàng\s*này|ở\s*hàng\s*này)/i.test(message) ||
+    /(?:doi|chuyen|chon|lay)\s*(?:giup|ho|cho\s*(?:minh|toi|em|anh))?\s*(?:sang\s*|lai\s*)?(?:\d+\s*)?(?:ghe|vi\s*tri|cho)\s*(?:khac|moi|ben\s*canh|cung\s*hang|tren\s*hang\s*nay|hang\s*nay|o\s*hang\s*nay)/i.test(norm) ||
+    /(?:^|\s)(?:doi\s*(?:lai\s*)?(?:ghe|vi\s*tri|cho(?:\s*ngoi)?)|chon\s*lai\s*(?:ghe|vi\s*tri|cho))\b/i.test(norm) ||
+    /(?:ghế\s*khác|ghe\s*khac|vị\s*trí\s*khác|vi\s*tri\s*khac|chỗ\s*khác|cho\s*khac|change\s*seats?|different\s*seats?|other\s*seats?)/i.test(norm)
+  );
+
+  return { isChangeRowRequest, isChangeSameRowSeats };
+}
+
+function isAttendeeEditMessage(text) {
+  if (!text) return false;
+  const norm = normalizeText(text);
+  const mentionsAttendeeRole = /(?:nguoi\s*tham\s*(?:du|gia)|thong\s*tin\s*(?:nguoi|ve|tham\s*(?:du|gia))|attendees?)/i.test(norm) ||
+    /(?:doi|sua|thay|chinh|cap\s*nhat)\s+(?:thong\s*tin\s*)?(?:cua\s*)?(?:\d+\s*)?(?:nguoi\s*(?:thu|so)?\s*\d*|ve\s*(?:so\s*)?\d+)/i.test(norm);
+  const hasEditAction = /\b(?:doi|sua|thay|chinh|cap\s*nhat|update|change|replace|edit)\b/i.test(norm);
+  const hasNewPersonData = /@/.test(text) || /(?:dung|lay|su\s*dung)\s+thong\s*tin\s*cua\s*(?:toi|minh|tui|em|anh)/i.test(norm);
+  const explicitTicketQtyChange = /\b(?:them|bot|tang|giam|dat\s*them|mua\s*them|tong\s*cong)\b/i.test(norm) ||
+    /(?:doi\s*thanh|chuyen\s*thanh|tong)\s*\d+\s*(?:ve|cho|ghe|slots?)\b/i.test(norm);
+
+  return !explicitTicketQtyChange && hasEditAction && (mentionsAttendeeRole || (hasNewPersonData && !/\b(?:hang\s*ghe|suat|khu\s*vuc|loai\s*ve)\b/i.test(norm)));
+}
+
 function parseQuantityFromText(text, prevQuantity = null) {
   if (!text) return null;
+  if (isAttendeeEditMessage(text)) return null;
   const norm = normalizeText(text);
 
   // 1. Explicit target TOTAL expressions (HIGHEST PRIORITY):
@@ -1676,7 +1972,12 @@ function extractAttendeesFromText(text, userProfile = null) {
   // 2. Detect any shared/common email declared for tickets:
   // e.g.: "Email ghi chung cho cả 6 người: datnt@gmail.com", "email chung: datnt@gmail.com"
   let sharedEmail = null;
-  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const stripEditPrefixFromLine = (rawLine) => {
+    if (!rawLine) return rawLine;
+    const m = rawLine.match(/(?:^|\s)(?:đổi|doi|sửa|sua|thay|chỉnh|chinh|cập\s*nhật|cap\s*nhat|update|change|replace|edit)\s+[\s\S]*?\s+(?:thành|thanh|sang|bằng|bang|to|into)\s*[:\-]?\s*([\s\S]*@[\s\S]*)$/i);
+    return (m && m[1]) ? m[1].trim() : rawLine;
+  };
+  const lines = text.split('\n').map(l => stripEditPrefixFromLine(l.trim())).filter(Boolean);
 
   for (const line of lines) {
     const lNorm = normalizeText(line);
@@ -1716,7 +2017,7 @@ function extractAttendeesFromText(text, userProfile = null) {
       .replace(/^\s*(?:h[oọ]\s*(?:v[aà]\s*)?t[eê]n|t[eê]n|kh[aá]ch|ng[uư][oờ]i\s*(?:tham\s*gia)?)\s*[:\-]?\s*/gi, '')
       .replace(/^\s*(?:anh|ch[iị]|em|b[aạ]n)\s+(?=[^\s]+\s+[^\s]+)/i, '')
       .replace(/(?:email|mail|sdt|s[oố]\s*đi[eệ]n\s*tho[aạ]i|phone|zalo|dt)\s*[:\-]?\s*.*$/gi, '')
-      .replace(/[\(\)\[\],\-–:]+/g, ' ')
+      .replace(/[\(\)\[\],;\-–:]+/g, ' ')
       .replace(/\b(?:nha|nhe|nhen|nhé|sóp|sop|shop|ad|admin)\s*$/gi, '')
       .trim();
   };
@@ -1794,7 +2095,8 @@ function extractAttendeesFromText(text, userProfile = null) {
         processedLineIndices.add(i);
       }
     } else if (emailsInLine.length > 1) {
-      const parts = line.split(/[,;\n]/).map(p => p.trim()).filter(Boolean);
+      const segmentRegex = /[^@]+?[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(?:\s*[,;\-–\(\)]*\s*(?:(?:\+84|84|0)[35789]\d{8}|0\d{9,10})[\)]?)?/g;
+      const parts = (line.match(segmentRegex) || line.split(/[,;\n]/)).map(p => p.trim()).filter(Boolean);
       for (const part of parts) {
         const m = part.match(emailRegex);
         if (m) {
@@ -1855,6 +2157,217 @@ function extractAttendeesFromText(text, userProfile = null) {
   }
 
   return uniqueAttendees;
+}
+
+function mergeUniqueAttendees(baseList = [], additions = []) {
+  const merged = [];
+  const seen = new Set();
+  for (const list of [baseList, additions]) {
+    if (!Array.isArray(list)) continue;
+    for (const a of list) {
+      if (!a || (!a.name && !a.email)) continue;
+      const cleanName = String(a.name || '').trim();
+      const cleanEmail = String(a.email || '').trim();
+      const key = `${normalizeText(cleanName)}|${cleanEmail.toLowerCase()}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        merged.push({
+          ...a,
+          name: cleanName,
+          email: cleanEmail
+        });
+      }
+    }
+  }
+  return merged;
+}
+
+/**
+ * Collects unique attendees seen across earlier proposals, user messages, and the buyer profile.
+ */
+function collectHistoricalAttendees(cleanHistory = [], userProfile = null) {
+  const pool = [];
+  if (userProfile?.email) {
+    pool.push({
+      name: userProfile.full_name || 'Khách hàng',
+      email: userProfile.email.trim(),
+      ...(userProfile.phone ? { phone: userProfile.phone } : {})
+    });
+  }
+
+  if (Array.isArray(cleanHistory)) {
+    for (const msg of cleanHistory) {
+      if (!msg) continue;
+      if (msg.role === 'assistant') {
+        let propData = msg.action?.type === 'PROPOSE_BOOKING' ? msg.action.data : null;
+        if (!propData && typeof msg.content === 'string') {
+          const actionMatch = msg.content.match(/\[ACTION:BOOKING_PROPOSAL:([^\]]+)\]/i);
+          if (actionMatch) {
+            try {
+              const raw = actionMatch[1].trim();
+              const decoded = raw.startsWith('%7B') || raw.includes('%22') ? decodeURIComponent(raw) : raw;
+              propData = JSON.parse(decoded);
+            } catch (_) {}
+          }
+        }
+        if (propData) {
+          if (Array.isArray(propData.attendees)) {
+            pool.push(...propData.attendees);
+          }
+          if (propData.buyer?.email) {
+            pool.push({
+              name: propData.buyer.name || userProfile?.full_name || 'Khách hàng',
+              email: propData.buyer.email.trim()
+            });
+          }
+        }
+      } else if (msg.role === 'user' && typeof msg.content === 'string') {
+        pool.push(...extractAttendeesFromText(msg.content, userProfile));
+      }
+    }
+  }
+
+  return mergeUniqueAttendees([], pool);
+}
+
+/**
+ * Extracts previously known attendees explicitly referenced for reuse in the current turn
+ * (e.g., "lấy lại thông tin người tham dự CIMS lúc nãy" or "dùng lại thông tin của tôi").
+ */
+function extractRestoredAttendeesFromMessage(message = '', historicalAttendees = [], userProfile = null) {
+  if (!message || isAttendeeEditMessage(message)) return [];
+  const norm = normalizeText(message);
+  const hasRestoreCue =
+    /(?:lay\s*lai|dung\s*lai|su\s*dung\s*lai|khoi\s*phuc|them\s*lai|giu\s*lai|bo\s*sung\s*lai)\b/i.test(norm) ||
+    /(?:lay|dung|su\s*dung)\b.*?\b(?:thong\s*tin\s*(?:nguoi\s*tham\s*(?:du|gia)|tai\s*khoan|cua\s*(?:toi|minh|tui|em|anh)|cu|nhu\s*cu|luc\s*nay|truoc\s*do)|luc\s*nay|truoc\s*do|ban\s*dau)/i.test(norm);
+
+  if (!hasRestoreCue) return [];
+
+  const matched = [];
+  for (const att of historicalAttendees) {
+    if (!att?.email) continue;
+    const normName = normalizeText(att.name || '');
+    const emailLower = att.email.trim().toLowerCase();
+    const emailMatched = emailLower && norm.includes(emailLower);
+    let nameMatched = false;
+    if (normName.length >= 2) {
+      const escapedName = normName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
+      nameMatched = new RegExp(`(?:^|\\b)${escapedName}(?:\\b|$)`, 'i').test(norm);
+    }
+    if (emailMatched || nameMatched) {
+      matched.push(att);
+    }
+  }
+
+  if (matched.length === 0 && userProfile?.email) {
+    const mentionsSelf =
+      /(?:cua\s*(?:toi|minh|tui|em|anh)|tai\s*khoan|profile|info|chinh\s*(?:toi|minh|tui|em|anh))/i.test(norm) ||
+      !/\bnguoi\s*tham\s*(?:du|gia)\s+[a-z]/i.test(norm);
+    if (mentionsSelf) {
+      matched.push({
+        name: userProfile.full_name || 'Khách hàng',
+        email: userProfile.email.trim(),
+        ...(userProfile.phone ? { phone: userProfile.phone } : {})
+      });
+    }
+  }
+
+  return mergeUniqueAttendees([], matched);
+}
+
+/**
+ * Resolves the authoritative attendee list for a proposal.
+ * If the user explicitly provides enough attendees for all `quantity` tickets,
+ * replace any earlier auto-added buyer placeholder instead of keeping the buyer at index 0.
+ */
+function resolveProposalAttendees({
+  quantity = 1,
+  attendeesInCurrentMsg = [],
+  extractedAttendees = [],
+  prevPropAttendees = [],
+  userProfile = null,
+  requireAttendeeInfo = false
+}) {
+  const targetQty = Math.max(1, Number(quantity) || 1);
+  if (Array.isArray(attendeesInCurrentMsg) && attendeesInCurrentMsg.length >= targetQty) {
+    return mergeUniqueAttendees([], attendeesInCurrentMsg).slice(0, targetQty);
+  }
+  // Preserve already-completed proposal attendees (e.g., after editing a specific slot before switching seat rows)
+  if (
+    Array.isArray(prevPropAttendees) &&
+    prevPropAttendees.length >= targetQty &&
+    (!attendeesInCurrentMsg || attendeesInCurrentMsg.length === 0)
+  ) {
+    return mergeUniqueAttendees(prevPropAttendees, []).slice(0, targetQty);
+  }
+  // When extending/completing an existing proposal (e.g., adding 1 more ticket + restoring CIMS), keep prevPropAttendees order intact and append current-turn attendees
+  if (Array.isArray(prevPropAttendees) && prevPropAttendees.length > 0) {
+    return mergeUniqueAttendees(prevPropAttendees, attendeesInCurrentMsg).slice(0, targetQty);
+  }
+  if (Array.isArray(extractedAttendees) && extractedAttendees.length >= targetQty) {
+    return mergeUniqueAttendees([], extractedAttendees).slice(0, targetQty);
+  }
+  const merged = mergeUniqueAttendees(prevPropAttendees, extractedAttendees);
+  if (merged.length === 0 && requireAttendeeInfo && userProfile?.email) {
+    merged.push({
+      name: userProfile.full_name || 'Khách hàng',
+      email: userProfile.email.trim()
+    });
+  }
+  return merged.slice(0, targetQty);
+}
+
+/**
+ * Replaces targeted slot(s) or named attendee(s) in an existing proposal without dropping other tickets or changing quantity.
+ */
+function applyAttendeeEditToProposal(prevAtts = [], newAttendees = [], message = '', propQty = 1) {
+  const targetQty = Math.max(1, Number(propQty) || 1);
+  if (!Array.isArray(prevAtts) || prevAtts.length === 0) {
+    return mergeUniqueAttendees([], newAttendees).slice(0, targetQty);
+  }
+  if (!Array.isArray(newAttendees) || newAttendees.length === 0) {
+    return prevAtts.slice(0, targetQty);
+  }
+  if (newAttendees.length >= targetQty) {
+    return mergeUniqueAttendees([], newAttendees).slice(0, targetQty);
+  }
+
+  const normMsg = normalizeText(message);
+  const updated = prevAtts.map(a => ({ ...a }));
+  const separatorMatch = normMsg.match(/\b(?:thanh|sang|bang|to|into)\b/);
+  const sourceClause = separatorMatch ? normMsg.slice(0, separatorMatch.index) : normMsg;
+
+  let targetIdx = updated.findIndex((att) => {
+    const attName = normalizeText(att?.name || '');
+    const attEmail = String(att?.email || '').trim().toLowerCase();
+    return (attEmail && sourceClause.includes(attEmail)) || (attName.length >= 2 && sourceClause.includes(attName));
+  });
+
+  if (targetIdx < 0) {
+    const idxMatch =
+      sourceClause.match(/(?:doi|sua|thay|chinh|cap\s*nhat)\s*(?:thong\s*tin\s*)?(?:cua\s*)?(\d+)\s*(?:nguoi\s*tham\s*(?:du|gia)|nguoi|ve)\b/i) ||
+      sourceClause.match(/\b(?:nguoi\s*(?:tham\s*(?:du|gia)\s*)?(?:thu\s*|so\s*)?|ve\s*(?:so\s*)?)(\d+)\b/i);
+    if (idxMatch) {
+      const oneBased = parseInt(idxMatch[1], 10);
+      if (oneBased >= 1 && oneBased <= updated.length) {
+        targetIdx = oneBased - 1;
+      }
+    }
+  }
+
+  if (targetIdx < 0) {
+    targetIdx = 0;
+  }
+
+  for (let offset = 0; offset < newAttendees.length; offset++) {
+    const slotIdx = (targetIdx + offset) % Math.max(targetQty, updated.length);
+    updated[slotIdx] = {
+      name: String(newAttendees[offset].name || '').trim(),
+      email: String(newAttendees[offset].email || '').trim()
+    };
+  }
+
+  return updated.slice(0, targetQty);
 }
 
 function getRemainingTicketsDescription(detectedTickets, filledCount) {
@@ -2102,9 +2615,15 @@ function findMatchingSession(messageOrQuery, sessions = []) {
 function findMatchingPublishedEvent(queryOrMessage, eventsList, options = {}) {
   if (!queryOrMessage || !eventsList || eventsList.length === 0) return null;
 
+  eventsList = options.includeEnded
+    ? eventsList
+    : eventsList.filter(e => isOngoingOrUpcomingPublicEvent(e));
+  if (eventsList.length === 0) return null;
+
   // Security guardrails, system FAQs, out-of-scope queries, greetings, and continuations MUST NEVER match events!
+  const isFaqBlocked = !options.bypassSystemFaqCheck && isSystemFaqQuery(queryOrMessage);
   if (isJailbreakAttempt(queryOrMessage) ||
-    isSystemFaqQuery(queryOrMessage) ||
+    isFaqBlocked ||
     isOutOfScopeQuery(queryOrMessage) ||
     isPureGreeting(queryOrMessage) ||
     isBookingContinuationIntent(queryOrMessage) ||
@@ -2324,6 +2843,86 @@ function findMatchingPublishedEvent(queryOrMessage, eventsList, options = {}) {
   }
 
   return bestMatch;
+}
+
+/**
+ * Looks up whether a user query refers specifically to an ended (but public, visible, approved, not-deleted) EventHub event.
+ * Hidden, unpublished, draft, rejected, suspended, or deleted events are NEVER returned.
+ */
+async function findEndedPublicEventByQuery(queryOrMessage) {
+  if (!queryOrMessage || typeof queryOrMessage !== 'string') return null;
+  const trimmed = queryOrMessage.trim();
+  if (
+    !trimmed ||
+    isJailbreakAttempt(trimmed) ||
+    isOutOfScopeQuery(trimmed) ||
+    isPureGreeting(trimmed) ||
+    isGeneralDiscoveryQuery(trimmed) ||
+    isBookingContinuationIntent(trimmed)
+  ) {
+    return null;
+  }
+
+  let rows = [];
+  try {
+    const res = await db.query(
+      `SELECT e.id, e.title, e.slug, e.status, e.visibility, e.approval_status,
+              COALESCE(e.display_state, 'VISIBLE') AS display_state,
+              e.deleted_at, e.start_publish_at, e.end_publish_at,
+              COALESCE(time_summary.start_time, e.start_time) AS start_time,
+              COALESCE(time_summary.end_time, e.end_time) AS end_time,
+              CASE
+                WHEN e.status::text IN ('COMPLETED', 'ENDED') THEN 'CLOSED'
+                WHEN COALESCE(time_summary.end_time, e.end_time) <= NOW() THEN 'ENDED'
+                ELSE COALESCE(e.sales_status, 'ON_SALE')
+              END AS sales_status
+       FROM events e
+       LEFT JOIN LATERAL (
+         SELECT MIN(es.start_time) AS start_time, MAX(es.end_time) AS end_time
+         FROM event_sessions es
+         WHERE es.event_id = e.id
+       ) time_summary ON true
+       WHERE e.deleted_at IS NULL
+         AND e.visibility = 'PUBLIC'
+         AND e.approval_status = 'APPROVED'
+         AND COALESCE(e.display_state, 'VISIBLE') = 'VISIBLE'
+         AND e.status::text IN ('PUBLISHED', 'COMPLETED', 'ENDED')
+         AND (e.start_publish_at IS NULL OR e.start_publish_at <= NOW())
+         AND (e.end_publish_at IS NULL OR e.end_publish_at >= NOW())
+         AND (
+           e.status::text IN ('COMPLETED', 'ENDED')
+           OR COALESCE(e.sales_status, 'ON_SALE') IN ('ENDED', 'CLOSED')
+           OR COALESCE(time_summary.end_time, e.end_time, time_summary.start_time, e.start_time) <= NOW()
+         )
+       ORDER BY COALESCE(time_summary.end_time, e.end_time, e.created_at) DESC NULLS LAST
+       LIMIT 200`
+    );
+    rows = res?.rows || [];
+  } catch (err) {
+    logger.warn(`[AiAssistant] Error querying ended public events: ${err.message}`);
+    return null;
+  }
+
+  const endedEvents = rows.filter(r => !isEventHiddenOrUnpublished(r) && isEventEnded(r));
+  if (endedEvents.length === 0) return null;
+
+  const exactIdOrSlug = endedEvents.find(
+    r => String(r.id) === trimmed || (r.slug && String(r.slug).toLowerCase() === trimmed.toLowerCase())
+  );
+  if (exactIdOrSlug) return exactIdOrSlug;
+
+  const cleanedQuery = normalizeText(trimmed)
+    .replace(/(?:chinh\s*sach\s*(?:hoan|tra|huy)\s*(?:ve|tien)?|co\s*duoc\s*(?:hoan|tra|huy)\s*(?:ve|tien)\s*khong|hoan\s*ve\s*duoc\s*khong|co\s*cho\s*(?:hoan|tra|huy)\s*(?:ve|tien)\s*khong|co\s*(?:hoan|tra)\s*ve\s*khong|hoan\s*ve|tra\s*ve|huy\s*ve|hoan\s*tien|refund|chinh\s*sach|quy\s*dinh|dieu\s*khoan|tren\s*eventhub|cua\s*eventhub|eventhub)/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!cleanedQuery || cleanedQuery.length < 3) return null;
+
+  return findMatchingPublishedEvent(cleanedQuery, endedEvents, {
+    allowSemanticTopic: false,
+    includeEnded: true,
+    bypassSystemFaqCheck: true
+  });
 }
 
 const TOOLS = [
@@ -2597,7 +3196,9 @@ QUY TẮC CỐT LÕI - GIAO TIẾP TỰ NHIÊN, LINH HOẠT & BẢO MẬT:
      + KHÔNG BAO GIỜ nói câu cứng nhắc: "không có sự kiện nào thuộc thể loại / từ khóa...", "kết quả tìm kiếm cho thấy 0 sự kiện".
      + KHÔNG BAO GIỜ lặp lại nguyên văn câu hỏi dài của khách đặt trong dấu ngoặc kép như một từ khóa máy tính.
 2. BẢO MẬT DỮ LIỆU & CHỐNG ẢO GIÁC (GROUNDING):
-   - Bạn là trợ lý AI nội bộ của nền tảng EventHub. Bạn CHỈ ĐƯỢC PHÉP giới thiệu các sự kiện CÓ TRÊN HỆ THỐNG EVENTHUB (được trả về qua kết quả của tool searchEvents hoặc getEventDetails).
+   - Bạn là trợ lý AI nội bộ của nền tảng EventHub. Bạn CHỈ ĐƯỢC PHÉP lấy thông tin và giới thiệu các sự kiện ĐANG DIỄN RA hoặc SẮP DIỄN RA công khai trên hệ thống EventHub (được trả về qua kết quả của tool searchEvents hoặc getEventDetails).
+   - TUYỆT ĐỐI KHÔNG hiển thị hay tiết lộ sự kiện bị ẩn, chưa publish, bị hủy hoặc đã xóa.
+   - SỰ KIỆN ĐÃ KẾT THÚC: Nếu khách hàng hỏi về một sự kiện đã kết thúc (hoặc tool trả về trạng thái EVENT_ENDED), CHỈ trả lời ngắn gọn rằng sự kiện đó đã kết thúc rồi, TUYỆT ĐỐI KHÔNG đưa bất kỳ thông tin nào về sự kiện đó (không địa điểm, không thời gian, không giá vé, không mô tả, không chính sách hoàn vé).
    - TUYỆT ĐỐI KHÔNG ĐƯỢC LẤY SỰ KIỆN Ở NGOÀI ĐỜI không có trên EventHub.
 3. CHỈ GIỚI THIỆU ĐÚNG SỐ LƯỢNG SỰ KIỆN TOOL TRẢ VỀ:
    - Trình bày danh sách sự kiện hấp dẫn, kèm giá vé và ngày diễn ra, sau đó hỏi khách muốn xem chi tiết hoặc đặt vé sự kiện nào.
@@ -2651,22 +3252,28 @@ class AiAssistantService {
         queryArg = extractCoreSearchQuery(queryArg);
 
         const publishedList = await getPublishedEventsCache();
+        const mapSearchCard = (e, fallbackCat = 'Khác') => ({
+          id: e.slug || e.id,
+          title: e.title,
+          category: e.category?.name || e.category_name || fallbackCat,
+          start: e.start_time ? new Date(e.start_time).toLocaleDateString('vi-VN') : 'Sắp diễn ra',
+          price: e.min_price ? `${Number(e.min_price).toLocaleString('vi-VN')}đ` : 'Liên hệ'
+        });
 
         // 1. General Discovery Query (empty query or greeting vibe):
         if (!queryArg) {
           const generalUpcoming = await eventsService.getPublicEvents({
             limit: 4,
             page: 1,
-            upcoming_only: true
+            upcoming_only: true,
+            strict_upcoming: true
           }, userId);
 
-          const events = (generalUpcoming.items || []).map(e => ({
-            id: e.slug || e.id,
-            title: e.title,
-            category: e.category?.name || e.category_name || 'Sự kiện nổi bật',
-            start: e.start_time ? new Date(e.start_time).toLocaleDateString('vi-VN') : 'Sắp diễn ra',
-            price: e.min_price ? `${Number(e.min_price).toLocaleString('vi-VN')}đ` : 'Liên hệ'
-          }));
+          let activeItems = (generalUpcoming?.items || []).filter(e => isOngoingOrUpcomingPublicEvent(e));
+          if (activeItems.length === 0 && publishedList.length > 0) {
+            activeItems = publishedList.slice(0, 4);
+          }
+          const events = activeItems.map(e => mapSearchCard(e, 'Sự kiện nổi bật'));
 
           return {
             status: 'FOUND',
@@ -2684,13 +3291,7 @@ class AiAssistantService {
           return {
             status: 'FOUND',
             total: 1,
-            events: [{
-              id: matchedExact.slug || matchedExact.id,
-              title: matchedExact.title,
-              category: matchedExact.category_name || 'Khác',
-              start: matchedExact.start_time ? new Date(matchedExact.start_time).toLocaleDateString('vi-VN') : 'Sắp diễn ra',
-              price: matchedExact.min_price ? `${Number(matchedExact.min_price).toLocaleString('vi-VN')}đ` : 'Liên hệ'
-            }],
+            events: [mapSearchCard(matchedExact)],
             instruction: `Eve hãy dùng giọng điệu thân thiện, hào hứng giới thiệu sự kiện phù hợp nhất với chủ đề/sở thích của khách: "${matchedExact.title}". Kèm ngày diễn ra và giá vé khởi điểm, sau đó hỏi khách muốn xem chi tiết hay đặt vé sự kiện này. TUYỆT ĐỐI không chép lại câu nhắc lệnh này và KHÔNG nói câu máy móc như "thuộc thể loại / từ khóa"!`
           };
         }
@@ -2705,13 +3306,7 @@ class AiAssistantService {
         });
 
         if (inMemoryMatches.length > 0) {
-          const events = inMemoryMatches.slice(0, 5).map(e => ({
-            id: e.slug || e.id,
-            title: e.title,
-            category: e.category_name || 'Khác',
-            start: e.start_time ? new Date(e.start_time).toLocaleDateString('vi-VN') : 'Sắp diễn ra',
-            price: e.min_price ? `${Number(e.min_price).toLocaleString('vi-VN')}đ` : 'Liên hệ'
-          }));
+          const events = inMemoryMatches.slice(0, 5).map(e => mapSearchCard(e));
 
           return {
             status: 'FOUND',
@@ -2721,34 +3316,55 @@ class AiAssistantService {
           };
         }
 
-        // 4. Query database via eventsService:
+        // 4. Query database via eventsService (strictly ongoing & upcoming only):
         const catInfo = detectCategory(queryArg);
         let result = await eventsService.getPublicEvents({
           category_slug: catInfo ? catInfo.slug : undefined,
           keyword: catInfo ? undefined : (queryArg || undefined),
           limit: parseInt(getArg(args.limit), 10) || 5,
           page: 1,
-          upcoming_only: true
+          upcoming_only: true,
+          strict_upcoming: true
         }, userId);
 
-        if ((!result.items || result.items.length === 0) && catInfo) {
+        let filteredDbItems = (result?.items || []).filter(e => isOngoingOrUpcomingPublicEvent(e));
+
+        if (filteredDbItems.length === 0 && catInfo) {
           result = await eventsService.getPublicEvents({
             keyword: queryArg || undefined,
             limit: parseInt(getArg(args.limit), 10) || 5,
             page: 1,
-            upcoming_only: true
+            upcoming_only: true,
+            strict_upcoming: true
           }, userId);
+          filteredDbItems = (result?.items || []).filter(e => isOngoingOrUpcomingPublicEvent(e));
         }
 
-        // 5. If STILL no event found -> Informative friendly fallback:
-        if (!result.items || result.items.length === 0) {
+        // 5. If STILL no ongoing/upcoming event found:
+        if (filteredDbItems.length === 0) {
+          const endedMatch = await findEndedPublicEventByQuery(queryArg);
+          if (endedMatch) {
+            return {
+              status: 'EVENT_ENDED',
+              total: 0,
+              events: [],
+              instruction: `Sự kiện "${endedMatch.title}" đã kết thúc rồi. Chỉ thông báo ngắn gọn với khách rằng sự kiện "${endedMatch.title}" đã kết thúc rồi, TUYỆT ĐỐI KHÔNG đưa bất kỳ thông tin chi tiết nào khác của sự kiện này.`
+            };
+          }
+
           const generalUpcoming = await eventsService.getPublicEvents({
             limit: 3,
             page: 1,
-            upcoming_only: true
+            upcoming_only: true,
+            strict_upcoming: true
           }, userId);
 
-          const suggestions = (generalUpcoming.items || []).map(e => `"${e.title}"`).join(', ');
+          let fallbackItems = (generalUpcoming?.items || []).filter(e => isOngoingOrUpcomingPublicEvent(e));
+          if (fallbackItems.length === 0 && publishedList.length > 0) {
+            fallbackItems = publishedList.slice(0, 3);
+          }
+
+          const suggestions = fallbackItems.map(e => `"${e.title}"`).join(', ');
           return {
             status: 'NOT_FOUND',
             total: 0,
@@ -2758,13 +3374,7 @@ class AiAssistantService {
           };
         }
 
-        const events = result.items.map(e => ({
-          id: e.slug || e.id,
-          title: e.title,
-          category: e.category?.name || e.category_name || (catInfo ? catInfo.name : 'Khác'),
-          start: e.start_time ? new Date(e.start_time).toLocaleDateString('vi-VN') : 'Sắp diễn ra',
-          price: e.min_price ? `${Number(e.min_price).toLocaleString('vi-VN')}đ` : 'Liên hệ'
-        }));
+        const events = filteredDbItems.map(e => mapSearchCard(e, catInfo ? catInfo.name : 'Khác'));
 
         return {
           status: 'FOUND',
@@ -2782,23 +3392,38 @@ class AiAssistantService {
           identifier = matched.slug || matched.id;
         }
 
-        let result = null;
-        try {
-          result = await eventsService.getPublicEventDetail(identifier, userId);
-        } catch (detailErr) {
-          logger.warn(`[AiAssistant] Event not found or inaccessible for identifier "${identifier}": ${detailErr.message}`);
+        const resolved = await resolveEventStateAndDetail(identifier, userId);
+
+        if (resolved.state === 'ENDED') {
           return {
-            status: 'NOT_FOUND',
-            instruction: `Không tìm thấy thông tin sự kiện "${identifier}" trên EventHub. Eve hãy thông báo lịch sự cho khách rằng sự kiện chưa mở bán hoặc đã kết thúc, và khéo léo gợi ý khách khám phá các sự kiện hot khác nhé! 🥰`
+            status: 'EVENT_ENDED',
+            instruction: `Sự kiện "${resolved.title || identifier}" đã kết thúc rồi. Chỉ trả lời ngắn gọn rằng sự kiện này đã kết thúc rồi, TUYỆT ĐỐI KHÔNG đưa bất kỳ thông tin nào (không thời gian, không địa điểm, không giá vé, không mô tả, không hoàn vé).`
           };
         }
 
-        if (!result) {
+        if (resolved.state === 'HIDDEN') {
           return {
             status: 'NOT_FOUND',
-            instruction: `Không tìm thấy thông tin sự kiện "${identifier}" trên EventHub. Eve hãy thông báo lịch sự cho khách rằng sự kiện chưa mở bán hoặc đã kết thúc, và khéo léo gợi ý khách khám phá các sự kiện hot khác nhé! 🥰`
+            instruction: `Không tìm thấy thông tin sự kiện "${identifier}" trên EventHub. Eve hãy thông báo lịch sự cho khách rằng hiện chưa tìm thấy sự kiện này trên hệ thống và khéo léo gợi ý khách khám phá các sự kiện đang diễn ra hoặc sắp diễn ra khác nhé! 🥰`
           };
         }
+
+        if (resolved.state === 'NOT_FOUND' || !resolved.detail) {
+          const endedMatch = !matched ? await findEndedPublicEventByQuery(identifier) : null;
+          if (endedMatch) {
+            return {
+              status: 'EVENT_ENDED',
+              instruction: `Sự kiện "${endedMatch.title}" đã kết thúc rồi. Chỉ trả lời ngắn gọn rằng sự kiện này đã kết thúc rồi, TUYỆT ĐỐI KHÔNG đưa bất kỳ thông tin nào (không thời gian, không địa điểm, không giá vé, không mô tả, không hoàn vé).`
+            };
+          }
+
+          return {
+            status: 'NOT_FOUND',
+            instruction: `Không tìm thấy thông tin sự kiện "${identifier}" trên EventHub. Eve hãy thông báo lịch sự cho khách rằng hiện chưa tìm thấy sự kiện này trên hệ thống và khéo léo gợi ý khách khám phá các sự kiện đang diễn ra hoặc sắp diễn ra khác nhé! 🥰`
+          };
+        }
+
+        const result = resolved.detail;
         const sessions = result.sessions || [];
         const hasSeatMap = Boolean(
           sessions.some(s => s.seat_map_id || s.has_seat_map) ||
@@ -2907,16 +3532,25 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
         if (!eventId || eventId === 'undefined') {
           return { error: 'Thất bại: Thiếu eventId. Bạn PHẢI gọi searchEvents để tìm chính xác ID sự kiện trước.' };
         }
-        try {
-          const detail = await eventsService.getPublicEventDetail(eventId, userId);
-          if (detail?.slug) eventId = detail.slug;
-          if (detail?.sessions?.length) {
-            const numMatch = String(sessionId || '').match(/\d+/);
-            const idx = numMatch ? parseInt(numMatch[0], 10) - 1 : -1;
-            const matchS = detail.sessions.find(s => String(s.id) === String(sessionId)) || (idx >= 0 ? detail.sessions[idx] : null);
-            sessionId = matchS ? matchS.id : (detail.sessions[0]?.id || sessionId);
-          }
-        } catch { /* keep original */ }
+        const resolved = await resolveEventStateAndDetail(eventId, userId);
+        if (resolved.state === 'ENDED') {
+          return {
+            status: 'EVENT_ENDED',
+            error: `Sự kiện "${resolved.title || eventId}" đã kết thúc rồi.`,
+            instruction: `Chỉ trả lời ngắn gọn rằng sự kiện "${resolved.title || eventId}" đã kết thúc rồi, TUYỆT ĐỐI KHÔNG đưa bất kỳ thông tin hay thao tác đặt vé nào.`
+          };
+        }
+        if (resolved.state !== 'ACTIVE' || !resolved.detail) {
+          return { error: 'Không tìm thấy sự kiện khả dụng để đặt vé.' };
+        }
+        const detail = resolved.detail;
+        if (detail.slug) eventId = detail.slug;
+        if (detail.sessions?.length) {
+          const numMatch = String(sessionId || '').match(/\d+/);
+          const idx = numMatch ? parseInt(numMatch[0], 10) - 1 : -1;
+          const matchS = detail.sessions.find(s => String(s.id) === String(sessionId)) || (idx >= 0 ? detail.sessions[idx] : null);
+          sessionId = matchS ? matchS.id : (detail.sessions[0]?.id || sessionId);
+        }
         const actionTag = `[ACTION:BOOKING:${eventId}${sessionId ? `:${sessionId}` : ''}]`;
         if (context) context.lastGeneratedActionTag = actionTag;
         return {
@@ -2930,6 +3564,23 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
         let ticketTypeId = getArg(args.ticketTypeId);
         let quantity = parseInt(getArg(args.quantity), 10) || 1;
 
+        if (!eventId) {
+          return { error: 'Thất bại: Thiếu tham số eventId. Bạn PHẢI gọi getEventDetails trước.' };
+        }
+
+        const resolved = await resolveEventStateAndDetail(eventId, userId);
+        if (resolved.state === 'ENDED') {
+          return {
+            status: 'EVENT_ENDED',
+            error: `Sự kiện "${resolved.title || eventId}" đã kết thúc rồi.`,
+            instruction: `Chỉ trả lời ngắn gọn rằng sự kiện "${resolved.title || eventId}" đã kết thúc rồi, TUYỆT ĐỐI KHÔNG đưa bất kỳ thông tin hay thao tác đặt vé nào.`
+          };
+        }
+        if (resolved.state !== 'ACTIVE' || !resolved.detail) {
+          return { error: 'Không tìm thấy sự kiện khả dụng để đặt vé.' };
+        }
+
+        const detail = resolved.detail;
         const userProfile = context.userProfile || null;
         const history = context.history || [];
         const currentMessage = context.message || '';
@@ -2960,75 +3611,65 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
         const buyerEmail = userProfile?.email || '';
         const buyerPhone = validPhone; // NEVER use hallucinated args.buyerPhone!
 
-        if (!eventId) {
-          return { error: 'Thất bại: Thiếu tham số eventId. Bạn PHẢI gọi getEventDetails trước.' };
-        }
-
         const allUserText = userMessages;
 
-        let detail = null;
-        try {
-          detail = await eventsService.getPublicEventDetail(eventId, userId);
-          if (detail) {
-            eventId = detail.slug || detail.id;
+        eventId = detail.slug || detail.id;
 
-            // Match session by ID, session_name, or index (1-based: "suất 1", "suất 2", "1", "2")
-            const sessionNumMatch = String(sessionId || '').match(/\d+/);
-            const sessionIdx = sessionNumMatch ? parseInt(sessionNumMatch[0], 10) - 1 : -1;
+        // Match session by ID, session_name, or index (1-based: "suất 1", "suất 2", "1", "2")
+        const sessionNumMatch = String(sessionId || '').match(/\d+/);
+        const sessionIdx = sessionNumMatch ? parseInt(sessionNumMatch[0], 10) - 1 : -1;
 
-            let matchedSession = detail.sessions?.find(s =>
-              String(s.id) === String(sessionId) ||
-              (s.session_name && s.session_name.toLowerCase().includes(String(sessionId).toLowerCase()))
+        let matchedSession = detail.sessions?.find(s =>
+          String(s.id) === String(sessionId) ||
+          (s.session_name && s.session_name.toLowerCase().includes(String(sessionId).toLowerCase()))
+        );
+
+        if (!matchedSession && sessionIdx >= 0 && sessionIdx < (detail.sessions?.length || 0)) {
+          matchedSession = detail.sessions[sessionIdx];
+        }
+
+        // Fallback: search allUserText for session mentions like "suất 1", "suất 2", "suat 2"
+        if (!matchedSession && detail.sessions?.length > 0) {
+          const sessTextMatch = allUserText.match(/su[aấ]t\s*(\d+)/i);
+          if (sessTextMatch) {
+            const sIdx = parseInt(sessTextMatch[1], 10) - 1;
+            if (sIdx >= 0 && sIdx < detail.sessions.length) {
+              matchedSession = detail.sessions[sIdx];
+            }
+          }
+        }
+
+        sessionId = matchedSession ? matchedSession.id : (detail.sessions?.[0]?.id || sessionId);
+
+        // MULTI-TICKET & SINGLE TICKET DETECTION FROM USER TEXT:
+        if (detail.ticket_types && detail.ticket_types.length > 0) {
+          const detectedTickets = parseTicketsFromText(allUserText, detail.ticket_types);
+
+          if (detectedTickets.length > 1) {
+            // Multi-ticket selection: format as id1*qty1,id2*qty2,...
+            ticketTypeId = detectedTickets.map(dt => `${dt.ticket.id}*${dt.quantity}`).join(',');
+            quantity = detectedTickets.reduce((sum, dt) => sum + dt.quantity, 0);
+          } else if (detectedTickets.length === 1) {
+            ticketTypeId = detectedTickets[0].ticket.id;
+            quantity = detectedTickets[0].quantity;
+          } else {
+            // Fallback: match by argument or first ticket type
+            const normTicketArg = String(ticketTypeId || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+            let matchedTicket = detail.ticket_types.find(t =>
+              String(t.id) === String(ticketTypeId) ||
+              (normTicketArg && t.name && t.name.toLowerCase().replace(/[^a-z0-9]/g, '').includes(normTicketArg)) ||
+              (normTicketArg && t.name && normTicketArg.includes(t.name.toLowerCase().replace(/[^a-z0-9]/g, '')))
             );
-
-            if (!matchedSession && sessionIdx >= 0 && sessionIdx < (detail.sessions?.length || 0)) {
-              matchedSession = detail.sessions[sessionIdx];
-            }
-
-            // Fallback: search allUserText for session mentions like "suất 1", "suất 2", "suat 2"
-            if (!matchedSession && detail.sessions?.length > 0) {
-              const sessTextMatch = allUserText.match(/su[aấ]t\s*(\d+)/i);
-              if (sessTextMatch) {
-                const sIdx = parseInt(sessTextMatch[1], 10) - 1;
-                if (sIdx >= 0 && sIdx < detail.sessions.length) {
-                  matchedSession = detail.sessions[sIdx];
-                }
-              }
-            }
-
-            sessionId = matchedSession ? matchedSession.id : (detail.sessions?.[0]?.id || sessionId);
-
-            // MULTI-TICKET & SINGLE TICKET DETECTION FROM USER TEXT:
-            if (detail.ticket_types && detail.ticket_types.length > 0) {
-              const detectedTickets = parseTicketsFromText(allUserText, detail.ticket_types);
-
-              if (detectedTickets.length > 1) {
-                // Multi-ticket selection: format as id1*qty1,id2*qty2,...
-                ticketTypeId = detectedTickets.map(dt => `${dt.ticket.id}*${dt.quantity}`).join(',');
-                quantity = detectedTickets.reduce((sum, dt) => sum + dt.quantity, 0);
-              } else if (detectedTickets.length === 1) {
-                ticketTypeId = detectedTickets[0].ticket.id;
-                quantity = detectedTickets[0].quantity;
-              } else {
-                // Fallback: match by argument or first ticket type
-                const normTicketArg = String(ticketTypeId || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-                let matchedTicket = detail.ticket_types.find(t =>
-                  String(t.id) === String(ticketTypeId) ||
-                  (normTicketArg && t.name && t.name.toLowerCase().replace(/[^a-z0-9]/g, '').includes(normTicketArg)) ||
-                  (normTicketArg && t.name && normTicketArg.includes(t.name.toLowerCase().replace(/[^a-z0-9]/g, '')))
-                );
-                ticketTypeId = matchedTicket ? matchedTicket.id : detail.ticket_types[0].id;
-                if (quantity <= 1) {
-                  const qtyMatch = allUserText.match(/(\d+)\s*(?:v[eé]|chỗ|ghế|ticket)/i);
-                  if (qtyMatch) {
-                    const parsedQty = parseInt(qtyMatch[1], 10);
-                    if (parsedQty > 0) quantity = parsedQty;
-                  }
-                }
+            ticketTypeId = matchedTicket ? matchedTicket.id : detail.ticket_types[0].id;
+            if (quantity <= 1) {
+              const qtyMatch = allUserText.match(/(\d+)\s*(?:v[eé]|chỗ|ghế|ticket)/i);
+              if (qtyMatch) {
+                const parsedQty = parseInt(qtyMatch[1], 10);
+                if (parsedQty > 0) quantity = parsedQty;
               }
             }
           }
-        } catch { /* keep original */ }
+        }
 
         const requireAttendeeInfo = Boolean(detail?.require_attendee_info ?? context.activeEvent?.require_attendee_info ?? false);
         let attendeesParam = '';
@@ -3084,15 +3725,7 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
         const currentMessage = context.message || '';
         const normCurrent = normalizeText(currentMessage);
 
-        const isChangeRowRequest = /(?:đổi|chuyển|chọn)\s*(?:sang\s*)?(?:hàng|dãy|row)\s*(?:ghế\s*)?khác\b/i.test(currentMessage) ||
-          /(?:doi|chuyen|chon)\s*(?:sang\s*)?(?:hang|day|row)\s*(?:ghe\s*)?khac\b/i.test(normCurrent) ||
-          /(?:hàng\s*khác|hang\s*khac)/i.test(normCurrent);
-
-        const isChangeSameRowSeats = (
-          /(?:đổi|chuyển|chọn|lấy)\s*(?:sang\s*)?(?:ghế|vị\s*trí|chỗ)?\s*khác\s*(?:cùng\s*hàng|trên\s*hàng\s*này|hàng\s*này|ở\s*hàng\s*này)?/i.test(currentMessage) ||
-          /(?:doi|chuyen|chon|lay)\s*(?:sang\s*)?(?:ghe|vi\s*tri|cho)?\s*khac\s*(?:cung\s*hang|tren\s*hang\s*nay|hang\s*nay|o\s*hang\s*nay)?/i.test(normCurrent) ||
-          /(?:ghế\s*khác|ghe\s*khac|vị\s*trí\s*khác|vi\s*tri\s*khac|chỗ\s*khác|cho\s*khac)/i.test(normCurrent)
-        ) && !isChangeRowRequest;
+        const { isChangeRowRequest, isChangeSameRowSeats } = classifySeatLocationIntent(currentMessage, normCurrent);
 
         const isQuantityAdjustmentRequest = (
           /(?:thêm|them|bớt|bot|tăng|tang|giảm|giam|nữa|nua|more|add|reduce|remove)\s*(?:\d+|một|hai|ba|bốn|năm|sau|bay|tam|chin|muoi)?\s*(?:vé|ve|ghế|ghe|chỗ|cho|tickets?|seats?)?/i.test(currentMessage) ||
@@ -3115,7 +3748,9 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
         // Extract preferredRow from CURRENT user text if not passed in tool args and not asking for a different row
         if (!preferredRow && !isChangeRowRequest) {
           const rowMatch = currentMessage.match(/(?:hàng\s*(?:ghế\s*)?|row\s*)([a-zA-Z\d]+)/i);
-          if (rowMatch) preferredRow = rowMatch[1];
+          if (rowMatch && !/^(?:TRUNG|GIỮA|GIUA|DAU|ĐẦU|CUOI|CUỐI|VIP|TAM|NAY|NÀY|KHAC|KHÁC|NAO|NÀO|MOI|MỚI)$/i.test(rowMatch[1])) {
+            preferredRow = rowMatch[1];
+          }
         }
 
         const isCenterPreferred = /(?:trung|giữa|giua|center)/i.test(preferredRow) || /(?:trung\s*tâm|ở\s*giữa|khu\s*vực\s*giữa|chính\s*giữa)/i.test(userMessages);
@@ -3145,30 +3780,18 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
         const buyerName = userProfile?.full_name || 'Khách hàng';
         const buyerEmail = userProfile?.email || '';
 
-        let detail = null;
-        try {
-          detail = await eventsService.getPublicEventDetail(identifier, userId);
-        } catch (e) {
-          return { error: `Không tìm thấy chi tiết sự kiện "${identifier}".` };
-        }
-
-        if (!detail) {
-          return { error: 'Không tìm thấy thông tin sự kiện.' };
-        }
-
-        // Validate event status: Do not create booking proposals for ended or closed events!
-        const isSalesEnded = detail.status === 'COMPLETED' ||
-          detail.status === 'CANCELLED' ||
-          detail.sales_status === 'CLOSED' ||
-          detail.sales_status === 'ENDED' ||
-          (detail.end_time && new Date(detail.end_time) < new Date());
-
-        if (isSalesEnded) {
+        const resolved = await resolveEventStateAndDetail(identifier, userId);
+        if (resolved.state === 'ENDED') {
           return {
             status: 'EVENT_ENDED',
-            error: `Sự kiện "${detail.title}" hiện đã kết thúc hoặc không còn mở bán vé trên hệ thống.`
+            error: `Sự kiện "${resolved.title || identifier}" đã kết thúc rồi.`,
+            instruction: `Chỉ trả lời ngắn gọn rằng sự kiện "${resolved.title || identifier}" đã kết thúc rồi, TUYỆT ĐỐI KHÔNG đưa bất kỳ thông tin hay thao tác đặt vé nào.`
           };
         }
+        if (resolved.state !== 'ACTIVE' || !resolved.detail) {
+          return { error: 'Không tìm thấy thông tin sự kiện.' };
+        }
+        const detail = resolved.detail;
 
         let eventId = detail.slug || detail.id;
         const sessions = detail.sessions || [];
@@ -3267,6 +3890,7 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
         }
 
         // 2. Check if current message explicitly mentions a ticket tier by name or price
+        let hasExplicitTierInMsg = false;
         for (const t of allEventTickets) {
           const normName = normalizeText(t.name).replace(/\([^)]*\)/g, '').trim();
           const pNum = Number(t.price);
@@ -3274,6 +3898,7 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
           const priceRegex = new RegExp(`\\b${pK}\\b|\\b${pNum}\\b`, 'i');
           if ((normName.length >= 3 && normCurrent.includes(normName)) || priceRegex.test(normCurrent)) {
             ticketTypeId = t.id;
+            hasExplicitTierInMsg = true;
             break;
           }
         }
@@ -3287,19 +3912,22 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
         }
 
         // Check if user specifically requested to switch to a different zone / tier:
-        const wantsDifferentTierInTool = /(?:đổi|chuyển|qua|sang|chọn|lấy|mua)?\s*(?:sang\s*)?(?:khu\s*vực|khu|hạng|loại\s*vé|loại|vùng)\s*khác\b/i.test(currentMessage) ||
-          /(?:doi|chuyen|qua|sang|chon|lay|mua)?\s*(?:sang\s*)?(?:khu\s*vuc|khu|hang|loai\s*ve|loai|vung)\s*khac\b/i.test(normCurrent) ||
-          /(?:đổi\s*khu|đổi\s*khu\s*vực|chuyển\s*khu|chuyển\s*khu\s*vực|khu\s*vực\s*khác|loại\s*vé\s*khác|hạng\s*vé\s*khác|loại\s*khác|hạng\s*khác)/i.test(currentMessage) ||
-          /(?:doi\s*khu|doi\s*khu\s*vuc|chuyen\s*khu|chuyen\s*khu\s*vuc|khu\s*vuc\s*khac|loai\s*ve\s*khac|hang\s*ve\s*khac|loai\s*khac|hang\s*khac)/i.test(normCurrent);
+        const wantsDifferentTierInTool = !hasExplicitTierInMsg && isDifferentTierRequest(currentMessage, normCurrent);
+        let candidateOtherTiersForAlloc = [];
 
         if (wantsDifferentTierInTool && allEventTickets.length > 1) {
           const prevTierId = lastProp?.ticket_type_id;
-          const candidateOther = allEventTickets.filter(t => (!prevTierId || String(t.id) !== String(prevTierId)) && t.is_seated !== false);
-          const otherTiers = candidateOther.length > 0 ? candidateOther : allEventTickets.filter(t => !prevTierId || String(t.id) !== String(prevTierId));
-          if (otherTiers.length > 0) {
-            ticketTypeId = otherTiers[0].id;
-            ticketTypeName = otherTiers[0].name;
-            requestedTickets = [{ ticket: otherTiers[0], quantity }];
+          candidateOtherTiersForAlloc = getCandidateOtherTiers(
+            allEventTickets,
+            prevTierId,
+            matchedSession?.id || null,
+            hasSeatMap,
+            quantity
+          );
+          if (candidateOtherTiersForAlloc.length > 0) {
+            ticketTypeId = candidateOtherTiersForAlloc[0].id;
+            ticketTypeName = candidateOtherTiersForAlloc[0].name;
+            requestedTickets = [{ ticket: candidateOtherTiersForAlloc[0], quantity }];
           }
           // Do not inherit row from previous zone when switching zones
           const rowInCurrent = currentMessage.match(/(?:hàng\s*(?:ghế\s*)?|dãy\s*(?:ghế\s*)?|row\s*)([a-zA-Z\d]+)/i);
@@ -3336,13 +3964,36 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
         }
 
         const requireAttendeeInfo = Boolean(detail.require_attendee_info);
-        let collectedAttendees = extractAttendeesFromText(userMessages, userProfile);
-        if (requireAttendeeInfo && collectedAttendees.length === 0 && userProfile?.email) {
-          collectedAttendees.push({
-            name: userProfile.full_name || 'Khách hàng',
-            email: userProfile.email.trim()
-          });
-        }
+        const historicalAttendees = collectHistoricalAttendees(history, userProfile);
+        const restoredInCurrent = extractRestoredAttendeesFromMessage(currentMessage, historicalAttendees, userProfile);
+        const attendeesInCurrent = mergeUniqueAttendees(
+          extractAttendeesFromText(currentMessage, userProfile),
+          restoredInCurrent
+        );
+        const extractedAttendees = mergeUniqueAttendees(
+          extractAttendeesFromText(userMessages, userProfile),
+          restoredInCurrent
+        );
+        const isSameEventLastProp = Boolean(
+          lastProp?.fullProposal && (
+            !lastProp.event_slug ||
+            lastProp.event_slug === detail.slug ||
+            lastProp.fullProposal.eventId === detail.id ||
+            lastProp.fullProposal.eventSlug === detail.slug
+          )
+        );
+        const prevPropAttendees = (isSameEventLastProp && Array.isArray(lastProp.fullProposal.attendees))
+          ? lastProp.fullProposal.attendees
+          : [];
+
+        const collectedAttendees = resolveProposalAttendees({
+          quantity,
+          attendeesInCurrentMsg: attendeesInCurrent,
+          extractedAttendees,
+          prevPropAttendees,
+          userProfile,
+          requireAttendeeInfo
+        });
         const isAttendeesComplete = !requireAttendeeInfo || (collectedAttendees.length >= quantity);
 
         // Resolve ticket tier / cheapest preference:
@@ -3452,23 +4103,39 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
           } else {
             const singleTargetTier = ticketTypeId || requestedTickets[0]?.ticket?.id;
             const singleQty = requestedTickets[0]?.quantity || quantity;
-            const singleAlloc = seatAllocationService.allocateSeats(
-              allSessionSeats,
-              detail.seating_rules,
-              detail.ticket_types || [],
-              {
-                quantity: singleQty,
-                preferredRow,
-                excludeRow,
-                excludeSeats: excludeSeats.length > 0 ? excludeSeats : undefined,
-                specificSeats: specificSeats.length > 0 ? specificSeats : undefined,
-                ticketTypeId: singleTargetTier,
-                cheapestOnly: wantsCheapest || !singleTargetTier,
-                isCenterPreferred,
-                horizontalPreference,
-                userMessage: currentMessage
+            const tiersToTry = (wantsDifferentTierInTool && candidateOtherTiersForAlloc.length > 1)
+              ? [
+                  singleTargetTier,
+                  ...candidateOtherTiersForAlloc
+                    .map(t => t.id)
+                    .filter(id => String(id) !== String(singleTargetTier))
+                ]
+              : [singleTargetTier];
+
+            let singleAlloc = null;
+            for (const tryTierId of tiersToTry) {
+              singleAlloc = seatAllocationService.allocateSeats(
+                allSessionSeats,
+                detail.seating_rules,
+                detail.ticket_types || [],
+                {
+                  quantity: singleQty,
+                  preferredRow,
+                  excludeRow,
+                  excludeSeats: excludeSeats.length > 0 ? excludeSeats : undefined,
+                  specificSeats: specificSeats.length > 0 ? specificSeats : undefined,
+                  ticketTypeId: tryTierId,
+                  cheapestOnly: wantsCheapest || !tryTierId,
+                  isCenterPreferred,
+                  horizontalPreference,
+                  userMessage: currentMessage
+                }
+              );
+              if (singleAlloc.success) {
+                ticketTypeId = tryTierId;
+                break;
               }
-            );
+            }
 
             if (!singleAlloc.success) {
               return {
@@ -3707,7 +4374,8 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
         };
       }
 
-      // 0.3. Direct FAQ Fast-path (Standard verified policies & platform guides):
+      const isEn = clientContext?.locale === 'en';
+      // 0.3. Direct FAQ & Ended-Event Fast-paths:
       const publishedEvents = await getPublishedEventsCache();
       const directMatchedEvent = findMatchingPublishedEvent(
         message,
@@ -3715,8 +4383,23 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
         { allowSemanticTopic: true }
       );
 
+      // Ended Event Fast-path (runs before refund/cancellation FAQs so queries on an ended event return ONLY an ended notice with no details):
+      if (!directMatchedEvent) {
+        const endedDirectEvent = await findEndedPublicEventByQuery(message);
+        if (endedDirectEvent) {
+          return {
+            role: 'assistant',
+            content: sanitizeAssistantResponse(formatEndedEventReply(endedDirectEvent.title, isEn), isEn)
+          };
+        }
+      }
+
+      const earlyNormMsg = normalizeText(message);
+      const isEarlyRefundInquiry = /(?:hoan\s*ve|tra\s*ve|huy\s*ve|hoan\s*tien|refund|chinh\s*sach\s*hoan|co\s*duoc\s*hoan|co\s*duoc\s*tra|chinh\s*sach\s*tra|co\s*cho\s*hoan|co\s*cho\s*tra)/i.test(earlyNormMsg) &&
+        !/(?:dat|mua|book|lay)\s*(?:ve|ghe|\d+)/i.test(earlyNormMsg);
+
       const directFaq = getDirectFaqAnswer(message);
-      if (directFaq && (isSystemFaqQuery(message) || !directMatchedEvent)) {
+      if (directFaq && !(directMatchedEvent && isEarlyRefundInquiry) && (isSystemFaqQuery(message) || !directMatchedEvent)) {
         return {
           role: 'assistant',
           content: stripIcons(directFaq)
@@ -3730,11 +4413,10 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
         if (orgInquiry.type === 'ORGANIZER_EVENTS') {
           return {
             role: 'assistant',
-            content: formatOrganizerEventsResponse(orgInquiry.organizer, publishedEvents, clientContext?.locale === 'en')
+            content: formatOrganizerEventsResponse(orgInquiry.organizer, publishedEvents, isEn)
           };
         }
         if (orgInquiry.type === 'ORGANIZER_NOT_FOUND') {
-          const isEn = clientContext?.locale === 'en';
           return {
             role: 'assistant',
             content: isEn
@@ -3744,53 +4426,8 @@ TUYỆT ĐỐI KHÔNG tự ý mở sơ đồ chọn ghế hoặc dán action tag
         }
       }
 
-      // 0.5. Fallback Event Refund Inquiry Fast-path:
-      // If user asks whether an event allows refund/cancellation, but event was not found in publishedEvents:
-      const earlyNormMsg = normalizeText(message);
-      const isEarlyRefundInquiry = /(?:hoan\s*ve|tra\s*ve|huy\s*ve|hoan\s*tien|refund|chinh\s*sach\s*hoan|co\s*duoc\s*hoan|co\s*duoc\s*tra|chinh\s*sach\s*tra|co\s*cho\s*hoan|co\s*cho\s*tra)/i.test(earlyNormMsg) &&
-        !/(?:dat|mua|book|lay)\s*(?:ve|ghe|\d+)/i.test(earlyNormMsg);
-
+      // 0.5. Fallback Platform Refund FAQ Fast-path (never queries hidden/unpublished/ended events):
       if (isEarlyRefundInquiry && !directMatchedEvent) {
-        try {
-          const strippedTitle = earlyNormMsg.replace(/(?:su\s*kien|show|vo\s*kich|ve|co\s*duoc\s*hoan\s*ve\s*khong|hoan\s*ve|tra\s*ve|duoc\s*khong|co\s*cho\s*hoan\s*khong)/g, '').trim();
-          if (strippedTitle.length >= 3) {
-            const dbEvRes = await db.query(
-              `SELECT id, title, slug, status, refund_policy FROM events WHERE title ILIKE $1 LIMIT 1`,
-              [`%${strippedTitle}%`]
-            );
-            if (dbEvRes.rows.length > 0) {
-              const matchedDbEv = dbEvRes.rows[0];
-              const isEn = clientContext?.locale === 'en';
-              const rPol = matchedDbEv.refund_policy || {};
-              const allowRef = Boolean(rPol.allow_refund ?? rPol.allow_refunds);
-              const rules = Array.isArray(rPol.refund_rules) ? rPol.refund_rules : [];
-
-              if (allowRef && rules.length > 0) {
-                const sortedRules = [...rules].sort((a, b) => Number(b.days_before) - Number(a.days_before));
-                const ruleLines = sortedRules.map((r, i) => {
-                  if (i === 0) {
-                    return isEn
-                      ? `• **${r.refund_rate}% refund** if requested at least **${r.days_before} days** prior to the event.`
-                      : `• Hoàn **${r.refund_rate}%** giá trị vé nếu gửi yêu cầu trước ngày diễn ra ít nhất **${r.days_before} ngày**.`;
-                  }
-                  const prev = sortedRules[i - 1];
-                  return isEn
-                    ? `• **${r.refund_rate}% refund** if requested between **${r.days_before}** and under **${prev.days_before} days** prior to the event.`
-                    : `• Hoàn **${r.refund_rate}%** giá trị vé nếu gửi yêu cầu trước ngày diễn ra từ **${r.days_before}** đến dưới **${prev.days_before} ngày**.`;
-                });
-                return {
-                  role: 'assistant',
-                  content: isEn
-                    ? `Regarding **${matchedDbEv.title}**, the Organizer **DOES SUPPORT REFUNDS** according to the following policy:\n\n${ruleLines.join('\n')}\n\n💡 **How to submit a refund request:**\nAfter purchasing your tickets, you can go to **"My Tickets"** > Select this event > Click **"Request Refund"**!`
-                    : `Dạ đối với sự kiện **${matchedDbEv.title}**, Ban tổ chức **CÓ HỖ TRỢ HOÀN VÉ** theo chính sách chi tiết như sau nè:\n\n${ruleLines.join('\n')}\n\n💡 **Cách thức gửi yêu cầu hoàn tiền:**\nSau khi đặt vé thành công, nếu có việc bận không thể tham dự, bạn chỉ cần vào mục **"Vé của tôi"** > Chọn vé sự kiện này > Nhấn **"Yêu cầu hoàn vé"** để hệ thống tiếp nhận và xử lý nhé!`
-                };
-              }
-            }
-          }
-        } catch (dbEvErr) {
-          logger.warn(`[AiAssistant] Early refund lookup in DB error: ${dbEvErr.message}`);
-        }
-
         const stdRefundFaq = getDirectFaqAnswer('chính sách hoàn tiền');
         if (stdRefundFaq) {
           return {
@@ -4048,6 +4685,16 @@ CORE RULES - NATURAL COMMUNICATION & SECURITY (ENGLISH):`
         { allowSemanticTopic: true }
       );
 
+      if (!currentMatchedEvent && (eventChangeInfo.targetQuery || (!isSystemFaqQuery(message) && !isGeneralDiscoveryQuery(message)))) {
+        const endedTarget = await findEndedPublicEventByQuery(queryForMatching);
+        if (endedTarget) {
+          return {
+            role: 'assistant',
+            content: sanitizeAssistantResponse(formatEndedEventReply(endedTarget.title, isEn), isEn)
+          };
+        }
+      }
+
       // Determine effective activeEvent for this turn:
       let activeEvent = null;
       let isEventSwitched = false;
@@ -4071,14 +4718,57 @@ CORE RULES - NATURAL COMMUNICATION & SECURITY (ENGLISH):`
         activeEvent = previousActiveEvent;
       }
 
-      // Immediate Booking Continuation Fast-path:
-      // If user asks to continue booking without naming an event, use activeEvent
-      if (isBookingContinuationIntent(message) && activeEvent) {
-        let contDetail = null;
-        try {
-          contDetail = await eventsService.getPublicEventDetail(activeEvent.slug || activeEvent.id, userId);
-        } catch (e) { }
+      // If user is asking in context of an event page whose event has ended:
+      if (!activeEvent && (clientContext?.eventSlug || clientContext?.eventId) && !eventChangeInfo.isCancelOnly && !eventChangeInfo.isChange && !isGeneralDiscoveryQuery(message) && !isSystemFaqQuery(message) && !isOutOfScopeQuery(message)) {
+        const endedContextEvent = await findEndedPublicEventByQuery(clientContext.eventSlug || clientContext.eventId);
+        if (endedContextEvent) {
+          return {
+            role: 'assistant',
+            content: sanitizeAssistantResponse(formatEndedEventReply(endedContextEvent.title, isEn), isEn)
+          };
+        }
+      }
 
+      let requireAttendeeInfo = false;
+      let hasSeatMap = false;
+      let eventDetail = null;
+      let sessionList = [];
+      let activeSessionId = '';
+      let sessionText = '';
+      let ticketText = '';
+
+      // Authoritative check for activeEvent visibility & ended state before exposing ANY details or booking actions:
+      if (activeEvent) {
+        const resolvedActive = await resolveEventStateAndDetail(activeEvent.slug || activeEvent.id, userId);
+        if (resolvedActive.state === 'ENDED') {
+          invalidatePublishedEventsCache();
+          return {
+            role: 'assistant',
+            content: sanitizeAssistantResponse(formatEndedEventReply(resolvedActive.title || activeEvent.title, isEn), isEn)
+          };
+        }
+        if (resolvedActive.state !== 'ACTIVE' || !resolvedActive.detail) {
+          invalidatePublishedEventsCache();
+          activeEvent = null;
+          eventDetail = null;
+        } else {
+          eventDetail = resolvedActive.detail;
+          sessionList = eventDetail.sessions || [];
+          requireAttendeeInfo = Boolean(eventDetail.require_attendee_info);
+          activeEvent.require_attendee_info = requireAttendeeInfo;
+          hasSeatMap = Boolean(
+            sessionList.some(s => s.seat_map_id || s.has_seat_map) ||
+            eventDetail.ticket_types?.some(t => t.is_seated === true)
+          );
+          sessionText = sessionList.map((s, idx) => `Suất ${idx + 1} (${s.session_name || 'Mặc định'} lúc ${s.start_time ? new Date(s.start_time).toLocaleString('vi-VN') : ''}): ID=${s.id}`).join('\n  ');
+          ticketText = (eventDetail.ticket_types || []).map(t => `${t.name} (${Number(t.price).toLocaleString('vi-VN')}đ, còn ${t.available_quantity} vé): ID=${t.id}`).join('\n  ');
+        }
+      }
+
+      // Immediate Booking Continuation Fast-path:
+      // If user asks to continue booking without naming an event, use verified activeEvent
+      if (isBookingContinuationIntent(message) && activeEvent) {
+        const contDetail = eventDetail;
         const contTicketTypes = contDetail?.ticket_types || [];
         const contIsSeated = Boolean(
           contDetail?.sessions?.some(s => s.seat_map_id || s.has_seat_map) ||
@@ -4090,7 +4780,6 @@ CORE RULES - NATURAL COMMUNICATION & SECURITY (ENGLISH):`
         const contHasPlacement = /(?:hang\s*[a-z]|gan\s*(?:san\s*khau|trung\s*tam)|o\s*giua|trung\s*tam|vip|thuong|dau|cuoi)/i.test(normalizeText(message));
 
         if (!contQty && contDetected.length === 0 && !contHasPlacement) {
-          const isEn = clientContext?.locale === 'en';
           const evTitle = (isEn && (contDetail?.title_en || activeEvent.title_en)) || activeEvent.title;
           if (contIsSeated) {
             return {
@@ -4127,31 +4816,7 @@ CORE RULES - NATURAL COMMUNICATION & SECURITY (ENGLISH):`
         }
       }
 
-      let requireAttendeeInfo = false;
-      let hasSeatMap = false;
-      let eventDetail = null;
-      let sessionList = [];
-      let activeSessionId = '';
-
       if (activeEvent) {
-        let sessionText = '';
-        let ticketText = '';
-        try {
-          eventDetail = await eventsService.getPublicEventDetail(activeEvent.slug || activeEvent.id, userId);
-          if (eventDetail) {
-            sessionList = eventDetail.sessions || [];
-            requireAttendeeInfo = Boolean(eventDetail.require_attendee_info);
-            if (activeEvent) activeEvent.require_attendee_info = requireAttendeeInfo;
-            hasSeatMap = Boolean(
-              sessionList.some(s => s.seat_map_id || s.has_seat_map) ||
-              eventDetail.ticket_types?.some(t => t.is_seated === true)
-            );
-            sessionText = sessionList.map((s, idx) => `Suất ${idx + 1} (${s.session_name || 'Mặc định'} lúc ${s.start_time ? new Date(s.start_time).toLocaleString('vi-VN') : ''}): ID=${s.id}`).join('\n  ');
-            ticketText = (eventDetail.ticket_types || []).map(t => `${t.name} (${Number(t.price).toLocaleString('vi-VN')}đ, còn ${t.available_quantity} vé): ID=${t.id}`).join('\n  ');
-          }
-        } catch (err) {
-          logger.warn(`[AiAssistant] Error fetching activeEvent detail: ${err.message}`);
-        }
 
         const matchedSession = findMatchingSession(message, sessionList);
         activeSessionId = matchedSession?.id || sessionList[0]?.id || '';
@@ -4469,24 +5134,12 @@ Bạn hãy xác nhận đã chuyển sang sự kiện "${activeEvent.title}", gi
       const hasSaidUseMyInfo = /(dung|lay|su dung|giong)\s+thong\s+tin\s+cua\s+toi|thong\s+tin\s+nhu\s+tren/i.test(allUserNorm);
 
       // 1. Detect user intents from current message early:
-      const wantsDifferentTier = !eventChangeInfo.isChange && (
-        /(?:đổi|chuyển|qua|sang|chọn|lấy|mua)?\s*(?:sang\s*)?(?:khu\s*vực|khu|hạng|loại\s*vé|loại|vùng)\s*khác\b/i.test(message) ||
-        /(?:doi|chuyen|qua|sang|chon|lay|mua)?\s*(?:sang\s*)?(?:khu\s*vuc|khu|hang|loai\s*ve|loai|vung)\s*khac\b/i.test(normMsg) ||
-        /(?:đổi\s*khu|đổi\s*khu\s*vực|chuyển\s*khu|chuyển\s*khu\s*vực|khu\s*vực\s*khác|loại\s*vé\s*khác|hạng\s*vé\s*khác|loại\s*khác|hạng\s*khác)/i.test(message) ||
-        /(?:doi\s*khu|doi\s*khu\s*vuc|chuyen\s*khu|chuyen\s*khu\s*vuc|khu\s*vuc\s*khac|loai\s*ve\s*khac|hang\s*ve\s*khac|loai\s*khac|hang\s*khac)/i.test(normMsg)
-      );
+      const wantsDifferentTier = !eventChangeInfo.isChange && isDifferentTierRequest(message, normMsg);
 
-      const isChangeRowRequest = !eventChangeInfo.isChange && (
-        /(?:đổi|chuyển|chọn)\s*(?:sang\s*)?(?:hàng|dãy|row)\s*(?:ghế\s*)?khác\b/i.test(message) ||
-        /(?:doi|chuyen|chon)\s*(?:sang\s*)?(?:hang|day|row)\s*(?:ghe\s*)?khac\b/i.test(normMsg) ||
-        /(?:hàng\s*khác|hang\s*khac)/i.test(normMsg)
-      );
+      const seatIntent = classifySeatLocationIntent(message, normMsg);
+      const isChangeRowRequest = !eventChangeInfo.isChange && seatIntent.isChangeRowRequest;
 
-      const isChangeSameRowSeats = !eventChangeInfo.isChange && (
-        /(?:đổi|chuyển|chọn|lấy)\s*(?:sang\s*)?(?:ghế|vị\s*trí|chỗ)?\s*khác\s*(?:cùng\s*hàng|trên\s*hàng\s*này|hàng\s*này|ở\s*hàng\s*này)?/i.test(message) ||
-        /(?:doi|chuyen|chon|lay)\s*(?:sang\s*)?(?:ghe|vi\s*tri|cho)?\s*khac\s*(?:cung\s*hang|tren\s*hang\s*nay|hang\s*nay|o\s*hang\s*nay)?/i.test(normMsg) ||
-        /(?:ghế\s*khác|ghe\s*khac|vị\s*trí\s*khác|vi\s*tri\s*khac|chỗ\s*khác|cho\s*khac)/i.test(normMsg)
-      ) && !isChangeRowRequest;
+      const isChangeSameRowSeats = !eventChangeInfo.isChange && seatIntent.isChangeSameRowSeats;
 
       // 2. Extract last proposal from history (ignore old proposal if switching/abandoning event):
       const ticketTypesList = eventDetail?.ticket_types || [];
@@ -4499,23 +5152,25 @@ Bạn hãy xác nhận đã chuyển sang sự kiện "${activeEvent.title}", gi
       const prevRow = firstSeatLabel ? firstSeatLabel.charAt(0).toUpperCase() : null;
       const excludeRow = isChangeRowRequest ? prevRow : null;
 
+      const isEditAttendee = isAttendeeEditMessage(message);
+
+      const parsedAdjQty = parseQuantityFromText(message, prevProposalQty);
+      const isExplicitRelativeQty = /(?:thêm|them|bớt|bot|tăng|tang|giảm|giam|nữa|nua|more|add|reduce|remove)\s*(?:\d+|một|hai|ba|bốn|năm|sau|bay|tam|chin|muoi)?\s*(?:vé|ve|ghế|ghe|chỗ|cho|tickets?|seats?)?/i.test(message);
       const isQuantityAdjustment = Boolean(
         lastProposal &&
         !eventChangeInfo.isChange &&
         !isEventInfoInquiry(message) &&
+        !isEditAttendee &&
+        !isChangeSameRowSeats &&
         (
-          parseQuantityFromText(message, prevProposalQty) !== null ||
-          /(?:thêm|them|bớt|bot|tăng|tang|giảm|giam|nữa|nua|more|add|reduce|remove)\s*(?:\d+|một|hai|ba|bốn|năm|sau|bay|tam|chin|muoi)?\s*(?:vé|ve|ghế|ghe|chỗ|cho|tickets?|seats?)?/i.test(message)
+          (parsedAdjQty !== null && (!prevProposalQty || parsedAdjQty !== prevProposalQty)) ||
+          isExplicitRelativeQty
         )
       );
 
-      const isChangeSeatLocationRequest = !eventChangeInfo.isChange && (
-        isChangeSameRowSeats ||
-        /(?:đổi\s*ghế|doi\s*ghe|chọn\s*lại\s*ghế|chon\s*lai\s*ghe|lấy\s*ghế\s*khác|lay\s*ghe\s*khac|ghế\s*khác|ghe\s*khac|vị\s*trí\s*khác|vi\s*tri\s*khac|chỗ\s*khác|cho\s*khac)/i.test(message) ||
-        /(?:doi\s*ghe|chon\s*lai\s*ghe|lay\s*ghe\s*khac|ghe\s*khac|vi\s*tri\s*khac|cho\s*khac)/i.test(normMsg)
-      );
+      const isChangeSeatLocationRequest = !eventChangeInfo.isChange && !isEditAttendee && seatIntent.isChangeSameRowSeats;
 
-      const isSeatAdjustmentRequest = !eventChangeInfo.isChange && (
+      const isSeatAdjustmentRequest = !eventChangeInfo.isChange && !isEditAttendee && (
         /(?:lệch|lech|bị\s*lệch|bi\s*lech|chính\s*giữa|chinh\s*giua|ở\s*giữa|o\s*giua|giữa\s*hàng|giua\s*hang|đổi\s*ghế|doi\s*ghe|chọn\s*ghế|chon\s*ghe|lấy\s*ghế|lay\s*ghe|đổi\s*hàng|doi\s*hang|đổi\s*sang|doi\s*sang|chuyển\s*sang|chuyen\s*sang|chọn\s*lại|chon\s*lai|hàng\s*khác|hang\s*khac|sang\s*hang|sang\s*hàng|đổi\s*vé|doi\s*ve|đổi\s*loại|doi\s*loai|chuyển\s*loại|chuyen\s*loai|ghế\s*khác|ghe\s*khac|vị\s*trí\s*khác|vi\s*tri\s*khac|chỗ\s*khác|cho\s*khac)/i.test(message) ||
         /(?:lech|bi\s*lech|chinh\s*giua|o\s*giua|giua\s*hang|doi\s*ghe|chon\s*ghe|lay\s*ghe|doi\s*hang|doi\s*sang|chuyen\s*sang|chon\s*lai|hang\s*khac|sang\s*hang|doi\s*ve|doi\s*loai|chuyen\s*loai|ghe\s*khac|vi\s*tri\s*khac|cho\s*khac)/i.test(normMsg) ||
         wantsDifferentTier ||
@@ -4642,11 +5297,8 @@ Bạn hãy xác nhận đã chuyển sang sự kiện "${activeEvent.title}", gi
           normMsg.match(/(?:hang\s*(?:ghe\s*)?|day\s*(?:ghe\s*)?|row\s*)([a-z\d]+)/i) ||
           normMsg.match(/(?:doi\s*sang|chuyen\s*sang|lay\s*hang|chon\s*hang|hang)\s+([a-z\d])\b/i);
 
-        if (rowMatch) {
-          const candidateRow = rowMatch[1].toUpperCase();
-          if (!/(?:TRUNG|GIỮA|GIUA|DAU|ĐẦU|CUOI|CUỐI|VIP|TAM)/i.test(candidateRow)) {
-            requestedRow = candidateRow;
-          }
+        if (rowMatch && !/^(?:TRUNG|GIỮA|GIUA|DAU|ĐẦU|CUOI|CUỐI|VIP|TAM|NAY|NÀY|KHAC|KHÁC|NAO|NÀO|MOI|MỚI)$/i.test(rowMatch[1])) {
+          requestedRow = rowMatch[1].toUpperCase();
         } else if (isChangeSameRowSeats && prevRow) {
           requestedRow = prevRow;
         }
@@ -4683,8 +5335,13 @@ Bạn hãy xác nhận đã chuyển sang sự kiện "${activeEvent.title}", gi
       } else if (wantsDifferentTier && targetCandidateTickets.length > 1) {
         // User specifically requested to switch to a different zone / tier:
         const prevTierId = lastProposal?.ticket_type_id;
-        const candidateOther = targetCandidateTickets.filter(t => (!prevTierId || String(t.id) !== String(prevTierId)));
-        const otherTiers = candidateOther.length > 0 ? candidateOther : targetCandidateTickets;
+        const otherTiers = getCandidateOtherTiers(
+          targetCandidateTickets,
+          prevTierId,
+          lastProposal?.session?.id || activeSessionId || null,
+          hasSeatMap,
+          requestedQty || seatedOrderQty || prevProposalQty || 1
+        );
         effTargetTier = otherTiers[0] || targetCandidateTickets[0];
         const q = requestedQty || seatedOrderQty || prevProposalQty || 1;
         effDetectedTickets = [{ ticket: effTargetTier, quantity: q }];
@@ -4729,6 +5386,7 @@ Bạn hãy xác nhận đã chuyển sang sự kiện "${activeEvent.title}", gi
         !eventChangeInfo.isCancelOnly &&
         !isManualSeatMapRequest &&
         !isEventInfoInquiry(message) &&
+        !isEditAttendee &&
         (isAutonomousBooking || isSeatAdjustmentRequest || wantsDifferentTier || isTierOrPriceResponse || isBookingContinuationIntent(message) || Boolean(specificSeatsInMsg.length > 0) || /(?:đặt luôn|đặt vé|chọn vé|dat luon|dat ve|chon ve|đặt lại|mua lại|book lại|dat lai|mua lai|book lai|múc|muc|chốt|chot|chốt kèo|chot keo|vào việc|vao viec|lấy|lay|húp|hup|lụm|lum|buy ticket|buy tickets|book ticket|book tickets|wanna buy|want to buy|purchase ticket|purchase tickets|get ticket|get tickets)/i.test(message))
       );
 
@@ -4740,14 +5398,21 @@ Bạn hãy xác nhận đã chuyển sang sự kiện "${activeEvent.title}", gi
         lastGeneratedActionTag: null
       };
 
-    // FAST-PATH: User is providing attendee info to complete an existing Smart Booking Proposal (0.01s)
-    const attendeesInCurrentMsg = extractAttendeesFromText(message, userProfile);
+    // FAST-PATH: User is providing or editing attendee info for an existing Smart Booking Proposal (0.01s)
+    const historicalAttendeesInChat = collectHistoricalAttendees(cleanHistory, userProfile);
+    const restoredAttendeesInMsg = extractRestoredAttendeesFromMessage(message, historicalAttendeesInChat, userProfile);
+    const attendeesInCurrentMsg = mergeUniqueAttendees(
+      extractAttendeesFromText(message, userProfile),
+      restoredAttendeesInMsg
+    );
     const existingProposalData = lastProposal?.fullProposal || null;
     const isAttendeeSubmissionForProposal = Boolean(
       existingProposalData &&
       existingProposalData.requireAttendeeInfo &&
-      !existingProposalData.isAttendeesComplete &&
-      (attendeesInCurrentMsg.length > 0 || collectedAttendees.length > (existingProposalData.attendees || []).length) &&
+      (
+        (!existingProposalData.isAttendeesComplete && (attendeesInCurrentMsg.length > 0 || collectedAttendees.length > (existingProposalData.attendees || []).length)) ||
+        (isEditAttendee && attendeesInCurrentMsg.length > 0)
+      ) &&
       !eventChangeInfo.isChange &&
       !eventChangeInfo.isCancelOnly &&
       !isManualSeatMapRequest &&
@@ -4760,16 +5425,18 @@ Bạn hãy xác nhận đã chuyển sang sự kiện "${activeEvent.title}", gi
     if (isAttendeeSubmissionForProposal) {
       logger.info(`[AiAssistant] Fast-path: updating attendee info for existing proposal (event: ${activeEvent?.title}, seats: ${lastProposal.seats})`);
       const prevAtts = Array.isArray(existingProposalData.attendees) ? existingProposalData.attendees : [];
-      const mergedAttendees = [...prevAtts];
-      for (const a of collectedAttendees) {
-        if (!mergedAttendees.some(ex => (ex.email && a.email && ex.email.toLowerCase() === a.email.toLowerCase()) || (ex.name && a.name && ex.name.toLowerCase() === a.name.toLowerCase()))) {
-          mergedAttendees.push(a);
-        }
-      }
-
       const propQty = existingProposalData.quantity || lastProposal.quantity || 1;
-      const isNowComplete = mergedAttendees.length >= propQty;
-      const finalAttendees = mergedAttendees.slice(0, propQty);
+      const finalAttendees = (isEditAttendee || existingProposalData.isAttendeesComplete)
+        ? applyAttendeeEditToProposal(prevAtts, attendeesInCurrentMsg, message, propQty)
+        : resolveProposalAttendees({
+            quantity: propQty,
+            attendeesInCurrentMsg,
+            extractedAttendees: collectedAttendees,
+            prevPropAttendees: prevAtts,
+            userProfile,
+            requireAttendeeInfo: Boolean(existingProposalData.requireAttendeeInfo)
+          });
+      const isNowComplete = finalAttendees.length >= propQty;
 
       // Refresh seat hold so user gets a fresh 15-minute window to review and confirm
       let holdExpiresAt = existingProposalData.holdExpiresAt;
@@ -4796,7 +5463,8 @@ Bạn hãy xác nhận đã chuyển sang sự kiện "${activeEvent.title}", gi
         attendees: finalAttendees,
         isAttendeesComplete: isNowComplete,
         holdExpiresAt,
-        hold_expires_at: holdExpiresAt
+        hold_expires_at: holdExpiresAt,
+        note: null
       };
 
       const actionTag = `[ACTION:BOOKING_PROPOSAL:${encodeURIComponent(JSON.stringify(updatedProposal))}]`;
@@ -4864,7 +5532,7 @@ Bạn hãy xác nhận đã chuyển sang sự kiện "${activeEvent.title}", gi
             eventId: activeEvent.slug,
             sessionId: (lastProposal?.session?.id || sessionList?.[0]?.id || eventDetail?.sessions?.[0]?.id || activeEvent.sessions?.[0]?.id || activeSessionId || ''),
             quantity: effQty,
-            preferredRow: requestedRow || (!excludeRow && prevRow ? prevRow : (isCenterInMsg ? 'trung tâm' : '')),
+            preferredRow: requestedRow || (!wantsDifferentTier && !excludeRow && prevRow ? prevRow : (isCenterInMsg ? 'trung tâm' : '')),
             excludeRow: excludeRow || null,
             excludeSeats: excludeSeatsInMsg.length > 0 ? excludeSeatsInMsg : undefined,
             specificSeats: specificSeatsInMsg.length > 0 ? specificSeatsInMsg : undefined,
@@ -5048,14 +5716,22 @@ ${getRemainingTicketsDescription(detectedTickets, collectedAttendees.length)}`
         }
 
         let response = null;
+        const chatFallbackModel = (() => {
+          const configured = String(process.env.OLLAMA_CHAT_FALLBACK_MODEL ?? ollamaClient.OLLAMA_CHAT_FALLBACK_MODEL ?? '').trim();
+          if (!configured || /(?:eventhub-extractor|qwen3-eventhub|qwen3-event-extractor)/i.test(configured)) {
+            return null;
+          }
+          return configured;
+        })();
+
         try {
-          response = await ollamaClient.chat(messages, { tools: activeTools });
+          response = await ollamaClient.chat(messages, { tools: activeTools, fallbackModel: chatFallbackModel });
         } catch (chatErr) {
           logger.warn(`[AgentLoop] ollamaClient.chat with tools error: ${chatErr.message}`);
           if (activeTools.length > 0) {
             try {
               logger.info(`[AgentLoop] Retrying ollamaClient.chat without tools...`);
-              response = await ollamaClient.chat(messages, { tools: [] });
+              response = await ollamaClient.chat(messages, { tools: [], fallbackModel: chatFallbackModel });
             } catch (retryErr) {
               logger.error(`[AgentLoop] Retry without tools also failed: ${retryErr.message}`);
             }
@@ -5077,7 +5753,7 @@ ${getRemainingTicketsDescription(detectedTickets, collectedAttendees.length)}`
                 eventId: activeEvent.slug,
                 sessionId: lastProposal?.session?.id || activeSessionId,
                 quantity: effQty,
-                preferredRow: requestedRow || (!excludeRow && prevRow ? prevRow : (isCenterInMsg ? 'trung tâm' : '')),
+                preferredRow: requestedRow || (!wantsDifferentTier && !excludeRow && prevRow ? prevRow : (isCenterInMsg ? 'trung tâm' : '')),
                 excludeRow,
                 ticketTypeId: effTargetTier?.id,
                 ticketTypeName: effTargetTier?.name
@@ -5113,7 +5789,7 @@ ${getRemainingTicketsDescription(detectedTickets, collectedAttendees.length)}`
         if (!response.content && toolCalls.length === 0 && activeTools.length > 0) {
           logger.info(`[AgentLoop] Model returned empty with tools, retrying without tools...`);
           try {
-            response = await ollamaClient.chat(messages, { tools: [] });
+            response = await ollamaClient.chat(messages, { tools: [], fallbackModel: chatFallbackModel });
             toolCalls = response.tool_calls || [];
           } catch (emptyRetryErr) {
             logger.warn(`[AgentLoop] Retrying empty content without tools error: ${emptyRetryErr.message}`);
@@ -5216,7 +5892,7 @@ ${getRemainingTicketsDescription(detectedTickets, collectedAttendees.length)}`
             eventId: activeEvent.slug,
             sessionId: (lastProposal?.session?.id || sessionList?.[0]?.id || eventDetail?.sessions?.[0]?.id || activeEvent.sessions?.[0]?.id || ''),
             quantity: effAutoQty,
-            preferredRow: requestedRow || (!excludeRow && prevRow ? prevRow : (isCenterInMsg ? 'trung tâm' : '')),
+            preferredRow: requestedRow || (!wantsDifferentTier && !excludeRow && prevRow ? prevRow : (isCenterInMsg ? 'trung tâm' : '')),
             ticketTypeId: targetTier?.id || null,
             ticketTypeName: targetTier?.name || '',
             tickets: ticketsArg
@@ -5476,8 +6152,11 @@ ${getRemainingTicketsDescription(detectedTickets, collectedAttendees.length)}`
         logger.warn(`[GroundingSanitizer] All ${detectedEventCount} events were hallucinated! Replacing with grounded upcoming events.`);
         let upcomingEvents = [];
         try {
-          const upRes = await eventsService.getPublicEvents({ limit: 3, page: 1, upcoming_only: true });
-          upcomingEvents = upRes.items || [];
+          const upRes = await eventsService.getPublicEvents({ limit: 3, page: 1, upcoming_only: true, strict_upcoming: true });
+          upcomingEvents = (upRes?.items || []).filter(e => isOngoingOrUpcomingPublicEvent(e));
+          if (upcomingEvents.length === 0 && publishedEvents.length > 0) {
+            upcomingEvents = publishedEvents.slice(0, 3);
+          }
         } catch { }
 
         const eventListStr = upcomingEvents.map((e, idx) =>
@@ -5531,5 +6210,14 @@ serviceInstance.stripLinks = stripLinks;
 serviceInstance.stripMixedEnglishInVietnamese = stripMixedEnglishInVietnamese;
 serviceInstance.sanitizeAssistantResponse = sanitizeAssistantResponse;
 serviceInstance.getDirectFaqAnswer = getDirectFaqAnswer;
+serviceInstance.isEventHiddenOrUnpublished = isEventHiddenOrUnpublished;
+serviceInstance.isEventEnded = isEventEnded;
+serviceInstance.isOngoingOrUpcomingPublicEvent = isOngoingOrUpcomingPublicEvent;
+serviceInstance.invalidatePublishedEventsCache = invalidatePublishedEventsCache;
+serviceInstance.findEndedPublicEventByQuery = findEndedPublicEventByQuery;
+serviceInstance.formatEndedEventReply = formatEndedEventReply;
+serviceInstance.resolveEventStateAndDetail = resolveEventStateAndDetail;
+serviceInstance.detectOrganizerInquiry = detectOrganizerInquiry;
+serviceInstance.formatOrganizerEventsResponse = formatOrganizerEventsResponse;
 
 module.exports = serviceInstance;

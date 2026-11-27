@@ -233,16 +233,15 @@ function ActionMessage({ content, navigate, setInput, onSendMessage, sessionLoca
         for (let i = 0; i < item.quantity; i++) {
           const sessionSeatId = seatIds[i] || null;
           const primarySlotId = `${tId}-${sessionSeatId || i}-${runningSlotsLength}`;
-          const fallbackSlotId = `${tId}-${i}-${runningSlotsLength}`;
           const slotAttendee = attendeeList[runningSlotsLength] || {};
-          const attName = slotAttendee.name || (runningSlotsLength === 0 ? buyerName : '') || '';
-          const attEmail = slotAttendee.email || (runningSlotsLength === 0 ? buyerEmail : '') || '';
-          const entry = {
-            name: attName,
-            email: attEmail
-          };
-          attendees[primarySlotId] = entry;
-          attendees[fallbackSlotId] = entry;
+          const attName = (slotAttendee.name || (runningSlotsLength === 0 ? buyerName : '') || '').trim();
+          const attEmail = (slotAttendee.email || (runningSlotsLength === 0 ? buyerEmail : '') || '').trim();
+          if (attName || attEmail) {
+            attendees[primarySlotId] = {
+              name: attName,
+              email: attEmail
+            };
+          }
           runningSlotsLength++;
         }
       });
@@ -305,9 +304,25 @@ function ActionMessage({ content, navigate, setInput, onSendMessage, sessionLoca
     }
 
     try {
+      let effectiveBuyer = {
+        name: (proposal.buyer?.name || '').trim(),
+        email: (proposal.buyer?.email || '').trim(),
+        phone: (proposal.buyer?.phone || '').trim(),
+      };
+      if ((!effectiveBuyer.name || !effectiveBuyer.email) && isAuthenticated()) {
+        try {
+          const profile = await getProfile();
+          effectiveBuyer = {
+            name: effectiveBuyer.name || profile?.full_name || '',
+            email: effectiveBuyer.email || profile?.email || '',
+            phone: effectiveBuyer.phone || profile?.phone || '',
+          };
+        } catch {}
+      }
+
       const attendees = {};
       let runningSlotsLength = 0;
-      const attendeeList = proposal.attendees || [];
+      const attendeeList = Array.isArray(proposal.attendees) ? proposal.attendees : [];
       const totalQuantity = proposal.quantity || 1;
 
       const normalizedItems = (proposal.items || []).map(item => {
@@ -328,22 +343,24 @@ function ActionMessage({ content, navigate, setInput, onSendMessage, sessionLoca
         };
       });
 
+      const resolvedAttendeeList = [];
       normalizedItems.forEach(item => {
         const seatIds = item.sessionSeatIds || item.session_seat_ids || (proposal.selectedSeatIds || []);
         const tId = item.ticketType?.id || item.ticket_type_id;
         for (let i = 0; i < item.quantity; i++) {
           const sessionSeatId = seatIds[i] || null;
           const primarySlotId = `${tId}-${sessionSeatId || i}-${runningSlotsLength}`;
-          const fallbackSlotId = `${tId}-${i}-${runningSlotsLength}`;
           const slotAttendee = attendeeList[runningSlotsLength] || {};
-          const attName = slotAttendee.name || (runningSlotsLength === 0 ? proposal.buyer?.name : '') || (!proposal.requireAttendeeInfo ? proposal.buyer?.name : '') || '';
-          const attEmail = slotAttendee.email || (runningSlotsLength === 0 ? proposal.buyer?.email : '') || (!proposal.requireAttendeeInfo ? proposal.buyer?.email : '') || '';
+          const attName = (slotAttendee.name || (runningSlotsLength === 0 ? effectiveBuyer.name : '') || (!proposal.requireAttendeeInfo ? effectiveBuyer.name : '') || '').trim();
+          const attEmail = (slotAttendee.email || (runningSlotsLength === 0 ? effectiveBuyer.email : '') || (!proposal.requireAttendeeInfo ? effectiveBuyer.email : '') || '').trim();
           const entry = {
             name: attName,
             email: attEmail
           };
-          attendees[primarySlotId] = entry;
-          attendees[fallbackSlotId] = entry;
+          if (attName || attEmail) {
+            attendees[primarySlotId] = entry;
+          }
+          resolvedAttendeeList.push(entry);
           runningSlotsLength++;
         }
       });
@@ -366,12 +383,15 @@ function ActionMessage({ content, navigate, setInput, onSendMessage, sessionLoca
         additionalTerms: eventDetail?.additional_terms || '',
         refundPolicy: eventDetail?.refund_policy || null,
         requireAttendeeInfo: Boolean(proposal.requireAttendeeInfo),
-        buyer: proposal.buyer || {},
+        buyer: effectiveBuyer,
         attendees,
-        prefilledAttendees: Array.from({ length: totalQuantity }, (_, idx) => ({
-          name: attendeeList[idx]?.name || (idx === 0 ? proposal.buyer?.name : '') || (!proposal.requireAttendeeInfo ? proposal.buyer?.name : '') || '',
-          email: attendeeList[idx]?.email || (idx === 0 ? proposal.buyer?.email : '') || (!proposal.requireAttendeeInfo ? proposal.buyer?.email : '') || ''
-        })),
+        prefilledAttendees: Array.from({ length: totalQuantity }, (_, idx) => {
+          const item = resolvedAttendeeList[idx] || attendeeList[idx] || {};
+          return {
+            name: (item.name || (idx === 0 ? effectiveBuyer.name : '') || (!proposal.requireAttendeeInfo ? effectiveBuyer.name : '') || '').trim(),
+            email: (item.email || (idx === 0 ? effectiveBuyer.email : '') || (!proposal.requireAttendeeInfo ? effectiveBuyer.email : '') || '').trim(),
+          };
+        }),
         selectedSeatIds: proposal.selectedSeatIds || [],
         items: normalizedItems,
         holdExpiresAt: proposal.holdExpiresAt || new Date(Date.now() + 15 * 60 * 1000).toISOString(),

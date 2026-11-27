@@ -16,6 +16,7 @@ const logger = require('../../core/logger');
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'qwen3:8b';
 const OLLAMA_FALLBACK_MODEL = process.env.OLLAMA_FALLBACK_MODEL || 'qwen3:8b';
+const OLLAMA_CHAT_FALLBACK_MODEL = process.env.OLLAMA_CHAT_FALLBACK_MODEL || '';
 const OLLAMA_VISION_MODEL = process.env.OLLAMA_VISION_MODEL || 'qwen2.5vl:3b';
 const OLLAMA_VISION_FALLBACK_MODEL = process.env.OLLAMA_VISION_FALLBACK_MODEL || 'moondream';
 const OLLAMA_TIMEOUT = Number(process.env.OLLAMA_TIMEOUT_MS || 90000);
@@ -180,8 +181,8 @@ async function chat(messages, options = {}) {
   const hasVisionInput = Boolean(Array.isArray(options.images) && options.images.length > 0) ||
     messages.some((m) => Array.isArray(m?.images) && m.images.length > 0);
   const fallbackModel = hasVisionInput
-    ? (options.fallbackModel || OLLAMA_VISION_FALLBACK_MODEL)
-    : (options.fallbackModel || OLLAMA_FALLBACK_MODEL);
+    ? (options.fallbackModel !== undefined ? options.fallbackModel : OLLAMA_VISION_FALLBACK_MODEL)
+    : (options.fallbackModel !== undefined ? options.fallbackModel : OLLAMA_FALLBACK_MODEL);
 
   const body = {
     model,
@@ -908,6 +909,7 @@ module.exports = {
   OLLAMA_BASE_URL,
   OLLAMA_MODEL,
   OLLAMA_FALLBACK_MODEL,
+  OLLAMA_CHAT_FALLBACK_MODEL,
   OLLAMA_VISION_MODEL,
   OLLAMA_VISION_FALLBACK_MODEL,
   OLLAMA_TIMEOUT,

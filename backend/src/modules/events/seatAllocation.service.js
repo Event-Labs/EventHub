@@ -241,8 +241,12 @@ class SeatAllocationService {
     if (!selectedCandidate && preferredRow && rowMap.has(preferredRow) && (!excludeRow || preferredRow !== excludeRow)) {
       const rowSeats = rowMap.get(preferredRow);
       const physicalRow = physicalRowMap.get(preferredRow);
-      // First try to find strictly contiguous adjacent seats in the preferred row (excluding excluded seats)
-      const candidate = this._findBestContiguousSlice(rowSeats, quantity, testCandidate, physicalRow, horizontalPref, true, excludeSeatsSet);
+      // First try to find strictly contiguous adjacent seats in the preferred row (completely disjoint from excluded seats)
+      let candidate = this._findBestContiguousSlice(rowSeats, quantity, testCandidate, physicalRow, horizontalPref, true, excludeSeatsSet, false);
+      // If disjoint seats are exhausted on preferred row during same-row change, try another valid contiguous slice on the same row before switching rows
+      if (!candidate && excludeSeatsSet && excludeSeatsSet.size > 0 && !excludeRow) {
+        candidate = this._findBestContiguousSlice(rowSeats, quantity, testCandidate, physicalRow, horizontalPref, true, excludeSeatsSet, true);
+      }
       if (candidate) {
         selectedCandidate = candidate;
         isPreferredRow = true;
@@ -451,7 +455,7 @@ class SeatAllocationService {
    * Prioritizes slices that are physically adjacent side-by-side.
    * Prioritizes slices closest to the center of the physical row by default (or left/right if preferred).
    */
-  _findBestContiguousSlice(rowSeats, quantity, validator, allPhysicalRowSeats = null, preference = 'CENTER', requireStrictContiguous = true, excludeSeatsSet = null) {
+  _findBestContiguousSlice(rowSeats, quantity, validator, allPhysicalRowSeats = null, preference = 'CENTER', requireStrictContiguous = true, excludeSeatsSet = null, allowPartialOverlap = false) {
     if (!rowSeats || rowSeats.length < quantity) return null;
 
     // Determine the physical row bounds and midpoint
@@ -468,16 +472,18 @@ class SeatAllocationService {
     for (let i = 0; i <= rowSeats.length - quantity; i++) {
       const slice = rowSeats.slice(i, i + quantity);
 
-      // If any seat in slice is in excludeSeatsSet, skip this candidate slice
+      // Skip excluded seats: by default skip any slice overlapping excluded seats;
+      // when allowPartialOverlap=true, allow partial shifts on the same row as long as it isn't the exact same seat combination.
       if (excludeSeatsSet && excludeSeatsSet.size > 0) {
-        const containsExcluded = slice.some(s => {
+        const isSeatExcluded = (s) => {
           const normL = String(s.label || '').toUpperCase().replace(/[\s\-_]/g, '');
           const normF = (String(s.row_label || '') + String(s.seat_number || '')).toUpperCase().replace(/[\s\-_]/g, '');
           const normId = String(s.id || '').toUpperCase();
           const normSsId = String(s.session_seat_id || '').toUpperCase();
           return excludeSeatsSet.has(normL) || excludeSeatsSet.has(normF) || excludeSeatsSet.has(normId) || excludeSeatsSet.has(normSsId);
-        });
-        if (containsExcluded) {
+        };
+        const shouldSkip = allowPartialOverlap ? slice.every(isSeatExcluded) : slice.some(isSeatExcluded);
+        if (shouldSkip) {
           continue;
         }
       }

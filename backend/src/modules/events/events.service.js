@@ -142,7 +142,7 @@ class EventsService {
     const page = Math.max(1, Number(query.page) || 1);
     const limit = Math.max(1, Number(query.limit) || 10);
     const hasKeyword = Boolean(query.keyword && String(query.keyword).trim());
-    const shouldFilterUpcoming = Boolean(query.upcoming_only) && !hasKeyword;
+    const shouldFilterUpcoming = Boolean(query.strict_upcoming) || (Boolean(query.upcoming_only) && !hasKeyword);
 
     const { rows, total } = await eventsRepository.findPublicEvents({
       userId,
