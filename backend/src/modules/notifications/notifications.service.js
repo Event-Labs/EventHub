@@ -26,6 +26,7 @@ const {
 const {
   buildEventCancellationEmail,
 } = require('./eventCancellationEmail.template');
+const { escapeHtml, sanitizeRichHtml } = require('../../core/security/htmlSanitizer');
 
 function mapNotification(row) {
   if (!row) return null;
@@ -36,6 +37,8 @@ function mapNotification(row) {
     title: row.title,
     content: row.content,
     type: row.type,
+    target_role: row.target_role || 'CUSTOMER',
+    metadata: row.metadata || {},
     is_read: Boolean(row.is_read),
     created_at: row.created_at,
     event: row.event_title
@@ -73,13 +76,15 @@ class NotificationsService {
   async list(userId, query) {
     const limit = query.limit;
     const page = query.page;
+    const targetRole = query.target_role || null;
     const { rows, total } = await notificationsRepository.listByUser(userId, {
       limit,
       offset: (page - 1) * limit,
       unreadOnly: query.unread_only,
       category: query.category,
+      targetRole,
     });
-    const unread = await notificationsRepository.unreadCount(userId);
+    const unread = await notificationsRepository.unreadCount(userId, targetRole);
 
     return {
       items: rows.map(mapNotification),
@@ -93,18 +98,26 @@ class NotificationsService {
     };
   }
 
-  async unreadCount(userId) {
-    return { unread_count: await notificationsRepository.unreadCount(userId) };
+  async unreadCount(userId, targetRole = null) {
+    return { unread_count: await notificationsRepository.unreadCount(userId, targetRole) };
   }
 
   async createAndDispatch(payload, options = {}) {
     if (!payload.userId) return null;
 
-    const notification = await notificationsRepository.createNotification(payload);
+    const targetRole = payload.targetRole || payload.target_role || 'CUSTOMER';
+    const metadata = payload.metadata || {};
+
+    const notification = await notificationsRepository.createNotification({
+      ...payload,
+      targetRole,
+      metadata,
+    });
     const mapped = mapNotification(notification);
     notificationStream.sendToUser(payload.userId, 'notification', mapped);
     notificationStream.sendToUser(payload.userId, 'unread_count', {
-      unread_count: await notificationsRepository.unreadCount(payload.userId),
+      unread_count: await notificationsRepository.unreadCount(payload.userId, targetRole),
+      target_role: targetRole,
     });
 
     if (options.email) {
@@ -119,21 +132,80 @@ class NotificationsService {
     return mapped;
   }
 
+  async notifyAdmins(payload, options = {}) {
+    const adminIds = await notificationsRepository.getAdminUserIds();
+    if (!adminIds || adminIds.length === 0) return [];
+    const results = [];
+    for (const adminId of adminIds) {
+      const notif = await this.createAndDispatch(
+        {
+          ...payload,
+          userId: adminId,
+          targetRole: 'ADMIN',
+        },
+        options,
+      );
+      if (notif) results.push(notif);
+    }
+    return results;
+  }
+
+  async notifyOrganizer(organizerUserId, payload, options = {}) {
+    if (!organizerUserId) return null;
+    return this.createAndDispatch(
+      {
+        ...payload,
+        userId: organizerUserId,
+        targetRole: 'ORGANIZER',
+      },
+      options,
+    );
+  }
+
+  async notifyStaff(staffUserId, payload, options = {}) {
+    if (!staffUserId) return null;
+    return this.createAndDispatch(
+      {
+        ...payload,
+        userId: staffUserId,
+        targetRole: 'STAFF',
+      },
+      options,
+    );
+  }
+
+  async notifyCustomer(customerUserId, payload, options = {}) {
+    if (!customerUserId) return null;
+    return this.createAndDispatch(
+      {
+        ...payload,
+        userId: customerUserId,
+        targetRole: 'CUSTOMER',
+      },
+      options,
+    );
+  }
+
   async markRead(userId, notificationId) {
     const notification = await notificationsRepository.markRead(userId, notificationId);
     if (!notification) {
       throw new AppError('Notification not found', 404, ErrorCodes.RESOURCE_NOT_FOUND);
     }
 
+    const mapped = mapNotification(notification);
     notificationStream.sendToUser(userId, 'unread_count', {
-      unread_count: await notificationsRepository.unreadCount(userId),
+      unread_count: await notificationsRepository.unreadCount(userId, mapped.target_role),
+      target_role: mapped.target_role,
     });
-    return mapNotification(notification);
+    return mapped;
   }
 
-  async markAllRead(userId) {
-    await notificationsRepository.markAllRead(userId);
-    notificationStream.sendToUser(userId, 'unread_count', { unread_count: 0 });
+  async markAllRead(userId, targetRole = null) {
+    await notificationsRepository.markAllRead(userId, targetRole);
+    notificationStream.sendToUser(userId, 'unread_count', {
+      unread_count: 0,
+      target_role: targetRole,
+    });
     return { unread_count: 0 };
   }
 
@@ -177,17 +249,26 @@ class NotificationsService {
     const rawAttachments = Array.isArray(payload.attachments) ? payload.attachments : [];
     const { html: emailPreparedContent, inlineAttachments } = extractInlineDataImages(payload.content);
 
-    const fileEmailAttachments = rawAttachments.map((att) => ({
+    const sanitizedWebBody = sanitizeRichHtml(payload.content);
+    const safeAttachments = rawAttachments
+      .map((att) => ({
+        filename: String(att?.filename || 'Tệp đính kèm'),
+        path: sanitizeSafeUrl(att?.path, env.CLIENT_URL),
+        contentType: att?.contentType,
+      }))
+      .filter((att) => Boolean(att.path));
+
+    const fileEmailAttachments = safeAttachments.map((att) => ({
       filename: att.filename,
-      path: sanitizeSafeUrl(att.path, env.CLIENT_URL) || att.path,
+      path: att.path,
       contentType: att.contentType,
     }));
     const emailAttachments = [...fileEmailAttachments, ...inlineAttachments];
 
     // If attachments exist, format web notification content with links
-    const webContent = rawAttachments.length > 0
-      ? `${payload.content}<div style="margin-top: 16px; padding: 10px 14px; background: rgba(255,255,255,0.05); border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);"><p style="margin: 0 0 6px 0; font-weight: bold; font-size: 13px;">📎 Tệp đính kèm (${rawAttachments.length}):</p><ul style="margin: 0; padding-left: 20px; font-size: 13px;">${rawAttachments.map((att) => `<li style="margin-bottom: 4px;"><a href="${att.path}" target="_blank" rel="noopener noreferrer" style="color: #38bdf8; text-decoration: underline;">${att.filename}</a></li>`).join('')}</ul></div>`
-      : payload.content;
+    const webContent = safeAttachments.length > 0
+      ? `${sanitizedWebBody}<div style="margin-top: 16px; padding: 10px 14px; background: rgba(255,255,255,0.05); border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);"><p style="margin: 0 0 6px 0; font-weight: bold; font-size: 13px;">📎 Tệp đính kèm (${safeAttachments.length}):</p><ul style="margin: 0; padding-left: 20px; font-size: 13px;">${safeAttachments.map((att) => `<li style="margin-bottom: 4px;"><a href="${escapeHtml(att.path)}" target="_blank" rel="noopener noreferrer" style="color: #38bdf8; text-decoration: underline;">${escapeHtml(att.filename)}</a></li>`).join('')}</ul></div>`
+      : sanitizedWebBody;
 
     // Asynchronously dispatch notifications and emails in background batches for immediate performance
     this.dispatchAnnouncementAsync({

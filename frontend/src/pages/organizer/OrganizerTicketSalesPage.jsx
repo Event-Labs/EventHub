@@ -28,6 +28,7 @@ import {
   Zap,
 } from 'lucide-react'
 import { DateRangeFilter, getDateRange, getDateRangeLabel } from '@/components/DateRangeFilter.jsx'
+import AnimatedNumber from '@/components/AnimatedNumber.jsx'
 import { fetchOrganizerEvents } from '@/services/organizerEvents.js'
 import { fetchTicketSalesAnalytics } from '@/services/organizerOrders.js'
 import { fetchCurrentPlan } from '@/services/subscriptions.js'
@@ -47,13 +48,17 @@ function getAutoLocale() {
 }
 
 function fmtCurrency(n, isEnglish = (getAutoLocale() === 'en')) {
-  return `${new Intl.NumberFormat(isEnglish ? 'en-US' : 'vi-VN').format(Number(n) || 0)} VNĐ`
+  return `${new Intl.NumberFormat(isEnglish ? 'en-US' : 'vi-VN').format(Number(n) || 0)} VND`
+}
+
+function fmtNumber(n, isEnglish = (getAutoLocale() === 'en')) {
+  return Number(n || 0).toLocaleString(isEnglish ? 'en-US' : 'vi-VN')
 }
 
 function fmtShort(n, isEnglish = (getAutoLocale() === 'en')) {
   const v = Number(n) || 0
-  if (v >= 1_000_000_000) return `${(v / 1_000_000_000).toFixed(1)}B`
-  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`
+  if (v >= 1_000_000_000) return `${(v / 1_000_000_000).toFixed(1).replace(/\.0$/, '')}B`
+  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`
   if (v >= 1_000) return `${(v / 1_000).toFixed(0)}K`
   return v.toLocaleString(isEnglish ? 'en-US' : 'vi-VN')
 }
@@ -313,7 +318,7 @@ function SalesRevenueComboChart({ data = [], dateRangeLabel = '' }) {
   // Ticks for right Y-axis (Revenue)
   const rightTicks = useMemo(() => {
     return [0, 0.25, 0.5, 0.75, 1].map((pct) => ({
-      val: fmtShort(pct * maxRevenue),
+      val: fmtNumber(Math.round(pct * maxRevenue)),
       yPos: height - pct * (height - 45),
     }))
   }, [maxRevenue, height])
@@ -325,9 +330,7 @@ function SalesRevenueComboChart({ data = [], dateRangeLabel = '' }) {
       {/* Header with pill controls & quick indicators */}
       <div className="mb-4 flex flex-col gap-3 border-b border-white/10 pb-4 sm:flex-row sm:items-center sm:justify-between [html.light_&]:border-[#C99A47]/20">
         <div className="flex items-center gap-2.5">
-          <div className="grid size-9 place-items-center rounded-xl bg-cyan-500/15 text-cyan-400 shadow-sm [html.light_&]:bg-[#C99A47]/15 [html.light_&]:text-[#C99A47]">
-            <BarChart3 className="size-5" />
-          </div>
+          <BarChart3 className="size-5 text-[#E6C17A] shrink-0" />
           <div>
             <h2 className="text-base font-bold text-white [html.light_&]:text-[#0D1B2A]">
               {isEnglish ? 'Combo Chart: Ticket Sales & Revenue' : 'Biểu đồ kết hợp: Vé bán & Biến động doanh thu'}
@@ -341,11 +344,11 @@ function SalesRevenueComboChart({ data = [], dateRangeLabel = '' }) {
         </div>
 
         {/* View Mode Switcher Pill */}
-        <div className="flex items-center gap-1 rounded-xl border border-white/10 bg-white/5 p-1 text-xs font-semibold [html.light_&]:border-[#C99A47]/30 [html.light_&]:bg-[#FAF4EB]">
+        <div className="flex shrink-0 items-center gap-1 rounded-xl border border-white/10 bg-white/5 p-1 text-xs font-semibold [html.light_&]:border-[#C99A47]/30 [html.light_&]:bg-[#FAF4EB]">
           <button
             type="button"
             onClick={() => setMode('both')}
-            className={`rounded-lg px-2.5 py-1 transition ${
+            className={`whitespace-nowrap rounded-lg px-2.5 py-1 transition ${
               mode === 'both'
                 ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] font-bold shadow-sm'
                 : 'text-slate-400 hover:text-white [html.light_&]:text-[#536b88] [html.light_&]:hover:text-[#0D1B2A]'
@@ -356,7 +359,7 @@ function SalesRevenueComboChart({ data = [], dateRangeLabel = '' }) {
           <button
             type="button"
             onClick={() => setMode('tickets')}
-            className={`rounded-lg px-2.5 py-1 transition ${
+            className={`whitespace-nowrap rounded-lg px-2.5 py-1 transition ${
               mode === 'tickets'
                 ? 'bg-cyan-500/20 text-cyan-300 font-bold [html.light_&]:bg-[#C99A47]/20 [html.light_&]:text-[#0D1B2A]'
                 : 'text-slate-400 hover:text-white [html.light_&]:text-[#536b88] [html.light_&]:hover:text-[#0D1B2A]'
@@ -367,7 +370,7 @@ function SalesRevenueComboChart({ data = [], dateRangeLabel = '' }) {
           <button
             type="button"
             onClick={() => setMode('revenue')}
-            className={`rounded-lg px-2.5 py-1 transition ${
+            className={`whitespace-nowrap rounded-lg px-2.5 py-1 transition ${
               mode === 'revenue'
                 ? 'bg-amber-500/20 text-amber-300 font-bold [html.light_&]:bg-[#C99A47]/20 [html.light_&]:text-[#0D1B2A]'
                 : 'text-slate-400 hover:text-white [html.light_&]:text-[#536b88] [html.light_&]:hover:text-[#0D1B2A]'
@@ -543,7 +546,7 @@ function SalesRevenueComboChart({ data = [], dateRangeLabel = '' }) {
             fill="#E6C17A"
             className="[html.light_&]:fill-[#C99A47]"
           >
-            {isEnglish ? '(VND)' : '(VNĐ)'}
+            (VND)
           </text>
           {rightTicks.map((item, idx) => (
             <g key={`ry-${idx}`}>
@@ -840,9 +843,7 @@ function TicketTypePerformanceChart({ data = [] }) {
       {/* Top Header & Multi-Mode Controls */}
       <div className="mb-5 flex flex-col gap-3 border-b border-white/10 pb-4 lg:flex-row lg:items-center lg:justify-between [html.light_&]:border-[#C99A47]/20">
         <div className="flex items-center gap-2.5">
-          <div className="grid size-9 place-items-center rounded-xl bg-[#C99A47]/15 text-[#E6C17A] shadow-sm [html.light_&]:text-[#C99A47]">
-            <Layers className="size-5" />
-          </div>
+          <Layers className="size-5 text-[#E6C17A] shrink-0" />
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-base font-bold text-white [html.light_&]:text-[#0D1B2A]">
@@ -1095,7 +1096,7 @@ function TicketTypePerformanceChart({ data = [] }) {
                       onMouseEnter={() => setHoveredId(d.ticket_type_id)}
                       className="cursor-pointer transition-all duration-200"
                     >
-                      <title>{`${fullName}${d.event_title ? ` • ${translatePhrase(d.event_title, isEnglish ? 'en' : 'vi')}` : ''} • ${fmtCurrency(unitPriceVal)}`}</title>
+                      <title>{`${fullName}${d.event_title ? ` • ${translatePhrase(d.event_title, isEnglish ? 'en' : 'vi')}` : ''} • Đơn giá: ${fmtCurrency(unitPriceVal)} • Doanh thu: ${fmtCurrency(rev)}`}</title>
 
                       {/* Capacity pillar backdrop for Volume mode */}
                       {activeMetric === 'volume' && cap > 0 && (
@@ -1130,7 +1131,7 @@ function TicketTypePerformanceChart({ data = [] }) {
                         x={x + barW / 2}
                         y={Math.max(y - 7, 12)}
                         textAnchor="middle"
-                        fontSize={11}
+                        fontSize={slotW < 35 ? 9 : slotW < 48 ? 10 : 11}
                         fontWeight={700}
                         fill={isHovered ? pal.accent : '#e2e8f0'}
                         className="[html.light_&]:fill-[#0D1B2A]"
@@ -1302,7 +1303,7 @@ function TicketTypePerformanceChart({ data = [] }) {
                   {translateTicketName(topRevenue.ticket_type_name, isEnglish)}
                 </p>
                 <p className="text-[11px] font-black text-emerald-300 [html.light_&]:text-emerald-700">
-                  {fmtShort(topRevenue.revenue)}
+                  {fmtCurrency(topRevenue.revenue, isEnglish)}
                 </p>
               </div>
             )}
@@ -1346,7 +1347,7 @@ function TicketTypePerformanceChart({ data = [] }) {
 
                   <div className="flex items-center gap-2 shrink-0">
                     <strong className="text-xs font-black text-[#E6C17A] [html.light_&]:text-[#0D1B2A]">
-                      {fmtShort(rev)}
+                      {fmtCurrency(rev, isEnglish)}
                     </strong>
                     <OccupancyBadge rate={occ} />
                   </div>
@@ -1366,6 +1367,12 @@ function RevenueShareDonutChart({ data = [] }) {
   const { isEnglish } = useLanguage()
   const [hoveredIdx, setHoveredIdx] = useState(null)
   const [activeMetric, setActiveMetric] = useState('revenue') // 'revenue' | 'quantity'
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setMounted(true))
+    return () => cancelAnimationFrame(id)
+  }, [])
 
   const sorted = useMemo(() => {
     return [...data].sort((a, b) => Number(b[activeMetric] || 0) - Number(a[activeMetric] || 0))
@@ -1412,9 +1419,7 @@ function RevenueShareDonutChart({ data = [] }) {
     <div className="flex h-full flex-col justify-between overflow-hidden">
       <div className="mb-4 flex items-center justify-between gap-2 border-b border-white/10 pb-3 [html.light_&]:border-[#C99A47]/20">
         <div className="flex items-center gap-2">
-          <div className="grid size-8 place-items-center rounded-lg bg-emerald-500/10 text-emerald-400 [html.light_&]:bg-emerald-50 [html.light_&]:text-emerald-700">
-            <PieChart className="size-4" />
-          </div>
+          <PieChart className="size-4.5 text-[#E6C17A] shrink-0" />
           <h2 className="text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">
             {isEnglish ? 'Revenue Distribution by Ticket Tier' : 'Tỷ trọng doanh thu theo hạng vé'}
           </h2>
@@ -1478,9 +1483,9 @@ function RevenueShareDonutChart({ data = [] }) {
                     fill="none"
                     stroke={seg.color}
                     strokeWidth={isHovered ? stroke + 3 : stroke}
-                    strokeDasharray={`${Math.max(dash - 2, 0)} ${circumference}`}
+                    strokeDasharray={mounted ? `${Math.max(dash - 2, 0)} ${circumference}` : `0 ${circumference}`}
                     strokeDashoffset={-offset}
-                    className="cursor-pointer transition-all duration-200"
+                    className="cursor-pointer transition-all duration-700 ease-out"
                     onMouseEnter={() => setHoveredIdx(idx)}
                     onMouseLeave={() => setHoveredIdx(null)}
                   />
@@ -1493,11 +1498,15 @@ function RevenueShareDonutChart({ data = [] }) {
             {/* Center Label */}
             <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
               <p className="text-sm font-black text-white [html.light_&]:text-[#0D1B2A]">
-                {activeSegment
-                  ? `${((activeSegment.value / total) * 100).toFixed(1)}%`
-                  : activeMetric === 'revenue'
-                    ? fmtShort(total)
-                    : `${total.toLocaleString()} ${isEnglish ? 'tickets' : 'vé'}`}
+                <AnimatedNumber
+                  value={
+                    activeSegment
+                      ? `${((activeSegment.value / total) * 100).toFixed(1)}%`
+                      : activeMetric === 'revenue'
+                        ? fmtCurrency(total, isEnglish)
+                        : `${total.toLocaleString()} ${isEnglish ? 'tickets' : 'vé'}`
+                  }
+                />
               </p>
               <p className="max-w-[78px] truncate text-[9px] font-bold uppercase tracking-wider text-slate-400 [html.light_&]:text-[#536b88]">
                 {activeSegment ? activeSegment.label : (isEnglish ? 'Total' : 'Tổng')}
@@ -1535,7 +1544,7 @@ function RevenueShareDonutChart({ data = [] }) {
                       {pct}%
                     </span>
                     <strong className="text-white font-bold [html.light_&]:text-[#0D1B2A] text-xs whitespace-nowrap">
-                      {activeMetric === 'revenue' ? fmtShort(seg.value) : `${seg.value} ${isEnglish ? 'tickets' : 'vé'}`}
+                      {activeMetric === 'revenue' ? fmtCurrency(seg.value, isEnglish) : `${seg.value} ${isEnglish ? 'tickets' : 'vé'}`}
                     </strong>
                   </div>
                 </div>
@@ -1613,9 +1622,7 @@ function CumulativeVelocityLineChart({ data = [] }) {
       {/* Header with trend pill matching reference image */}
       <div className="mb-4 flex items-center justify-between border-b border-white/10 pb-3 [html.light_&]:border-[#C99A47]/20">
         <div className="flex items-center gap-2">
-          <div className="grid size-8 place-items-center rounded-lg bg-amber-500/15 text-amber-300 [html.light_&]:bg-[#C99A47]/15 [html.light_&]:text-[#C99A47]">
-            <LineChart className="size-4" />
-          </div>
+          <LineChart className="size-4.5 text-[#E6C17A] shrink-0" />
           <div>
             <h2 className="text-sm font-bold text-white [html.light_&]:text-[#0D1B2A]">
               {isEnglish ? 'Cumulative Sales Pacing' : 'Tốc độ tích lũy bán vé (Pacing)'}
@@ -2162,7 +2169,7 @@ export function OrganizerTicketSalesPage() {
       {loading && !analytics ? (
         <OrganizerPanel className="flex items-center justify-center py-24">
           <div className="flex flex-col items-center gap-3">
-            <Loader2 className="size-8 animate-spin text-primary" />
+            <Loader2 className="size-8 animate-spin text-[#E6C17A]" />
             <p className="text-sm font-medium text-slate-400 [html.light_&]:text-[#536b88]">
               {isEnglish ? 'Aggregating ticket sales data...' : 'Đang tổng hợp dữ liệu bán vé...'}
             </p>
@@ -2173,79 +2180,79 @@ export function OrganizerTicketSalesPage() {
           {/* ── KPI Metric Cards (Ambient glow & high contrast) ── */}
           <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {/* KPI 1: Tổng vé đã bán */}
-            <div className="relative overflow-hidden rounded-2xl border border-cyan-500/20 bg-gradient-to-br from-[#0e172e] via-[#0b1329] to-[#0c1c38] p-5 shadow-lg transition-all hover:-translate-y-1 hover:border-cyan-500/40 [html.light_&]:bg-none [html.light_&]:bg-white/95 [html.light_&]:border-[#C99A47]/30 [html.light_&]:shadow-md">
-              <div className="pointer-events-none absolute -right-6 -top-6 size-24 rounded-full bg-cyan-500/10 blur-xl [html.light_&]:hidden" />
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-400 [html.light_&]:text-[#536b88]">
-                  {isEnglish ? 'Total Tickets Sold' : 'Tổng vé đã bán'}
-                </p>
-                <div className="grid size-9 place-items-center rounded-xl bg-cyan-500/15 text-cyan-400 shadow-sm [html.light_&]:bg-cyan-50 [html.light_&]:text-cyan-700">
-                  <Ticket className="size-4.5" />
+            <div className="glass-panel flex flex-col justify-between rounded-2xl border border-white/5 bg-[#0e172e]/80 p-5 shadow-[0_8px_32px_rgba(0,0,0,0.25)] transition-all duration-300 hover:-translate-y-1 hover:border-cyan-500/40 [html.light_&]:bg-none [html.light_&]:bg-white/95 [html.light_&]:border-[#C99A47]/30 [html.light_&]:shadow-md">
+              <div>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400 [html.light_&]:text-[#536b88]">
+                    {isEnglish ? 'Total Tickets Sold' : 'Tổng vé đã bán'}
+                  </p>
                 </div>
+                <p className="mt-2.5 truncate font-display text-2xl font-black text-white [html.light_&]:text-[#0D1B2A] drop-shadow-sm sm:text-3xl">
+                  <AnimatedNumber value={totalSold} /> <span className="text-2xl font-bold text-white [html.light_&]:text-[#0D1B2A]">{isEnglish ? 'tickets' : 'vé'}</span>
+                </p>
               </div>
-              <p className="mt-3 text-2xl font-black text-white [html.light_&]:text-[#0D1B2A]">
-                {totalSold.toLocaleString(isEnglish ? 'en-US' : 'vi-VN')} <span className="text-2xl font-bold text-white [html.light_&]:text-[#0D1B2A]">{isEnglish ? 'tickets' : 'vé'}</span>
-              </p>
-              <p className="mt-1 text-xs text-slate-400 [html.light_&]:text-[#536b88]">
-                {isEnglish ? `In ${totalOrders} successful orders` : `Trong ${totalOrders} đơn hàng thành công`}
-              </p>
+              <div className="mt-4">
+                <p className="text-xs text-slate-400 [html.light_&]:text-[#536b88]">
+                  {isEnglish ? `In ${totalOrders} successful orders` : `Trong ${totalOrders} đơn hàng thành công`}
+                </p>
+              </div>
             </div>
 
             {/* KPI 2: Doanh thu từ vé */}
-            <div className="relative overflow-hidden rounded-2xl border border-amber-500/20 bg-gradient-to-br from-[#0e172e] via-[#0b1329] to-[#251a08] p-5 shadow-lg transition-all hover:-translate-y-1 hover:border-amber-500/40 [html.light_&]:bg-none [html.light_&]:bg-white/95 [html.light_&]:border-[#C99A47]/30 [html.light_&]:shadow-md">
-              <div className="pointer-events-none absolute -right-6 -top-6 size-24 rounded-full bg-amber-500/10 blur-xl [html.light_&]:hidden" />
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-400 [html.light_&]:text-[#536b88]">
-                  {isEnglish ? 'Ticket Revenue' : 'Doanh thu từ vé'}
-                </p>
-                <div className="grid size-9 place-items-center rounded-xl bg-amber-500/15 text-amber-300 shadow-sm [html.light_&]:bg-[#C99A47]/15 [html.light_&]:text-[#C99A47]">
-                  <CircleDollarSign className="size-4.5" />
+            <div className="glass-panel flex flex-col justify-between rounded-2xl border border-white/5 bg-[#0e172e]/80 p-5 shadow-[0_8px_32px_rgba(0,0,0,0.25)] transition-all duration-300 hover:-translate-y-1 hover:border-amber-500/40 [html.light_&]:bg-none [html.light_&]:bg-white/95 [html.light_&]:border-[#C99A47]/30 [html.light_&]:shadow-md">
+              <div>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400 [html.light_&]:text-[#536b88]">
+                    {isEnglish ? 'Ticket Revenue' : 'Doanh thu từ vé'}
+                  </p>
                 </div>
+                <p className="mt-2.5 truncate font-display text-2xl font-black text-white [html.light_&]:text-[#0D1B2A] drop-shadow-sm sm:text-3xl">
+                  <AnimatedNumber value={fmtCurrency(totalRevenue, isEnglish)} />
+                </p>
               </div>
-              <p className="mt-3 text-2xl font-black text-[#E6C17A] [html.light_&]:text-[#0D1B2A]">
-                {fmtShort(totalRevenue, isEnglish)}
-              </p>
-              <p className="mt-1 text-xs text-slate-400 [html.light_&]:text-[#536b88]">
-                {fmtCurrency(totalRevenue, isEnglish)}
-              </p>
+              <div className="mt-4">
+                <p className="text-xs text-slate-400 [html.light_&]:text-[#536b88]">
+                  {isEnglish ? 'Total ticket sales revenue' : 'Tổng số tiền bán vé'}
+                </p>
+              </div>
             </div>
 
             {/* KPI 3: Giá vé trung bình */}
-            <div className="relative overflow-hidden rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-[#0e172e] via-[#0b1329] to-[#0c2e22] p-5 shadow-lg transition-all hover:-translate-y-1 hover:border-emerald-500/40 [html.light_&]:bg-none [html.light_&]:bg-white/95 [html.light_&]:border-[#C99A47]/30 [html.light_&]:shadow-md">
-              <div className="pointer-events-none absolute -right-6 -top-6 size-24 rounded-full bg-emerald-500/10 blur-xl [html.light_&]:hidden" />
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-400 [html.light_&]:text-[#536b88]">
-                  {isEnglish ? 'Average Ticket Price' : 'Giá vé trung bình'}
-                </p>
-                <div className="grid size-9 place-items-center rounded-xl bg-emerald-500/15 text-emerald-400 shadow-sm [html.light_&]:bg-emerald-50 [html.light_&]:text-emerald-700">
-                  <TrendingUp className="size-4.5" />
+            <div className="glass-panel flex flex-col justify-between rounded-2xl border border-white/5 bg-[#0e172e]/80 p-5 shadow-[0_8px_32px_rgba(0,0,0,0.25)] transition-all duration-300 hover:-translate-y-1 hover:border-emerald-500/40 [html.light_&]:bg-none [html.light_&]:bg-white/95 [html.light_&]:border-[#C99A47]/30 [html.light_&]:shadow-md">
+              <div>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400 [html.light_&]:text-[#536b88]">
+                    {isEnglish ? 'Average Ticket Price' : 'Giá vé trung bình'}
+                  </p>
                 </div>
+                <p className="mt-2.5 truncate font-display text-2xl font-black text-white [html.light_&]:text-[#0D1B2A] drop-shadow-sm sm:text-3xl">
+                  <AnimatedNumber value={fmtCurrency(avgTicketPrice, isEnglish)} />
+                </p>
               </div>
-              <p className="mt-3 text-2xl font-black text-emerald-400 [html.light_&]:text-[#0D1B2A]">
-                {fmtCurrency(avgTicketPrice, isEnglish)}
-              </p>
-              <p className="mt-1 text-xs text-slate-400 [html.light_&]:text-[#536b88]">
-                {isEnglish ? 'Average per ticket sold' : 'Bình quân trên mỗi vé bán'}
-              </p>
+              <div className="mt-4">
+                <p className="text-xs text-slate-400 [html.light_&]:text-[#536b88]">
+                  {isEnglish ? 'Average per ticket sold' : 'Bình quân trên mỗi vé bán'}
+                </p>
+              </div>
             </div>
 
             {/* KPI 4: Quy mô đơn hàng */}
-            <div className="relative overflow-hidden rounded-2xl border border-purple-500/20 bg-gradient-to-br from-[#0e172e] via-[#0b1329] to-[#1e1338] p-5 shadow-lg transition-all hover:-translate-y-1 hover:border-purple-500/40 [html.light_&]:bg-none [html.light_&]:bg-white/95 [html.light_&]:border-[#C99A47]/30 [html.light_&]:shadow-md">
-              <div className="pointer-events-none absolute -right-6 -top-6 size-24 rounded-full bg-purple-500/10 blur-xl [html.light_&]:hidden" />
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-400 [html.light_&]:text-[#536b88]">
-                  {isEnglish ? 'Order Size' : 'Quy mô đơn hàng'}
-                </p>
-                <div className="grid size-9 place-items-center rounded-xl bg-purple-500/15 text-purple-400 shadow-sm [html.light_&]:bg-purple-50 [html.light_&]:text-purple-700">
-                  <ShoppingCart className="size-4.5" />
+            <div className="glass-panel flex flex-col justify-between rounded-2xl border border-white/5 bg-[#0e172e]/80 p-5 shadow-[0_8px_32px_rgba(0,0,0,0.25)] transition-all duration-300 hover:-translate-y-1 hover:border-purple-500/40 [html.light_&]:bg-none [html.light_&]:bg-white/95 [html.light_&]:border-[#C99A47]/30 [html.light_&]:shadow-md">
+              <div>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400 [html.light_&]:text-[#536b88]">
+                    {isEnglish ? 'Order Size' : 'Quy mô đơn hàng'}
+                  </p>
                 </div>
+                <p className="mt-2.5 truncate font-display text-2xl font-black text-white [html.light_&]:text-[#0D1B2A] drop-shadow-sm sm:text-3xl">
+                  <AnimatedNumber value={totalOrders} /> <span className="text-2xl font-bold text-white [html.light_&]:text-[#0D1B2A]">{isEnglish ? 'orders' : 'đơn'}</span>
+                </p>
               </div>
-              <p className="mt-3 text-2xl font-black text-white [html.light_&]:text-[#0D1B2A]">
-                {totalOrders} <span className="text-2xl font-bold text-white [html.light_&]:text-[#0D1B2A]">{isEnglish ? 'orders' : 'đơn'}</span>
-              </p>
-              <p className="mt-1 text-xs text-slate-400 [html.light_&]:text-[#536b88]">
-                {totalOrders > 0 ? (isEnglish ? `Avg ${(totalSold / totalOrders).toFixed(1)} tickets/order` : `Trung bình ${(totalSold / totalOrders).toFixed(1)} vé/đơn`) : '—'}
-              </p>
+              <div className="mt-4">
+                <p className="text-xs text-slate-400 [html.light_&]:text-[#536b88]">
+                  {totalOrders > 0 ? (isEnglish ? `Avg ${(totalSold / totalOrders).toFixed(1)} tickets/order` : `Trung bình ${(totalSold / totalOrders).toFixed(1)} vé/đơn`) : '—'}
+                </p>
+              </div>
             </div>
           </div>
 
@@ -2285,9 +2292,7 @@ export function OrganizerTicketSalesPage() {
               <div className="pointer-events-none absolute -right-12 -top-12 size-48 rounded-full bg-indigo-500/5 blur-3xl" />
               <div className="mb-4 flex items-center justify-between border-b border-white/10 pb-3 [html.light_&]:border-[#C99A47]/20">
                 <div className="flex items-center gap-2">
-                  <div className="grid size-8 place-items-center rounded-lg bg-indigo-500/15 text-indigo-400 [html.light_&]:bg-indigo-50 [html.light_&]:text-indigo-700">
-                    <Users className="size-4" />
-                  </div>
+                  <Users className="size-5 text-[#E6C17A] shrink-0" />
                   <div>
                     <h2 className="text-base font-bold text-white [html.light_&]:text-[#0D1B2A]">
                       {isEnglish ? 'Occupancy Rate by Event' : 'Tỷ lệ lấp đầy theo Sự kiện'}

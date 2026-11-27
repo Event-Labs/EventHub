@@ -29,6 +29,7 @@ import {
   fetchMyStaffInvitations,
 } from '@/services/operations.js'
 import { cn } from '@/lib/utils.js'
+import { sanitizeHtml } from '@/lib/sanitize.js'
 import { getRememberLoginPreference, setAuthSession } from '@/lib/auth.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { formatNotificationDisplay, isCustomerCancellationOrRefundNotification } from '@/lib/notifications.js'
@@ -145,9 +146,9 @@ function iconFor(type) {
 
 function getNotificationFilters(isEnglish) {
   return [
-    { value: 'all', label: isEnglish ? 'All' : 'Tất cả' },
+    { value: 'all', label: isEnglish ? 'All Notifications' : 'Tất cả thông báo' },
     { value: 'unread', label: isEnglish ? 'Unread' : 'Chưa đọc' },
-    { value: 'invitation', label: isEnglish ? 'Staff Invitations' : 'Lời mời staff' },
+    { value: 'invitation', label: isEnglish ? 'Staff Invitations' : 'Lời mời làm Staff' },
   ]
 }
 
@@ -168,10 +169,11 @@ export function NotificationsPage() {
   const filters = useMemo(() => getNotificationFilters(isEnglish), [isEnglish])
 
   const notificationsQuery = useQuery({
-    queryKey: ['notifications', page, activeFilter],
+    queryKey: ['notifications', 'customer', page, activeFilter],
     queryFn: () => fetchNotifications({
       page,
-      limit: 5,
+      limit: 10,
+      target_role: 'CUSTOMER',
       ...(activeFilter === 'unread' ? { unread_only: true } : {}),
       category: activeFilter === 'invitation' ? 'invitation' : 'all',
     }),
@@ -179,19 +181,46 @@ export function NotificationsPage() {
 
   // Auto-scroll to specific notification if target id is in hash or query param
   useEffect(() => {
-    const rawTarget = location.hash?.replace('#notification-', '') || new URLSearchParams(location.search).get('id')
-    if (!rawTarget) return
-    const timer = setTimeout(() => {
-      const el = document.getElementById(`notification-${rawTarget}`)
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-        el.classList.add('ring-2', 'ring-[#C99A47]', 'ring-offset-2', 'ring-offset-slate-900')
-        setTimeout(() => {
-          el.classList.remove('ring-2', 'ring-[#C99A47]', 'ring-offset-2', 'ring-offset-slate-900')
-        }, 3500)
+    let activeTimer = null
+    let highlightTimer = null
+
+    const scrollToTarget = (targetId) => {
+      if (!targetId) return
+      setActiveFilter('all')
+      setPage(1)
+      if (activeTimer) clearTimeout(activeTimer)
+      activeTimer = setTimeout(() => {
+        const el = document.getElementById(`notification-${targetId}`)
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          el.classList.add('ring-2', 'ring-[#C99A47]', 'ring-offset-2', 'ring-offset-slate-900', 'shadow-2xl', 'shadow-[#C99A47]/30')
+          if (highlightTimer) clearTimeout(highlightTimer)
+          highlightTimer = setTimeout(() => {
+            el.classList.remove('ring-2', 'ring-[#C99A47]', 'ring-offset-2', 'ring-offset-slate-900', 'shadow-2xl', 'shadow-[#C99A47]/30')
+          }, 3500)
+        }
+      }, 350)
+    }
+
+    const rawTarget =
+      (location.hash?.startsWith('#notification-') ? location.hash.slice('#notification-'.length) : '') ||
+      new URLSearchParams(location.search).get('id')
+    if (rawTarget) {
+      scrollToTarget(rawTarget)
+    }
+
+    const handleCustomScroll = (e) => {
+      if (e.detail?.id) {
+        scrollToTarget(e.detail.id)
       }
-    }, 300)
-    return () => clearTimeout(timer)
+    }
+
+    window.addEventListener('eventhub:scroll-notification', handleCustomScroll)
+    return () => {
+      if (activeTimer) clearTimeout(activeTimer)
+      if (highlightTimer) clearTimeout(highlightTimer)
+      window.removeEventListener('eventhub:scroll-notification', handleCustomScroll)
+    }
   }, [location.hash, location.search, notificationsQuery.data])
   const invitationsQuery = useQuery({
     queryKey: ['staff-invitations', 'me'],
@@ -211,7 +240,7 @@ export function NotificationsPage() {
   })
 
   const markAllMutation = useMutation({
-    mutationFn: markAllNotificationsRead,
+    mutationFn: () => markAllNotificationsRead({ target_role: 'CUSTOMER' }),
     onSuccess: () => {
       toast.success(isEnglish ? 'All notifications marked as read.' : 'Đã đánh dấu tất cả thông báo là đã đọc.')
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
@@ -266,22 +295,22 @@ export function NotificationsPage() {
     <div className="mx-auto max-w-7xl px-3.5 sm:px-6 lg:px-8 xl:px-12 pt-4 sm:pt-8 pb-8 sm:pb-12">
       <SectionHeader
         title={isEnglish ? 'Notification Center' : 'Trung tâm thông báo'}
-        description={isEnglish ? 'Track event updates, payments, and invitations tailored for you.' : 'Theo dõi cập nhật sự kiện, thanh toán và lời mời dành cho bạn.'}
+        className="mb-6 sm:mb-8"
         action={displayNotifications.length ? (
           <button
             type="button"
             onClick={() => markAllMutation.mutate()}
             disabled={unreadCount === 0 || markAllMutation.isPending}
-            className="inline-flex h-11 items-center gap-2 rounded-full border border-border-soft/50 bg-panel-soft px-5 text-sm font-bold text-content transition hover:border-primary/50 hover:text-primary disabled:cursor-not-allowed disabled:opacity-45"
+            className="inline-flex h-10 sm:h-11 items-center gap-2 rounded-xl sm:rounded-full border border-[#C99A47] bg-[#0f1b33] px-4 sm:px-5 text-xs sm:text-sm font-extrabold text-[#E6C17A] shadow-md shadow-[#C99A47]/20 transition-all hover:bg-gradient-to-r hover:from-[#C99A47] hover:to-[#E6C17A] hover:text-[#081126] hover:shadow-lg hover:shadow-[#C99A47]/35 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:border-[#C99A47]/40 disabled:hover:bg-[#0f1b33] disabled:hover:text-[#E6C17A] cursor-pointer"
           >
-            {markAllMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <CheckCheck className="size-4" />}
+            {markAllMutation.isPending ? <Loader2 className="size-4 animate-spin text-[#E6C17A]" /> : <CheckCheck className="size-4 text-[#E6C17A]" />}
             {isEnglish ? 'Mark all as read' : 'Đánh dấu tất cả đã đọc'}
           </button>
         ) : null}
       />
 
       {/* ── Phần 1: Bộ lọc ── */}
-      <div className="relative z-10 mb-6 flex w-full justify-end">
+      <div className="relative z-10 pt-3 sm:pt-6 mb-6 sm:mb-8 flex w-full justify-end">
         <div className="flex flex-wrap items-center gap-2">
           {filters.map((filter) => (
             <button
@@ -292,10 +321,10 @@ export function NotificationsPage() {
                 setPage(1)
               }}
               className={cn(
-                'inline-flex h-9 shrink-0 items-center rounded-full px-4 text-xs font-bold transition-all cursor-pointer select-none',
+                'inline-flex h-9 shrink-0 items-center rounded-xl px-4 text-xs font-bold transition-all cursor-pointer select-none',
                 activeFilter === filter.value
-                  ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md shadow-[#C99A47]/30'
-                  : 'border border-white/10 bg-[#151d34] text-slate-300 hover:bg-white/10 hover:text-white',
+                  ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] shadow-md shadow-[#C99A47]/20 font-black'
+                  : 'border border-white/10 bg-slate-900/60 text-slate-300 hover:bg-white/10 hover:text-white',
               )}
             >
               {filter.label}
@@ -397,7 +426,7 @@ export function NotificationsPage() {
                   {typeof content === 'string' && /<[a-z][\s\S]*>/i.test(content) ? (
                     <div
                       className="mt-2.5 w-full text-sm sm:text-base leading-relaxed text-slate-100 font-normal [html.light_&]:text-[#0D1B2A] break-words [overflow-wrap:anywhere] [&_p]:break-words [&_p]:[overflow-wrap:anywhere] [&_a]:text-primary [&_a]:underline [&_a]:break-all [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_img]:max-w-full [&_img]:rounded-lg"
-                      dangerouslySetInnerHTML={{ __html: content }}
+                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(content) }}
                     />
                   ) : (
                     <p className="mt-2.5 w-full text-sm sm:text-base leading-relaxed text-slate-100 font-normal whitespace-pre-line [html.light_&]:text-[#0D1B2A] break-words [overflow-wrap:anywhere]">
@@ -564,7 +593,7 @@ function Pagination({ page, totalPages, onPageChange, isEnglish = false }) {
 function StatePanel({ message, tone = 'default', loading = false }) {
   return (
     <div className={cn('flex min-h-64 flex-col items-center justify-center p-8 text-center', tone === 'error' ? 'text-error' : 'text-muted')}>
-      {loading ? <Loader2 className="mb-4 size-8 animate-spin text-primary" /> : <Inbox className="mb-4 size-10 opacity-50" />}
+      {loading ? <Loader2 className="mb-4 size-8 animate-spin text-[#E6C17A]" /> : <Inbox className="mb-4 size-10 opacity-50" />}
       <p className="text-sm font-semibold">{message}</p>
     </div>
   )

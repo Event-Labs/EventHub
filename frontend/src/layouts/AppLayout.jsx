@@ -15,6 +15,7 @@ import { ProfileAvatar } from '@/pages/shared/ProfileAvatar.jsx'
 import { CustomerAiAssistantWidget } from '@/components/ai/CustomerAiAssistantWidget.jsx'
 import { ActiveHoldFloatingBar } from '@/components/ActiveHoldFloatingBar.jsx'
 import { CosmicStarryBackground } from '@/components/CosmicStarryBackground.jsx'
+import { DesktopNotificationToast } from '@/components/DesktopNotificationToast.jsx'
 import { LanguageSwitcher } from '@/i18n/LanguageSwitcher.jsx'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
 import logoSrc from '@/assets/eventhub-logo.webp'
@@ -130,17 +131,6 @@ function getNotificationDisplay(notification, isEnglish = false) {
 }
 
 function getNotificationTarget(notification) {
-  if (isStaffInvitationNotification(notification)) return `/notifications#notification-${notification.id}`
-
-  const title = (notification.title || '').toLowerCase()
-  const content = (notification.content || '').toLowerCase()
-  if (title.includes('organizer') || content.includes('organizer')) {
-    if (title.includes('đã được duyệt') || content.includes('phê duyệt thành công')) {
-      return '/organizer'
-    }
-    return '/organizer-request?mode=edit'
-  }
-
   return `/notifications#notification-${notification.id}`
 }
 
@@ -225,8 +215,8 @@ export function AppLayout() {
   const hasStaffRole = currentUserRoles.includes('staff')
 
   const notificationsQuery = useQuery({
-    queryKey: ['notifications', 'nav'],
-    queryFn: () => fetchNotifications({ limit: 5 }),
+    queryKey: ['notifications', 'nav', 'CUSTOMER'],
+    queryFn: () => fetchNotifications({ limit: 5, target_role: 'CUSTOMER' }),
     enabled: loggedIn,
   })
 
@@ -255,7 +245,7 @@ export function AppLayout() {
   })
 
   const markAllMutation = useMutation({
-    mutationFn: markAllNotificationsRead,
+    mutationFn: () => markAllNotificationsRead({ target_role: 'CUSTOMER' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
       queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] })
@@ -302,12 +292,30 @@ export function AppLayout() {
     if (!token) return undefined
 
     const source = new EventSource(getNotificationStreamUrl(token))
+    const handleNotification = (event) => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+      queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] })
+
+      try {
+        const data = JSON.parse(event.data)
+        if (data?.title) {
+          window.dispatchEvent(
+            new CustomEvent('eventhub:desktop-notification', {
+              detail: data,
+            }),
+          )
+        }
+      } catch {
+        // ignore JSON parse error
+      }
+    }
+
     const refreshNotifications = () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
       queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] })
     }
 
-    source.addEventListener('notification', refreshNotifications)
+    source.addEventListener('notification', handleNotification)
     source.addEventListener('unread_count', refreshNotifications)
     source.onerror = () => {
       source.close()
@@ -499,6 +507,11 @@ export function AppLayout() {
                             if (!notification.is_read) markReadMutation.mutate(notification.id)
                             setNotificationOpen(false)
                             navigate(getNotificationTarget(notification))
+                            window.dispatchEvent(
+                              new CustomEvent('eventhub:scroll-notification', {
+                                detail: { id: notification.id },
+                              }),
+                            )
                           }}
                           className={`block w-full border-b border-border-soft px-4 py-3 text-left last:border-b-0 hover:bg-panel-soft ${notification.is_read ? '' : 'bg-[#C99A47]/10'
                             }`}
@@ -514,13 +527,16 @@ export function AppLayout() {
                       )
                     })}
                   </div>
-                  <Link
-                    to="/notifications"
-                    onClick={() => setNotificationOpen(false)}
-                    className="block border-t border-border-soft px-4 py-3 text-center text-sm font-bold text-[#E6C17A] hover:bg-panel-soft"
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNotificationOpen(false)
+                      navigate('/notifications')
+                    }}
+                    className="block w-full border-t border-border-soft px-4 py-3 text-center text-sm font-bold text-[#E6C17A] hover:bg-panel-soft cursor-pointer"
                   >
                     {isEnglish ? 'View all' : 'Xem tất cả'}
-                  </Link>
+                  </button>
                 </div>
               )}
               {open && (
@@ -586,7 +602,7 @@ export function AppLayout() {
         <Suspense
           fallback={
             <div className="flex min-h-[40vh] w-full items-center justify-center p-8">
-              <div className="size-8 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
+              <div className="size-8 animate-spin rounded-full border-2 border-[#E6C17A]/25 border-t-[#E6C17A]" />
             </div>
           }
         >
@@ -728,6 +744,9 @@ export function AppLayout() {
           </NavLink>
         </nav>
       )}
+
+      {/* Real-time Desktop Notification Toast */}
+      <DesktopNotificationToast />
     </div>
   )
 }

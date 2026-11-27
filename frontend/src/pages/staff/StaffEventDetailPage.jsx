@@ -204,7 +204,7 @@ export function StaffEventDetailPage() {
           </div>
         ) : seatsQuery.isLoading ? (
           <div className="mt-5 flex items-center justify-center gap-2 py-10 text-sm text-subtle">
-            <Loader2 className="size-5 animate-spin" />
+            <Loader2 className="size-5 animate-spin text-[#E6C17A]" />
             Đang tải sơ đồ sự kiện...
           </div>
         ) : seatsQuery.isError ? (

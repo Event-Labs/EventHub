@@ -7,7 +7,6 @@ import {
   AlertTriangle,
   MapPin,
   Tag,
-  Video,
   Info,
   Ban,
   ShieldAlert,
@@ -31,7 +30,6 @@ import {
   Copy,
   Loader2,
   Square,
-  LayoutGrid,
   Table,
   ChevronDown,
   ChevronUp,
@@ -57,8 +55,6 @@ import {
   suspendAdminEvent,
   unsuspendAdminEvent,
   approveCancellationRequest,
-  initiateForceCancel,
-  confirmForceCancel,
   reviewAdminEventRevision,
 } from '@/services/adminEvents.js'
 import { getApiMessage } from '@/lib/messages.js'
@@ -68,6 +64,7 @@ import { useToast } from '@/providers/ToastProvider.jsx'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
 import { translatePhrase } from '@/i18n/phraseDictionary.js'
 import { cleanAndFormatVenue, translateEventHtmlDescription } from '@/i18n/eventTranslations.js'
+import { sanitizeHtml, sanitizeUrl } from '@/lib/sanitize.js'
 import { Page, Panel, Badge, StatusBadge, ImagePlaceholder } from './AdminComponents.jsx'
 import { AdminReviewCriteriaModal } from './AdminReviewCriteriaModal.jsx'
 import { AdminSuspendModal } from './AdminSuspendModal.jsx'
@@ -132,11 +129,7 @@ function formatShortDate(value) {
   }
 }
 
-const getAutoLocale = () =>
-  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
-    (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
-    ? 'en-US'
-    : 'vi-VN'
+const getAutoLocale = () => 'vi-VN'
 
 function formatDate(value) {
   if (!value) return '—'
@@ -3222,7 +3215,7 @@ export function AdminEventReviewDetailPage() {
                                       {isEnglish ? 'Deleted paragraph' : 'Đoạn đã xóa'}
                                     </span>
                                     {fb.oldBlock.tag === 'li' && <span className="text-rose-400 mr-1.5">•</span>}
-                                    <span dangerouslySetInnerHTML={{ __html: fb.oldBlock.innerHtml || fb.oldBlock.text }} />
+                                    <span dangerouslySetInnerHTML={{ __html: sanitizeHtml(fb.oldBlock.innerHtml || fb.oldBlock.text) }} />
                                   </div>
                                 )
                               }
@@ -3234,7 +3227,7 @@ export function AdminEventReviewDetailPage() {
                                     className={`rounded-lg border border-amber-500/35 bg-amber-500/10 p-2.5 [html.light_&]:bg-amber-50/80 [html.light_&]:border-amber-300 ${getBlockTypographyClass(fb.oldBlock)}`}
                                   >
                                     {fb.oldBlock.tag === 'li' && <span className="text-amber-400 mr-1.5">•</span>}
-                                    <span dangerouslySetInnerHTML={{ __html: fb.oldBlock.innerHtml || fb.oldBlock.text }} />
+                                    <span dangerouslySetInnerHTML={{ __html: sanitizeHtml(fb.oldBlock.innerHtml || fb.oldBlock.text) }} />
                                   </div>
                                 )
                               }
@@ -3243,7 +3236,7 @@ export function AdminEventReviewDetailPage() {
                               return (
                                 <div key={idx} className={getBlockTypographyClass(fb.oldBlock)}>
                                   {fb.oldBlock.tag === 'li' && <span className="text-amber-400 mr-1.5">•</span>}
-                                  <span dangerouslySetInnerHTML={{ __html: fb.oldBlock.innerHtml || fb.oldBlock.text }} />
+                                  <span dangerouslySetInnerHTML={{ __html: sanitizeHtml(fb.oldBlock.innerHtml || fb.oldBlock.text) }} />
                                 </div>
                               )
                             })
@@ -3304,7 +3297,7 @@ export function AdminEventReviewDetailPage() {
                                       {isEnglish ? 'Added paragraph' : 'Đoạn thêm mới'}
                                     </span>
                                     {fb.newBlock.tag === 'li' && <span className="text-emerald-400 mr-1.5">•</span>}
-                                    <span dangerouslySetInnerHTML={{ __html: fb.newBlock.innerHtml || fb.newBlock.text }} />
+                                    <span dangerouslySetInnerHTML={{ __html: sanitizeHtml(fb.newBlock.innerHtml || fb.newBlock.text) }} />
                                   </div>
                                 )
                               }
@@ -3316,7 +3309,7 @@ export function AdminEventReviewDetailPage() {
                                     className={`rounded-lg border border-amber-500/35 bg-amber-500/10 p-2.5 [html.light_&]:bg-amber-50/80 [html.light_&]:border-amber-300 ${getBlockTypographyClass(fb.newBlock)}`}
                                   >
                                     {fb.newBlock.tag === 'li' && <span className="text-amber-400 mr-1.5">•</span>}
-                                    <span dangerouslySetInnerHTML={{ __html: fb.newBlock.innerHtml || fb.newBlock.text }} />
+                                    <span dangerouslySetInnerHTML={{ __html: sanitizeHtml(fb.newBlock.innerHtml || fb.newBlock.text) }} />
                                   </div>
                                 )
                               }
@@ -3325,7 +3318,7 @@ export function AdminEventReviewDetailPage() {
                               return (
                                 <div key={idx} className={getBlockTypographyClass(fb.newBlock)}>
                                   {fb.newBlock.tag === 'li' && <span className="text-amber-400 mr-1.5">•</span>}
-                                  <span dangerouslySetInnerHTML={{ __html: fb.newBlock.innerHtml || fb.newBlock.text }} />
+                                  <span dangerouslySetInnerHTML={{ __html: sanitizeHtml(fb.newBlock.innerHtml || fb.newBlock.text) }} />
                                 </div>
                               )
                             })
@@ -3402,7 +3395,7 @@ export function AdminEventReviewDetailPage() {
                                     +{isEnglish ? 'Added paragraph' : 'Đoạn thêm mới'}
                                   </span>
                                   {fb.newBlock.tag === 'li' && <span className="text-emerald-400 mr-1.5">•</span>}
-                                  <span dangerouslySetInnerHTML={{ __html: fb.newBlock.innerHtml || fb.newBlock.text }} />
+                                  <span dangerouslySetInnerHTML={{ __html: sanitizeHtml(fb.newBlock.innerHtml || fb.newBlock.text) }} />
                                 </div>
                               )
                             }
@@ -3417,7 +3410,7 @@ export function AdminEventReviewDetailPage() {
                                     -{isEnglish ? 'Deleted paragraph' : 'Đoạn đã xóa'}
                                   </span>
                                   {fb.oldBlock.tag === 'li' && <span className="text-rose-400 mr-1.5">•</span>}
-                                  <span dangerouslySetInnerHTML={{ __html: fb.oldBlock.innerHtml || fb.oldBlock.text }} />
+                                  <span dangerouslySetInnerHTML={{ __html: sanitizeHtml(fb.oldBlock.innerHtml || fb.oldBlock.text) }} />
                                 </div>
                               )
                             }
@@ -3429,7 +3422,7 @@ export function AdminEventReviewDetailPage() {
                                   className={`rounded-lg border border-amber-500/35 bg-amber-500/10 p-2.5 [html.light_&]:bg-amber-50/80 [html.light_&]:border-amber-300 ${getBlockTypographyClass(fb.newBlock)}`}
                                 >
                                   {fb.newBlock.tag === 'li' && <span className="text-amber-400 mr-1.5">•</span>}
-                                  <span dangerouslySetInnerHTML={{ __html: fb.newBlock.innerHtml || fb.newBlock.text }} />
+                                  <span dangerouslySetInnerHTML={{ __html: sanitizeHtml(fb.newBlock.innerHtml || fb.newBlock.text) }} />
                                 </div>
                               )
                             }
@@ -3438,7 +3431,7 @@ export function AdminEventReviewDetailPage() {
                             return (
                               <div key={idx} className={getBlockTypographyClass(fb.newBlock)}>
                                 {fb.newBlock.tag === 'li' && <span className="text-amber-400 mr-1.5">•</span>}
-                                <span dangerouslySetInnerHTML={{ __html: fb.newBlock.innerHtml || fb.newBlock.text }} />
+                                <span dangerouslySetInnerHTML={{ __html: sanitizeHtml(fb.newBlock.innerHtml || fb.newBlock.text) }} />
                               </div>
                             )
                           })
@@ -3881,7 +3874,7 @@ export function AdminEventReviewDetailPage() {
                 {event.description ? (
                   <div
                     className="prose prose-sm prose-invert max-w-none text-slate-300 break-words [&_*]:max-w-full [&_table]:block [&_table]:overflow-x-auto [html.light_&]:prose-neutral [html.light_&]:text-[#0D1B2A]"
-                    dangerouslySetInnerHTML={{ __html: translateEventHtmlDescription(typeof event.description === 'string' ? event.description : '', isEnglish) }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(translateEventHtmlDescription(typeof event.description === 'string' ? event.description : '', isEnglish)) }}
                   />
                 ) : (
                   <p className="text-sm italic text-slate-500">Không có mô tả.</p>
@@ -4505,15 +4498,11 @@ export function AdminEventReviewDetailPage() {
               <div className="flex flex-1 flex-col overflow-hidden bg-[#081126] rounded-[24px] border border-[#263751] shadow-[0_8px_32px_rgba(0,0,0,0.4)] backdrop-blur-xl min-h-0 [html.light_&]:bg-white [html.light_&]:border-slate-200 [html.light_&]:shadow-lg">
                 {/* AI Assistant Header (Fixed on top of AI card) */}
                 <div className="shrink-0 px-4 py-3 border-b border-[#263751] bg-[#101D32]/95 backdrop-blur-md flex items-center justify-between gap-2 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="grid size-8 place-items-center rounded-xl bg-[#A78BFA]/15 border border-[#A78BFA]/30 text-[#A78BFA] shrink-0 [html.light_&]:bg-purple-50 [html.light_&]:text-purple-700">
-                      <Bot className="size-4" />
-                    </div>
-                    <div className="min-w-0">
-                      <h2 className="font-display text-xs sm:text-sm font-black text-slate-100 drop-shadow-sm tracking-tight uppercase whitespace-nowrap [html.light_&]:text-[#0D1B2A]">
-                        AI Review Assistant
-                      </h2>
-                    </div>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Bot className="size-5 text-[#A78BFA] shrink-0 [html.light_&]:text-purple-700" />
+                    <h2 className="font-display text-xs sm:text-sm font-black text-slate-100 drop-shadow-sm tracking-tight uppercase whitespace-nowrap [html.light_&]:text-[#0D1B2A]">
+                      AI Review Assistant
+                    </h2>
                   </div>
 
                   <div className="flex items-center gap-1.5 shrink-0">
@@ -4565,15 +4554,9 @@ export function AdminEventReviewDetailPage() {
                         <RefreshCw className="size-4 animate-spin" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <h4 className="text-xs font-bold text-[#A78BFA]">
-                            AI đang phân tích & kiểm duyệt sự kiện...
-                          </h4>
-                          <span className="flex items-center gap-1.5 text-[11px] font-semibold text-[#FF4569] bg-[#FF4569]/10 border border-[#FF4569]/30 px-2.5 py-0.5 rounded-lg">
-                            <span className="size-1.5 rounded-full bg-[#FF4569] animate-ping" />
-                            Có thể bấm &quot;Hủy quét&quot; ở trên để dừng
-                          </span>
-                        </div>
+                        <h4 className="text-xs font-bold text-[#A78BFA]">
+                          AI đang phân tích & kiểm duyệt sự kiện...
+                        </h4>
                         <div className="mt-2 space-y-1.5 text-xs text-slate-300">
                           <p className="flex items-center gap-2">
                             <span className="inline-block size-1.5 rounded-full bg-[#A78BFA] animate-ping" />
@@ -5130,9 +5113,9 @@ function DocumentPreviewModal({ doc, onClose }) {
               </div>
             )}
 
-            {doc.url && (
+            {sanitizeUrl(doc.url) && (
               <a
-                href={doc.url}
+                href={sanitizeUrl(doc.url)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="grid size-9 place-items-center rounded-xl text-slate-400 hover:text-[#E6C17A] hover:bg-white/5 transition"
@@ -5142,9 +5125,9 @@ function DocumentPreviewModal({ doc, onClose }) {
                 <ExternalLink className="size-4" />
               </a>
             )}
-            {doc.url && (
+            {sanitizeUrl(doc.url) && (
               <a
-                href={doc.url}
+                href={sanitizeUrl(doc.url)}
                 download={doc.name}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -5183,7 +5166,7 @@ function DocumentPreviewModal({ doc, onClose }) {
                 <div className="w-full h-full flex flex-col relative rounded-2xl overflow-hidden border border-white/10 bg-slate-950">
                   {isLoadingPdf && (
                     <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-950/90 backdrop-blur-sm gap-3">
-                      <Loader2 className="size-8 text-indigo-400 animate-spin" />
+                      <Loader2 className="size-8 text-[#E6C17A] animate-spin" />
                       <p className="text-xs text-slate-300 font-medium">
                         Đang kết nối luồng hiển thị PDF trực tuyến (không cần tải về)...
                       </p>
@@ -5253,7 +5236,7 @@ function DocumentPreviewModal({ doc, onClose }) {
 
                   {isLoadingText ? (
                     <div className="flex-1 flex flex-col items-center justify-center gap-3">
-                      <Loader2 className="size-8 text-indigo-400 animate-spin" />
+                      <Loader2 className="size-8 text-[#E6C17A] animate-spin" />
                       <p className="text-xs text-slate-400">Đang trích xuất văn bản từ tệp PDF...</p>
                     </div>
                   ) : textExtractError ? (
@@ -5344,7 +5327,7 @@ function DocumentPreviewModal({ doc, onClose }) {
 
                   {isLoadingText ? (
                     <div className="flex-1 flex flex-col items-center justify-center gap-3">
-                      <Loader2 className="size-8 text-indigo-400 animate-spin" />
+                      <Loader2 className="size-8 text-[#E6C17A] animate-spin" />
                       <p className="text-xs text-slate-400">Đang trích xuất nội dung văn bản từ tệp Word...</p>
                     </div>
                   ) : textExtractError ? (

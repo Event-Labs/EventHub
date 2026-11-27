@@ -12,12 +12,21 @@ import {
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import { fetchEventDetail, toggleFavorite } from '@/services/events.js'
+import { fetchEventDetail, toggleFavorite, fetchActiveHold, cancelActiveHold } from '@/services/events.js'
 import { cn } from '@/lib/utils.js'
+import { sanitizeHtml } from '@/lib/sanitize.js'
 import { getApiMessage } from '@/lib/messages.js'
 import { optimisticallySetFavorite, refreshFavoriteQueries, restoreFavoriteSnapshots } from '@/lib/favoriteCache.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
-import { getResumeBookingPath, hasActiveSeatHold, readBookingDraft } from '@/utils/bookingDraft.js'
+import {
+  getResumeBookingPath,
+  hasActiveSeatHold,
+  readBookingDraft,
+  saveBookingDraft,
+  clearBookingDraft,
+  formatCountdown,
+  secondsLeft,
+} from '@/utils/bookingDraft.js'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
 import { getCategoryName } from '@/i18n/categoryNames.js'
 import { translatePhrase } from '@/i18n/phraseDictionary.js'
@@ -263,10 +272,90 @@ export function EventDetailPage() {
   }
 
   const activeDraft = readBookingDraft(event?.id)
+  const [activeServerHold, setActiveServerHold] = useState(null)
+  const [holdCountdown, setHoldCountdown] = useState(0)
+
+  useEffect(() => {
+    let isMounted = true
+    const checkServerHold = async () => {
+      const token = getAuthToken()
+      if (!token || !event?.id) return
+      try {
+        const res = await fetchActiveHold(event.id)
+        if (isMounted && res?.hasActiveHold && res.hold) {
+          setActiveServerHold(res.hold)
+          setHoldCountdown(res.hold.remainingSeconds || 0)
+          if (res.hold.eventSessionId && !selectedSessionId) {
+            setSelectedSessionId(res.hold.eventSessionId)
+          }
+          // Sync server hold with local draft so ActiveHoldFloatingBar is guaranteed to display
+          const currentDraft = readBookingDraft(event.id)
+          const matchedSession = event.sessions?.find((s) => String(s.id) === String(res.hold.eventSessionId)) || event.sessions?.[0]
+          const restoredCart = {
+            ...(currentDraft || {}),
+            eventId: event.id,
+            eventTitle: event.title,
+            eventSlug: event.slug,
+            eventStartTime: event.start_time,
+            eventEndTime: event.end_time,
+            salesStatus: event.sales_status,
+            sales_status: event.sales_status,
+            isPaused: isPaused,
+            is_paused: isPaused,
+            venueSummary: event.venue?.summary || venueSummary(firstVenue),
+            selectedSession: matchedSession,
+            availableTicketTypes: selectedSessionTickets,
+            seatingRules: event.seating_rules || {},
+            additionalTerms: event.additional_terms || '',
+            refundPolicy: event.refund_policy || null,
+            requireAttendeeInfo: Boolean(event.require_attendee_info),
+            items: res.hold.items || currentDraft?.items || [],
+            selectedSeatIds: res.hold.selectedSeatIds || currentDraft?.selectedSeatIds || [],
+            holdId: res.hold.id,
+            holdExpiresAt: res.hold.expiresAt,
+            hold_expires_at: res.hold.expiresAt,
+            orderId: res.hold.orderId || currentDraft?.orderId || null,
+            currentStep: res.hold.orderId ? 4 : (res.hold.selectedSeatIds?.length > 0 || res.hold.items?.length > 0) ? 2 : 1,
+          }
+          saveBookingDraft(restoredCart)
+        } else if (isMounted) {
+          setActiveServerHold(null)
+        }
+      } catch {
+        // Not authenticated or network error
+      }
+    }
+    checkServerHold()
+    return () => { isMounted = false }
+  }, [event?.id, event?.title, event?.slug, isPaused, selectedSessionTickets])
+
+  useEffect(() => {
+    if (!activeServerHold?.expiresAt) return
+    const timer = setInterval(() => {
+      const left = secondsLeft(activeServerHold.expiresAt)
+      setHoldCountdown(left)
+      if (left <= 0) {
+        setActiveServerHold(null)
+        clearBookingDraft(event?.id)
+      }
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [activeServerHold?.expiresAt, event?.id])
+
+  useEffect(() => {
+    const handleDraftCleared = (e) => {
+      if (!e.detail?.eventId || String(e.detail.eventId) === String(event?.id)) {
+        setActiveServerHold(null)
+        setHoldCountdown(0)
+      }
+    }
+    window.addEventListener('eventhub-booking-draft-cleared', handleDraftCleared)
+    return () => window.removeEventListener('eventhub-booking-draft-cleared', handleDraftCleared)
+  }, [event?.id])
+
   const isHoldingForThisEvent = Boolean(
-    hasActiveSeatHold(activeDraft) &&
-    event &&
-    String(activeDraft?.eventId) === String(event.id)
+    (activeServerHold && holdCountdown > 0) ||
+    (hasActiveSeatHold(activeDraft) && event && String(activeDraft?.eventId) === String(event.id))
   )
 
   useEffect(() => {
@@ -557,7 +646,7 @@ export function EventDetailPage() {
                 <div
                   ref={overviewContentRef}
                   className="block max-w-full text-sm sm:text-base leading-relaxed text-slate-300 font-normal ql-editor ql-content description-html p-0 !max-h-none [&_*]:max-w-full [&_table]:block [&_table]:overflow-x-auto [word-break:normal] [overflow-wrap:break-word] hyphens-none"
-                  dangerouslySetInnerHTML={{ __html: overview }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(overview) }}
                 />
 
                 {/* Lớp phủ mờ mờ ở chân nội dung ngay phía trên mũi tên */}

@@ -22,7 +22,7 @@ const getAutoLocale = () =>
 function fmtCurrency(n) {
   const isEn = getAutoLocale() === 'en-US'
   if (isEn) return `${Number(n || 0).toLocaleString('en-US')} VND`
-  return `${Number(n || 0).toLocaleString('vi-VN')} đ`
+  return `${Number(n || 0).toLocaleString('vi-VN')} VND`
 }
 
 function fmtShort(n) {
@@ -258,8 +258,8 @@ export function DailyRevenueBarChart({
       label: isEnglish ? 'Revenue' : 'Doanh thu',
       icon: DollarSign,
       formatVal: (v) => fmtCurrency(v),
-      formatShort: (v) => fmtShort(v),
-      unit: '₫',
+      formatShort: (v) => fmtNumber(v),
+      unit: 'VND',
     },
     tickets_sold: {
       label: isEnglish ? 'Tickets sold' : 'Vé đã bán',
@@ -282,11 +282,11 @@ export function DailyRevenueBarChart({
       {/* ── Top Controls: Title, Metric Selector, Granularity ── */}
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-white/5 pb-3">
         {/* Metric Selector Buttons */}
-        <div className="inline-flex rounded-full bg-slate-900/90 border border-white/10 p-0 overflow-hidden shadow-inner [html.light_&]:bg-[#FAF5ED] [html.light_&]:border-[#C99A47]/30">
+        <div className="inline-flex shrink-0 rounded-full bg-slate-900/90 border border-white/10 p-0 overflow-hidden shadow-inner [html.light_&]:bg-[#FAF5ED] [html.light_&]:border-[#C99A47]/30">
           <button
             type="button"
             onClick={() => setActiveMetric('gross_revenue')}
-            className={`px-4 py-2 text-xs transition-all ${
+            className={`whitespace-nowrap px-4 py-2 text-xs transition-all ${
               activeMetric === 'gross_revenue'
                 ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] font-extrabold shadow-sm'
                 : 'font-semibold text-slate-400 hover:text-white hover:bg-white/5 [html.light_&]:text-[#536b88] [html.light_&]:hover:text-[#0D1B2A] [html.light_&]:hover:bg-amber-100/50'
@@ -297,7 +297,7 @@ export function DailyRevenueBarChart({
           <button
             type="button"
             onClick={() => setActiveMetric('tickets_sold')}
-            className={`px-4 py-2 text-xs transition-all ${
+            className={`whitespace-nowrap px-4 py-2 text-xs transition-all ${
               activeMetric === 'tickets_sold'
                 ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] font-extrabold shadow-sm'
                 : 'font-semibold text-slate-400 hover:text-white hover:bg-white/5 [html.light_&]:text-[#536b88] [html.light_&]:hover:text-[#0D1B2A] [html.light_&]:hover:bg-amber-100/50'
@@ -308,7 +308,7 @@ export function DailyRevenueBarChart({
           <button
             type="button"
             onClick={() => setActiveMetric('orders')}
-            className={`px-4 py-2 text-xs transition-all ${
+            className={`whitespace-nowrap px-4 py-2 text-xs transition-all ${
               activeMetric === 'orders'
                 ? 'bg-gradient-to-r from-[#C99A47] to-[#E6C17A] text-[#0D1B2A] font-extrabold shadow-sm'
                 : 'font-semibold text-slate-400 hover:text-white hover:bg-white/5 [html.light_&]:text-[#536b88] [html.light_&]:hover:text-[#0D1B2A] [html.light_&]:hover:bg-amber-100/50'
@@ -319,22 +319,22 @@ export function DailyRevenueBarChart({
         </div>
 
         {/* Metric Summary Quick Stats */}
-        <div className="flex flex-wrap items-center gap-3.5 text-sm">
-          <span className="text-slate-400">
+        <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 text-xs sm:text-[13px]">
+          <span className="text-slate-400 whitespace-nowrap">
             {isEnglish ? 'Total:' : 'Tổng:'} <strong className="text-white font-mono font-bold">{metricMeta.formatVal(totalVal)}</strong>
           </span>
           {peakItem && maxVal > 0 && (
-            <span className="text-amber-400">
+            <span className="text-amber-400 whitespace-nowrap">
               {isEnglish ? 'Peak:' : 'Đỉnh:'} <strong className="font-mono font-bold">{metricMeta.formatVal(maxVal)}</strong>{' '}
-              <span className="text-xs text-amber-300/80">({peakItem.dayFormatted})</span>
+              <span className="text-[11px] text-amber-300/80">({peakItem.dayFormatted})</span>
             </span>
           )}
           {avgVal > 0 && (
-            <span className="text-cyan-400">
+            <span className="text-cyan-400 whitespace-nowrap">
               {isEnglish ? 'Avg:' : 'TB:'}{' '}
               <strong className="font-mono font-bold">
                 {activeMetric === 'gross_revenue'
-                  ? fmtShort(avgVal) + ' ₫'
+                  ? `${fmtNumber(Math.round(avgVal))} VND`
                   : avgVal.toFixed(1) + ' ' + metricMeta.unit}
               </strong>
               /{effectiveGranularity === 'weekly' ? (isEnglish ? 'week' : 'tuần') : (isEnglish ? 'day' : 'ngày')}
@@ -346,7 +346,7 @@ export function DailyRevenueBarChart({
             <button
               type="button"
               onClick={() => setGranularity(effectiveGranularity === 'daily' ? 'weekly' : 'daily')}
-              className="ml-auto rounded-lg border border-white/10 bg-slate-800/80 px-2 py-1 text-[11px] font-bold text-slate-300 hover:bg-slate-700 hover:text-white transition"
+              className="ml-auto rounded-lg border border-white/10 bg-slate-800/80 px-2 py-1 text-[11px] font-bold text-slate-300 hover:bg-slate-700 hover:text-white transition whitespace-nowrap"
               title={isEnglish ? 'Toggle daily / weekly view' : 'Chuyển đổi chu kỳ xem Theo ngày hoặc Theo tuần'}
             >
               {effectiveGranularity === 'daily' ? (isEnglish ? 'Group by week' : 'Gom tuần') : (isEnglish ? 'Split by day' : 'Tách ngày')}
@@ -397,7 +397,7 @@ export function DailyRevenueBarChart({
               fontSize={11}
               tickLine={false}
               axisLine={false}
-              tickFormatter={(v) => (activeMetric === 'gross_revenue' ? fmtShort(v) : fmtNumber(v))}
+              tickFormatter={(v) => fmtNumber(v)}
             />
 
             <Tooltip
@@ -415,7 +415,7 @@ export function DailyRevenueBarChart({
                 label={{
                   value: `${isEnglish ? 'Avg:' : 'TB:'} ${
                     activeMetric === 'gross_revenue'
-                      ? fmtShort(avgVal)
+                      ? `${fmtNumber(Math.round(avgVal))} VND`
                       : avgVal.toFixed(1)
                   }`,
                   fill: '#38BDF8',
@@ -430,6 +430,9 @@ export function DailyRevenueBarChart({
               dataKey={activeMetric}
               radius={[4, 4, 0, 0]}
               maxBarSize={finalSeries.length <= 14 ? 38 : finalSeries.length <= 31 ? 22 : 14}
+              isAnimationActive={true}
+              animationDuration={800}
+              animationEasing="ease-out"
             >
               {finalSeries.map((entry, index) => {
                 const isPeak = entry.isPeak

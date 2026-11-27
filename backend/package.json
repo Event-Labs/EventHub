@@ -14,6 +14,7 @@
     "migrate:checkin-device-logs": "node scripts/run-create-checkin-device-logs-migration.js",
     "migrate:event-gates": "node scripts/run-event-gates-migration.js",
     "migrate:staff-scan-logs": "node scripts/run-staff-scan-logs-migration.js",
+    "migrate:ticket-hold-security": "node scripts/run-ticket-hold-security-migration.js",
     "test": "jest",
     "test:exploration": "jest --testPathPattern=bug-condition-exploration --verbose --no-coverage"
   },

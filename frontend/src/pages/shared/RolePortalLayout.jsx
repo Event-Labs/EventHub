@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Component, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Bell, CheckCheck, ChevronRight, Home, LogOut, Menu, Moon, Settings, Sun, X } from 'lucide-react'
@@ -12,6 +12,7 @@ import {
 import { formatNotificationDisplay, stripNotificationHtml } from '@/lib/notifications.js'
 import { CosmicSpaceBackground } from '@/components/CosmicSpaceBackground.jsx'
 import { PortalCloudsBackground } from '@/components/PortalCloudsBackground.jsx'
+import { DesktopNotificationToast } from '@/components/DesktopNotificationToast.jsx'
 import { LanguageSwitcher } from '@/i18n/LanguageSwitcher.jsx'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
 import logoSrc from '@/assets/eventhub-logo.webp'
@@ -50,7 +51,8 @@ const NAV_LABEL_MAP = {
   'Quản lý nhân sự': { vi: 'Quản lý nhân sự', en: 'Staff Management' },
   'Cài đặt': { vi: 'Cài đặt', en: 'Settings' },
   'Thanh toán': { vi: 'Thanh toán', en: 'Payment' },
-  'Thông báo': { vi: 'Thông báo', en: 'Announcements' },
+  'Thông báo': { vi: 'Thông báo', en: 'Notifications' },
+  'Bảng tin gửi khán giả': { vi: 'Bảng tin gửi khán giả', en: 'Announcements' },
   'Chính sách': { vi: 'Chính sách', en: 'Policies' },
   'Trang chủ': { vi: 'Trang chủ', en: 'Home' },
   'Sự kiện được giao': { vi: 'Sự kiện được giao', en: 'Assigned Events' },
@@ -96,9 +98,61 @@ function applyPortalTheme(theme) {
   document.documentElement.classList.toggle('light', theme === 'light')
 }
 
+class PortalErrorBoundary extends Component {
+  constructor(props) {
+    super(props)
+    this.state = { hasError: false, error: null }
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error }
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('Portal uncaught render error:', error, errorInfo)
+  }
+
+  componentDidUpdate(prevProps) {
+    if (prevProps.resetKey !== this.props.resetKey && this.state.hasError) {
+      this.setState({ hasError: false, error: null })
+    }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex min-h-[40vh] flex-col items-center justify-center p-8 text-center rounded-2xl border border-red-500/20 bg-red-500/10 backdrop-blur-md">
+          <div className="size-12 rounded-2xl bg-red-500/20 grid place-items-center text-red-400 mb-3 border border-red-500/30">
+            <span className="text-xl font-bold">!</span>
+          </div>
+          <h2 className="text-base font-bold text-white mb-1">
+            Đã có lỗi xảy ra khi tải nội dung này
+          </h2>
+          <p className="text-xs text-slate-400 max-w-md mb-4">
+            {this.state.error?.message || 'Vui lòng làm mới trang hoặc thử lại sau.'}
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              this.setState({ hasError: false, error: null })
+              window.location.reload()
+            }}
+            className="px-4 py-2 rounded-xl bg-[#C99A47] text-[#0D1B2A] text-xs font-bold hover:bg-[#E6C17A] transition shadow-md"
+          >
+            Tải lại trang
+          </button>
+        </div>
+      )
+    }
+
+    return this.props.children
+  }
+}
+
 export function RolePortalLayout({
   user,
   isAllowed,
+  portalRole: explicitPortalRole,
   loginRedirect = '/login',
   roleLabel,
   profileTo,
@@ -106,13 +160,30 @@ export function RolePortalLayout({
   bottomItems = [],
   avatar,
 }) {
-  const { isVietnamese, t } = useLanguage()
+  const { isVietnamese, t, language, setLanguage } = useLanguage()
   const location = useLocation()
   const navigate = useNavigate()
   const [sidebarExpanded, setSidebarExpanded] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const panelRef = useRef(null)
   const [collapsedHeight, setCollapsedHeight] = useState(null)
+
+  const portalRole = useMemo(() => {
+    if (explicitPortalRole) return explicitPortalRole
+    if (location.pathname.startsWith('/admin')) return 'ADMIN'
+    if (location.pathname.startsWith('/organizer')) return 'ORGANIZER'
+    if (location.pathname.startsWith('/staff')) return 'STAFF'
+    return 'CUSTOMER'
+  }, [explicitPortalRole, location.pathname])
+
+  const isAdmin = isAdminUser(user) || roleLabel === 'Quản trị viên' || roleLabel === 'ADMINISTRATOR' || portalRole === 'ADMIN'
+
+  // Admin role is strictly Vietnamese - synchronize language to 'vi' if needed
+  useEffect(() => {
+    if (isAdmin && language !== 'vi') {
+      setLanguage('vi')
+    }
+  }, [isAdmin, language, setLanguage])
 
   useLayoutEffect(() => {
     if (!sidebarExpanded && panelRef.current) {
@@ -385,6 +456,7 @@ export function RolePortalLayout({
           user={user}
           avatar={avatar}
           roleLabel={roleLabel}
+          portalRole={portalRole}
           profileTo={profileTo}
           theme={theme}
           onToggleTheme={() => setPortalTheme(theme === 'light' ? 'dark' : 'light')}
@@ -398,15 +470,17 @@ export function RolePortalLayout({
                 : 'max-w-[1320px] px-3 sm:px-6 lg:px-8 py-4 sm:py-6'
             }`}
           >
-            <Suspense
-              fallback={
-                <div className="flex min-h-[40vh] w-full items-center justify-center p-8">
-                  <div className="size-8 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
-                </div>
-              }
-            >
-              <Outlet />
-            </Suspense>
+            <PortalErrorBoundary resetKey={location.pathname}>
+              <Suspense
+                fallback={
+                  <div className="flex min-h-[40vh] w-full items-center justify-center p-8">
+                    <div className="size-8 animate-spin rounded-full border-2 border-[#E6C17A]/25 border-t-[#E6C17A]" />
+                  </div>
+                }
+              >
+                <Outlet />
+              </Suspense>
+            </PortalErrorBoundary>
           </div>
         </div>
       </main>
@@ -448,6 +522,9 @@ export function RolePortalLayout({
           <span className="text-[10px] mt-1 font-semibold leading-none">Menu</span>
         </button>
       </nav>
+
+      {/* Real-time Desktop Notification Toast */}
+      <DesktopNotificationToast />
     </div>
   )
 }
@@ -604,10 +681,10 @@ function SidebarItem({ item, expanded, active, fallbackIcon, theme, onClick }) {
   )
 }
 
-function PortalTopBar({ user, avatar, roleLabel, profileTo, theme, onToggleTheme, onOpenMobileMenu }) {
+function PortalTopBar({ user, avatar, roleLabel, portalRole, profileTo, theme, onToggleTheme, onOpenMobileMenu }) {
   const { isVietnamese, t } = useLanguage()
   const isLight = theme === 'light'
-  const isAdmin = isAdminUser(user) || roleLabel === 'Quản trị viên' || roleLabel === 'ADMINISTRATOR'
+  const isAdmin = isAdminUser(user) || roleLabel === 'Quản trị viên' || roleLabel === 'ADMINISTRATOR' || portalRole === 'ADMIN'
   const displayRole = getTranslatedRole(roleLabel, isVietnamese)
 
   return (
@@ -658,7 +735,7 @@ function PortalTopBar({ user, avatar, roleLabel, profileTo, theme, onToggleTheme
             <span>{isVietnamese ? 'Trang khách hàng' : 'Customer Site'}</span>
           </NavLink>
         )}
-        <LanguageSwitcher theme={theme} className="h-10 sm:h-10.5" />
+        {!isAdmin && <LanguageSwitcher theme={theme} className="h-10 sm:h-10.5" />}
         <div className={`glass-panel flex h-10 sm:h-10.5 items-center gap-1.5 rounded-full px-1.5 sm:px-2 shadow-inner ${isLight ? 'border-[#C99A47]/30 bg-white/70 text-[#1B365D]' : 'border-white/10'
           }`}>
           <TopBarIconButton
@@ -667,7 +744,7 @@ function PortalTopBar({ user, avatar, roleLabel, profileTo, theme, onToggleTheme
             onClick={onToggleTheme}
             theme={theme}
           />
-          <PortalNotificationBell theme={theme} />
+          <PortalNotificationBell theme={theme} portalRole={portalRole} />
         </div>
         <NavLink
           to={profileTo}
@@ -693,7 +770,7 @@ function PortalTopBar({ user, avatar, roleLabel, profileTo, theme, onToggleTheme
   )
 }
 
-function PortalNotificationBell({ theme }) {
+function PortalNotificationBell({ theme, portalRole: passedRole }) {
   const { isVietnamese, t } = useLanguage()
   const isLight = theme === 'light'
   const queryClient = useQueryClient()
@@ -702,6 +779,21 @@ function PortalNotificationBell({ theme }) {
   const [notificationOpen, setNotificationOpen] = useState(false)
   const containerRef = useRef(null)
   const token = getAuthToken()
+
+  const portalRole = useMemo(() => {
+    if (passedRole) return String(passedRole).toUpperCase()
+    if (location.pathname.startsWith('/admin')) return 'ADMIN'
+    if (location.pathname.startsWith('/organizer')) return 'ORGANIZER'
+    if (location.pathname.startsWith('/staff')) return 'STAFF'
+    return 'CUSTOMER'
+  }, [passedRole, location.pathname])
+
+  const viewAllUrl = useMemo(() => {
+    if (portalRole === 'ADMIN') return '/admin/notifications'
+    if (portalRole === 'ORGANIZER') return '/organizer/notifications'
+    if (portalRole === 'STAFF') return '/staff/notifications'
+    return '/notifications'
+  }, [portalRole])
 
   useEffect(() => {
     if (!notificationOpen) return undefined
@@ -725,10 +817,24 @@ function PortalNotificationBell({ theme }) {
   }, [location.pathname])
 
   const notificationsQuery = useQuery({
-    queryKey: ['notifications', 'portal-nav'],
-    queryFn: () => fetchNotifications({ limit: 5 }),
+    queryKey: ['notifications', 'portal-nav', portalRole],
+    queryFn: () => fetchNotifications({ limit: 10, target_role: portalRole }),
     enabled: Boolean(token),
   })
+
+  // Defensive filtering: strictly enforce that only notifications matching portalRole are displayed
+  const rawNotifications = notificationsQuery.data?.items || []
+  const notifications = useMemo(() => {
+    if (!portalRole || portalRole === 'ALL') return rawNotifications
+    return rawNotifications.filter((n) => {
+      const itemRole = n.target_role || 'CUSTOMER'
+      return itemRole === portalRole
+    })
+  }, [rawNotifications, portalRole])
+
+  const unreadCount = useMemo(() => {
+    return notifications.filter((n) => !n.is_read).length
+  }, [notifications])
 
   const markReadMutation = useMutation({
     mutationFn: markNotificationRead,
@@ -739,7 +845,7 @@ function PortalNotificationBell({ theme }) {
   })
 
   const markAllMutation = useMutation({
-    mutationFn: markAllNotificationsRead,
+    mutationFn: () => markAllNotificationsRead({ target_role: portalRole }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
       queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] })
@@ -757,17 +863,9 @@ function PortalNotificationBell({ theme }) {
       try {
         const data = JSON.parse(event.data)
         if (data?.title) {
-          // Skip customer-targeted refund completion toast in organizer/admin portal
-          if (data.title === 'Hoàn tiền vé thành công') {
-            return
-          }
           window.dispatchEvent(
-            new CustomEvent('eventhub:toast', {
-              detail: {
-                message: `🔔 ${data.title}`,
-                type: data.title.includes('từ chối') ? 'error' : 'success',
-                duration: 6000,
-              },
+            new CustomEvent('eventhub:desktop-notification', {
+              detail: data,
             }),
           )
         }
@@ -788,10 +886,7 @@ function PortalNotificationBell({ theme }) {
     }
 
     return () => source.close()
-  }, [token, queryClient])
-
-  const notifications = notificationsQuery.data?.items || []
-  const unreadCount = notificationsQuery.data?.unread_count || 0
+  }, [token, queryClient, portalRole])
 
   const handleNotificationClick = (notification) => {
     if (!notification.is_read) {
@@ -799,33 +894,22 @@ function PortalNotificationBell({ theme }) {
     }
     setNotificationOpen(false)
 
-    const title = (notification.title || '').toLowerCase()
-    const content = (notification.content || '').toLowerCase()
-    const isAdminPortal = location.pathname.startsWith('/admin')
-    if (isAdminPortal) {
-      if (title.includes('organizer')) {
-        navigate('/admin/organizer-requests')
-        return
-      }
-      navigate('/admin/event-review')
-      return
+    let target = `/notifications#notification-${notification.id}`
+    if (portalRole === 'ADMIN') {
+      target = `/admin/notifications#notification-${notification.id}`
+    } else if (portalRole === 'ORGANIZER') {
+      target = `/organizer/notifications#notification-${notification.id}`
+    } else if (portalRole === 'STAFF') {
+      target = `/staff/notifications#notification-${notification.id}`
     }
 
-    if (title.includes('organizer') || content.includes('organizer')) {
-      if (title.includes('đã được duyệt') || content.includes('phê duyệt')) {
-        navigate('/organizer')
-        return
-      }
-      navigate('/organizer-request?mode=edit')
-      return
-    }
+    navigate(target)
 
-    const isOrganizerPortal = location.pathname.startsWith('/organizer')
-    if (notification.event_id && isOrganizerPortal) {
-      navigate(`/organizer/events/${notification.event_id}`)
-      return
-    }
-    navigate(`/notifications#notification-${notification.id}`)
+    window.dispatchEvent(
+      new CustomEvent('eventhub:scroll-notification', {
+        detail: { id: notification.id },
+      }),
+    )
   }
 
   return (
@@ -933,16 +1017,17 @@ function PortalNotificationBell({ theme }) {
             })}
           </div>
 
-          {!location.pathname.startsWith('/admin') && (
-            <Link
-              to="/notifications"
-              onClick={() => setNotificationOpen(false)}
-              className={`block border-t px-4 py-2.5 text-center text-xs font-extrabold text-[#C99A47] hover:text-[#E6C17A] transition-colors ${isLight ? 'border-[#C99A47]/20 bg-[#F5EBDD]/50 hover:bg-[#F5EBDD]' : 'border-border-soft/30 hover:bg-white/[0.04]'
-                }`}
-            >
-              {t('nav.viewAllNotifications')}
-            </Link>
-          )}
+          <button
+            type="button"
+            onClick={() => {
+              setNotificationOpen(false)
+              navigate(viewAllUrl)
+            }}
+            className={`block w-full border-t px-4 py-2.5 text-center text-xs font-extrabold text-[#C99A47] hover:text-[#E6C17A] transition-colors cursor-pointer ${isLight ? 'border-[#C99A47]/20 bg-[#F5EBDD]/50 hover:bg-[#F5EBDD]' : 'border-border-soft/30 hover:bg-white/[0.04]'
+              }`}
+          >
+            {t('nav.viewAllNotifications')}
+          </button>
         </div>
       )}
     </div>

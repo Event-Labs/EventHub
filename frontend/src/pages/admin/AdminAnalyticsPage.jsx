@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   AlertTriangle,
-  ArrowUpRight,
   BarChart2,
   BarChart3,
   Building2,
@@ -10,10 +9,7 @@ import {
   CheckCircle2,
   ChevronRight,
   CircleDollarSign,
-  ClipboardList,
   Crown,
-  Layers,
-  LineChart,
   Loader2,
   PieChart,
   ShoppingCart,
@@ -23,9 +19,9 @@ import {
   Users,
   Zap,
 } from 'lucide-react'
-import { DateRangeFilter, getDateRange, getDateRangeLabel } from '@/components/DateRangeFilter.jsx'
+import { DateRangeFilter, getDateRange } from '@/components/DateRangeFilter.jsx'
+import AnimatedNumber from '@/components/AnimatedNumber.jsx'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
-import { VI_TO_EN } from '@/i18n/phraseDictionary.js'
 import {
   fetchAdminAnalyticsOverview,
   fetchAdminRevenueTrend,
@@ -37,11 +33,7 @@ import { Page, Panel } from './AdminComponents.jsx'
 
 // ─── Formatters & Helpers ────────────────────────────────────────────────────
 
-const getAutoLocale = () =>
-  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
-   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
-    ? 'en-US'
-    : 'vi-VN'
+const getAutoLocale = () => 'vi-VN'
 
 function fmtCurrency(n) {
   return new Intl.NumberFormat(getAutoLocale(), { style: 'currency', currency: 'VND' }).format(Number(n) || 0)
@@ -200,8 +192,8 @@ function AdminMetricCard({
           </div>
         )}
       </div>
-      <p className={`mt-3 text-2xl sm:text-3xl font-black ${t.valColor} [html.light_&]:text-[#0D1B2A] drop-shadow-sm`}>
-        {value}
+      <p className={`mt-3 text-2xl xl:text-3xl font-black ${t.valColor} [html.light_&]:text-[#0D1B2A] drop-shadow-sm truncate`}>
+        <AnimatedNumber value={value} />
       </p>
       {sub && (
         <p className="mt-1 text-xs text-slate-400 truncate [html.light_&]:text-[#536b88]">
@@ -219,7 +211,13 @@ function AdminRevenueTrendChart({ data = [], title = 'Xu hướng giao dịch v�
   const [containerWidth, setContainerWidth] = useState(0)
   const [hoveredIndex, setHoveredIndex] = useState(null)
   const [mode, setMode] = useState('both') // 'both' | 'bars' | 'line'
+  const [mounted, setMounted] = useState(false)
   const chartId = useId()
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setMounted(true))
+    return () => cancelAnimationFrame(id)
+  }, [])
 
   useEffect(() => {
     if (!containerRef.current) return undefined
@@ -506,7 +504,10 @@ function AdminRevenueTrendChart({ data = [], title = 'Xu hướng giao dịch v�
             <path
               d={getAreaPath(revenuePoints, height)}
               fill={`url(#comboRevArea-${chartId})`}
-              className="transition-all duration-300"
+              style={{
+                opacity: mounted ? 1 : 0,
+                transition: 'opacity 0.8s ease-out',
+              }}
             />
           )}
 
@@ -514,7 +515,8 @@ function AdminRevenueTrendChart({ data = [], title = 'Xu hướng giao dịch v�
           {mode !== 'line' &&
             data.map((d, i) => {
               const rev = Number(d.gross_revenue || 0)
-              const barH = maxRevenue > 0 && rev > 0 ? Math.max((rev / maxRevenue) * (height - 45), 6) : 0
+              const targetH = maxRevenue > 0 && rev > 0 ? Math.max((rev / maxRevenue) * (height - 45), 6) : 0
+              const barH = mounted ? targetH : 0
               const x = padLeft + i * slotW + (slotW - barW) / 2
               const y = height - barH
               const isHovered = hoveredIndex === i
@@ -526,17 +528,17 @@ function AdminRevenueTrendChart({ data = [], title = 'Xu hướng giao dịch v�
                   onMouseLeave={() => setHoveredIndex(null)}
                   className="cursor-pointer"
                 >
-                  {barH > 0 && (
-                    <rect
-                      x={x}
-                      y={y}
-                      width={barW}
-                      height={barH}
-                      rx={8}
-                      fill={isHovered ? `url(#comboBarHover-${chartId})` : `url(#comboBarGrad-${chartId})`}
-                      className="transition-all duration-150"
-                    />
-                  )}
+                  <rect
+                    x={x}
+                    y={y}
+                    width={barW}
+                    height={barH}
+                    rx={8}
+                    fill={isHovered ? `url(#comboBarHover-${chartId})` : `url(#comboBarGrad-${chartId})`}
+                    style={{
+                      transition: 'height 0.7s cubic-bezier(0.16, 1, 0.3, 1), y 0.7s cubic-bezier(0.16, 1, 0.3, 1)',
+                    }}
+                  />
                 </g>
               )
             })}
@@ -552,6 +554,11 @@ function AdminRevenueTrendChart({ data = [], title = 'Xu hướng giao dịch v�
               strokeLinejoin="round"
               filter={`url(#glowGold-${chartId})`}
               className="[html.light_&]:stroke-[#C99A47]"
+              style={{
+                strokeDasharray: 2000,
+                strokeDashoffset: mounted ? 0 : 2000,
+                transition: 'stroke-dashoffset 0.9s cubic-bezier(0.16, 1, 0.3, 1)',
+              }}
             />
           )}
 
@@ -569,6 +576,10 @@ function AdminRevenueTrendChart({ data = [], title = 'Xu hướng giao dịch v�
                   stroke="#0b1329"
                   strokeWidth={2}
                   className="transition-all duration-150 [html.light_&]:stroke-white"
+                  style={{
+                    opacity: mounted ? 1 : 0,
+                    transition: `opacity 0.5s ease-out ${0.3 + i * 0.02}s`,
+                  }}
                 />
               )
             })}
@@ -625,6 +636,7 @@ function AdminRevenueTrendChart({ data = [], title = 'Xu hướng giao dịch v�
 // ─── Component 3: Modern Donut Chart with glowing ring & clean percentages ─────
 
 function DonutChart({ title, data = [], totalLabel, valueFormatter, bare = false, compact = false }) {
+  const [mounted, setMounted] = useState(false)
   const total = data.reduce((sum, item) => sum + Number(item.value || 0), 0)
   let offset = 25
   const radius = 38
@@ -632,6 +644,11 @@ function DonutChart({ title, data = [], totalLabel, valueFormatter, bare = false
   const formatValue = valueFormatter || ((value) => Number(value || 0).toLocaleString('vi-VN'))
   const centerValueClass = valueFormatter ? 'text-xs' : 'text-xl'
   const chartSize = compact ? 'size-32' : 'size-40'
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setMounted(true))
+    return () => cancelAnimationFrame(id)
+  }, [])
 
   const content = (
     <div>
@@ -658,10 +675,10 @@ function DonutChart({ title, data = [], totalLabel, valueFormatter, bare = false
                   fill="none"
                   stroke={item.color || '#38bdf8'}
                   strokeWidth="13"
-                  strokeDasharray={`${dash} ${circumference - dash}`}
+                  strokeDasharray={mounted ? `${dash} ${circumference - dash}` : `0 ${circumference}`}
                   strokeDashoffset={offset}
                   strokeLinecap="round"
-                  className="transition-all duration-500"
+                  className="transition-all duration-700 ease-out"
                 />
               )
               offset -= dash
@@ -671,7 +688,7 @@ function DonutChart({ title, data = [], totalLabel, valueFormatter, bare = false
           <div className="absolute inset-0 grid place-items-center text-center p-2">
             <div>
               <p className={`${centerValueClass} max-w-24 truncate font-black text-white drop-shadow-sm [html.light_&]:text-[#0D1B2A]`}>
-                {formatValue(total)}
+                <AnimatedNumber value={formatValue(total)} />
               </p>
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 [html.light_&]:text-[#536b88]">
                 {totalLabel || 'tổng'}
@@ -703,7 +720,7 @@ function DonutChart({ title, data = [], totalLabel, valueFormatter, bare = false
                     {pct}%
                   </span>
                   <span className="font-extrabold text-white [html.light_&]:text-[#0D1B2A]">
-                    {formatValue(item.value)}
+                    <AnimatedNumber value={formatValue(item.value)} />
                   </span>
                 </div>
               </div>
@@ -810,7 +827,7 @@ function CategoryDistributionChart({ items = [] }) {
       <div className="pointer-events-none absolute -right-12 -top-12 size-40 rounded-full bg-cyan-500/5 blur-3xl" />
       <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-2">
-          <PieChart className="size-5 text-cyan-400" />
+          <PieChart className="size-5 text-[#E6C17A]" />
           <h2 className="text-base font-bold text-white [html.light_&]:text-[#0D1B2A]">Sự kiện theo danh mục</h2>
         </div>
         <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-bold text-slate-300">
@@ -946,30 +963,24 @@ export function AdminAnalyticsPage() {
     >
       {/* ── 1. Attention Required Banner ("HÀNG ĐỢI XỬ LÝ") ── */}
       {overview && (
-        <div className="relative mb-6 rounded-2xl bg-gradient-to-r from-[#17140b] via-[#0f172a] to-[#17140b] p-5 shadow-[0_0_25px_rgba(245,158,11,0.15)] [html.light_&]:bg-none [html.light_&]:bg-amber-50/90 [html.light_&]:border [html.light_&]:border-amber-400/40 [html.light_&]:shadow-[0_0_20px_rgba(245,158,11,0.15)]">
+        <div className="relative mb-6 rounded-2xl bg-white/[0.05] backdrop-blur-xl p-5 shadow-[0_8px_32px_rgba(0,0,0,0.25)] [html.light_&]:bg-white [html.light_&]:shadow-md">
           <svg className="urgent-banner-led-svg" aria-hidden="true">
             <rect className="urgent-banner-led-track" />
             <rect className="urgent-banner-led-glow" pathLength="100" />
             <rect className="urgent-banner-led-core" pathLength="100" />
           </svg>
-          <div className="pointer-events-none absolute -right-8 -top-8 size-28 rounded-full bg-amber-500/10 blur-2xl [html.light_&]:hidden" />
-          <div className="mb-3.5 flex items-center justify-between">
+          <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="grid size-8 place-items-center rounded-xl bg-amber-500/20 text-amber-400 shadow-sm [html.light_&]:bg-amber-100 [html.light_&]:text-amber-700">
                 <AlertTriangle className="size-4.5" />
               </div>
-              <div>
-                <p className="text-xs font-black uppercase tracking-wider text-amber-400 [html.light_&]:text-amber-800">
-                  {isEnglish ? 'Approval Queue' : 'Hàng đợi phê duyệt'}
-                </p>
-                <p className="text-xs text-slate-400 [html.light_&]:text-[#536b88]">
-                  {isEnglish ? 'Partner requests requiring admin review before going live' : 'Yêu cầu từ các đối tác cần Admin kiểm duyệt trước khi đưa lên sàn'}
-                </p>
-              </div>
+              <p className="text-sm font-black uppercase tracking-wider text-amber-400 [html.light_&]:text-amber-800">
+                {isEnglish ? 'Approval Queue' : 'Hàng đợi phê duyệt'}
+              </p>
             </div>
             {Number(events?.pending_events || 0) + Number(orgReqs?.pending_requests || 0) > 0 ? (
               <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-extrabold text-amber-300 [html.light_&]:bg-amber-100 [html.light_&]:border-amber-300 [html.light_&]:text-amber-800">
-                {Number(events?.pending_events || 0) + Number(orgReqs?.pending_requests || 0)} {isEnglish ? 'items pending review' : 'mục đang chờ duyệt'}
+                <AnimatedNumber value={Number(events?.pending_events || 0) + Number(orgReqs?.pending_requests || 0)} /> {isEnglish ? 'items pending review' : 'mục đang chờ duyệt'}
               </span>
             ) : (
               <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-extrabold text-emerald-400 [html.light_&]:bg-emerald-50 [html.light_&]:border-emerald-300 [html.light_&]:text-emerald-700">
@@ -998,7 +1009,7 @@ export function AdminAnalyticsPage() {
               </div>
               <div className="flex items-center gap-3">
                 <span className={`text-2xl font-black ${Number(events?.pending_events || 0) > 5 ? 'text-rose-400 [html.light_&]:text-rose-600' : 'text-amber-400 [html.light_&]:text-amber-600'}`}>
-                  {Number(events?.pending_events || 0)}
+                  <AnimatedNumber value={Number(events?.pending_events || 0)} />
                 </span>
                 <ChevronRight className="size-4 text-slate-400 [html.light_&]:text-slate-500" />
               </div>
@@ -1023,7 +1034,7 @@ export function AdminAnalyticsPage() {
               </div>
               <div className="flex items-center gap-3">
                 <span className={`text-2xl font-black ${Number(orgReqs?.pending_requests || 0) > 3 ? 'text-rose-400 [html.light_&]:text-rose-600' : 'text-amber-400 [html.light_&]:text-amber-600'}`}>
-                  {Number(orgReqs?.pending_requests || 0)}
+                  <AnimatedNumber value={Number(orgReqs?.pending_requests || 0)} />
                 </span>
                 <ChevronRight className="size-4 text-slate-400 [html.light_&]:text-slate-500" />
               </div>
@@ -1034,7 +1045,7 @@ export function AdminAnalyticsPage() {
 
       {loading && !overview ? (
         <Panel className="flex items-center justify-center py-20">
-          <Loader2 className="size-8 animate-spin text-tertiary" />
+          <Loader2 className="size-8 animate-spin text-[#E6C17A]" />
         </Panel>
       ) : overview ? (
         <>
@@ -1079,22 +1090,22 @@ export function AdminAnalyticsPage() {
             <AdminMetricCard
               icon={CircleDollarSign}
               label={isEnglish ? 'Total Ticket GMV' : 'Tổng giao dịch vé (GMV)'}
-              value={fmtShort(orders.gross_revenue)}
+              value={`${Number(orders.gross_revenue || 0).toLocaleString('vi-VN')} VND`}
               sub={
                 isEnglish
-                  ? `Gross ticket sales: ${fmtCurrency(orders.gross_revenue)}`
-                  : `Dòng tiền vé bán qua sàn: ${fmtCurrency(orders.gross_revenue)}`
+                  ? 'Total gross ticket sales through platform'
+                  : 'Dòng tiền vé bán qua sàn'
               }
               theme="emerald"
             />
             <AdminMetricCard
               icon={TrendingUp}
               label={isEnglish ? 'Subscription Revenue' : 'Doanh thu gói dịch vụ'}
-              value={fmtShort(subscriptionRevenue?.total_revenue)}
+              value={`${Number(subscriptionRevenue?.total_revenue || 0).toLocaleString('vi-VN')} VND`}
               sub={
                 isEnglish
-                  ? `EventHub net revenue: ${fmtCurrency(subscriptionRevenue?.total_revenue)}`
-                  : `Doanh thu thực nhận EventHub: ${fmtCurrency(subscriptionRevenue?.total_revenue)}`
+                  ? 'EventHub net revenue from subscription plans'
+                  : 'Doanh thu thực nhận EventHub'
               }
               theme="amber"
               onClick={() => navigate('/admin/plans')}
@@ -1259,19 +1270,25 @@ export function AdminAnalyticsPage() {
                     <p className="text-[11px] font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">
                       {isEnglish ? 'Total Purchases' : 'Tổng lượt mua'}
                     </p>
-                    <p className="mt-1 text-lg font-black text-white [html.light_&]:text-[#0D1B2A]">{Number(subscriptionRevenue.total_subscriptions).toLocaleString('vi-VN')}</p>
+                    <p className="mt-1 text-lg font-black text-white [html.light_&]:text-[#0D1B2A]">
+                      <AnimatedNumber value={Number(subscriptionRevenue.total_subscriptions).toLocaleString('vi-VN')} />
+                    </p>
                   </div>
                   <div className="rounded-xl border border-emerald-500/20 bg-gradient-to-br from-[#0e172e] via-[#0b1329] to-[#0c2e22] p-3 shadow-sm [html.light_&]:bg-none [html.light_&]:bg-white [html.light_&]:border-slate-200">
                     <p className="text-[11px] font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">
                       {isEnglish ? 'Active' : 'Đang hoạt động'}
                     </p>
-                    <p className="mt-1 text-lg font-black text-emerald-400 [html.light_&]:text-[#065f46]">{Number(subscriptionRevenue.active_subscriptions).toLocaleString('vi-VN')}</p>
+                    <p className="mt-1 text-lg font-black text-emerald-400 [html.light_&]:text-[#065f46]">
+                      <AnimatedNumber value={Number(subscriptionRevenue.active_subscriptions).toLocaleString('vi-VN')} />
+                    </p>
                   </div>
                   <div className="rounded-xl border border-amber-500/20 bg-gradient-to-br from-[#0e172e] via-[#0b1329] to-[#251a08] p-3 shadow-sm [html.light_&]:bg-none [html.light_&]:bg-white [html.light_&]:border-slate-200">
                     <p className="text-[11px] font-bold uppercase tracking-wider text-white [html.light_&]:text-[#0D1B2A]">
                       {isEnglish ? 'Total Revenue' : 'Tổng doanh thu'}
                     </p>
-                    <p className="mt-1 text-lg font-black text-[#E6C17A] [html.light_&]:text-[#854d0e]">{fmtCurrency(subscriptionRevenue.total_revenue)}</p>
+                    <p className="mt-1 text-lg font-black text-[#E6C17A] [html.light_&]:text-[#854d0e]">
+                      <AnimatedNumber value={fmtCurrency(subscriptionRevenue.total_revenue)} />
+                    </p>
                   </div>
                 </div>
               </div>

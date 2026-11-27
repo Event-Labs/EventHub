@@ -48,7 +48,7 @@ export function OrganizerBusinessEmailVerifyPage() {
       <div className="glass-panel rounded-lg p-8">
         {status === 'verifying' && (
           <>
-            <Loader2 className="mx-auto size-14 animate-spin text-primary" />
+            <Loader2 className="mx-auto size-14 animate-spin text-[#E6C17A]" />
             <h1 className="mt-5 font-display text-2xl font-extrabold text-content">
               {isEnglish ? 'Verifying organizer business email' : 'Đang xác thực email tổ chức'}
             </h1>

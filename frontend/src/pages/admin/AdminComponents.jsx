@@ -1,22 +1,13 @@
 import {
   ArrowLeft,
-  BarChart3,
-  Building2,
-  Calendar,
   CheckCircle2,
-  CircleDollarSign,
-  Clock,
   Eye,
-  Layers,
   Lock,
   MoreVertical,
   Plus,
-  ShieldAlert,
   ShieldCheck,
   Sparkles,
-  UserCheck,
   Users,
-  UserX,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { ProfileAvatar } from '@/pages/shared/ProfileAvatar.jsx'

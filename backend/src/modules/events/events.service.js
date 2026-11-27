@@ -9,6 +9,8 @@ const ErrorCodes = require('../../core/errors/errorCodes');
 const { normalizeRules, validateSelectedSeats } = require('./seatingRules');
 const { clearCachePattern } = require('../../middlewares/cache.middleware');
 const logger = require('../../core/logger');
+const riskScoringService = require('../../core/security/riskScoring.service');
+const { logSecurityEvent, SecurityActions } = require('../../core/security/securityLogger');
 
 function toNumber(value) {
   if (value === null || value === undefined) return null;
@@ -318,20 +320,62 @@ class EventsService {
     };
   }
 
-  async holdSeats(userId, payload) {
+  async holdSeats(userId, payload, reqMeta = {}) {
+    // Check if user already has an active hold session on this event to distinguish safe update vs new creation
+    const existingHold = await eventsRepository.findActiveHoldByUserAndEvent(userId, payload.event_id);
+    const isUpdate = Boolean(existingHold?.hasActiveHold);
+
+    // 1. Behavioral Risk Scoring & anti-hoarding check (distinguishes new hold vs safe hold update)
+    await riskScoringService.recordHoldCreation(userId, payload.event_id, {
+      ...reqMeta,
+      isUpdate,
+    });
+
+    // 2. Ticket availability check
     const availability = await this.checkTicketAvailability(payload, userId);
     if (!availability.available) {
       throw new AppError(
-        availability.message || 'C\u00e1c gh\u1ebf \u0111\u00e3 ch\u1ecdn kh\u00f4ng h\u1ee3p l\u1ec7.',
+        availability.message || 'Các ghế hoặc loại vé đã chọn không khả dụng.',
         400,
         ErrorCodes.ORDER_INVALID_ITEMS,
       );
     }
-    return eventsRepository.holdSeats(userId, payload);
+
+    // 3. Perform hold creation / update in repository
+    const result = await eventsRepository.holdSeats(userId, payload);
+
+    // 4. Log security audit event
+    logSecurityEvent({
+      userId,
+      eventId: payload.event_id,
+      action: isUpdate ? SecurityActions.UPDATE_HOLD : SecurityActions.CREATE_HOLD,
+      details: {
+        holdId: result.hold_id,
+        seatCount: result.seats?.length || 0,
+        isExistingHold: Boolean(result.is_existing_hold),
+        isUpdate,
+      },
+    }).catch(() => {});
+
+    return result;
   }
 
-  async releaseSeatHolds(userId, payload) {
-    return eventsRepository.releaseSeatHolds(userId, payload);
+  async getActiveHold(userId, identifier) {
+    return eventsRepository.findActiveHoldByUserAndEvent(userId, identifier);
+  }
+
+  async cancelActiveHold(userId, identifier, reqMeta = {}) {
+    const result = await eventsRepository.releaseSeatHolds(userId, { event_id: identifier });
+    await riskScoringService.recordHoldCancellation(userId, identifier, reqMeta);
+    return result;
+  }
+
+  async releaseSeatHolds(userId, payload, reqMeta = {}) {
+    const result = await eventsRepository.releaseSeatHolds(userId, payload);
+    if (payload?.event_id) {
+      await riskScoringService.recordHoldCancellation(userId, payload.event_id, reqMeta);
+    }
+    return result;
   }
   async getFavoriteEvents(userId) {
     const rows = await eventsRepository.findFavoriteEvents(userId);

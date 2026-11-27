@@ -22,6 +22,7 @@ import {
   fetchOrganizerPlatformPolicies,
 } from '@/services/platformFinance.js'
 import { renderCosmicTitle } from '@/lib/formatTitle.jsx'
+import { sanitizeUrl } from '@/lib/sanitize.js'
 import staticPoliciesData from './platformPoliciesData.json'
 import staticPoliciesDataEn from './platformPoliciesDataEn.json'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
@@ -349,11 +350,11 @@ export function PlatformPoliciesPage({ audience = 'public' }) {
                     </div>
                   )}
 
-                  {activePolicy.file_url && (
+                  {sanitizeUrl(activePolicy.file_url) && (
                     <a
-                      href={activePolicy.file_url}
+                      href={sanitizeUrl(activePolicy.file_url)}
                       target="_blank"
-                      rel="noreferrer"
+                      rel="noopener noreferrer"
                       className="inline-flex items-center gap-1.5 rounded-xl border border-[#C99A47]/40 bg-[#C99A47]/10 px-3.5 py-2 text-xs font-bold text-[#E6C17A] [html.light_&]:text-amber-800 [html.light_&]:bg-amber-50 [html.light_&]:border-amber-300 transition-all hover:bg-[#C99A47]/20 hover:border-[#E6C17A] [html.light_&]:hover:bg-amber-100 hover:shadow-[0_0_15px_rgba(201,154,71,0.3)] active:scale-95"
                     >
                       <ExternalLink className="size-3.5" />
@@ -372,9 +373,9 @@ export function PlatformPoliciesPage({ audience = 'public' }) {
                       {isEnglish ? 'Original document:' : 'Tài liệu gốc:'} {activePolicy.file_name || `${activePolicy.policy_type}.pdf`}
                     </span>
                     <a
-                      href={activePolicy.file_url}
+                      href={sanitizeUrl(activePolicy.file_url) || undefined}
                       target="_blank"
-                      rel="noreferrer"
+                      rel="noopener noreferrer"
                       className="underline font-bold hover:text-white [html.light_&]:hover:text-amber-900"
                     >
                       {isEnglish ? 'Download / View separate' : 'Tải / Xem riêng'}
@@ -383,7 +384,7 @@ export function PlatformPoliciesPage({ audience = 'public' }) {
                   <div className="flex-1 min-h-0 overflow-hidden rounded-xl border border-white/10 [html.light_&]:border-slate-200 bg-[#1a1e29] shadow-inner">
                     <iframe
                       title={activePolicy.title}
-                      src={`${activePolicy.file_url}#toolbar=1&navpanes=1&view=FitH`}
+                      src={sanitizeUrl(activePolicy.file_url) ? `${sanitizeUrl(activePolicy.file_url)}#toolbar=1&navpanes=1&view=FitH` : undefined}
                       className="h-full w-full bg-[#1a1e29]"
                     />
                   </div>
@@ -403,11 +404,11 @@ export function PlatformPoliciesPage({ audience = 'public' }) {
                           ? 'Detailed contents of this policy are provided in the attached PDF document.'
                           : 'Nội dung chi tiết của điều khoản này được cung cấp dưới dạng văn bản PDF đính kèm.'}
                       </p>
-                      {activePolicy.file_url && (
+                      {sanitizeUrl(activePolicy.file_url) && (
                         <a
-                          href={activePolicy.file_url}
+                          href={sanitizeUrl(activePolicy.file_url)}
                           target="_blank"
-                          rel="noreferrer"
+                          rel="noopener noreferrer"
                           className="mt-4 inline-flex items-center gap-2 rounded-full px-5 py-2 text-xs font-bold text-[#0D1B2A] transition-all hover:brightness-110"
                           style={{ background: 'linear-gradient(135deg, #C99A47, #E6C17A)' }}
                         >

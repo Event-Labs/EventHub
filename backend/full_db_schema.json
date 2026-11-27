@@ -609,6 +609,18 @@
         "data_type": "timestamp with time zone",
         "udt_name": "timestamptz",
         "is_nullable": "YES"
+      },
+      {
+        "column_name": "target_role",
+        "data_type": "character varying",
+        "udt_name": "varchar",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "metadata",
+        "data_type": "jsonb",
+        "udt_name": "jsonb",
+        "is_nullable": "YES"
       }
     ],
     "fks": [

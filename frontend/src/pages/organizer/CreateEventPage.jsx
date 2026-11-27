@@ -20,6 +20,7 @@ import { uploadEventBanner, uploadEventThumbnail, uploadPolicyDocument, uploadOr
 import { fetchCurrentPlan } from '@/services/subscriptions.js'
 import RichTextEditor from '@/components/RichTextEditor.jsx'
 import { getApiMessage } from '@/lib/messages.js'
+import { sanitizeUrl } from '@/lib/sanitize.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { AiEventContentGeneratorModal } from './AiEventContentGeneratorModal.jsx'
 import { AiDocumentExtractorModal } from './AiDocumentExtractorModal.jsx'
@@ -2310,7 +2311,7 @@ function Step3TicketsSeats({
                   >
                     <input
                       type="checkbox"
-                      className="mt-0.5 h-4 w-4 accent-tertiary"
+                      className="mt-0.5 h-4 w-4 accent-[#C99A47] cursor-pointer"
                       checked={Boolean(formData.seating_rules?.[rule.key])}
                       onChange={(e) =>
                         setFormData((p) => ({
@@ -3454,7 +3455,7 @@ function Step4PoliciesSettings({ formData, setFormData, completeness, editPermis
                 >
                   {uploadingPolicy ? (
                     <>
-                      <div className="size-3.5 border-2 border-tertiary border-t-transparent rounded-full animate-spin" />
+                      <div className="size-3.5 border-2 border-[#E6C17A]/25 border-t-[#E6C17A] rounded-full animate-spin" />
                       <span>Đang tải file...</span>
                     </>
                   ) : (
@@ -4108,7 +4109,7 @@ function Step5ReviewSubmit({ formData, setFormData, categories, venues, complete
                 </div>
               </div>
               <a
-                href={formData.refund_policy.policy_file_url}
+                href={sanitizeUrl(formData.refund_policy.policy_file_url) || undefined}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="p-1.5 rounded-lg text-white hover:text-[#C99A47] hover:bg-white/10 transition flex items-center justify-center shrink-0 cursor-pointer"
@@ -5543,7 +5544,7 @@ export function CreateEventPage() {
   if (initialLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin w-8 h-8 border-4 border-tertiary border-t-transparent rounded-full" />
+        <div className="animate-spin w-8 h-8 border-4 border-[#E6C17A]/25 border-t-[#E6C17A] rounded-full" />
       </div>
     )
   }

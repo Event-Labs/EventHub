@@ -21,7 +21,7 @@ const getAutoLocale = () =>
 function fmtCurrency(n) {
   const isEn = getAutoLocale() === 'en-US'
   if (isEn) return `${Number(n || 0).toLocaleString('en-US')} VND`
-  return `${Number(n || 0).toLocaleString('vi-VN')} đ`
+  return `${Number(n || 0).toLocaleString('vi-VN')} VND`
 }
 
 function fmtShort(n) {
@@ -174,7 +174,7 @@ export function EventRevenueBarChart({
               fontSize={11}
               tickLine={false}
               axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
-              tickFormatter={(v) => fmtShort(v)}
+              tickFormatter={(v) => fmtNumber(v)}
             />
 
             <YAxis
@@ -201,6 +201,9 @@ export function EventRevenueBarChart({
               fill="url(#eventBarGradient)"
               radius={[0, 6, 6, 0]}
               barSize={20}
+              isAnimationActive={true}
+              animationDuration={800}
+              animationEasing="ease-out"
               onClick={(entry) => {
                 if (onSelectEvent && entry?.event_id) {
                   onSelectEvent(entry.event_id)

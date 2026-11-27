@@ -10,11 +10,7 @@ import { useToast } from '@/providers/ToastProvider.jsx'
 import { Modal } from '@/components/Modal.jsx'
 import { Badge, Page, Panel, StatusBadge, Table, TableActionButton } from './AdminComponents.jsx'
 
-const getAutoLocale = () =>
-  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
-   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
-    ? 'en-US'
-    : 'vi-VN'
+const getAutoLocale = () => 'vi-VN'
 
 
 const statusFilters = [
@@ -432,12 +428,12 @@ export function AdminOrganizerRequestsPage() {
                       return (
                         <>
                           {isTampered && (
-                            <div className="sm:col-span-2 rounded-2xl border border-rose-500/50 bg-rose-950/30 p-4 text-xs space-y-2 shadow-lg shadow-rose-950/40">
-                              <div className="flex items-center gap-2 font-bold text-rose-300">
-                                <AlertTriangle className="size-5 text-rose-400 shrink-0" />
+                            <div className="sm:col-span-2 rounded-2xl border border-rose-500/50 bg-rose-950/30 p-4 text-xs space-y-2 shadow-lg shadow-rose-950/40 [html.light_&]:bg-rose-50 [html.light_&]:border-rose-300 [html.light_&]:shadow-sm">
+                              <div className="flex items-center gap-2 font-bold text-rose-300 [html.light_&]:text-rose-700">
+                                <AlertTriangle className="size-5 text-rose-400 [html.light_&]:text-rose-600 shrink-0" />
                                 <span>CẢNH BÁO GIAN LẬN: PHÁT HIỆN DỮ LIỆU ĐĂNG KÝ BỊ SAI LỆCH VỚI DỮ LIỆU ĐỊNH DANH!</span>
                               </div>
-                              <div className="text-rose-200/90 pl-7 space-y-1">
+                              <div className="text-rose-200/90 [html.light_&]:text-rose-800 pl-7 space-y-1">
                                 {idMismatch && (
                                   <p>• Số CCCD khai báo (<strong>{formId}</strong>) khác với số trong dữ liệu định danh (<strong>{verifiedId}</strong>).</p>
                                 )}
@@ -449,80 +445,80 @@ export function AdminOrganizerRequestsPage() {
                           )}
 
                           {isPartnerVetting && (
-                            <div className="sm:col-span-2 rounded-2xl border border-emerald-500/40 bg-gradient-to-br from-emerald-950/40 via-[#0d1726] to-slate-900/90 p-5 space-y-4 text-xs shadow-xl shadow-emerald-950/30">
-                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-emerald-500/20">
+                            <div className="sm:col-span-2 rounded-2xl border border-emerald-500/40 bg-gradient-to-br from-emerald-950/40 via-[#0d1726] to-slate-900/90 p-5 space-y-4 text-xs shadow-xl shadow-emerald-950/30 [html.light_&]:bg-white [html.light_&]:bg-none [html.light_&]:border-emerald-300 [html.light_&]:shadow-sm">
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-emerald-500/20 [html.light_&]:border-emerald-100">
                                 <div className="flex items-center gap-2.5">
                                   <div className="p-2.5 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-600/30">
                                     <ShieldCheck className="size-5 text-emerald-100" />
                                   </div>
                                   <div>
-                                    <h4 className="font-extrabold text-white text-sm">
+                                    <h4 className="font-extrabold text-white text-sm [html.light_&]:text-[#0D1B2A]">
                                       HỒ SƠ THẨM ĐỊNH ĐỐI TÁC (PARTNER VETTING · CHUẨN C06)
                                     </h4>
-                                    <p className="text-[11px] text-emerald-300 font-mono mt-0.5">
-                                      Phương thức: <strong>Kiểm định cấu trúc C06 & Dấu vết số (Digital Footprint)</strong>
+                                    <p className="text-[11px] text-emerald-300 font-mono mt-0.5 [html.light_&]:text-emerald-700">
+                                      Phương thức: <strong className="[html.light_&]:text-emerald-800">Kiểm định cấu trúc C06 & Dấu vết số (Digital Footprint)</strong>
                                     </p>
                                   </div>
                                 </div>
                                 <div className="flex flex-wrap items-center gap-2 shrink-0 self-start sm:self-auto">
                                   {(kyc.scan_method === 'AI_OCR_AND_QR' || kyc.has_qr_cross_check) && (
-                                    <span className="inline-flex items-center gap-1 text-[11px] font-extrabold uppercase px-3 py-1 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/40">
+                                    <span className="inline-flex items-center gap-1 text-[11px] font-extrabold uppercase px-3 py-1 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/40 [html.light_&]:bg-sky-50 [html.light_&]:text-sky-700 [html.light_&]:border-sky-300">
                                       <Check className="size-3" /> AI OCR + QR Khớp ({Math.round((kyc.overall_confidence || 0.95) * 100)}%)
                                     </span>
                                   )}
-                                  <span className="inline-flex items-center gap-1 text-[11px] font-extrabold uppercase px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-extrabold uppercase px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 [html.light_&]:bg-emerald-50 [html.light_&]:text-emerald-700 [html.light_&]:border-emerald-300">
                                     <Check className="size-3" /> Thuật toán C06 Hợp lệ
                                   </span>
                                 </div>
                               </div>
 
-                              <div className="rounded-xl bg-emerald-950/30 border border-emerald-500/20 px-3.5 py-2 text-xs text-emerald-300 flex items-center gap-2">
-                                <ShieldCheck className="size-4 text-emerald-400 shrink-0" />
+                              <div className="rounded-xl bg-emerald-950/30 border border-emerald-500/20 px-3.5 py-2 text-xs text-emerald-300 flex items-center gap-2 [html.light_&]:bg-emerald-50/70 [html.light_&]:border-emerald-200 [html.light_&]:text-emerald-800">
+                                <ShieldCheck className="size-4 text-emerald-400 shrink-0 [html.light_&]:text-emerald-600" />
                                 <span>Hệ thống bảo mật dữ liệu và không lưu trữ hình ảnh thẻ CCCD.</span>
                               </div>
 
                               {/* Thông tin C06 */}
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-slate-300">
-                                <div className="rounded-xl bg-slate-900/80 p-3 border border-white/5 space-y-0.5">
-                                  <span className="text-slate-400 block text-[11px]">Họ và tên pháp lý</span>
-                                  <span className="text-white text-sm font-bold uppercase">{selectedRequest.individual_full_name || kyc.full_name}</span>
+                                <div className="rounded-xl bg-slate-900/80 p-3 border border-white/5 space-y-0.5 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                                  <span className="text-slate-400 block text-[11px] [html.light_&]:text-[#536b88]">Họ và tên pháp lý</span>
+                                  <span className="text-white text-sm font-bold uppercase [html.light_&]:text-[#0D1B2A]">{selectedRequest.individual_full_name || kyc.full_name}</span>
                                 </div>
-                                <div className="rounded-xl bg-slate-900/80 p-3 border border-white/5 space-y-0.5">
-                                  <span className="text-slate-400 block text-[11px]">Số CCCD (12 chữ số)</span>
-                                  <span className="text-emerald-300 font-mono text-sm font-bold">{selectedRequest.individual_identity_number || kyc.id_number}</span>
+                                <div className="rounded-xl bg-slate-900/80 p-3 border border-white/5 space-y-0.5 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                                  <span className="text-slate-400 block text-[11px] [html.light_&]:text-[#536b88]">Số CCCD (12 chữ số)</span>
+                                  <span className="text-emerald-300 font-mono text-sm font-bold [html.light_&]:text-emerald-700">{selectedRequest.individual_identity_number || kyc.id_number}</span>
                                 </div>
-                                <div className="rounded-xl bg-slate-900/80 p-3 border border-white/5 space-y-0.5">
-                                  <span className="text-slate-400 block text-[11px]">Tỉnh/Thành khai sinh (Mã 3 số C06)</span>
-                                  <span className="text-emerald-300 font-semibold">{kyc.province || 'Xác thực chuẩn 63 tỉnh/thành'}</span>
+                                <div className="rounded-xl bg-slate-900/80 p-3 border border-white/5 space-y-0.5 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                                  <span className="text-slate-400 block text-[11px] [html.light_&]:text-[#536b88]">Tỉnh/Thành khai sinh (Mã 3 số C06)</span>
+                                  <span className="text-emerald-300 font-semibold [html.light_&]:text-emerald-700">{kyc.province || 'Xác thực chuẩn 63 tỉnh/thành'}</span>
                                 </div>
-                                <div className="rounded-xl bg-slate-900/80 p-3 border border-white/5 space-y-0.5">
-                                  <span className="text-slate-400 block text-[11px]">Ngày sinh & Giới tính</span>
-                                  <span className="text-white font-semibold">{kyc.dob || 'Chưa cung cấp'} · {kyc.gender || 'Nam'}</span>
+                                <div className="rounded-xl bg-slate-900/80 p-3 border border-white/5 space-y-0.5 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                                  <span className="text-slate-400 block text-[11px] [html.light_&]:text-[#536b88]">Ngày sinh & Giới tính</span>
+                                  <span className="text-white font-semibold [html.light_&]:text-[#0D1B2A]">{kyc.dob || 'Chưa cung cấp'} · {kyc.gender || 'Nam'}</span>
                                 </div>
-                                <div className="sm:col-span-2 rounded-xl bg-slate-900/80 p-3 border border-white/5 space-y-0.5">
-                                  <span className="text-slate-400 block text-[11px]">Nơi thường trú theo CCCD</span>
-                                  <span className="text-white font-semibold">{kyc.address || 'Chưa cung cấp'}</span>
+                                <div className="sm:col-span-2 rounded-xl bg-slate-900/80 p-3 border border-white/5 space-y-0.5 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                                  <span className="text-slate-400 block text-[11px] [html.light_&]:text-[#536b88]">Nơi thường trú theo CCCD</span>
+                                  <span className="text-white font-semibold [html.light_&]:text-[#0D1B2A]">{kyc.address || 'Chưa cung cấp'}</span>
                                 </div>
                               </div>
 
                               {/* Thẩm định Dấu vết số (Digital Footprint) */}
-                              <div className="rounded-xl bg-blue-950/30 border border-blue-500/30 p-4 space-y-3">
-                                <div className="flex items-center gap-2 text-blue-300 font-bold text-xs">
-                                  <Globe className="size-4 text-blue-400" />
+                              <div className="rounded-xl bg-blue-950/30 border border-blue-500/30 p-4 space-y-3 [html.light_&]:bg-blue-50/50 [html.light_&]:border-blue-200">
+                                <div className="flex items-center gap-2 text-blue-300 font-bold text-xs [html.light_&]:text-blue-800">
+                                  <Globe className="size-4 text-blue-400 [html.light_&]:text-blue-600" />
                                   DẤU VẾT SỐ & UY TÍN TRUYỀN THÔNG (TRỌNG TÂM ĐỐI SOÁT CỦA ADMIN)
                                 </div>
                                 <div className="space-y-2">
-                                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-lg bg-slate-900/70 border border-white/5">
+                                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-lg bg-slate-900/70 border border-white/5 [html.light_&]:bg-white [html.light_&]:border-slate-200">
                                     <div className="space-y-0.5 min-w-0 flex-1">
-                                      <span className="text-slate-400 text-[11px] block">Kênh truyền thông / Mạng xã hội chính chủ:</span>
-                                      <span className="text-white font-mono text-xs break-all">{kyc.social_link || 'Chưa cung cấp'}</span>
+                                      <span className="text-slate-400 text-[11px] block [html.light_&]:text-[#536b88]">Kênh truyền thông / Mạng xã hội chính chủ:</span>
+                                      <span className="text-white font-mono text-xs break-all [html.light_&]:text-[#0D1B2A]">{kyc.social_link || 'Chưa cung cấp'}</span>
                                     </div>
                                     {kyc.social_link && (
                                       <a
                                         href={kyc.social_link.startsWith('http') ? kyc.social_link : `https://${kyc.social_link}`}
                                         target="_blank"
                                         rel="noreferrer"
-                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-500/20 text-blue-300 hover:bg-blue-500/30 border border-blue-500/40 font-semibold text-xs shrink-0 transition"
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-500/20 text-blue-300 hover:bg-blue-500/30 border border-blue-500/40 font-semibold text-xs shrink-0 transition [html.light_&]:bg-blue-50 [html.light_&]:text-blue-700 [html.light_&]:border-blue-300 [html.light_&]:hover:bg-blue-100"
                                       >
                                         <ExternalLink className="size-3.5" /> Mở thẩm định MXH
                                       </a>
@@ -530,16 +526,16 @@ export function AdminOrganizerRequestsPage() {
                                   </div>
 
                                   {kyc.portfolio_url && (
-                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-lg bg-slate-900/70 border border-white/5">
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 rounded-lg bg-slate-900/70 border border-white/5 [html.light_&]:bg-white [html.light_&]:border-slate-200">
                                       <div className="space-y-0.5 min-w-0 flex-1">
-                                        <span className="text-slate-400 text-[11px] block">Minh chứng sự kiện / Portfolio:</span>
-                                        <span className="text-white font-mono text-xs break-all">{kyc.portfolio_url}</span>
+                                        <span className="text-slate-400 text-[11px] block [html.light_&]:text-[#536b88]">Minh chứng sự kiện / Portfolio:</span>
+                                        <span className="text-white font-mono text-xs break-all [html.light_&]:text-[#0D1B2A]">{kyc.portfolio_url}</span>
                                       </div>
                                       <a
                                         href={kyc.portfolio_url.startsWith('http') ? kyc.portfolio_url : `https://${kyc.portfolio_url}`}
                                         target="_blank"
                                         rel="noreferrer"
-                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/40 font-semibold text-xs shrink-0 transition"
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/40 font-semibold text-xs shrink-0 transition [html.light_&]:bg-emerald-50 [html.light_&]:text-emerald-700 [html.light_&]:border-emerald-300 [html.light_&]:hover:bg-emerald-100"
                                       >
                                         <ExternalLink className="size-3.5" /> Mở Portfolio
                                       </a>
@@ -551,64 +547,64 @@ export function AdminOrganizerRequestsPage() {
                           )}
 
                           {isVNeId && !isTampered && (
-                            <div className="sm:col-span-2 rounded-2xl border border-emerald-500/40 bg-gradient-to-br from-emerald-950/40 via-[#0d1726] to-slate-900/90 p-5 space-y-4 text-xs shadow-xl shadow-emerald-950/30">
-                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-emerald-500/20">
+                            <div className="sm:col-span-2 rounded-2xl border border-emerald-500/40 bg-gradient-to-br from-emerald-950/40 via-[#0d1726] to-slate-900/90 p-5 space-y-4 text-xs shadow-xl shadow-emerald-950/30 [html.light_&]:bg-white [html.light_&]:bg-none [html.light_&]:border-emerald-300 [html.light_&]:shadow-sm">
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-emerald-500/20 [html.light_&]:border-emerald-100">
                                 <div className="flex items-center gap-2.5">
                                   <div className="p-2.5 rounded-xl bg-gradient-to-br from-red-600 to-amber-600 text-white shadow-md shadow-red-600/30">
                                     <Shield className="size-5 text-amber-200" />
                                   </div>
                                   <div>
-                                    <h4 className="font-extrabold text-white text-sm">
+                                    <h4 className="font-extrabold text-white text-sm [html.light_&]:text-[#0D1B2A]">
                                       HỒ SƠ ĐÃ ĐỐI SOÁT QUA CỔNG ĐỊNH DANH VNEID (CẤP ĐỘ 2)
                                     </h4>
-                                    <p className="text-[11px] text-emerald-300 font-mono mt-0.5">
-                                      Mã giao dịch đối soát: <strong>{kyc.reference_code || 'VNEID-2026-CHUNG_THUC'}</strong>
+                                    <p className="text-[11px] text-emerald-300 font-mono mt-0.5 [html.light_&]:text-emerald-700">
+                                      Mã giao dịch đối soát: <strong className="[html.light_&]:text-emerald-800">{kyc.reference_code || 'VNEID-2026-CHUNG_THUC'}</strong>
                                     </p>
                                   </div>
                                 </div>
-                                <span className="inline-flex items-center gap-1 text-[11px] font-extrabold uppercase px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shrink-0 self-start sm:self-auto">
+                                <span className="inline-flex items-center gap-1 text-[11px] font-extrabold uppercase px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 [html.light_&]:bg-emerald-50 [html.light_&]:text-emerald-700 [html.light_&]:border-emerald-300 shrink-0 self-start sm:self-auto">
                                   <Check className="size-3" /> Đã chứng thực số C06
                                 </span>
                               </div>
 
-                              <div className="rounded-xl bg-emerald-950/30 border border-emerald-500/20 p-3 text-[11px] text-emerald-200/90 leading-relaxed flex items-start gap-2">
-                                <Lock className="size-4 text-emerald-400 shrink-0 mt-0.5" />
+                              <div className="rounded-xl bg-emerald-950/30 border border-emerald-500/20 p-3 text-[11px] text-emerald-200/90 [html.light_&]:bg-emerald-50/70 [html.light_&]:border-emerald-200 [html.light_&]:text-emerald-800 leading-relaxed flex items-start gap-2">
+                                <Lock className="size-4 text-emerald-400 shrink-0 mt-0.5 [html.light_&]:text-emerald-600" />
                                 <div>
                                   <strong>Tuân thủ Nghị định 13/2023/NĐ-CP (PDPD - Bảo vệ dữ liệu cá nhân):</strong> Hệ thống không lưu trữ tệp ảnh chụp thẻ CCCD. Danh tính công dân đã được xác thực sinh trắc học và đối soát trực tiếp với Cơ sở dữ liệu Quốc gia về Dân cư.
                                 </div>
                               </div>
 
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-slate-300">
-                                <div className="rounded-xl bg-slate-900/80 p-3 border border-white/5 space-y-0.5">
-                                  <span className="text-slate-400 block text-[11px]">Số CCCD / Định danh cá nhân</span>
-                                  <span className="text-emerald-300 font-mono text-sm font-bold">{kyc.id_number}</span>
+                                <div className="rounded-xl bg-slate-900/80 p-3 border border-white/5 space-y-0.5 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                                  <span className="text-slate-400 block text-[11px] [html.light_&]:text-[#536b88]">Số CCCD / Định danh cá nhân</span>
+                                  <span className="text-emerald-300 font-mono text-sm font-bold [html.light_&]:text-emerald-700">{kyc.id_number}</span>
                                 </div>
-                                <div className="rounded-xl bg-slate-900/80 p-3 border border-white/5 space-y-0.5">
-                                  <span className="text-slate-400 block text-[11px]">Họ và tên pháp lý</span>
-                                  <span className="text-white text-sm font-bold">{kyc.full_name}</span>
+                                <div className="rounded-xl bg-slate-900/80 p-3 border border-white/5 space-y-0.5 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                                  <span className="text-slate-400 block text-[11px] [html.light_&]:text-[#536b88]">Họ và tên pháp lý</span>
+                                  <span className="text-white text-sm font-bold [html.light_&]:text-[#0D1B2A]">{kyc.full_name}</span>
                                 </div>
                                 {kyc.dob && (
-                                  <div className="rounded-xl bg-slate-900/80 p-3 border border-white/5 space-y-0.5">
-                                    <span className="text-slate-400 block text-[11px]">Ngày sinh</span>
-                                    <span className="text-white font-semibold">{kyc.dob}</span>
+                                  <div className="rounded-xl bg-slate-900/80 p-3 border border-white/5 space-y-0.5 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                                    <span className="text-slate-400 block text-[11px] [html.light_&]:text-[#536b88]">Ngày sinh</span>
+                                    <span className="text-white font-semibold [html.light_&]:text-[#0D1B2A]">{kyc.dob}</span>
                                   </div>
                                 )}
                                 {kyc.gender && (
-                                  <div className="rounded-xl bg-slate-900/80 p-3 border border-white/5 space-y-0.5">
-                                    <span className="text-slate-400 block text-[11px]">Giới tính</span>
-                                    <span className="text-white font-semibold">{kyc.gender}</span>
+                                  <div className="rounded-xl bg-slate-900/80 p-3 border border-white/5 space-y-0.5 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                                    <span className="text-slate-400 block text-[11px] [html.light_&]:text-[#536b88]">Giới tính</span>
+                                    <span className="text-white font-semibold [html.light_&]:text-[#0D1B2A]">{kyc.gender}</span>
                                   </div>
                                 )}
                                 {kyc.address && (
-                                  <div className="sm:col-span-2 rounded-xl bg-slate-900/80 p-3 border border-white/5 space-y-0.5">
-                                    <span className="text-slate-400 block text-[11px]">Nơi thường trú</span>
-                                    <span className="text-white font-semibold">{kyc.address}</span>
+                                  <div className="sm:col-span-2 rounded-xl bg-slate-900/80 p-3 border border-white/5 space-y-0.5 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200">
+                                    <span className="text-slate-400 block text-[11px] [html.light_&]:text-[#536b88]">Nơi thường trú</span>
+                                    <span className="text-white font-semibold [html.light_&]:text-[#0D1B2A]">{kyc.address}</span>
                                   </div>
                                 )}
-                                <div className="sm:col-span-2 rounded-xl bg-slate-900/80 p-3 border border-white/5 text-[11px] text-slate-400 flex flex-wrap items-center justify-between gap-2">
-                                  <span>Đơn vị chứng thực: <strong className="text-slate-300">{kyc.provider || 'C06 - Bộ Công An / National eKYC Gateway'}</strong></span>
+                                <div className="sm:col-span-2 rounded-xl bg-slate-900/80 p-3 border border-white/5 text-[11px] text-slate-400 flex flex-wrap items-center justify-between gap-2 [html.light_&]:bg-slate-50 [html.light_&]:border-slate-200 [html.light_&]:text-[#536b88]">
+                                  <span>Đơn vị chứng thực: <strong className="text-slate-300 [html.light_&]:text-[#0D1B2A]">{kyc.provider || 'C06 - Bộ Công An / National eKYC Gateway'}</strong></span>
                                   {kyc.verified_at && (
-                                    <span>Thời điểm: <strong className="text-slate-300">{new Date(kyc.verified_at).toLocaleString('vi-VN')}</strong></span>
+                                    <span>Thời điểm: <strong className="text-slate-300 [html.light_&]:text-[#0D1B2A]">{new Date(kyc.verified_at).toLocaleString('vi-VN')}</strong></span>
                                   )}
                                 </div>
                               </div>
@@ -616,42 +612,42 @@ export function AdminOrganizerRequestsPage() {
                           )}
 
                           {isQr && !isTampered && (
-                            <div className="sm:col-span-2 rounded-2xl border border-emerald-500/40 bg-emerald-950/20 p-4 space-y-3 text-xs shadow-lg shadow-emerald-950/30">
-                              <div className="flex items-center justify-between pb-2 border-b border-emerald-500/20">
-                                <div className="flex items-center gap-2 font-bold text-emerald-300">
-                                  <ShieldCheck className="size-4 text-emerald-400" />
+                            <div className="sm:col-span-2 rounded-2xl border border-emerald-500/40 bg-emerald-950/20 p-4 space-y-3 text-xs shadow-lg shadow-emerald-950/30 [html.light_&]:bg-white [html.light_&]:border-emerald-300 [html.light_&]:shadow-sm">
+                              <div className="flex items-center justify-between pb-2 border-b border-emerald-500/20 [html.light_&]:border-emerald-100">
+                                <div className="flex items-center gap-2 font-bold text-emerald-300 [html.light_&]:text-emerald-800">
+                                  <ShieldCheck className="size-4 text-emerald-400 [html.light_&]:text-emerald-600" />
                                   ĐÃ XÁC THỰC QUA MÃ QR BỘ CÔNG AN (CHÍNH XÁC 100%)
                                 </div>
-                                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 [html.light_&]:bg-emerald-50 [html.light_&]:text-emerald-700 [html.light_&]:border-emerald-300">
                                   Dữ liệu khóa cố định
                                 </span>
                               </div>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-slate-300">
-                                <p>Số CCCD: <strong className="text-emerald-300 font-mono text-sm">{kyc.id_number}</strong></p>
-                                <p>Họ tên: <strong className="text-white text-sm">{kyc.full_name}</strong></p>
-                                {kyc.dob && <p>Ngày sinh: <strong className="text-white">{kyc.dob}</strong></p>}
-                                {kyc.gender && <p>Giới tính: <strong className="text-white">{kyc.gender}</strong></p>}
-                                {kyc.address && <p className="sm:col-span-2">Nơi thường trú: <strong className="text-white">{kyc.address}</strong></p>}
-                                {kyc.issue_date && <p>Ngày cấp: <strong className="text-white">{kyc.issue_date}</strong></p>}
-                                {kyc.old_id && <p>CMND cũ: <strong className="text-white">{kyc.old_id}</strong></p>}
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-slate-300 [html.light_&]:text-[#536b88]">
+                                <p>Số CCCD: <strong className="text-emerald-300 font-mono text-sm [html.light_&]:text-emerald-700">{kyc.id_number}</strong></p>
+                                <p>Họ tên: <strong className="text-white text-sm [html.light_&]:text-[#0D1B2A]">{kyc.full_name}</strong></p>
+                                {kyc.dob && <p>Ngày sinh: <strong className="text-white [html.light_&]:text-[#0D1B2A]">{kyc.dob}</strong></p>}
+                                {kyc.gender && <p>Giới tính: <strong className="text-white [html.light_&]:text-[#0D1B2A]">{kyc.gender}</strong></p>}
+                                {kyc.address && <p className="sm:col-span-2">Nơi thường trú: <strong className="text-white [html.light_&]:text-[#0D1B2A]">{kyc.address}</strong></p>}
+                                {kyc.issue_date && <p>Ngày cấp: <strong className="text-white [html.light_&]:text-[#0D1B2A]">{kyc.issue_date}</strong></p>}
+                                {kyc.old_id && <p>CMND cũ: <strong className="text-white [html.light_&]:text-[#0D1B2A]">{kyc.old_id}</strong></p>}
                               </div>
                             </div>
                           )}
 
                           {isManual && (
-                            <div className="sm:col-span-2 rounded-2xl border border-amber-500/40 bg-amber-950/20 p-4 space-y-2 text-xs shadow-lg">
-                              <div className="flex items-center gap-2 font-bold text-amber-300">
-                                <Clock className="size-4 text-amber-400" />
+                            <div className="sm:col-span-2 rounded-2xl border border-amber-500/40 bg-amber-950/20 p-4 space-y-2 text-xs shadow-lg [html.light_&]:bg-white [html.light_&]:border-[#C99A47]/45 [html.light_&]:shadow-sm">
+                              <div className="flex items-center gap-2 font-bold text-amber-300 [html.light_&]:text-[#8B5E0F]">
+                                <Clock className="size-4 text-amber-400 [html.light_&]:text-[#C99A47]" />
                                 THÔNG TIN KHAI BÁO THỦ CÔNG (CHƯA XÁC THỰC QUA CỔNG ĐỊNH DANH)
                               </div>
-                              <p className="text-amber-200/90 leading-relaxed">
+                              <p className="text-amber-200/90 leading-relaxed font-medium [html.light_&]:text-[#536b88]">
                                 Hồ sơ này do người dùng tự nhập tay. Vui lòng kiểm tra đối chiếu kỹ thông tin khai báo với ảnh chân dung bên dưới trước khi phê duyệt.
                               </p>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-300 pt-1">
-                                <p>Số CCCD khai báo: <strong className="text-white font-mono">{selectedRequest.individual_identity_number}</strong></p>
-                                <p>Họ tên khai báo: <strong className="text-white">{selectedRequest.individual_full_name}</strong></p>
-                                {kyc?.dob && <p>Ngày sinh: <strong className="text-white">{kyc.dob}</strong></p>}
-                                {kyc?.address && <p className="sm:col-span-2">Nơi thường trú: <strong className="text-white">{kyc.address}</strong></p>}
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-300 [html.light_&]:text-[#536b88] pt-1">
+                                <p>Số CCCD khai báo: <strong className="text-white [html.light_&]:text-[#0D1B2A] font-mono">{selectedRequest.individual_identity_number}</strong></p>
+                                <p>Họ tên khai báo: <strong className="text-white [html.light_&]:text-[#0D1B2A]">{selectedRequest.individual_full_name}</strong></p>
+                                {kyc?.dob && <p>Ngày sinh: <strong className="text-white [html.light_&]:text-[#0D1B2A]">{kyc.dob}</strong></p>}
+                                {kyc?.address && <p className="sm:col-span-2">Nơi thường trú: <strong className="text-white [html.light_&]:text-[#0D1B2A]">{kyc.address}</strong></p>}
                               </div>
                             </div>
                           )}
@@ -659,7 +655,7 @@ export function AdminOrganizerRequestsPage() {
                           <Info label="Mã số thuế cá nhân" value={selectedRequest.individual_tax_code || 'Không có (Sử dụng CCCD làm MST)'} />
 
                           {/* Đối chiếu khuôn mặt trực quan qua ảnh Selfie */}
-                          <div className="sm:col-span-2 rounded-2xl border border-white/10 bg-[#0d1527] p-4">
+                          <div className="sm:col-span-2 rounded-2xl border border-white/10 bg-[#0d1527] p-4 [html.light_&]:bg-white [html.light_&]:border-border-soft/60">
                             <p className="text-xs font-bold uppercase tracking-wider text-slate-300 [html.light_&]:text-[#1B365D] mb-3">
                               Ảnh chân dung đối chiếu trực quan (Selfie)
                             </p>
@@ -674,21 +670,21 @@ export function AdminOrganizerRequestsPage() {
                                   <img
                                     src={selectedRequest.individual_selfie_url}
                                     alt="Ảnh chân dung người đăng ký"
-                                    className="size-36 rounded-2xl border border-white/20 object-cover shadow-lg group-hover:border-[#C99A47] transition"
+                                    className="size-36 rounded-2xl border border-white/20 [html.light_&]:border-slate-300 object-cover shadow-lg group-hover:border-[#C99A47] transition"
                                   />
-                                  <span className="mt-1 block text-center text-[11px] font-semibold text-[#E6C17A] underline underline-offset-2">
+                                  <span className="mt-1 block text-center text-[11px] font-semibold text-[#E6C17A] [html.light_&]:text-[#C99A47] underline underline-offset-2">
                                     Xem ảnh gốc
                                   </span>
                                 </a>
-                                <div className="text-xs text-slate-300 space-y-1.5">
-                                  <p className="font-bold text-white text-sm">Đối chiếu trực quan:</p>
-                                  <p className="text-slate-400 leading-relaxed">
+                                <div className="text-xs text-slate-300 [html.light_&]:text-[#536b88] space-y-1.5">
+                                  <p className="font-bold text-white [html.light_&]:text-[#0D1B2A] text-sm">Đối chiếu trực quan:</p>
+                                  <p className="text-slate-400 [html.light_&]:text-slate-600 leading-relaxed">
                                     Đối chiếu khuôn mặt người chụp chân dung với thông tin họ tên, năm sinh và kênh truyền thông đã cung cấp.
                                   </p>
                                 </div>
                               </div>
                             ) : (
-                              <p className="text-xs text-rose-400 font-semibold">Chưa có ảnh chân dung đối chiếu.</p>
+                              <p className="text-xs text-rose-400 [html.light_&]:text-rose-600 font-semibold">Chưa có ảnh chân dung đối chiếu.</p>
                             )}
                           </div>
                         </>
@@ -795,12 +791,12 @@ function InfoLink({ label, url }) {
           href={url}
           target="_blank"
           rel="noreferrer"
-          className="mt-1 inline-flex font-semibold text-[#E6C17A] underline-offset-4 hover:underline"
+          className="mt-1 inline-flex font-semibold text-[#E6C17A] [html.light_&]:text-[#C99A47] underline-offset-4 hover:underline"
         >
           Mở tài liệu
         </a>
       ) : (
-        <p className="mt-1 font-semibold text-slate-400">Không áp dụng</p>
+        <p className="mt-1 font-semibold text-slate-400 [html.light_&]:text-slate-500">Không áp dụng</p>
       )}
     </div>
   )
@@ -815,8 +811,8 @@ function InfoDocument({ label, url }) {
       {url ? (
         image ? (
           <a href={url} target="_blank" rel="noreferrer" className="mt-2 block group">
-            <img src={url} alt={label} className="h-56 w-full rounded-2xl border border-white/15 object-contain bg-black/40 shadow-md group-hover:border-[#C99A47]/60 transition" />
-            <span className="mt-2 inline-flex font-semibold text-[#E6C17A] underline-offset-4 hover:underline">
+            <img src={url} alt={label} className="h-56 w-full rounded-2xl border border-white/15 [html.light_&]:border-slate-200 object-contain bg-black/40 [html.light_&]:bg-slate-100 shadow-md group-hover:border-[#C99A47]/60 transition" />
+            <span className="mt-2 inline-flex font-semibold text-[#E6C17A] [html.light_&]:text-[#C99A47] underline-offset-4 hover:underline">
               Mở ảnh gốc
             </span>
           </a>
@@ -825,13 +821,13 @@ function InfoDocument({ label, url }) {
             href={url}
             target="_blank"
             rel="noreferrer"
-            className="mt-1 inline-flex font-semibold text-[#E6C17A] underline-offset-4 hover:underline"
+            className="mt-1 inline-flex font-semibold text-[#E6C17A] [html.light_&]:text-[#C99A47] underline-offset-4 hover:underline"
           >
             Mở tài liệu
           </a>
         )
       ) : (
-        <p className="mt-1 font-semibold text-slate-400">Không áp dụng</p>
+        <p className="mt-1 font-semibold text-slate-400 [html.light_&]:text-slate-500">Không áp dụng</p>
       )}
     </div>
   )

@@ -335,14 +335,9 @@ function formatCurrency(value) {
   })
 }
 
-const getAutoLocale = () =>
-  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
-   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
-    ? 'en-US'
-    : 'vi-VN'
+const getAutoLocale = () => 'vi-VN'
 
 function formatDate(value) {
-  const isEn = getAutoLocale() === 'en-US'
-  if (!value) return isEn ? 'N/A' : 'Chưa có'
-  return new Date(value).toLocaleDateString(getAutoLocale())
+  if (!value) return 'Chưa có'
+  return new Date(value).toLocaleDateString('vi-VN')
 }

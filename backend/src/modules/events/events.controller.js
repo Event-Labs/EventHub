@@ -1,5 +1,7 @@
 const ApiResponse = require('../../core/response/ApiResponse');
 const eventsService = require('./events.service');
+const idempotencyService = require('../../core/security/idempotency.service');
+const { getClientIp } = require('../../core/security/ipResolver');
 const {
   eventIdentifierSchema,
   favoriteEventSchema,
@@ -72,19 +74,92 @@ class EventsController {
   };
 
   holdSeats = async (req, res, next) => {
+    const idempotencyKey = req.headers['idempotency-key'] || req.headers['x-idempotency-key'] || null;
+    const reqMeta = {
+      ip: getClientIp(req),
+      userAgent: req.headers['user-agent'],
+      deviceId: req.headers['x-device-id'] || req.headers['x-client-fingerprint'] || null,
+      captchaToken:
+        req.headers['x-turnstile-token'] ||
+        req.headers['cf-turnstile-response'] ||
+        req.body?.turnstile_token ||
+        req.body?.captcha_token ||
+        null,
+    };
+
+    let idempotencyLock = null;
     try {
       const payload = seatHoldSchema.parse(req.body);
-      const data = await eventsService.holdSeats(req.user.sub, payload);
-      res.status(200).json(ApiResponse.success(data, 'Seats held successfully'));
+
+      if (idempotencyKey) {
+        idempotencyLock = await idempotencyService.lockOrGetCached(
+          idempotencyKey,
+          req.user.sub,
+          'POST',
+          req.path,
+          payload,
+        );
+        if (idempotencyLock && idempotencyLock.isCached) {
+          return res.status(idempotencyLock.response.statusCode || 200).json(idempotencyLock.response.data);
+        }
+      }
+
+      const data = await eventsService.holdSeats(req.user.sub, payload, reqMeta);
+      const responseBody = ApiResponse.success(data, 'Seats held successfully');
+
+      if (idempotencyKey) {
+        await idempotencyService.saveResponse(
+          idempotencyKey,
+          idempotencyLock?.requestHash,
+          responseBody,
+          200,
+          idempotencyLock?.lockToken,
+        );
+      }
+
+      res.status(200).json(responseBody);
+    } catch (err) {
+      if (idempotencyKey) {
+        await idempotencyService.clearLock(idempotencyKey, idempotencyLock?.lockToken);
+      }
+      next(err);
+    }
+  };
+
+  getActiveHold = async (req, res, next) => {
+    try {
+      const { identifier } = req.params;
+      const data = await eventsService.getActiveHold(req.user.sub, identifier);
+      res.status(200).json(ApiResponse.success(data, 'Active hold retrieved successfully'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  cancelActiveHold = async (req, res, next) => {
+    const reqMeta = {
+      ip: getClientIp(req),
+      userAgent: req.headers['user-agent'],
+      deviceId: req.headers['x-device-id'] || req.headers['x-client-fingerprint'] || null,
+    };
+    try {
+      const { identifier } = req.params;
+      const data = await eventsService.cancelActiveHold(req.user.sub, identifier, reqMeta);
+      res.status(200).json(ApiResponse.success(data, 'Active hold cancelled successfully'));
     } catch (err) {
       next(err);
     }
   };
 
   releaseSeatHolds = async (req, res, next) => {
+    const reqMeta = {
+      ip: getClientIp(req),
+      userAgent: req.headers['user-agent'],
+      deviceId: req.headers['x-device-id'] || req.headers['x-client-fingerprint'] || null,
+    };
     try {
       const payload = seatHoldReleaseSchema.parse(req.body);
-      const data = await eventsService.releaseSeatHolds(req.user.sub, payload);
+      const data = await eventsService.releaseSeatHolds(req.user.sub, payload, reqMeta);
       res.status(200).json(ApiResponse.success(data, 'Seat holds released successfully'));
     } catch (err) {
       next(err);

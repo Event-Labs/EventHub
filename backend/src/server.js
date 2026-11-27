@@ -22,6 +22,7 @@ const { pool } = require('./infrastructure/database/db.client');
 const { startNotificationScheduler } = require('./modules/notifications/notifications.scheduler');
 const { startAutoReviewScheduler } = require('./modules/admin/autoReview.scheduler');
 const { startEventLifecycleScheduler } = require('./modules/events/eventLifecycle.scheduler');
+const { startTicketHoldExpirationWorker, stopTicketHoldExpirationWorker } = require('./modules/events/ticketHoldExpiration.worker');
 const admissionWorker = require('./modules/waiting-room/waitingRoom.worker');
 
 const startServer = async () => {
@@ -40,6 +41,7 @@ const startServer = async () => {
             startNotificationScheduler();
             startAutoReviewScheduler();
             startEventLifecycleScheduler();
+            startTicketHoldExpirationWorker();
             admissionWorker.start();
         });
 
@@ -47,6 +49,7 @@ const startServer = async () => {
         const shutdown = async () => {
             logger.info('Shutting down gracefully...');
             admissionWorker.stop();
+            stopTicketHoldExpirationWorker();
             server.close(async () => {
                 await pool.end();
                 logger.info('Closed all database connections');

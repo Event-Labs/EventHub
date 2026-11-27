@@ -43,6 +43,7 @@ export function AdminLayout() {
     <RolePortalLayout
       user={user}
       isAllowed={isAdminUser(user)}
+      portalRole="ADMIN"
       portalLabel="Admin Portal"
       roleLabel="Quản trị viên"
       profileTo="/admin/profile"

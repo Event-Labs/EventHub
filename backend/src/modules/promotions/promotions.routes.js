@@ -5,6 +5,7 @@ const { protect, authorize } = require('../../middlewares/auth.middleware');
 const router = express.Router();
 
 router.get('/public/events/:eventId/available', promotionsController.getAvailableEventPromos);
+router.post('/public/events/:eventId/validate', promotionsController.validateEventPromo);
 
 router.use(protect, authorize('ORGANIZER', 'organizer')); // All promotion routes for organizer require authentication
 

@@ -1,9 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  Calendar,
   CheckCircle2,
   Eye,
-  EyeOff,
   MapPin,
   Tag,
   Ticket,
@@ -24,7 +22,6 @@ import {
   Play,
   Square,
   Zap,
-  Info,
   X,
   ChevronLeft,
   ChevronRight,
@@ -41,7 +38,6 @@ import {
   runAdminAiReview,
   fetchAdminAutoReviewSettings,
   updateAdminAutoReviewSettings,
-  runAdminBatchAutoReview,
   runAdminSingleAutoReview,
   cancelAdminAutoReview,
   fetchAdminAutoReviewScanStatus,
@@ -154,11 +150,7 @@ function statusBadge(eventOrStatus, approvalStatus, displayState, activeStatus) 
   return <Badge tone={cfg.tone}>{cfg.label}</Badge>
 }
 
-const getAutoLocale = () =>
-  ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
-    (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
-    ? 'en-US'
-    : 'vi-VN'
+const getAutoLocale = () => 'vi-VN'
 
 function formatDate(value) {
   if (!value) return '—'
@@ -1635,7 +1627,7 @@ function AiReviewAssistantCard({ event, onApplyFeedback }) {
       {runMutation.isPending && (
         <div className="mt-4 rounded-xl border border-indigo-500/30 bg-slate-900/90 p-4 shadow-sm backdrop-blur-md">
           <div className="flex items-start gap-3">
-            <RefreshCw className="size-5 animate-spin text-indigo-400 mt-0.5 shrink-0" />
+            <RefreshCw className="size-5 animate-spin text-[#E6C17A] mt-0.5 shrink-0" />
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between">
                 <h5 className="text-xs font-bold text-indigo-300">

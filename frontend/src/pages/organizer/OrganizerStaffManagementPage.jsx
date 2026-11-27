@@ -345,7 +345,7 @@ export function OrganizerStaffManagementPage() {
 
       {loading ? (
         <OrganizerPanel className="flex items-center justify-center py-16">
-          <Loader2 className="size-7 animate-spin text-primary" />
+          <Loader2 className="size-7 animate-spin text-[#E6C17A]" />
         </OrganizerPanel>
       ) : error ? (
         <OrganizerPanel className="border-error/30 bg-error/10 py-10 text-center">
@@ -378,17 +378,12 @@ export function OrganizerStaffManagementPage() {
             <section className="mb-7">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <h2 className="flex items-center gap-2 font-extrabold text-content">
-                  <DoorOpen className="size-5 text-purple-400" />
+                  <DoorOpen className="size-5 text-[#E6C17A]" />
                   {isEnglish ? 'Event Check-in Gates' : 'Quản lý Cổng check-in sự kiện'}
-                  <span className="ml-1 rounded-full bg-purple-500/15 px-2 py-0.5 text-xs font-bold text-purple-300">
+                  <span className="ml-1 rounded-full bg-cyan-500/15 px-2 py-0.5 text-xs font-bold text-cyan-300">
                     {selectedEventGates.length}
                   </span>
                 </h2>
-                <span className="text-xs text-subtle">
-                  {isEnglish
-                    ? 'Gates saved here appear in dropdowns when assigning Staff and IoT devices.'
-                    : 'Các cổng lưu tại đây sẽ hiện trong dropdown khi phân công Staff và thiết bị IoT.'}
-                </span>
               </div>
 
               <OrganizerPanel className="space-y-4">
@@ -425,7 +420,7 @@ export function OrganizerStaffManagementPage() {
                     </form>
 
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="text-[11px] font-semibold text-slate-400 mr-1">
+                      <span className="text-xs font-semibold text-white mr-1">
                         {isEnglish ? 'Quick add:' : 'Thêm nhanh:'}
                       </span>
                       {(isEnglish ? GATE_PRESETS_EN : GATE_PRESETS_VI).map((preset) => {
@@ -453,7 +448,7 @@ export function OrganizerStaffManagementPage() {
                 )}
 
                 {selectedEventGates.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-white/10 py-6 text-center text-sm text-subtle">
+                  <div className="py-4 text-center text-sm text-subtle italic">
                     {isEnglish
                       ? 'No gates configured yet. Add gates above so you can select them from a dropdown for Staff and IoT devices.'
                       : 'Sự kiện chưa có cổng nào. Hãy thêm cổng ở trên để chọn nhanh bằng dropdown cho Staff và thiết bị IoT.'}
@@ -510,9 +505,8 @@ export function OrganizerStaffManagementPage() {
                           ) : (
                             <>
                               <div className="min-w-0">
-                                <p className="flex items-center gap-1.5 truncate text-sm font-bold text-white">
-                                  <DoorOpen className="size-3.5 shrink-0 text-purple-400" />
-                                  <span className="truncate">{gate.name}</span>
+                                <p className="truncate text-sm font-bold text-white">
+                                  {gate.name}
                                 </p>
                                 <p className="mt-0.5 text-[11px] text-slate-400">
                                   {Number(gate.staff_count || 0)} {isEnglish ? 'staff' : 'nhân sự'} • {Number(gate.device_count || 0)} {isEnglish ? 'IoT' : 'thiết bị IoT'}
@@ -557,9 +551,9 @@ export function OrganizerStaffManagementPage() {
           {/* ── Staff list ── */}
           <section className="mb-7">
             <h2 className="mb-3 flex items-center gap-2 font-extrabold text-content">
-              <UserCheck className="size-5 text-primary" />
+              <UserCheck className="size-5 text-[#E6C17A]" />
               Nhân sự đã phân công
-              <span className="ml-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-bold text-primary">
+              <span className="ml-1 rounded-full bg-cyan-500/15 px-2 py-0.5 text-xs font-bold text-cyan-300">
                 {assignedStaff.length}
               </span>
             </h2>
@@ -567,7 +561,7 @@ export function OrganizerStaffManagementPage() {
             {assignedStaff.length === 0 ? (
               <OrganizerPanel className="py-10 text-center border-dashed">
                 <Users className="mx-auto mb-3 size-10 text-muted" />
-                <p className="text-sm text-subtle">Chưa có staff nào được phân công cho sự kiện này.</p>
+                <p className="text-sm text-subtle italic">Chưa có staff nào được phân công cho sự kiện này.</p>
               </OrganizerPanel>
             ) : (
               <div className="w-full max-w-full min-w-0 overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
@@ -681,118 +675,19 @@ export function OrganizerStaffManagementPage() {
             )}
           </section>
 
-          {/* ── IoT Devices for Selected Event (Gate Dropdown Assignment) ── */}
-          {selectedEventId && (
-            <section className="mb-7">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <h2 className="flex items-center gap-2 font-extrabold text-content">
-                  <Cpu className="size-5 text-cyan-400" />
-                  {isEnglish ? 'Event IoT Check-in Devices' : 'Thiết bị IoT của sự kiện'}
-                  <span className="ml-1 rounded-full bg-cyan-500/15 px-2 py-0.5 text-xs font-bold text-cyan-300">
-                    {selectedEventDevices.length}
-                  </span>
-                </h2>
-                <span className="text-xs text-subtle">
-                  {isEnglish
-                    ? 'Devices and staff assigned to the same gate share check-in history automatically.'
-                    : 'Thiết bị IoT và nhân sự được phân chung 1 cổng sẽ tự động đồng bộ lịch sử check-in của nhau.'}
-                </span>
-              </div>
-
-              {selectedEventDevices.length === 0 ? (
-                <OrganizerPanel className="py-7 text-center border-dashed">
-                  <Cpu className="mx-auto mb-2 size-8 text-muted" />
-                  <p className="text-sm text-subtle">
-                    {isEnglish
-                      ? 'No IoT devices are assigned to this event yet (Admin assigns devices in Check-in Devices).'
-                      : 'Chưa có thiết bị IoT nào được gán vào sự kiện này (Admin có thể gán thiết bị trong mục Thiết bị Check-in).'}
-                  </p>
-                </OrganizerPanel>
-              ) : (
-                <div className="w-full max-w-full min-w-0 overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
-                  <div className="w-full overflow-x-auto">
-                    <table className="w-full min-w-[720px] text-left text-sm">
-                      <thead className="border-b border-white/10 bg-[#172242] text-xs font-bold uppercase tracking-wider text-white">
-                        <tr>
-                          <th className="px-3.5 py-3">Thiết bị</th>
-                          <th className="px-3.5 py-3">Kết nối</th>
-                          <th className="px-3.5 py-3">Chế độ</th>
-                          <th className="px-3.5 py-3">Cổng phân công</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-white/5 font-medium text-white">
-                        {selectedEventDevices.map((dev) => {
-                          const isBusy = updatingDeviceId === dev.id
-                          return (
-                            <tr key={dev.id} className="hover:bg-white/[0.02] transition-colors">
-                              <td className="px-3.5 py-3">
-                                <p className="font-bold text-white">{dev.name || dev.mac_address}</p>
-                                <p className="font-mono text-xs text-slate-400">{dev.mac_address}</p>
-                              </td>
-                              <td className="px-3.5 py-3">
-                                {dev.is_online ? (
-                                  <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/40 bg-emerald-500/15 px-2.5 py-0.5 text-xs font-bold text-emerald-300">
-                                    <Wifi className="size-3" />
-                                    Online
-                                  </span>
-                                ) : (
-                                  <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-500/30 bg-slate-500/15 px-2.5 py-0.5 text-xs font-bold text-slate-400">
-                                    <WifiOff className="size-3" />
-                                    Offline
-                                  </span>
-                                )}
-                              </td>
-                              <td className="px-3.5 py-3">
-                                {dev.auto_confirm ? (
-                                  <Badge tone="cyan">{isEnglish ? 'Auto Check-in' : 'Tự động Check-in'}</Badge>
-                                ) : (
-                                  <Badge tone="slate">{isEnglish ? 'Verify Only' : 'Chỉ xác thực'}</Badge>
-                                )}
-                              </td>
-                              <td className="px-3.5 py-3">
-                                <div className="flex items-center gap-2 max-w-[260px]">
-                                  <select
-                                    value={dev.assigned_gate_id || ''}
-                                    onChange={(e) => handleDeviceGateChange(dev.id, e.target.value)}
-                                    disabled={!selectedEventManageable || isBusy || dev.status === 'REVOKED'}
-                                    className="h-9 w-full rounded-xl border border-white/15 bg-[#0d172e] px-3 text-xs font-semibold text-white outline-none focus:border-primary disabled:opacity-50"
-                                  >
-                                    <option value="" className="bg-[#0b1329] text-white">
-                                      {isEnglish ? 'All gates (Unassigned)' : 'Tất cả cổng (Chưa phân cổng)'}
-                                    </option>
-                                    {selectedEventGates.map((g) => (
-                                      <option key={g.id} value={g.id} className="bg-[#0b1329] text-white">
-                                        {g.name}
-                                      </option>
-                                    ))}
-                                  </select>
-                                  {isBusy && <Loader2 className="size-4 shrink-0 animate-spin text-primary" />}
-                                </div>
-                              </td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-            </section>
-          )}
-
           {/* ── Invitations list ── */}
-          <section>
+          <section className="mb-7">
             <h2 className="mb-3 flex items-center gap-2 font-extrabold text-content">
-              <MailCheck className="size-5 text-primary" />
+              <MailCheck className="size-5 text-[#E6C17A]" />
               Lời mời nhân sự
-              <span className="ml-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-bold text-primary">
+              <span className="ml-1 rounded-full bg-cyan-500/15 px-2 py-0.5 text-xs font-bold text-cyan-300">
                 {invitations.length}
               </span>
             </h2>
 
             {invitations.length === 0 ? (
               <OrganizerPanel className="py-8 text-center border-dashed">
-                <p className="text-sm text-subtle">Chưa có lời mời nào.</p>
+                <p className="text-sm text-subtle italic">Chưa có lời mời nào.</p>
               </OrganizerPanel>
             ) : (
               <div className="w-full max-w-full min-w-0 overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
@@ -909,6 +804,100 @@ export function OrganizerStaffManagementPage() {
               </div>
             )}
           </section>
+
+          {/* ── IoT Devices for Selected Event (Gate Dropdown Assignment) ── */}
+          {selectedEventId && (
+            <section className="mb-7">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <h2 className="flex items-center gap-2 font-extrabold text-content">
+                  <Cpu className="size-5 text-[#E6C17A]" />
+                  {isEnglish ? 'Event IoT Check-in Devices' : 'Thiết bị IoT của sự kiện'}
+                  <span className="ml-1 rounded-full bg-cyan-500/15 px-2 py-0.5 text-xs font-bold text-cyan-300">
+                    {selectedEventDevices.length}
+                  </span>
+                </h2>
+              </div>
+
+              {selectedEventDevices.length === 0 ? (
+                <OrganizerPanel className="py-7 text-center border-dashed">
+                  <Cpu className="mx-auto mb-2 size-8 text-muted" />
+                  <p className="text-sm text-subtle italic">
+                    {isEnglish
+                      ? 'No IoT devices are assigned to this event yet (Admin assigns devices in Check-in Devices).'
+                      : 'Chưa có thiết bị IoT nào được gán vào sự kiện này (Admin có thể gán thiết bị trong mục Thiết bị Check-in).'}
+                  </p>
+                </OrganizerPanel>
+              ) : (
+                <div className="w-full max-w-full min-w-0 overflow-hidden rounded-xl border border-white/10 bg-[#121b33]">
+                  <div className="w-full overflow-x-auto">
+                    <table className="w-full min-w-[720px] text-left text-sm">
+                      <thead className="border-b border-white/10 bg-[#172242] text-xs font-bold uppercase tracking-wider text-white">
+                        <tr>
+                          <th className="px-3.5 py-3">Thiết bị</th>
+                          <th className="px-3.5 py-3">Kết nối</th>
+                          <th className="px-3.5 py-3">Chế độ</th>
+                          <th className="px-3.5 py-3">Cổng phân công</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5 font-medium text-white">
+                        {selectedEventDevices.map((dev) => {
+                          const isBusy = updatingDeviceId === dev.id
+                          return (
+                            <tr key={dev.id} className="hover:bg-white/[0.02] transition-colors">
+                              <td className="px-3.5 py-3">
+                                <p className="font-bold text-white">{dev.name || dev.mac_address}</p>
+                                <p className="font-mono text-xs text-slate-400">{dev.mac_address}</p>
+                              </td>
+                              <td className="px-3.5 py-3">
+                                {dev.is_online ? (
+                                  <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/40 bg-emerald-500/15 px-2.5 py-0.5 text-xs font-bold text-emerald-300">
+                                    <Wifi className="size-3" />
+                                    Online
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-500/30 bg-slate-500/15 px-2.5 py-0.5 text-xs font-bold text-slate-400">
+                                    <WifiOff className="size-3" />
+                                    Offline
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-3.5 py-3">
+                                {dev.auto_confirm ? (
+                                  <Badge tone="cyan">{isEnglish ? 'Auto Check-in' : 'Tự động Check-in'}</Badge>
+                                ) : (
+                                  <Badge tone="slate">{isEnglish ? 'Verify Only' : 'Chỉ xác thực'}</Badge>
+                                )}
+                              </td>
+                              <td className="px-3.5 py-3">
+                                <div className="flex items-center gap-2 max-w-[260px]">
+                                  <select
+                                    value={dev.assigned_gate_id || ''}
+                                    onChange={(e) => handleDeviceGateChange(dev.id, e.target.value)}
+                                    disabled={!selectedEventManageable || isBusy || dev.status === 'REVOKED'}
+                                    className="h-9 w-full rounded-xl border border-white/15 bg-[#0d172e] px-3 text-xs font-semibold text-white outline-none focus:border-primary disabled:opacity-50"
+                                  >
+                                    <option value="" className="bg-[#0b1329] text-white">
+                                      {isEnglish ? 'All gates (Unassigned)' : 'Tất cả cổng (Chưa phân cổng)'}
+                                    </option>
+                                    {selectedEventGates.map((g) => (
+                                      <option key={g.id} value={g.id} className="bg-[#0b1329] text-white">
+                                        {g.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  {isBusy && <Loader2 className="size-4 shrink-0 animate-spin text-[#E6C17A]" />}
+                                </div>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
         </>
       )}
 

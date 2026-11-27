@@ -2,6 +2,7 @@ const ApiResponse = require('../../core/response/ApiResponse');
 const eventsAdminService = require('./events.service');
 const eventBusinessRulesService = require('../events/eventBusinessRules.service');
 const { fetchDocumentContent } = require('../../common/utils/htmlImageParser.util');
+const { isSafeExternalHttpUrl } = require('../../core/security/htmlSanitizer');
 const {
   eventIdSchema,
   reviewEventSchema,
@@ -287,13 +288,18 @@ class EventsAdminController {
   previewDocument = async (req, res, next) => {
     try {
       const { url } = req.query;
-      if (!url || typeof url !== 'string' || (!url.startsWith('http://') && !url.startsWith('https://'))) {
+      if (!isSafeExternalHttpUrl(url)) {
         return res.status(400).send('Invalid document URL');
       }
 
       const remoteResp = await fetch(url, {
         headers: { 'User-Agent': 'EventHub-DocumentPreview/1.0' },
+        redirect: 'follow',
       });
+
+      if (remoteResp.url && !isSafeExternalHttpUrl(remoteResp.url)) {
+        return res.status(400).send('Invalid document URL');
+      }
 
       if (!remoteResp.ok) {
         return res.status(remoteResp.status).send('Cannot fetch document from storage');
@@ -304,7 +310,7 @@ class EventsAdminController {
       const magic = buffer.subarray(0, 5).toString('latin1');
       const lowerUrl = url.toLowerCase();
 
-      let contentType = remoteResp.headers.get('content-type') || 'application/octet-stream';
+      let contentType = null;
       let filename = 'document';
 
       if (magic.startsWith('%PDF-') || lowerUrl.includes('.pdf')) {
@@ -324,9 +330,14 @@ class EventsAdminController {
         filename = 'document.webp';
       }
 
+      if (!contentType) {
+        return res.status(415).send('Unsupported document type');
+      }
+
       res.setHeader('Content-Type', contentType);
       res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
-      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('Content-Security-Policy', "default-src 'none'; sandbox");
       res.setHeader('Cache-Control', 'public, max-age=86400');
       return res.send(buffer);
     } catch (err) {

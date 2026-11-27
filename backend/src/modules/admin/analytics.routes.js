@@ -15,5 +15,6 @@ router.get('/user-registration-trend', analyticsController.getUserRegistrationTr
 router.get('/top-organizers',          analyticsController.getTopOrganizers);
 router.get('/subscription-revenue',    analyticsController.getSubscriptionRevenue);
 router.get('/events-by-category',      analyticsController.getEventsByCategory);
+router.get('/security-metrics',        analyticsController.getSecurityMetrics);
 
 module.exports = router;

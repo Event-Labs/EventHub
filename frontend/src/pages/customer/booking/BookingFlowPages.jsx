@@ -21,7 +21,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { cancelOrder, checkoutOrder, fetchOrderStatus } from '@/services/orders.js'
-import { checkTicketAvailability, fetchEventDetail, fetchSessionSeats, holdSeats, releaseSeatHolds } from '@/services/events.js'
+import { checkTicketAvailability, fetchEventDetail, fetchSessionSeats, holdSeats, releaseSeatHolds, fetchActiveHold, cancelActiveHold } from '@/services/events.js'
 import { getProfile } from '@/services/user.service.js'
 import promotionService from '@/services/promotions.js'
 import { getApiMessage } from '@/lib/messages.js'
@@ -569,6 +569,42 @@ export function BookingSeatsPage() {
   }, [location.state])
 
   useEffect(() => {
+    let isMounted = true
+    const syncHoldWithServer = async () => {
+      if (!cart?.eventId) return
+      try {
+        const res = await fetchActiveHold(cart.eventId)
+        if (isMounted && res?.hasActiveHold && res.hold) {
+          const hold = res.hold
+          if (hold.remainingSeconds > 0) {
+            setCart((prev) => {
+              const currentSeats = prev?.selectedSeatIds || []
+              const serverSeats = hold.selectedSeatIds || []
+              const hasDiff = currentSeats.length === 0 && serverSeats.length > 0
+              const updated = {
+                ...prev,
+                holdId: hold.id,
+                holdExpiresAt: hold.expiresAt,
+                hold_expires_at: hold.expiresAt,
+                orderId: hold.orderId || prev?.orderId || null,
+                selectedSeatIds: hasDiff ? serverSeats : currentSeats,
+                items: (prev?.items?.length > 0) ? prev.items : (hold.items || []),
+              }
+              saveBookingDraft(updated)
+              return updated
+            })
+            if (hold.selectedSeatIds?.length > 0) {
+              setSelectedSeatIds((prevSeats) => (prevSeats.length === 0 ? hold.selectedSeatIds : prevSeats))
+            }
+          }
+        }
+      } catch (_) {}
+    }
+    syncHoldWithServer()
+    return () => { isMounted = false }
+  }, [cart?.eventId])
+
+  useEffect(() => {
     if (cart?.holdExpiresAt && secondsLeft(cart.holdExpiresAt) <= 0) {
       setCart((prev) => ({
         ...prev,
@@ -802,11 +838,19 @@ export function BookingSeatsPage() {
     }
     setCheckingAvailability(true)
     try {
-      const hold = await holdSeats(availabilityPayloadFromCart(nextCart))
+      // Reuse existing holdIdempotencyKey if retrying current selection; create once per logical action
+      const idempotencyKey =
+        nextCart.holdIdempotencyKey ||
+        `hold-${nextCart.eventId}-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`}`
+      nextCart.holdIdempotencyKey = idempotencyKey
+
+      const hold = await holdSeats(availabilityPayloadFromCart(nextCart), idempotencyKey)
       const holdExpiresAt = hold.hold_expires_at || new Date(Date.now() + 15 * 60 * 1000).toISOString()
       const heldCart = {
         ...nextCart,
         hasSeatMap,
+        holdIdempotencyKey: idempotencyKey,
+        holdId: hold.hold_id || nextCart.holdId || null,
         holdExpiresAt,
         hold_expires_at: holdExpiresAt,
       }
@@ -863,7 +907,7 @@ export function BookingSeatsPage() {
   const resetSelection = async () => {
     setResettingSelection(true)
     try {
-      if (hasActiveSeatHold(displayCart) && displayCart.selectedSeatIds?.length > 0) {
+      if (hasActiveSeatHold(displayCart)) {
         await releaseSeatHolds({
           event_id: displayCart.eventId,
           session_seat_ids: displayCart.items.flatMap((item) => item.sessionSeatIds || []),
@@ -1005,7 +1049,7 @@ export function BookingSeatsPage() {
           {!hasSeatMap ? (
             seatsQuery.isLoading ? (
               <div className="glass-panel rounded-[24px] border border-primary/20 bg-slate-900/60 p-12 text-center shadow-xl backdrop-blur-md">
-                <div className="mx-auto mb-4 size-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                <div className="mx-auto mb-4 size-8 animate-spin rounded-full border-2 border-[#E6C17A]/25 border-t-[#E6C17A]" />
                 <p className="text-muted font-medium">Đang tải danh sách vé...</p>
               </div>
             ) : (
@@ -1355,7 +1399,7 @@ export function BookingAttendeesPage() {
   if (!cart?.items?.length) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
-        <Loader2 className="size-8 text-primary animate-spin mb-3" />
+        <Loader2 className="size-8 text-[#E6C17A] animate-spin mb-3" />
         <p className="text-slate-300 text-sm">Thời gian giữ vé đã hết hạn. Đang chuyển hướng về trang chủ...</p>
       </div>
     )
@@ -1639,45 +1683,53 @@ export function BookingReviewPage() {
   })
 
   const availablePromos = promosQuery.data || []
+  const isFreeOrder = cartTotal(cart) <= 0
 
   useEffect(() => {
-    if (promosQuery.isSuccess && promoCode) {
+    if (isFreeOrder && (promoCode || selectedPromo || promoInput || voucherOpen)) {
+      setPromoCode('')
+      setSelectedPromo(null)
+      setPromoInput('')
+      setVoucherOpen(false)
+    }
+  }, [isFreeOrder, promoCode, selectedPromo, promoInput, voucherOpen])
+
+  useEffect(() => {
+    if (!isFreeOrder && promosQuery.isSuccess && promoCode) {
       const found = availablePromos.find((p) => String(p.code).trim().toUpperCase() === String(promoCode).trim().toUpperCase())
       if (found && !selectedPromo) {
         setSelectedPromo(found)
       }
     }
-  }, [promosQuery.isSuccess, availablePromos, promoCode, selectedPromo])
+  }, [isFreeOrder, promosQuery.isSuccess, availablePromos, promoCode, selectedPromo])
 
   const handleApplyPromo = async (rawCode) => {
+    if (cartTotal(cart) <= 0) {
+      toast.error(isEnglish ? 'Promo codes cannot be applied to free tickets.' : 'Vé miễn phí không áp dụng mã ưu đãi.')
+      return
+    }
     const code = (rawCode ?? promoInput).trim().toUpperCase()
     if (!code) {
       toast.error(isEnglish ? 'Please enter a promo code.' : 'Vui lòng nhập mã khuyến mãi.')
       return
     }
 
-    let promos = availablePromos
-    if (promosQuery.isLoading) {
-      try {
-        const res = await promosQuery.refetch()
-        promos = res.data || []
-      } catch (err) {
-        // fallback
-      }
-    }
-
-    const found = promos.find((p) => String(p.code).trim().toUpperCase() === code)
     const subtotal = cartTotal(cart)
-
-    if (found) {
-      if (!isPromoUsable(found, subtotal)) {
+    try {
+      const response = await promotionService.validateEventPromo(cart.eventId, {
+        code,
+        subtotal,
+      })
+      const found = response.data?.data
+      if (!found) {
         toast.error(
           isEnglish
-            ? `Order requires a minimum of ${formatPrice(found.min_order_value || 0, isEnglish)} to apply this code.`
-            : `Đơn hàng cần tối thiểu ${formatPrice(found.min_order_value || 0)} để áp dụng mã này.`
+            ? 'Promo code is invalid or unavailable.'
+            : 'Mã khuyến mãi không khả dụng hoặc không chính xác.'
         )
         return
       }
+
       setPromoCode(found.code)
       setSelectedPromo(found)
       setPromoInput(found.code)
@@ -1687,11 +1739,14 @@ export function BookingReviewPage() {
           ? `Promo code ${found.code} applied successfully!`
           : `Áp dụng mã khuyến mãi ${found.code} thành công!`
       )
-    } else {
+    } catch (err) {
       toast.error(
-        isEnglish
-          ? 'Promo code is invalid or unavailable.'
-          : 'Mã khuyến mãi không khả dụng hoặc không chính xác.'
+        getApiMessage(
+          err,
+          isEnglish
+            ? 'Promo code is invalid or unavailable.'
+            : 'Mã khuyến mãi không khả dụng hoặc không chính xác.'
+        )
       )
     }
   }
@@ -1757,7 +1812,7 @@ export function BookingReviewPage() {
   if (!cart?.items?.length) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
-        <Loader2 className="size-8 text-primary animate-spin mb-3" />
+        <Loader2 className="size-8 text-[#E6C17A] animate-spin mb-3" />
         <p className="text-slate-300 text-sm">Thời gian giữ vé đã hết hạn. Đang chuyển hướng về trang chủ...</p>
       </div>
     )
@@ -1787,8 +1842,8 @@ export function BookingReviewPage() {
 
     const nextCart = {
       ...cart,
-      promoCode,
-      promo: selectedPromo,
+      promoCode: isFreeOrder ? '' : promoCode,
+      promo: isFreeOrder ? null : selectedPromo,
       eventTermsAccepted: hasPolicy ? termsAccepted : true,
       additionalTerms: effectiveTerms,
       refundPolicy: effectiveRefundPolicy,
@@ -1911,6 +1966,12 @@ export function BookingReviewPage() {
                       {formatPrice(Number(item.ticketType.price || 0) * item.quantity, isEnglish)}
                     </p>
                   </div>
+                  {item.seatLabels?.length > 0 && (
+                    <div className="mt-2 w-fit max-w-full rounded-md border border-primary/30 bg-primary/10 px-2.5 py-1.5 text-xs font-bold text-primary break-words leading-relaxed">
+                      {isEnglish ? 'Seat: ' : 'Ghế: '}
+                      <span>{item.seatLabels.join(', ')}</span>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -2092,17 +2153,20 @@ export function BookingReviewPage() {
           isPaused={isPaused}
           hideUnselectedTickets
           promoProps={{
-            promoCode,
-            selectedPromo,
-            promoInput,
+            promoCode: isFreeOrder ? '' : promoCode,
+            selectedPromo: isFreeOrder ? null : selectedPromo,
+            promoInput: isFreeOrder ? '' : promoInput,
             setPromoInput,
             onApply: handleApplyPromo,
             onRemove: handleRemovePromo,
-            onOpenVoucher: () => setVoucherOpen(true),
+            onOpenVoucher: () => {
+              if (!isFreeOrder) setVoucherOpen(true)
+            },
+            disabled: isFreeOrder,
           }}
         />
       </div>
-      {voucherOpen && (
+      {voucherOpen && !isFreeOrder && (
         <OrganizerVoucherModal
           promoCode={promoCode}
           setPromoCode={setPromoCode}
@@ -2336,7 +2400,7 @@ export function BookingPaymentPage() {
   if ((!cart?.items?.length && !orderId) || isOrderExpired) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
-        <Loader2 className="size-8 text-rose-500 animate-spin mb-3" />
+        <Loader2 className="size-8 text-[#E6C17A] animate-spin mb-3" />
         <p className="text-slate-300 text-sm">Thời gian giữ vé đã hết hạn. Đang chuyển hướng về trang chủ...</p>
       </div>
     )
@@ -2349,7 +2413,7 @@ export function BookingPaymentPage() {
           <Panel>
             {!payment && !checkoutMutation.isError && (
               <div className="flex flex-col items-center justify-center py-12 text-center">
-                <Loader2 className="size-8 text-primary animate-spin mb-2" />
+                <Loader2 className="size-8 text-[#E6C17A] animate-spin mb-2" />
                 <p className="text-white font-medium text-xs">Đang tải thông tin thanh toán...</p>
               </div>
             )}
@@ -2705,40 +2769,45 @@ function OrderCard({
           const qty = ticket.qty
 
           return (
-            <div key={ticket.id} className="grid grid-cols-[1fr_auto] gap-3 text-sm">
-              <div className="flex min-w-0 items-start gap-2">
-                <span
-                  className="mt-1 size-3 shrink-0 rounded-sm border border-white/20"
-                  style={{ backgroundColor: ticket.color }}
-                />
-                <div className="min-w-0">
-                  <p className={qty > 0 ? 'font-semibold text-white' : 'font-semibold text-slate-400'}>{ticket.name}</p>
-                  {qty > 0 ? (
-                    <p className="text-white font-medium text-xs sm:text-sm">
-                      {formatPrice(ticket.price, isEnglish)} {'\u00d7'} {String(qty).padStart(2, '0')}
-                    </p>
-                  ) : (
-                    <p className="text-slate-500">{formatPrice(ticket.price, isEnglish)} {isEnglish ? '/ ticket' : '/ vé'}</p>
-                  )}
-                  {ticket.seatLabels?.length > 0 && (
-                    <p className="mt-2 inline-flex max-w-full rounded-md border border-primary/30 bg-primary/10 px-2 py-1 text-xs font-bold text-primary">
-                      {isEnglish ? 'Seat' : 'Ghế'}: <span className="ml-1 truncate">{ticket.seatLabels.join(', ')}</span>
-                    </p>
-                  )}
+            <div key={ticket.id} className="text-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-start gap-2">
+                  <span
+                    className="mt-1 size-3 shrink-0 rounded-sm border border-white/20"
+                    style={{ backgroundColor: ticket.color }}
+                  />
+                  <div className="min-w-0">
+                    <p className={qty > 0 ? 'font-semibold text-white' : 'font-semibold text-slate-400'}>{ticket.name}</p>
+                    {qty > 0 ? (
+                      <p className="text-white font-medium text-xs sm:text-sm">
+                        {formatPrice(ticket.price, isEnglish)} {'\u00d7'} {String(qty).padStart(2, '0')}
+                      </p>
+                    ) : (
+                      <p className="text-slate-500">{formatPrice(ticket.price, isEnglish)} {isEnglish ? '/ ticket' : '/ vé'}</p>
+                    )}
+                  </div>
                 </div>
+                <p className={qty > 0 ? 'font-bold text-white shrink-0' : 'font-bold text-slate-500 shrink-0'}>
+                  {qty > 0 ? formatPrice(ticket.price * qty, isEnglish) : '-'}
+                </p>
               </div>
-              <p className={qty > 0 ? 'font-bold text-white' : 'font-bold text-slate-500'}>
-                {qty > 0 ? formatPrice(ticket.price * qty, isEnglish) : '-'}
-              </p>
+              {ticket.seatLabels?.length > 0 && (
+                <div className="mt-2 w-fit max-w-full rounded-md border border-primary/30 bg-primary/10 px-2.5 py-1.5 text-xs font-bold text-primary break-words leading-relaxed">
+                  {isEnglish ? 'Seat: ' : 'Ghế: '}
+                  <span>{ticket.seatLabels.join(', ')}</span>
+                </div>
+              )}
             </div>
           )
         })}
         {itemsToRender.length === 0 && (
-          <p className="py-2 text-center text-xs text-muted">{isEnglish ? 'No tickets selected yet' : 'Chưa có vé nào được chọn'}</p>
+          <p className="py-2 text-center text-sm italic text-muted">{isEnglish ? 'No tickets selected yet' : 'Chưa có vé nào được chọn'}</p>
         )}
       </div>
 
-      {promoProps ? (
+      {promoProps ? (() => {
+        const isPromoDisabled = Boolean(promoProps.disabled) || cartTotal(cart) <= 0
+        return (
         <div className="mt-4 space-y-2.5">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm sm:text-base font-bold text-white flex items-center gap-1.5">
@@ -2748,13 +2817,14 @@ function OrderCard({
               <button
                 type="button"
                 onClick={promoProps.onOpenVoucher}
-                className="text-xs sm:text-sm font-bold text-white hover:text-slate-200 transition cursor-pointer"
+                disabled={isPromoDisabled}
+                className="text-xs sm:text-sm font-bold text-white hover:text-slate-200 transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-white"
               >
                 {isEnglish ? 'Select Voucher' : 'Chọn voucher'}
               </button>
             )}
           </div>
-          {promoProps.promoCode ? (
+          {promoProps.promoCode && !isPromoDisabled ? (
             <div className="flex items-center justify-between rounded-lg border border-primary/40 bg-primary/10 p-2.5 text-xs">
               <div className="min-w-0">
                 <span className="font-mono font-bold text-primary">{promoProps.promoCode}</span>
@@ -2771,21 +2841,26 @@ function OrderCard({
             <div className="flex gap-2">
               <input
                 type="text"
-                value={promoProps.promoInput || ''}
+                disabled={isPromoDisabled}
+                value={isPromoDisabled ? '' : (promoProps.promoInput || '')}
                 onChange={(e) => promoProps.setPromoInput(e.target.value.toUpperCase())}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
+                  if (e.key === 'Enter' && !isPromoDisabled) {
                     e.preventDefault()
                     promoProps.onApply(promoProps.promoInput)
                   }
                 }}
-                placeholder={isEnglish ? 'Enter code...' : 'Nhập mã...'}
-                className="h-9 min-w-0 flex-1 rounded-lg border border-white/10 bg-slate-950/60 px-3 font-mono text-xs text-white uppercase outline-none focus:border-primary"
+                placeholder={
+                  isPromoDisabled
+                    ? (isEnglish ? 'Unavailable for free tickets' : 'Không áp dụng cho vé miễn phí')
+                    : (isEnglish ? 'Enter code...' : 'Nhập mã...')
+                }
+                className="h-9 min-w-0 flex-1 rounded-lg border border-white/10 bg-slate-950/60 px-3 font-mono text-xs text-white uppercase outline-none focus:border-primary disabled:opacity-45 disabled:cursor-not-allowed"
               />
               <button
                 type="button"
                 onClick={() => promoProps.onApply(promoProps.promoInput)}
-                disabled={!promoProps.promoInput?.trim()}
+                disabled={isPromoDisabled || !promoProps.promoInput?.trim()}
                 className="rounded-lg bg-primary/20 px-3 text-xs font-bold text-primary hover:bg-primary/30 border border-primary/40 disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
               >
                 {isEnglish ? 'Apply' : 'Áp dụng'}
@@ -2793,7 +2868,8 @@ function OrderCard({
             </div>
           )}
         </div>
-      ) : cart?.promoCode ? (
+        )
+      })() : cart?.promoCode ? (
         <div className="mt-4 rounded-md border border-primary/30 bg-primary/10 p-3 text-sm text-primary">
           {isEnglish ? 'Promo Code' : 'Mã khuyến mãi'}: {cart.promoCode}
         </div>
@@ -2887,7 +2963,8 @@ function PromoSection({
   cart,
   availableCount = 0,
 }) {
-  const discountAmount = promoDiscount({ ...cart, promo: selectedPromo, promoCode })
+  const isFreeOrder = cartTotal(cart) <= 0
+  const discountAmount = isFreeOrder ? 0 : promoDiscount({ ...cart, promo: selectedPromo, promoCode })
 
   return (
     <Panel>
@@ -2898,20 +2975,23 @@ function PromoSection({
           </div>
           <div>
             <h2 className="font-display text-xl font-bold text-white">Mã khuyến mãi &amp; Giảm giá</h2>
-            <p className="text-xs text-muted">Nhập mã ưu đãi hoặc chọn voucher từ Ban tổ chức</p>
+            <p className="text-xs text-muted">
+              {isFreeOrder ? 'Vé miễn phí không áp dụng mã ưu đãi' : 'Nhập mã ưu đãi hoặc chọn voucher từ Ban tổ chức'}
+            </p>
           </div>
         </div>
         <button
           type="button"
           onClick={onOpenVoucher}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3.5 py-2 text-xs font-bold text-primary hover:bg-primary/20 transition shadow-sm"
+          disabled={isFreeOrder}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3.5 py-2 text-xs font-bold text-primary hover:bg-primary/20 transition shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <Ticket className="size-3.5" />
           <span>Danh sách voucher {availableCount > 0 ? `(${availableCount})` : ''}</span>
         </button>
       </div>
 
-      {promoCode || selectedPromo ? (
+      {!isFreeOrder && (promoCode || selectedPromo) ? (
         <div className="rounded-xl border border-primary/40 bg-gradient-to-r from-primary/15 via-primary/5 to-transparent p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
@@ -2954,22 +3034,23 @@ function PromoSection({
           <div className="relative flex-1">
             <input
               type="text"
-              value={promoInput}
+              disabled={isFreeOrder}
+              value={isFreeOrder ? '' : promoInput}
               onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') {
+                if (e.key === 'Enter' && !isFreeOrder) {
                   e.preventDefault()
                   onApply(promoInput)
                 }
               }}
-              placeholder="Nhập mã voucher (VD: BLUE50)..."
-              className="h-11 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 font-mono text-sm text-white placeholder:text-slate-500 uppercase tracking-wider outline-none transition focus:border-primary focus:ring-1 focus:ring-primary/40"
+              placeholder={isFreeOrder ? 'Không áp dụng cho vé miễn phí' : 'Nhập mã voucher (VD: BLUE50)...'}
+              className="h-11 w-full rounded-xl border border-white/10 bg-slate-950/60 px-4 font-mono text-sm text-white placeholder:text-slate-500 uppercase tracking-wider outline-none transition focus:border-primary focus:ring-1 focus:ring-primary/40 disabled:opacity-45 disabled:cursor-not-allowed"
             />
           </div>
           <button
             type="button"
             onClick={() => onApply(promoInput)}
-            disabled={!promoInput.trim()}
+            disabled={isFreeOrder || !promoInput.trim()}
             className="cosmic-btn-primary px-6 py-2.5 text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
           >
             Áp dụng
@@ -2996,7 +3077,7 @@ function formatPromoTitle(promo, isEnglish = (typeof document !== 'undefined' &&
 }
 
 function isPromoUsable(promo, subtotal) {
-  return subtotal >= Number(promo.min_order_value || 0)
+  return subtotal > 0 && subtotal >= Number(promo.min_order_value || 0)
 }
 
 function OrganizerVoucherModal({ promoCode, setPromoCode, selectedPromo, setSelectedPromo, setPromoInput, cart, onClose }) {
@@ -3738,7 +3819,7 @@ function NavigateBackToEvents() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
-      <Loader2 className="size-8 text-rose-500 animate-spin mb-3" />
+      <Loader2 className="size-8 text-[#E6C17A] animate-spin mb-3" />
       <p className="text-slate-300 text-sm">{'Thời gian giữ vé đã hết hạn. Đang chuyển hướng về trang chủ...'}</p>
     </div>
   )

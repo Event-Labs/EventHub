@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { ArrowLeft, Plus, Search, Sparkles } from 'lucide-react'
 import { renderCosmicTitle } from '@/lib/formatTitle.jsx'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
+import AnimatedNumber from '@/components/AnimatedNumber.jsx'
 
 /**
  * OrganizerPage – page-level layout wrapper
@@ -216,7 +217,9 @@ export function StatCard({ label, value, sub, trend }) {
     <div className="glass-panel flex flex-col justify-between rounded-[24px] border-white/5 p-6 shadow-[0_8px_32px_rgba(0,0,0,0.2)] transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg">
       <div>
         <p className="text-[13px] font-bold uppercase tracking-wider text-subtle">{label}</p>
-        <p className="mt-2 text-3xl font-black text-content tracking-tight font-display drop-shadow-sm">{value}</p>
+        <p className="mt-2 text-3xl font-black text-content tracking-tight font-display drop-shadow-sm">
+          <AnimatedNumber value={value} />
+        </p>
       </div>
       {(sub || trend !== undefined) && (
         <div className="mt-3 flex items-center justify-between gap-2">

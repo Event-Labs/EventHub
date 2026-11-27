@@ -145,7 +145,7 @@ export function PaymentConfirmationPage() {
   if (expired) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
-        <Loader2 className="size-8 text-rose-500 animate-spin mb-3" />
+        <Loader2 className="size-8 text-[#E6C17A] animate-spin mb-3" />
         <p className="text-slate-300 text-sm">Thời gian giữ vé đã hết hạn. Đang chuyển hướng về trang chủ...</p>
       </div>
     )

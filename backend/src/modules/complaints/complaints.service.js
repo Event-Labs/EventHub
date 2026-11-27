@@ -3,8 +3,10 @@ const ErrorCodes = require('../../core/errors/errorCodes');
 const logger = require('../../core/logger');
 const complaintsRepository = require('./complaints.repository');
 const notificationsRepository = require('../notifications/notifications.repository');
+const notificationsService = require('../notifications/notifications.service');
 const db = require('../../infrastructure/database/db.client');
 const { sendEmail } = require('../../infrastructure/email/email.service');
+const { escapeHtml } = require('../../core/security/htmlSanitizer');
 
 class ComplaintsService {
   async createComplaint(userId, payload) {
@@ -85,15 +87,54 @@ class ComplaintsService {
 
     // Notify customer
     try {
-      await notificationsRepository.createNotification({
-        userId,
+      await notificationsService.notifyCustomer(userId, {
         eventId: finalEventId || null,
         title: 'Khiếu nại của bạn đã được tiếp nhận',
         content: `Hệ thống EventHub đã ghi nhận khiếu nại "${complaint.title}" (Mã: #${complaint.id.slice(0, 8)}). Ban Quản trị sẽ xem xét và phản hồi trong thời gian sớm nhất.`,
         type: 'SYSTEM',
+        metadata: {
+          complaint_id: complaint.id,
+          action_url: '/customer/complaints',
+        },
       });
     } catch (notifErr) {
       logger.warn(`[ComplaintsService] Failed to send notification to customer: ${notifErr.message}`);
+    }
+
+    // Notify admins
+    notificationsService.notifyAdmins({
+      title: `Khiếu nại mới #${complaint.id.slice(0, 8)}`,
+      content: `Khách hàng đã gửi khiếu nại về "${complaint.title}" (Danh mục: ${category}). Vui lòng kiểm tra và xử lý.`,
+      type: 'SYSTEM',
+      eventId: finalEventId || null,
+      metadata: {
+        complaint_id: complaint.id,
+        action_url: '/admin/disputes',
+      },
+    }).catch((err) => logger.warn(`[ComplaintsService] Failed to notify admins: ${err.message}`));
+
+    // Notify organizer if event or organizer is known
+    if (finalOrganizerId) {
+      (async () => {
+        try {
+          const orgUserRes = await db.query('SELECT user_id FROM organizers WHERE id = $1', [finalOrganizerId]);
+          const orgUserId = orgUserRes.rows[0]?.user_id;
+          if (orgUserId) {
+            await notificationsService.notifyOrganizer(orgUserId, {
+              title: `Khiếu nại mới từ khán giả: "${complaint.title}"`,
+              content: `Khán giả đã gửi khiếu nại liên quan đến sự kiện của bạn. Ban Quản trị đang tiếp nhận và xem xét.`,
+              type: 'SYSTEM',
+              eventId: finalEventId || null,
+              metadata: {
+                complaint_id: complaint.id,
+                event_id: finalEventId,
+              },
+            });
+          }
+        } catch (orgErr) {
+          logger.warn(`[ComplaintsService] Failed to notify organizer: ${orgErr.message}`);
+        }
+      })();
     }
 
     return complaint;
@@ -136,12 +177,15 @@ class ComplaintsService {
     if (['RESOLVED', 'REJECTED'].includes(status) && existing.customer_id) {
       const statusLabel = status === 'RESOLVED' ? 'Đã được giải quyết' : 'Đã được xử lý / Bác bỏ';
       try {
-        await notificationsRepository.createNotification({
-          userId: existing.customer_id,
+        await notificationsService.notifyCustomer(existing.customer_id, {
           eventId: existing.event_id || null,
           title: `Khiếu nại #${existing.id.slice(0, 8)}: ${statusLabel}`,
           content: `Ban Quản trị EventHub đã phản hồi khiếu nại "${existing.title}": ${adminNote ? `"${adminNote}"` : 'Trạng thái khiếu nại đã được cập nhật.'}`,
           type: 'SYSTEM',
+          metadata: {
+            complaint_id: existing.id,
+            action_url: '/customer/complaints',
+          },
         });
       } catch (notifErr) {
         logger.warn(`[ComplaintsService] Failed to send resolution notification: ${notifErr.message}`);
@@ -157,19 +201,19 @@ class ComplaintsService {
               <h2 style="color: #0f172a; margin-top: 0; padding-bottom: 12px; border-bottom: 2px solid #C99A47;">
                 Phản hồi khiếu nại từ Ban Quản trị EventHub
               </h2>
-              <p style="color: #334155; font-size: 15px;">Xin chào <strong>${existing.customer_name || 'Quý khách'}</strong>,</p>
+              <p style="color: #334155; font-size: 15px;">Xin chào <strong>${escapeHtml(existing.customer_name || 'Quý khách')}</strong>,</p>
               <p style="color: #334155; font-size: 14px; line-height: 1.6;">
                 Ban Quản trị EventHub đã xem xét và phản hồi về khiếu nại của bạn:
               </p>
               <div style="background-color: #f8fafc; border-left: 4px solid #C99A47; border-radius: 4px; padding: 14px 18px; margin: 18px 0;">
-                <p style="margin: 0 0 8px 0; font-size: 14px; color: #1e293b;"><strong>Mã khiếu nại:</strong> #${existing.id.slice(0, 8)}</p>
-                <p style="margin: 0 0 8px 0; font-size: 14px; color: #1e293b;"><strong>Tiêu đề:</strong> ${existing.title}</p>
-                <p style="margin: 0 0 8px 0; font-size: 14px; color: #1e293b;"><strong>Trạng thái:</strong> <span style="color: ${status === 'RESOLVED' ? '#10b981' : '#ef4444'}; font-weight: bold;">${statusLabel}</span></p>
-                ${existing.event_title ? `<p style="margin: 0; font-size: 14px; color: #1e293b;"><strong>Sự kiện:</strong> ${existing.event_title}</p>` : ''}
+                <p style="margin: 0 0 8px 0; font-size: 14px; color: #1e293b;"><strong>Mã khiếu nại:</strong> #${escapeHtml(existing.id.slice(0, 8))}</p>
+                <p style="margin: 0 0 8px 0; font-size: 14px; color: #1e293b;"><strong>Tiêu đề:</strong> ${escapeHtml(existing.title)}</p>
+                <p style="margin: 0 0 8px 0; font-size: 14px; color: #1e293b;"><strong>Trạng thái:</strong> <span style="color: ${status === 'RESOLVED' ? '#10b981' : '#ef4444'}; font-weight: bold;">${escapeHtml(statusLabel)}</span></p>
+                ${existing.event_title ? `<p style="margin: 0; font-size: 14px; color: #1e293b;"><strong>Sự kiện:</strong> ${escapeHtml(existing.event_title)}</p>` : ''}
               </div>
               <div style="background-color: #f1f5f9; border-radius: 8px; padding: 16px 20px; margin: 18px 0;">
                 <h4 style="margin: 0 0 8px 0; color: #0f172a; font-size: 14px;">Nội dung phản hồi từ Admin:</h4>
-                <p style="margin: 0; color: #334155; font-size: 14px; line-height: 1.6; white-space: pre-line;">${adminNote || 'Khiếu nại của bạn đã được tiếp nhận và xử lý theo quy định.'}</p>
+                <p style="margin: 0; color: #334155; font-size: 14px; line-height: 1.6; white-space: pre-line;">${escapeHtml(adminNote || 'Khiếu nại của bạn đã được tiếp nhận và xử lý theo quy định.')}</p>
               </div>
               <p style="color: #64748b; font-size: 13px; line-height: 1.5; margin-top: 24px; border-top: 1px solid #e2e8f0; padding-top: 14px;">
                 Cảm ơn bạn đã phản ánh thông tin giúp cộng đồng EventHub ngày một hoàn thiện hơn.<br/>

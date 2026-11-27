@@ -25,9 +25,15 @@ const promoCodeSchema = z.object({
   start_time: z.coerce.date({ invalid_type_error: "Invalid start date" }),
   end_time: z.coerce.date({ invalid_type_error: "Invalid end date" }),
   is_active: z.boolean().optional(),
+  is_hidden: z.coerce.boolean().optional(),
 });
 
 const updatePromoCodeSchema = promoCodeSchema.partial();
+
+const validatePromoCodeSchema = z.object({
+  code: z.string().trim().min(1, "Vui lòng nhập mã khuyến mãi").max(50, "Code too long"),
+  subtotal: z.coerce.number().min(0).optional().nullable(),
+});
 
 const listPromosQuerySchema = z.object({
   keyword: z.string().optional(),
@@ -37,5 +43,6 @@ const listPromosQuerySchema = z.object({
 module.exports = {
   promoCodeSchema,
   updatePromoCodeSchema,
+  validatePromoCodeSchema,
   listPromosQuerySchema,
 };

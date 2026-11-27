@@ -62,6 +62,7 @@ import { Modal } from '@/components/Modal.jsx'
 import { getApiMessage } from '@/lib/messages.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
+import { sanitizeUrl } from '@/lib/sanitize.js'
 
 const EMPTY_TEXT = 'Chưa cập nhật'
 
@@ -126,7 +127,7 @@ export function ProfilePage() {
   if (isLoading) {
     return (
       <div className="flex min-h-[400px] flex-col items-center justify-center gap-4">
-        <Loader2 className="size-10 animate-spin text-primary" />
+        <Loader2 className="size-10 animate-spin text-[#E6C17A]" />
         <p className="animate-pulse text-muted">{isEnglish ? 'Loading profile information...' : 'Đang tải thông tin hồ sơ...'}</p>
       </div>
     )
@@ -194,11 +195,10 @@ export function ProfilePage() {
             )}
             <button
               onClick={() => setMode('password')}
-              className={`inline-flex items-center gap-2 rounded-full border px-6 py-3 font-bold transition-all cursor-pointer ${
-                mode === 'password'
-                  ? 'border-[#E6C17A] bg-[#C99A47]/20 text-[#E6C17A]'
-                  : 'border-white/15 bg-white/5 text-slate-200 hover:border-[#E6C17A]/60 hover:text-[#E6C17A]'
-              }`}
+              className={`inline-flex items-center gap-2 rounded-full border px-6 py-3 font-bold transition-all cursor-pointer ${mode === 'password'
+                ? 'border-[#E6C17A] bg-[#C99A47]/20 text-[#E6C17A]'
+                : 'border-white/15 bg-white/5 text-slate-200 hover:border-[#E6C17A]/60 hover:text-[#E6C17A]'
+                }`}
             >
               <Lock className="inline size-4" />
               {isEnglish ? 'Change password' : 'Đổi mật khẩu'}
@@ -211,7 +211,7 @@ export function ProfilePage() {
         mode === 'edit' ? (
           organizerQuery.isLoading ? (
             <div className="flex min-h-[240px] flex-col items-center justify-center gap-3">
-              <Loader2 className="size-8 animate-spin text-primary" />
+              <Loader2 className="size-8 animate-spin text-[#E6C17A]" />
               <p className="text-muted">{isEnglish ? 'Loading edit information...' : 'Đang tải thông tin chỉnh sửa...'}</p>
             </div>
           ) : (
@@ -536,7 +536,7 @@ function OrganizerProfileView({ user, organizer, isLoading, error, onRetry, onSe
   if (isLoading) {
     return (
       <div className="flex min-h-[320px] flex-col items-center justify-center gap-3 rounded-lg border border-border-soft/50 bg-surface p-6 shadow-sm">
-        <Loader2 className="size-8 animate-spin text-primary" />
+        <Loader2 className="size-8 animate-spin text-[#E6C17A]" />
         <p className="text-muted">{isEnglish ? 'Loading organizer information...' : 'Đang tải thông tin nhà tổ chức...'}</p>
       </div>
     )
@@ -859,22 +859,22 @@ function OrganizerVerificationUpdateForm({
     const requestType = isPersonal ? 'INDIVIDUAL' : 'ORGANIZATION'
     const fields = isPersonal
       ? [
-          'individual_full_name',
-          'individual_identity_number',
-          'individual_tax_code',
-          'individual_id_front_url',
-          'individual_id_back_url',
-          'individual_selfie_url',
-        ]
+        'individual_full_name',
+        'individual_identity_number',
+        'individual_tax_code',
+        'individual_id_front_url',
+        'individual_id_back_url',
+        'individual_selfie_url',
+      ]
       : [
-          'legal_representative_name',
-          'legal_representative_position',
-          'tax_code',
-          'legal_document_url',
-          'business_license_url',
-          'legal_representative_id_url',
-          'authorization_letter_url',
-        ]
+        'legal_representative_name',
+        'legal_representative_position',
+        'tax_code',
+        'legal_document_url',
+        'business_license_url',
+        'legal_representative_id_url',
+        'authorization_letter_url',
+      ]
 
     const imageOnlyFields = new Set([
       'individual_id_front_url',
@@ -1359,63 +1359,62 @@ function ProfileView({ user, tickets = [], ticketsLoading = false, favorites = [
               </div>
             </Link>
 
-            {/* Cài đặt ngôn ngữ / Language Switcher Row */}
-            <div className="group flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-white/[0.02] px-3.5 py-2.5 transition hover:bg-white/[0.06] hover:border-[#E6C17A]/40 hover:shadow-[0_0_12px_rgba(201,154,71,0.15)]">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-[#C99A47]/10 text-[#E6C17A] transition group-hover:scale-105">
-                  <Globe className="size-4" />
-                </span>
-                <span className="text-xs font-medium text-slate-400 group-hover:text-slate-200 transition">
-                  {isEnglish ? 'Language' : 'Ngôn ngữ'}
-                </span>
-              </div>
+            {/* Cài đặt ngôn ngữ / Language Switcher Row (Chỉ hiển thị cho Customer, Organizer, Staff - không áp dụng cho Admin) */}
+            {user?.role !== 'ADMIN' && (
+              <div className="group flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-white/[0.02] px-3.5 py-2.5 transition hover:bg-white/[0.06] hover:border-[#E6C17A]/40 hover:shadow-[0_0_12px_rgba(201,154,71,0.15)]">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-[#C99A47]/10 text-[#E6C17A] transition group-hover:scale-105">
+                    <Globe className="size-4" />
+                  </span>
+                  <span className="text-xs font-medium text-slate-400 group-hover:text-slate-200 transition">
+                    {isEnglish ? 'Language' : 'Ngôn ngữ'}
+                  </span>
+                </div>
 
-              {/* Switch con nhộng nhỏ gọn, tinh tế trên cùng 1 dòng (VIE / ENG) */}
-              <div
-                className="relative flex h-6 w-[76px] items-center rounded-full p-0.5 bg-[#091224] border border-[#C99A47]/35 shadow-[inset_0_1px_3px_rgba(0,0,0,0.5)] [html.light_&]:bg-slate-200 [html.light_&]:border-slate-300 select-none shrink-0"
-                role="radiogroup"
-                aria-label={isEnglish ? 'Language switcher' : 'Bộ chọn ngôn ngữ'}
-              >
-                {/* Thẻ active trượt mượt mà (GPU accelerated) */}
+                {/* Switch con nhộng nhỏ gọn, tinh tế trên cùng 1 dòng (VIE / ENG) */}
                 <div
-                  className={`absolute top-0.5 bottom-0.5 left-0.5 w-[calc(50%-2px)] rounded-full bg-gradient-to-r from-[#C99A47] to-[#E6C17A] shadow-sm shadow-[#C99A47]/30 transition-transform duration-300 ease-out pointer-events-none ${
-                    isVietnamese ? 'translate-x-0' : 'translate-x-full'
-                  }`}
-                />
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={isVietnamese}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setLanguage('vi')
-                  }}
-                  className={`relative z-10 flex-1 h-full flex items-center justify-center rounded-full text-[8.5px] font-bold tracking-normal text-center transition-colors duration-200 cursor-pointer ${
-                    isVietnamese
+                  className="relative flex h-6 w-[76px] items-center rounded-full p-0.5 bg-[#091224] border border-[#C99A47]/35 shadow-[inset_0_1px_3px_rgba(0,0,0,0.5)] [html.light_&]:bg-slate-200 [html.light_&]:border-slate-300 select-none shrink-0"
+                  role="radiogroup"
+                  aria-label={isEnglish ? 'Language switcher' : 'Bộ chọn ngôn ngữ'}
+                >
+                  {/* Thẻ active trượt mượt mà (GPU accelerated) */}
+                  <div
+                    className={`absolute top-0.5 bottom-0.5 left-0.5 w-[calc(50%-2px)] rounded-full bg-gradient-to-r from-[#C99A47] to-[#E6C17A] shadow-sm shadow-[#C99A47]/30 transition-transform duration-300 ease-out pointer-events-none ${isVietnamese ? 'translate-x-0' : 'translate-x-full'
+                      }`}
+                  />
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={isVietnamese}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setLanguage('vi')
+                    }}
+                    className={`relative z-10 flex-1 h-full flex items-center justify-center rounded-full text-[8.5px] font-bold tracking-normal text-center transition-colors duration-200 cursor-pointer ${isVietnamese
                       ? 'text-[#0D1B2A]'
                       : 'text-slate-400 hover:text-white [html.light_&]:text-slate-600 [html.light_&]:hover:text-[#0D1B2A]'
-                  }`}
-                >
-                  VIE
-                </button>
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={!isVietnamese}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setLanguage('en')
-                  }}
-                  className={`relative z-10 flex-1 h-full flex items-center justify-center rounded-full text-[8.5px] font-bold tracking-normal text-center transition-colors duration-200 cursor-pointer ${
-                    !isVietnamese
+                      }`}
+                  >
+                    VIE
+                  </button>
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={!isVietnamese}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setLanguage('en')
+                    }}
+                    className={`relative z-10 flex-1 h-full flex items-center justify-center rounded-full text-[8.5px] font-bold tracking-normal text-center transition-colors duration-200 cursor-pointer ${!isVietnamese
                       ? 'text-[#0D1B2A]'
                       : 'text-slate-400 hover:text-white [html.light_&]:text-slate-600 [html.light_&]:hover:text-[#0D1B2A]'
-                  }`}
-                >
-                  ENG
-                </button>
+                      }`}
+                  >
+                    ENG
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </aside>
 
@@ -1984,10 +1983,10 @@ function ProfileEdit({ user, organizer, isOrganizer, onDone }) {
       }
       const organizerPayload = isOrganizer
         ? {
-            description: formData.description,
-            website_url: formData.website_url,
-            social_url: formData.social_url,
-          }
+          description: formData.description,
+          website_url: formData.website_url,
+          social_url: formData.social_url,
+        }
         : null
 
       updateMutation.mutate({ userPayload, organizerPayload })
@@ -2042,7 +2041,7 @@ function ProfileEdit({ user, organizer, isOrganizer, onDone }) {
             </div>
             <div className="grid gap-5 md:grid-cols-2">
               <Input label={isEnglish ? 'Full Name *' : 'Họ và tên *'} value={formData.full_name} error={errors.full_name} onChange={(e) => setFormData({ ...formData, full_name: e.target.value })} required />
-              
+
               <div className="space-y-2">
                 <span className="text-sm font-semibold text-slate-300">{isEnglish ? 'Account Email' : 'Email tài khoản'}</span>
                 <div className="flex h-12 w-full items-center justify-between rounded-xl border border-white/10 bg-black/40 px-4 text-slate-400">
@@ -2094,9 +2093,8 @@ function ProfileEdit({ user, organizer, isOrganizer, onDone }) {
                     rows={6}
                     maxLength={5000}
                     placeholder={isEnglish ? 'Briefly introduce yourself, your company, or your event specialty.' : 'Giới thiệu ngắn gọn về cá nhân, tổ chức hoặc lĩnh vực sự kiện của bạn.'}
-                    className={`w-full resize-y rounded-xl border bg-black/40 p-4 text-[13px] font-medium text-[#F5EBDD] placeholder-slate-500 outline-none transition-all shadow-inner hover:border-[#E6C17A] hover:shadow-[0_0_12px_rgba(201,154,71,0.2)] focus:border-[#E6C17A] focus:bg-black/60 focus:ring-1 focus:ring-[#E6C17A] focus:shadow-[0_0_14px_rgba(201,154,71,0.35)] ${
-                      errors.description ? 'border-error ring-error/10' : 'border-white/10'
-                    }`}
+                    className={`w-full resize-y rounded-xl border bg-black/40 p-4 text-[13px] font-medium text-[#F5EBDD] placeholder-slate-500 outline-none transition-all shadow-inner hover:border-[#E6C17A] hover:shadow-[0_0_12px_rgba(201,154,71,0.2)] focus:border-[#E6C17A] focus:bg-black/60 focus:ring-1 focus:ring-[#E6C17A] focus:shadow-[0_0_14px_rgba(201,154,71,0.35)] ${errors.description ? 'border-error ring-error/10' : 'border-white/10'
+                      }`}
                   />
                   <div className="flex items-center justify-between gap-3 text-xs">
                     {errors.description ? <p className="text-error">{errors.description}</p> : <span className="text-slate-400">{isEnglish ? 'Max 5000 characters.' : 'Tối đa 5000 ký tự.'}</span>}
@@ -2414,9 +2412,8 @@ function Input({ label, error, className = '', type, ...props }) {
         <input
           {...props}
           type={inputType}
-          className={`w-full rounded-xl border bg-black/40 p-3.5 pr-10 text-[13px] font-medium text-[#F5EBDD] placeholder-slate-500 outline-none transition-all shadow-inner hover:border-[#E6C17A] hover:shadow-[0_0_12px_rgba(201,154,71,0.2)] focus:border-[#E6C17A] focus:bg-black/60 focus:ring-1 focus:ring-[#E6C17A] focus:shadow-[0_0_14px_rgba(201,154,71,0.35)] ${
-            error ? 'border-error ring-error/10' : 'border-white/10'
-          } disabled:opacity-50`}
+          className={`w-full rounded-xl border bg-black/40 p-3.5 pr-10 text-[13px] font-medium text-[#F5EBDD] placeholder-slate-500 outline-none transition-all shadow-inner hover:border-[#E6C17A] hover:shadow-[0_0_12px_rgba(201,154,71,0.2)] focus:border-[#E6C17A] focus:bg-black/60 focus:ring-1 focus:ring-[#E6C17A] focus:shadow-[0_0_14px_rgba(201,154,71,0.35)] ${error ? 'border-error ring-error/10' : 'border-white/10'
+            } disabled:opacity-50`}
         />
         {isPassword && (
           <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-1 top-1/2 -translate-y-1/2 p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-slate-400 transition hover:text-white cursor-pointer">
@@ -2517,7 +2514,7 @@ function booleanLabel(value, isEnglish = isCurrentEnglish()) {
 
 const getAutoLocale = () =>
   ((typeof document !== 'undefined' && document.documentElement.lang === 'en') ||
-   (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
+    (typeof localStorage !== 'undefined' && localStorage.getItem('eventhub_locale') === 'en'))
     ? 'en-US'
     : 'vi-VN'
 
@@ -2548,7 +2545,11 @@ function formatDateTime(dateString, isEnglish = isCurrentEnglish()) {
 function normalizeUrl(url) {
   const text = valueOrEmpty(url)
   if (text === EMPTY_TEXT || text === 'Not updated') return undefined
-  return /^https?:\/\//i.test(text) ? text : `https://${text}`
+  const safe = sanitizeUrl(text, { allowMailto: false, allowRelative: false })
+  if (safe) return safe
+  const collapsed = text.replace(/\s+/g, '')
+  if (/^[a-z][a-z0-9+.-]*:/i.test(collapsed) || collapsed.startsWith('//')) return undefined
+  return `https://${text}`
 }
 
 function isImageUrl(url = '') {

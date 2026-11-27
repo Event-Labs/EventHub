@@ -12,7 +12,6 @@ import {
   Mail,
   Phone,
   Calendar,
-  DollarSign,
   FileText,
   Copy,
   Check,
@@ -34,6 +33,7 @@ import {
   fetchOrganizerPaymentChannel,
 } from '@/services/refunds.js'
 import { uploadOrganizerDocument } from '@/services/uploads.js'
+import { sanitizeUrl } from '@/lib/sanitize.js'
 import { useToast } from '@/providers/ToastProvider.jsx'
 import { VIETNAMESE_BANKS, resolveBankName, resolveBankBin } from '@/constants/banks.js'
 import { useLanguage } from '@/i18n/LanguageContext.jsx'
@@ -57,16 +57,12 @@ function formatDateTime(value) {
 }
 
 function formatCurrency(value) {
-  if (value === undefined || value === null) return '0 ₫'
+  if (value === undefined || value === null) return '0 VND'
   const isEn = getAutoLocale() === 'en-US'
   if (isEn) {
     return `${new Intl.NumberFormat('en-US').format(value)} VND`
   }
-  return new Intl.NumberFormat('vi-VN', {
-    style: 'currency',
-    currency: 'VND',
-    maximumFractionDigits: 0,
-  }).format(value)
+  return `${new Intl.NumberFormat('vi-VN').format(value)} VND`
 }
 
 function formatShortErrorMessage(error) {
@@ -363,7 +359,7 @@ export function OrganizerRefundDetailPage() {
   if (isLoading) {
     return (
       <div className="flex min-h-[60vh] flex-col items-center justify-center p-6 text-slate-400 [html.light_&]:text-[#536b88]">
-        <RefreshCw className="size-10 animate-spin text-primary [html.light_&]:text-[#C99A47]" />
+        <RefreshCw className="size-10 animate-spin text-[#E6C17A]" />
         <p className="mt-4 text-sm font-medium">Đang tải thông tin yêu cầu hoàn tiền...</p>
       </div>
     )
@@ -1381,7 +1377,7 @@ export function OrganizerRefundDetailPage() {
                     <span className="text-slate-400 [html.light_&]:text-[#536b88] font-bold block">Biên lai chuyển khoản đối soát:</span>
                     <div className="flex items-center gap-4">
                       <a
-                        href={item.proof_url}
+                        href={sanitizeUrl(item.proof_url) || undefined}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="group relative block overflow-hidden rounded-xl border border-white/15 [html.light_&]:border-slate-300"
@@ -1397,7 +1393,7 @@ export function OrganizerRefundDetailPage() {
                       </a>
                       <div className="space-y-1">
                         <a
-                          href={item.proof_url}
+                          href={sanitizeUrl(item.proof_url) || undefined}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1.5 text-xs font-bold text-primary [html.light_&]:text-[#C99A47] hover:underline"

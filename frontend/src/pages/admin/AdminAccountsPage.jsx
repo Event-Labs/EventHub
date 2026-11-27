@@ -3,7 +3,6 @@ import {
   Badge,
   KpiGrid,
   Page,
-  Panel,
   Status,
   Table,
   TableActionButton,

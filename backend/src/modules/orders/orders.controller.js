@@ -1,6 +1,8 @@
 const ApiResponse = require('../../core/response/ApiResponse');
 const ordersService = require('./orders.service');
 const waitingRoomService = require('../waiting-room/waitingRoom.service');
+const idempotencyService = require('../../core/security/idempotency.service');
+const { getClientIp } = require('../../core/security/ipResolver');
 const {
   checkoutSchema,
   orderIdParamSchema,
@@ -10,16 +12,34 @@ const {
 
 class OrdersController {
   checkout = async (req, res, next) => {
+    const idempotencyKey =
+      req.headers['idempotency-key'] ||
+      req.headers['x-idempotency-key'] ||
+      req.body?.idempotency_key ||
+      null;
+
+    let idempotencyLock = null;
     try {
-      const idempotencyKey =
-        req.headers['idempotency-key'] ||
-        req.headers['x-idempotency-key'] ||
-        req.body?.idempotency_key ||
-        null;
       const payload = checkoutSchema.parse(req.body);
+
+      if (idempotencyKey) {
+        idempotencyLock = await idempotencyService.lockOrGetCached(
+          idempotencyKey,
+          req.user?.sub,
+          'POST',
+          req.path,
+          payload,
+        );
+        if (idempotencyLock && idempotencyLock.isCached) {
+          return res.status(idempotencyLock.response.statusCode || 201).json(idempotencyLock.response.data);
+        }
+      }
+
+      const clientIp = getClientIp(req);
       const data = await ordersService.checkout(req.user?.sub, {
         ...payload,
         idempotency_key: idempotencyKey,
+        client_ip: clientIp,
       });
       const message = data.is_completed
         ? 'Đặt vé thành công.'
@@ -37,8 +57,23 @@ class OrdersController {
           .catch(() => {});
       }
 
-      res.status(201).json(ApiResponse.success(data, message));
+      const responseBody = ApiResponse.success(data, message);
+
+      if (idempotencyKey) {
+        await idempotencyService.saveResponse(
+          idempotencyKey,
+          idempotencyLock?.requestHash,
+          responseBody,
+          201,
+          idempotencyLock?.lockToken,
+        );
+      }
+
+      res.status(201).json(responseBody);
     } catch (err) {
+      if (idempotencyKey) {
+        await idempotencyService.clearLock(idempotencyKey, idempotencyLock?.lockToken);
+      }
       next(err);
     }
   };

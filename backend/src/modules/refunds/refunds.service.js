@@ -225,21 +225,43 @@ class RefundsService {
 
       await client.query('COMMIT');
 
-      // 7. Asynchronous Notification to Organizer
+      // 7. Asynchronous Notification to Organizer & Admin
       try {
         if (data.organizer_id) {
           notificationsService
-            .createAndDispatch({
-              userId: data.organizer_id,
+            .notifyOrganizer(data.organizer_id, {
               eventId: data.event_id,
               title: 'Yêu cầu hoàn tiền vé mới',
               content: `Có yêu cầu hoàn vé mới cho sự kiện "${data.event_title}". Mã vé: ${data.ticket_code || 'N/A'}, số tiền: ${validation.refundableAmount.toLocaleString('vi-VN')} VND.`,
               type: 'PAYMENT',
+              metadata: {
+                refund_id: created.id,
+                order_id: order_id,
+                event_id: data.event_id,
+                action_url: `/organizer/refunds/${created.id}`,
+              },
             })
             .catch((err) =>
               logger.warn(`[NOTIFY_ORGANIZER_REFUND_FAIL] ${err.message}`),
             );
         }
+
+        notificationsService
+          .notifyAdmins({
+            eventId: data.event_id,
+            title: `Yêu cầu hoàn tiền vé mới: "${data.event_title}"`,
+            content: `Khách hàng đã yêu cầu hoàn vé cho sự kiện "${data.event_title}". Mã vé: ${data.ticket_code || 'N/A'}, số tiền: ${validation.refundableAmount.toLocaleString('vi-VN')} VND.`,
+            type: 'PAYMENT',
+            metadata: {
+              refund_id: created.id,
+              order_id: order_id,
+              event_id: data.event_id,
+              action_url: '/admin/disputes',
+            },
+          })
+          .catch((err) =>
+            logger.warn(`[NOTIFY_ADMIN_REFUND_FAIL] ${err.message}`),
+          );
       } catch (notifyErr) {
         logger.warn(`[NOTIFY_ORGANIZER_FAIL] ${notifyErr.message}`);
       }
@@ -401,13 +423,17 @@ class RefundsService {
         // Notify customer
         try {
           notificationsService
-            .createAndDispatch(
+            .notifyCustomer(
+              refund.customer_id,
               {
-                userId: refund.customer_id,
                 eventId: refund.event_id,
                 title: 'Yêu cầu hoàn tiền vé đã bị từ chối',
                 content: `Yêu cầu hoàn tiền cho vé ${refund.ticket_code || 'đơn hàng ' + refund.order_code} đã bị từ chối. Lý do: ${note || 'Không đủ điều kiện theo chính sách'}.`,
                 type: 'PAYMENT',
+                metadata: {
+                  action_url: '/my-tickets',
+                  event_id: refund.event_id,
+                },
               },
               { email: refund.customer_email },
             )
@@ -558,13 +584,17 @@ class RefundsService {
           });
 
           notificationsService
-            .createAndDispatch(
+            .notifyCustomer(
+              refund.customer_id,
               {
-                userId: refund.customer_id,
                 eventId: refund.event_id,
                 title: 'Hoàn tiền vé thành công',
                 content: `Yêu cầu hoàn tiền vé ${refund.ticket_code || 'đơn ' + refund.order_code} đã hoàn tất. Số tiền: ${Number(updated.refund_amount).toLocaleString('vi-VN')} VND.`,
                 type: 'PAYMENT',
+                metadata: {
+                  action_url: '/my-tickets',
+                  event_id: refund.event_id,
+                },
               },
               {
                 email: refund.customer_email,

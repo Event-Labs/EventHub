@@ -17,7 +17,9 @@ const {
 } = require('../events/eventLifecycleHelper');
 const aiImageReviewService = require('../ai/aiImageReview.service');
 const logger = require('../../core/logger');
+const notificationsService = require('../notifications/notifications.service');
 const ollamaClient = require('../../infrastructure/ai/ollama.client');
+const { escapeHtml, sanitizeRichHtml } = require('../../core/security/htmlSanitizer');
 
 const ORGANIZER_PROFILE_OTP_KEY = 'organizer_profile_sensitive_otp';
 const ORGANIZER_PROFILE_ACCESS_KEY = 'organizer_profile_sensitive_access';
@@ -68,6 +70,28 @@ function mapEvent(row) {
     null;
   const venue = row.venue || firstSessionVenue || null;
 
+  const eventTicketTypes = (row.ticket_types || []).map((tt) => ({
+    ...tt,
+    price: Number(tt.price),
+  }));
+
+  const mappedSessions = sessions.map((s) => {
+    const sName = s.session_name || s.name || '';
+    const rawSTickets = (Array.isArray(s.ticket_types) && s.ticket_types.length > 0)
+      ? s.ticket_types
+      : eventTicketTypes.filter((tt) => String(tt.event_session_id) === String(s.id));
+    const sTickets = rawSTickets.map((tt) => ({
+      ...tt,
+      price: Number(tt.price),
+    }));
+    return {
+      ...s,
+      name: sName,
+      session_name: sName,
+      ticket_types: sTickets,
+    };
+  });
+
   return {
     ...row,
     venue_name: venueName,
@@ -86,17 +110,17 @@ function mapEvent(row) {
       typeof row.refund_policy === 'string'
         ? JSON.parse(row.refund_policy)
         : row.refund_policy || {},
-    sessions: row.sessions || [],
-    ticket_types: (row.ticket_types || []).map((tt) => ({
-      ...tt,
-      price: Number(tt.price),
-    })),
+    sessions: mappedSessions,
+    ticket_types: eventTicketTypes,
   };
 }
 
 function sanitizeEventPayload(payload) {
   const data = { ...payload };
   if (data.category_id === '') data.category_id = null;
+  if (data.description !== undefined && data.description !== null) {
+    data.description = sanitizeRichHtml(data.description);
+  }
   if (data.seating_rules !== undefined) {
     const input =
       typeof data.seating_rules === 'string'
@@ -584,6 +608,18 @@ class OrganizerEventsService {
           [JSON.stringify(revision), JSON.stringify(auditTrail), eventId],
         );
 
+        notificationsService.notifyAdmins({
+          title: `Yêu cầu duyệt thay đổi sự kiện: "${currentEvent.title}"`,
+          content: `Nhà tổ chức đã gửi yêu cầu xét duyệt thay đổi (${revision.change_class}) cho sự kiện "${currentEvent.title}". Vui lòng kiểm tra.`,
+          type: 'EVENT',
+          eventId,
+          metadata: {
+            event_id: eventId,
+            revision_id: revision.id,
+            action_url: `/admin/events/review/${eventId}`,
+          },
+        }).catch((err) => logger.warn(`[NOTIFY_ADMIN_REVISION_FAIL] ${err.message}`));
+
         return {
           ...mapEvent(currentEvent),
           pending_revision: revision,
@@ -623,6 +659,18 @@ class OrganizerEventsService {
           `UPDATE events SET pending_revision = $1::jsonb, audit_trail = $2::jsonb, version = version + 1, updated_at = NOW() WHERE id = $3`,
           [JSON.stringify(revision), JSON.stringify(auditTrail), eventId],
         );
+
+        notificationsService.notifyAdmins({
+          title: `Yêu cầu duyệt thay đổi sự kiện: "${currentEvent.title}"`,
+          content: `Nhà tổ chức đã gửi yêu cầu xét duyệt thay đổi (${revision.change_class}) cho sự kiện "${currentEvent.title}". Vui lòng kiểm tra.`,
+          type: 'EVENT',
+          eventId,
+          metadata: {
+            event_id: eventId,
+            revision_id: revision.id,
+            action_url: `/admin/events/review/${eventId}`,
+          },
+        }).catch((err) => logger.warn(`[NOTIFY_ADMIN_REVISION_FAIL] ${err.message}`));
 
         return {
           ...mapEvent(currentEvent),
@@ -928,6 +976,30 @@ class OrganizerEventsService {
         console.warn(`[submitEvent] Failed to initialize auto-review for event ${eventId}: ${err.message}`);
       }
     }, 1000);
+
+    // Gửi thông báo cho Admin có sự kiện mới nộp duyệt
+    notificationsService.notifyAdmins({
+      title: `Yêu cầu duyệt sự kiện: "${fullEvent.title}"`,
+      content: `Nhà tổ chức đã gửi yêu cầu phê duyệt cho sự kiện "${fullEvent.title}". Vui lòng kiểm tra và xét duyệt nội dung.`,
+      type: 'EVENT',
+      eventId,
+      metadata: {
+        event_id: eventId,
+        action_url: `/admin/events/review/${eventId}`,
+      },
+    }).catch((err) => logger.warn(`[NOTIFY_ADMIN_SUBMIT_EVENT_FAIL] ${err.message}`));
+
+    // Gửi thông báo xác nhận cho Organizer
+    notificationsService.notifyOrganizer(userId, {
+      title: `Sự kiện "${fullEvent.title}" đã gửi phê duyệt`,
+      content: `Sự kiện "${fullEvent.title}" của bạn đã được gửi tới Ban Quản Trị. Hệ thống sẽ phản hồi kết quả xét duyệt sớm nhất.`,
+      type: 'EVENT',
+      eventId,
+      metadata: {
+        event_id: eventId,
+        action_url: `/organizer/events/${eventId}`,
+      },
+    }).catch((err) => logger.warn(`[NOTIFY_ORGANIZER_SUBMIT_EVENT_FAIL] ${err.message}`));
 
     return mapEvent(event);
   }
@@ -1295,7 +1367,7 @@ QUY TẮC BẮT BUỘC:
           suggested_titles: parsed.suggested_titles.slice(0, 5),
           selected_title: parsed.selected_title || parsed.suggested_titles[0],
           short_description: (parsed.short_description || '').slice(0, 150),
-          content_html: parsed.content_html || '',
+          content_html: sanitizeRichHtml(parsed.content_html || ''),
           tags: Array.isArray(parsed.tags) ? parsed.tags.slice(0, 6) : ['EventHub', cleanTopic],
         };
       }
@@ -1311,14 +1383,17 @@ QUY TẮC BẮT BUỘC:
       ];
 
       const short_description = `Chào mừng bạn đến với ${cleanTopic} ${audienceText}.${highlightText}`.slice(0, 150);
+      const safeTopicHtml = escapeHtml(cleanTopic);
+      const safeAudienceHtml = escapeHtml(audienceText);
+      const safeHighlightsHtml = escapeHtml(key_highlights || 'Các chuyên gia, nghệ sĩ và diễn giả có tầm ảnh hưởng.');
 
-      const content_html = `<p><strong>Chào mừng bạn đến với sự kiện ${cleanTopic}!</strong></p>
-<p>Sự kiện mang đến không gian trải nghiệm đẳng cấp ${audienceText}. Đây là cơ hội tuyệt vời để giao lưu, học hỏi và kết nối những giá trị mới.</p>
+      const content_html = sanitizeRichHtml(`<p><strong>Chào mừng bạn đến với sự kiện ${safeTopicHtml}!</strong></p>
+<p>Sự kiện mang đến không gian trải nghiệm đẳng cấp ${safeAudienceHtml}. Đây là cơ hội tuyệt vời để giao lưu, học hỏi và kết nối những giá trị mới.</p>
 <br/>
 <p><strong>🌟 Hoạt động và Điểm nhấn nổi bật:</strong></p>
 <ul>
   <li><strong>Chương trình chính:</strong> Trình diễn, chia sẻ kiến thức chuyên sâu và giao lưu trực tiếp.</li>
-  <li><strong>Khách mời đặc biệt:</strong> ${key_highlights || 'Các chuyên gia, nghệ sĩ và diễn giả có tầm ảnh hưởng.'}</li>
+  <li><strong>Khách mời đặc biệt:</strong> ${safeHighlightsHtml}</li>
   <li><strong>Trải nghiệm độc quyền:</strong> Khu vực tương tác, nhận quà lưu niệm và networking dành riêng cho người tham gia.</li>
 </ul>
 <br/>
@@ -1326,7 +1401,7 @@ QUY TẮC BẮT BUỘC:
 <ul>
   <li>Vui lòng mang theo mã vé QR khi đến cổng check-in.</li>
   <li>Tuân thủ quy định và hướng dẫn của Ban tổ chức trong suốt thời gian diễn ra sự kiện.</li>
-</ul>`;
+</ul>`);
 
       const words = cleanTopic.split(/\s+/).filter((w) => w.length > 2);
       const tags = Array.from(
