@@ -1686,28 +1686,22 @@ export function BookingReviewPage() {
       return
     }
 
-    let promos = availablePromos
-    if (promosQuery.isLoading) {
-      try {
-        const res = await promosQuery.refetch()
-        promos = res.data || []
-      } catch (err) {
-        // fallback
-      }
-    }
-
-    const found = promos.find((p) => String(p.code).trim().toUpperCase() === code)
     const subtotal = cartTotal(cart)
-
-    if (found) {
-      if (!isPromoUsable(found, subtotal)) {
+    try {
+      const response = await promotionService.validateEventPromo(cart.eventId, {
+        code,
+        subtotal,
+      })
+      const found = response.data?.data
+      if (!found) {
         toast.error(
           isEnglish
-            ? `Order requires a minimum of ${formatPrice(found.min_order_value || 0, isEnglish)} to apply this code.`
-            : `Đơn hàng cần tối thiểu ${formatPrice(found.min_order_value || 0)} để áp dụng mã này.`
+            ? 'Promo code is invalid or unavailable.'
+            : 'Mã khuyến mãi không khả dụng hoặc không chính xác.'
         )
         return
       }
+
       setPromoCode(found.code)
       setSelectedPromo(found)
       setPromoInput(found.code)
@@ -1717,11 +1711,14 @@ export function BookingReviewPage() {
           ? `Promo code ${found.code} applied successfully!`
           : `Áp dụng mã khuyến mãi ${found.code} thành công!`
       )
-    } else {
+    } catch (err) {
       toast.error(
-        isEnglish
-          ? 'Promo code is invalid or unavailable.'
-          : 'Mã khuyến mãi không khả dụng hoặc không chính xác.'
+        getApiMessage(
+          err,
+          isEnglish
+            ? 'Promo code is invalid or unavailable.'
+            : 'Mã khuyến mãi không khả dụng hoặc không chính xác.'
+        )
       )
     }
   }
