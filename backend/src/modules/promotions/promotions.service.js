@@ -36,6 +36,63 @@ class PromotionsService {
     return promos.map(this._calculateStatusAndUsage);
   }
 
+  /**
+   * Validates a manually entered promo code (including hidden codes) for a public event,
+   * enforcing exact start_time, end_time, usage_limit, and min_order_value.
+   */
+  async validatePromoForPublicEvent(eventId, { code, subtotal } = {}) {
+    const promo = await promotionsRepository.findByCodeForPublicEvent(eventId, code);
+    if (!promo) {
+      throw new AppError(
+        'Mã khuyến mãi không tồn tại hoặc không áp dụng cho sự kiện này.',
+        404,
+        ErrorCodes.RESOURCE_NOT_FOUND,
+      );
+    }
+
+    const now = new Date();
+    const startTime = promo.start_time ? new Date(promo.start_time) : null;
+    const endTime = promo.end_time ? new Date(promo.end_time) : null;
+
+    if (startTime && now < startTime) {
+      const formattedStart = startTime.toLocaleString('vi-VN', {
+        timeZone: 'Asia/Ho_Chi_Minh',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      });
+      throw new AppError(
+        `Mã khuyến mãi chưa đến thời gian áp dụng (bắt đầu lúc ${formattedStart}).`,
+        400,
+        ErrorCodes.INVALID_INPUT,
+      );
+    }
+
+    if (endTime && now > endTime) {
+      throw new AppError('Mã khuyến mãi đã hết hạn.', 400, ErrorCodes.INVALID_INPUT);
+    }
+
+    const usedCount = Number(promo.used_count || 0);
+    const usageLimit = (promo.usage_limit !== null && promo.usage_limit !== undefined) ? Number(promo.usage_limit) : null;
+    if (usageLimit !== null && usedCount >= usageLimit) {
+      throw new AppError('Mã khuyến mãi đã hết lượt sử dụng.', 400, ErrorCodes.INVALID_INPUT);
+    }
+
+    const minOrderValue = Number(promo.min_order_value || 0);
+    if (subtotal !== null && subtotal !== undefined && Number(subtotal) < minOrderValue) {
+      throw new AppError(
+        `Đơn hàng cần tối thiểu ${minOrderValue.toLocaleString('vi-VN')} ₫ để áp dụng mã này.`,
+        400,
+        ErrorCodes.INVALID_INPUT,
+      );
+    }
+
+    return this._calculateStatusAndUsage(promo);
+  }
+
   _getEventIds(data) {
     if (Array.isArray(data.eventIds)) return data.eventIds;
     if (Array.isArray(data.event_ids)) return data.event_ids;

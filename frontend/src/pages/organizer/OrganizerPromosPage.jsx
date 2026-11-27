@@ -3,6 +3,7 @@ import {
   Pencil,
   Trash2,
   Eye,
+  EyeOff,
   Plus,
   Search,
   AlertCircle,
@@ -86,10 +87,6 @@ function formatPromoDate(date) {
   })
 }
 
-function formatDateRange(start, end) {
-  return `${formatPromoDate(start)} - ${formatPromoDate(end)}`
-}
-
 function formatPromoDateTime(date) {
   const value = new Date(date)
   const time = value.toLocaleTimeString(getAutoLocale(), {
@@ -99,6 +96,30 @@ function formatPromoDateTime(date) {
   })
 
   return `${formatPromoDate(value)} ${time}`
+}
+
+function toLocalDateTimeInputValue(dateValue) {
+  if (!dateValue) return ''
+  const date = new Date(dateValue)
+  if (Number.isNaN(date.getTime())) return ''
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+function buildPromoSubmissionData(formData) {
+  return {
+    ...formData,
+    applyToAllEvents: Boolean(formData.applyToAllEvents),
+    eventIds: formData.applyToAllEvents ? [] : formData.eventIds,
+    event_id: formData.applyToAllEvents ? null : formData.eventIds[0],
+    discount_value: Number(formData.discount_value),
+    min_order_value: formData.min_order_value === '' ? 0 : Number(formData.min_order_value),
+    max_discount: formData.discount_type === 'PERCENTAGE' && formData.max_discount !== '' ? Number(formData.max_discount) : null,
+    usage_limit: formData.usage_limit === '' ? null : Number(formData.usage_limit),
+    start_time: formData.start_time ? new Date(formData.start_time).toISOString() : formData.start_time,
+    end_time: formData.end_time ? new Date(formData.end_time).toISOString() : formData.end_time,
+    is_hidden: Boolean(formData.is_hidden),
+  }
 }
 
 function isApprovedOrPublishedEvent(e) {
@@ -137,6 +158,7 @@ export function OrganizerPromosPage() {
     end_time: '',
     min_order_value: '',
     max_discount: '',
+    is_hidden: false,
   })
   const [formErrors, setFormErrors] = useState({})
 
@@ -187,18 +209,13 @@ export function OrganizerPromosPage() {
       return
     }
 
+    if (formData.start_time && formData.end_time && new Date(formData.start_time) >= new Date(formData.end_time)) {
+      setFormErrors({ end_time: 'Thời gian kết thúc phải sau thời gian bắt đầu' })
+      return
+    }
+
     try {
-      // Clean data before sending
-      const submissionData = {
-        ...formData,
-        applyToAllEvents: Boolean(formData.applyToAllEvents),
-        eventIds: formData.applyToAllEvents ? [] : formData.eventIds,
-        event_id: formData.applyToAllEvents ? null : formData.eventIds[0],
-        discount_value: Number(formData.discount_value),
-        min_order_value: formData.min_order_value === '' ? 0 : Number(formData.min_order_value),
-        max_discount: formData.discount_type === 'PERCENTAGE' && formData.max_discount !== '' ? Number(formData.max_discount) : null,
-        usage_limit: formData.usage_limit === '' ? null : Number(formData.usage_limit),
-      };
+      const submissionData = buildPromoSubmissionData(formData)
 
       await promotionService.createPromo(submissionData)
       setShowCreateModal(false)
@@ -228,17 +245,13 @@ export function OrganizerPromosPage() {
       return
     }
 
+    if (formData.start_time && formData.end_time && new Date(formData.start_time) >= new Date(formData.end_time)) {
+      setFormErrors({ end_time: 'Thời gian kết thúc phải sau thời gian bắt đầu' })
+      return
+    }
+
     try {
-      const submissionData = {
-        ...formData,
-        applyToAllEvents: Boolean(formData.applyToAllEvents),
-        eventIds: formData.applyToAllEvents ? [] : formData.eventIds,
-        event_id: formData.applyToAllEvents ? null : formData.eventIds[0],
-        usage_limit: formData.usage_limit === '' ? null : Number(formData.usage_limit),
-        min_order_value: formData.min_order_value === '' ? 0 : Number(formData.min_order_value),
-        max_discount: formData.discount_type === 'PERCENTAGE' && formData.max_discount !== '' ? Number(formData.max_discount) : null,
-        discount_value: Number(formData.discount_value),
-      }
+      const submissionData = buildPromoSubmissionData(formData)
       await promotionService.updatePromo(selectedPromo.id, submissionData)
       setShowEditModal(false)
       resetForm()
@@ -293,10 +306,11 @@ export function OrganizerPromosPage() {
       discount_type: promo.discount_type,
       discount_value: promo.discount_value,
       usage_limit: promo.usage_limit || '',
-      start_time: new Date(promo.start_time).toISOString().slice(0, 16),
-      end_time: new Date(promo.end_time).toISOString().slice(0, 16),
+      start_time: toLocalDateTimeInputValue(promo.start_time),
+      end_time: toLocalDateTimeInputValue(promo.end_time),
       min_order_value: promo.min_order_value || '',
       max_discount: promo.max_discount || '',
+      is_hidden: Boolean(promo.is_hidden),
     })
     setShowEditModal(true)
   }
@@ -319,6 +333,7 @@ export function OrganizerPromosPage() {
       end_time: '',
       min_order_value: '',
       max_discount: '',
+      is_hidden: false,
     })
     setFormErrors({})
   }
@@ -399,13 +414,27 @@ export function OrganizerPromosPage() {
           minWidth="min-w-full"
           headers={['Mã khuyến mãi', 'Sự kiện áp dụng', 'Loại giảm giá', 'Theo dõi sử dụng', 'Thời gian áp dụng', 'Trạng thái', 'Thao tác']}
           rows={promos.map((promo) => [
-            <span key="promo" className="font-mono text-sm font-bold text-white tracking-wider whitespace-nowrap">{promo.code}</span>,
+            <div key="promo" className="flex items-center gap-2 whitespace-nowrap">
+              <span className="font-mono text-sm font-bold text-white tracking-wider">{promo.code}</span>
+              {promo.is_hidden && (
+                <span
+                  className="inline-flex items-center gap-1 rounded-md border border-slate-500/40 bg-slate-800/80 px-1.5 py-0.5 text-[10px] font-semibold text-slate-300"
+                  title="Ẩn khỏi danh sách mã có sẵn của khách hàng"
+                >
+                  <EyeOff className="size-3" />
+                  Ẩn
+                </span>
+              )}
+            </div>,
             <span key="event" className="line-clamp-2 max-w-[200px] text-sm font-semibold text-white" title={promo.applyToAllEvents ? 'Tất cả sự kiện' : (promo.event_name || 'Sự kiện đã chọn')}>
               {promo.applyToAllEvents ? 'Tất cả sự kiện' : (promo.event_name || 'Sự kiện đã chọn')}
             </span>,
             <span key="type" className="text-sm font-medium text-white whitespace-nowrap">{getDiscountLabel(promo)}</span>,
             <Usage key="usage" used={promo.used_count} limit={promo.usage_limit} percent={promo.usage_percentage} />,
-            <span key="period" className="whitespace-nowrap text-sm font-medium text-slate-300">{formatDateRange(promo.start_time, promo.end_time)}</span>,
+            <div key="period" className="whitespace-nowrap text-xs font-medium text-slate-300 leading-5">
+              <div>{formatPromoDateTime(promo.start_time)}</div>
+              <div className="text-slate-400">→ {formatPromoDateTime(promo.end_time)}</div>
+            </div>,
             <StatusBadge key="status" status={promo.status} />,
             <div key="actions" className="flex items-center justify-center gap-1.5 whitespace-nowrap">
               <TableActionButton
@@ -722,6 +751,32 @@ function PromoFormModal({ open, onClose, title, onSubmit, formData, setFormData,
             </label>
           </div>
         </div>
+
+        <div className="border-t border-white/10 [html.light_&]:border-slate-200" />
+
+        {/* Phần 4: Hiển thị trong danh sách mã giảm giá của khách hàng */}
+        <div>
+          <label className={`flex items-start justify-between gap-4 rounded-xl border p-4 transition cursor-pointer ${formData.is_hidden
+            ? 'border-[#C99A47]/40 bg-[#C99A47]/10 text-white [html.light_&]:border-amber-400/60 [html.light_&]:bg-amber-50 [html.light_&]:text-[#0D1B2A]'
+            : 'border-white/15 bg-[#0d172e] text-white [html.light_&]:bg-slate-50 [html.light_&]:border-slate-300 [html.light_&]:text-[#0D1B2A]'
+            }`}>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-sm font-bold">
+                <EyeOff className="size-4 text-[#E6C17A]" />
+                <span>Ẩn khỏi danh sách mã có sẵn của khách hàng</span>
+              </div>
+              <p className="text-xs font-normal text-slate-300 [html.light_&]:text-slate-600">
+                Khi tick chọn, mã sẽ không hiển thị trong danh sách mã khả dụng khi khách hàng đặt vé, nhưng vẫn áp dụng được nếu khách hàng nhập đúng mã (và đã đến giờ bắt đầu hiệu lực).
+              </p>
+            </div>
+            <input
+              type="checkbox"
+              className="mt-0.5 size-4.5 shrink-0 rounded accent-[#C99A47] cursor-pointer"
+              checked={Boolean(formData.is_hidden)}
+              onChange={(e) => setFormData({ ...formData, is_hidden: e.target.checked })}
+            />
+          </label>
+        </div>
       </form>
     </Modal>
   )
@@ -817,9 +872,12 @@ function PromoDetailModal({ open, onClose, promo }) {
         </div>
       </div>
 
-      <div className="mt-5 grid grid-cols-1 gap-4 border-t border-border-soft/30 pt-5 md:grid-cols-3">
+      <div className="mt-5 grid grid-cols-1 gap-4 border-t border-border-soft/30 pt-5 md:grid-cols-4">
         <DetailCard>
-          <DetailItem label="Thời gian áp dụng" value={formatDateRange(promo.start_time, promo.end_time)} />
+          <DetailItem label="Hiển thị với khách hàng" value={promo.is_hidden ? 'Ẩn (chỉ nhập mã để áp dụng)' : 'Hiển thị trong danh sách'} />
+        </DetailCard>
+        <DetailCard>
+          <DetailItem label="Thời gian áp dụng" value={`${formatPromoDateTime(promo.start_time)} → ${formatPromoDateTime(promo.end_time)}`} />
         </DetailCard>
         <DetailCard>
           <DetailItem label="Ngày tạo" value={formatPromoDateTime(promo.created_at || new Date())} />

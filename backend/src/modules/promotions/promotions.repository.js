@@ -11,6 +11,7 @@ class PromotionsRepository {
     if (this.schemaReady) return;
     await client.query('ALTER TABLE promo_codes ALTER COLUMN event_id DROP NOT NULL');
     await client.query('ALTER TABLE promo_codes ADD COLUMN IF NOT EXISTS event_ids UUID[] DEFAULT \'{}\'');
+    await client.query('ALTER TABLE promo_codes ADD COLUMN IF NOT EXISTS is_hidden BOOLEAN NOT NULL DEFAULT false');
     if (client === db) {
       this.schemaReady = true;
     }
@@ -56,6 +57,7 @@ class PromotionsRepository {
       ...row,
       eventIds,
       applyToAllEvents: Boolean(row.applyToAllEvents),
+      is_hidden: Boolean(row.is_hidden),
       maxDiscountAmount: row.max_discount,
       maximumDiscountAmount: row.max_discount,
     };
@@ -117,11 +119,8 @@ class PromotionsRepository {
     return this._mapRow(rows[0]);
   }
 
-  async findAvailableForPublicEvent(eventId) {
-    await this.ensureSupportSchema();
-    const query = `
-      SELECT
-        ${this._selectFields('linked_event')}
+  _publicEventPromoBaseClause() {
+    return `
       FROM events e
       JOIN promo_codes pc ON pc.organizer_id = e.organizer_id
       ${this._eventJoins('linked_event')}
@@ -139,6 +138,16 @@ class PromotionsRepository {
             AND COALESCE(cardinality(pc.event_ids), 0) = 0
           )
         )
+    `;
+  }
+
+  async findAvailableForPublicEvent(eventId) {
+    await this.ensureSupportSchema();
+    const query = `
+      SELECT
+        ${this._selectFields('linked_event')}
+      ${this._publicEventPromoBaseClause()}
+        AND COALESCE(pc.is_hidden, false) = false
         AND (pc.start_time IS NULL OR pc.start_time <= now())
         AND (pc.end_time IS NULL OR pc.end_time >= now())
         AND (pc.usage_limit IS NULL OR pc.used_count < pc.usage_limit)
@@ -146,6 +155,20 @@ class PromotionsRepository {
     `;
     const { rows } = await db.query(query, [eventId]);
     return rows.map((row) => this._mapRow(row));
+  }
+
+  async findByCodeForPublicEvent(eventId, code) {
+    await this.ensureSupportSchema();
+    const query = `
+      SELECT
+        ${this._selectFields('linked_event')}
+      ${this._publicEventPromoBaseClause()}
+        AND UPPER(pc.code) = UPPER($2)
+      ORDER BY pc.start_time DESC
+      LIMIT 1
+    `;
+    const { rows } = await db.query(query, [eventId, code]);
+    return this._mapRow(rows[0]);
   }
 
   async create(data) {
@@ -163,6 +186,7 @@ class PromotionsRepository {
       start_time,
       end_time,
       is_active,
+      is_hidden,
     } = data;
 
     const finalEventIds = Array.isArray(eventIds) && eventIds.length > 0
@@ -181,8 +205,8 @@ class PromotionsRepository {
       const { rows } = await client.query(`
         INSERT INTO promo_codes (
           organizer_id, event_id, event_ids, code, discount_type, discount_value,
-          min_order_value, max_discount, usage_limit, start_time, end_time, is_active
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+          min_order_value, max_discount, usage_limit, start_time, end_time, is_active, is_hidden
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
         RETURNING *
       `, [
         organizer_id,
@@ -197,6 +221,7 @@ class PromotionsRepository {
         start_time,
         end_time,
         is_active !== undefined ? is_active : true,
+        Boolean(is_hidden),
       ]);
 
       await client.query('COMMIT');
@@ -226,6 +251,7 @@ class PromotionsRepository {
       'start_time',
       'end_time',
       'is_active',
+      'is_hidden',
     ];
     const fields = [];
     const params = [id];

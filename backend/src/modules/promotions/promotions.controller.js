@@ -1,12 +1,22 @@
 const ApiResponse = require('../../core/response/ApiResponse');
 const promotionsService = require('./promotions.service');
-const { promoCodeSchema, updatePromoCodeSchema, listPromosQuerySchema } = require('./promotions.validation');
+const { promoCodeSchema, updatePromoCodeSchema, validatePromoCodeSchema, listPromosQuerySchema } = require('./promotions.validation');
 
 class PromotionsController {
   getAvailableEventPromos = async (req, res, next) => {
     try {
       const data = await promotionsService.getAvailablePromosForPublicEvent(req.params.eventId);
       res.status(200).json(ApiResponse.success(data, 'Available event promotions fetched successfully'));
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  validateEventPromo = async (req, res, next) => {
+    try {
+      const body = validatePromoCodeSchema.parse(req.body);
+      const data = await promotionsService.validatePromoForPublicEvent(req.params.eventId, body);
+      res.status(200).json(ApiResponse.success(data, 'Promo code validated successfully'));
     } catch (err) {
       next(err);
     }
